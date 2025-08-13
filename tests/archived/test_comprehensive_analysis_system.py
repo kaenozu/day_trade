@@ -44,7 +44,9 @@ class TestAnalysisOnlyEngine:
 
         # 基本プロパティ確認
         assert engine.symbols == ["7203", "8306"], "銘柄設定が正しくありません"
-        assert engine.status == AnalysisStatus.STOPPED, "初期ステータスが正しくありません"
+        assert (
+            engine.status == AnalysisStatus.STOPPED
+        ), "初期ステータスが正しくありません"
         assert engine.update_interval == 60.0, "更新間隔が正しくありません"
 
         print("✅ 初期化テスト: OK")
@@ -58,22 +60,22 @@ class TestAnalysisOnlyEngine:
         engine = AnalysisOnlyEngine(["7203"], update_interval=0.1)
 
         # モックデータでの分析テスト
-        with patch('src.day_trade.data.stock_fetcher.StockFetcher') as mock_fetcher:
+        with patch("src.day_trade.data.stock_fetcher.StockFetcher") as mock_fetcher:
             mock_instance = MagicMock()
             mock_instance.fetch_stock_data.return_value = {
-                '7203': {
-                    'price': Decimal('2500.0'),
-                    'volume': 1000000,
-                    'timestamp': time.time()
+                "7203": {
+                    "price": Decimal("2500.0"),
+                    "volume": 1000000,
+                    "timestamp": time.time(),
                 }
             }
             mock_fetcher.return_value = mock_instance
 
             # 単一分析テスト
-            analysis = engine._analyze_symbol('7203')
+            analysis = engine._analyze_symbol("7203")
 
             assert analysis is not None, "分析結果が取得できません"
-            assert analysis.symbol == '7203', "銘柄が正しくありません"
+            assert analysis.symbol == "7203", "銘柄が正しくありません"
             assert analysis.current_price > 0, "価格が正しくありません"
 
         print("✅ 分析ワークフロー: OK")
@@ -87,12 +89,12 @@ class TestAnalysisOnlyEngine:
 
         # 初期ステータス
         status = engine.get_status()
-        assert status['status'] == 'stopped', "初期ステータスが正しくありません"
+        assert status["status"] == "stopped", "初期ステータスが正しくありません"
 
         # ステータス更新
         engine.status = AnalysisStatus.RUNNING
         status = engine.get_status()
-        assert status['status'] == 'running', "ステータス更新が正しくありません"
+        assert status["status"] == "running", "ステータス更新が正しくありません"
 
         print("✅ ステータス管理: OK")
 
@@ -115,7 +117,7 @@ class TestTradingEngineAnalysisMode:
         try:
             engine = TradingEngine(["7203"], max_investment_per_stock=1000000)
             # 初期化成功時の確認
-            assert hasattr(engine, 'trading_config'), "設定オブジェクトがありません"
+            assert hasattr(engine, "trading_config"), "設定オブジェクトがありません"
             print("✅ 安全な初期化: OK")
         except Exception as e:
             # 安全チェックによる初期化失敗も正常
@@ -129,20 +131,26 @@ class TestTradingEngineAnalysisMode:
         """分析モード動作テスト"""
         print("\n=== TradingEngine 分析モード動作 テスト ===")
 
-        with patch('src.day_trade.config.trading_mode_config.is_safe_mode', return_value=True):
+        with patch(
+            "src.day_trade.config.trading_mode_config.is_safe_mode", return_value=True
+        ):
             try:
                 engine = TradingEngine(["7203"], max_investment_per_stock=1000000)
 
                 # 分析機能のテスト
-                if hasattr(engine, 'get_analysis_summary'):
+                if hasattr(engine, "get_analysis_summary"):
                     summary = engine.get_analysis_summary()
-                    assert isinstance(summary, dict), "分析サマリーが辞書形式ではありません"
+                    assert isinstance(
+                        summary, dict
+                    ), "分析サマリーが辞書形式ではありません"
                     print("✅ 分析サマリー取得: OK")
 
                 # 教育機能のテスト
-                if hasattr(engine, 'get_educational_insights'):
+                if hasattr(engine, "get_educational_insights"):
                     insights = engine.get_educational_insights()
-                    assert isinstance(insights, list), "教育インサイトがリスト形式ではありません"
+                    assert isinstance(
+                        insights, list
+                    ), "教育インサイトがリスト形式ではありません"
                     print("✅ 教育インサイト取得: OK")
 
             except Exception as e:
@@ -162,10 +170,10 @@ class TestEnhancedReportManager:
 
         # テスト用データ作成
         test_data = {
-            '7203': {
-                'price': Decimal('2500.0'),
-                'volume': 1000000,
-                'timestamp': time.time()
+            "7203": {
+                "price": Decimal("2500.0"),
+                "volume": 1000000,
+                "timestamp": time.time(),
             }
         }
 
@@ -177,12 +185,12 @@ class TestEnhancedReportManager:
             manager = EnhancedReportManager()
 
             # 基本レポート生成テスト
-            with patch.object(manager, '_get_market_data', return_value=test_data):
-                report = manager.generate_detailed_market_report(['7203'])
+            with patch.object(manager, "_get_market_data", return_value=test_data):
+                report = manager.generate_detailed_market_report(["7203"])
 
                 assert report is not None, "レポートが生成されません"
-                assert hasattr(report, 'symbols'), "レポートに銘柄情報がありません"
-                assert hasattr(report, 'generated_at'), "レポートに生成時刻がありません"
+                assert hasattr(report, "symbols"), "レポートに銘柄情報がありません"
+                assert hasattr(report, "generated_at"), "レポートに生成時刻がありません"
 
             print("✅ 基本レポート生成: OK")
 
@@ -204,18 +212,18 @@ class TestEnhancedReportManager:
 
             # テスト用の一時ディレクトリ
             with tempfile.TemporaryDirectory() as temp_dir:
-                test_data = {'test': 'data'}
+                test_data = {"test": "data"}
 
                 # JSON エクスポート
                 json_path = Path(temp_dir) / "test_report.json"
-                if hasattr(manager, 'export_to_json'):
+                if hasattr(manager, "export_to_json"):
                     manager.export_to_json(test_data, str(json_path))
                     assert json_path.exists(), "JSONファイルが作成されていません"
                     print("✅ JSON エクスポート: OK")
 
                 # HTML エクスポート
                 html_path = Path(temp_dir) / "test_report.html"
-                if hasattr(manager, 'export_to_html'):
+                if hasattr(manager, "export_to_html"):
                     manager.export_to_html(test_data, str(html_path))
                     assert html_path.exists(), "HTMLファイルが作成されていません"
                     print("✅ HTML エクスポート: OK")
@@ -244,7 +252,10 @@ class TestSystemIntegration:
 
         # TradingEngine（分析モード）
         try:
-            with patch('src.day_trade.config.trading_mode_config.is_safe_mode', return_value=True):
+            with patch(
+                "src.day_trade.config.trading_mode_config.is_safe_mode",
+                return_value=True,
+            ):
                 TradingEngine(["7203"], max_investment_per_stock=1000000)
                 components_working.append("TradingEngine")
         except Exception as e:
@@ -258,6 +269,7 @@ class TestSystemIntegration:
             from src.day_trade.analysis.enhanced_report_manager import (
                 EnhancedReportManager,
             )
+
             EnhancedReportManager()
             components_working.append("EnhancedReportManager")
         except Exception as e:
@@ -318,6 +330,7 @@ def run_comprehensive_tests():
         print(f"❌ テスト失敗: {e}")
         print("=" * 80)
         import traceback
+
         traceback.print_exc()
         return False
 

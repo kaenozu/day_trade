@@ -23,8 +23,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 # テスト設定
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],
 )
 
 logger = logging.getLogger(__name__)
@@ -46,10 +46,46 @@ def mock_topix500_data(symbol_count: int = 100) -> dict:
 
     # 基本銘柄リスト（実際のTOPIX500の一部）
     base_symbols = [
-        "7203", "8306", "9984", "6758", "4689", "8058", "8031", "4568", "9501", "8801",
-        "7267", "7201", "8316", "8411", "4063", "4005", "5401", "4507", "4502", "9983",
-        "3382", "8267", "2914", "2502", "9503", "9531", "9064", "9020", "8802", "1812",
-        "6503", "6501", "7751", "6954", "6367", "8725", "8601", "2768", "4183", "5406"
+        "7203",
+        "8306",
+        "9984",
+        "6758",
+        "4689",
+        "8058",
+        "8031",
+        "4568",
+        "9501",
+        "8801",
+        "7267",
+        "7201",
+        "8316",
+        "8411",
+        "4063",
+        "4005",
+        "5401",
+        "4507",
+        "4502",
+        "9983",
+        "3382",
+        "8267",
+        "2914",
+        "2502",
+        "9503",
+        "9531",
+        "9064",
+        "9020",
+        "8802",
+        "1812",
+        "6503",
+        "6501",
+        "7751",
+        "6954",
+        "6367",
+        "8725",
+        "8601",
+        "2768",
+        "4183",
+        "5406",
     ]
 
     # 必要に応じて銘柄コードを生成
@@ -63,7 +99,7 @@ def mock_topix500_data(symbol_count: int = 100) -> dict:
         # 各銘柄の特性を反映
         np.random.seed(hash(symbol) % 10000)
 
-        dates = pd.date_range(start='2023-06-01', periods=200, freq='D')
+        dates = pd.date_range(start="2023-06-01", periods=200, freq="D")
         base_price = 1000 + (hash(symbol) % 3000)
 
         # より現実的な価格変動
@@ -76,13 +112,16 @@ def mock_topix500_data(symbol_count: int = 100) -> dict:
 
         prices = prices[1:]
 
-        mock_data[symbol] = pd.DataFrame({
-            'Open': [p * np.random.uniform(0.998, 1.002) for p in prices],
-            'High': [p * np.random.uniform(1.000, 1.025) for p in prices],
-            'Low': [p * np.random.uniform(0.975, 1.000) for p in prices],
-            'Close': prices,
-            'Volume': np.random.randint(100000, 8000000, len(dates))
-        }, index=dates)
+        mock_data[symbol] = pd.DataFrame(
+            {
+                "Open": [p * np.random.uniform(0.998, 1.002) for p in prices],
+                "High": [p * np.random.uniform(1.000, 1.025) for p in prices],
+                "Low": [p * np.random.uniform(0.975, 1.000) for p in prices],
+                "Close": prices,
+                "Volume": np.random.randint(100000, 8000000, len(dates)),
+            },
+            index=dates,
+        )
 
         if i % 20 == 0:
             print(f"   進捗: {i+1}/{symbol_count} 銘柄生成完了")
@@ -93,9 +132,9 @@ def mock_topix500_data(symbol_count: int = 100) -> dict:
 
 def test_database_system():
     """データベースシステムテスト"""
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("1. TOPIX500データベースシステムテスト")
-    print("="*50)
+    print("=" * 50)
 
     try:
         from src.day_trade.data.topix500_master import TOPIX500MasterManager
@@ -124,9 +163,9 @@ def test_database_system():
         print(f"✓ バランス考慮バッチ作成: {len(batches)}バッチ")
 
         return True, {
-            'symbols_count': len(symbols),
-            'sectors_count': len(sector_summary),
-            'batches_count': len(batches)
+            "symbols_count": len(symbols),
+            "sectors_count": len(sector_summary),
+            "batches_count": len(batches),
         }
 
     except Exception as e:
@@ -136,9 +175,9 @@ def test_database_system():
 
 def test_parallel_processing():
     """並列処理システムテスト"""
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("2. 並列処理システムテスト")
-    print("="*50)
+    print("=" * 50)
 
     try:
         from src.day_trade.automation.topix500_parallel_engine import (
@@ -147,16 +186,32 @@ def test_parallel_processing():
 
         # 並列処理エンジン初期化
         engine = TOPIX500ParallelEngine(
-            max_workers=4,
-            batch_size=25,
-            memory_limit_gb=0.8
+            max_workers=4, batch_size=25, memory_limit_gb=0.8
         )
         print("✓ 並列処理エンジン初期化完了")
 
         # テスト用銘柄リスト
         test_symbols = [
-            "7203", "8306", "9984", "6758", "4689", "8058", "8031", "4568", "9501", "8801",
-            "7267", "7201", "8316", "8411", "4063", "4005", "5401", "4507", "4502", "9983"
+            "7203",
+            "8306",
+            "9984",
+            "6758",
+            "4689",
+            "8058",
+            "8031",
+            "4568",
+            "9501",
+            "8801",
+            "7267",
+            "7201",
+            "8316",
+            "8411",
+            "4063",
+            "4005",
+            "5401",
+            "4507",
+            "4502",
+            "9983",
         ]
 
         # 並列処理実行
@@ -176,9 +231,9 @@ def test_parallel_processing():
         print(f"  - 推奨バッチサイズ: {recommendations['optimal_batch_size']}")
 
         return True, {
-            'processing_time': processing_time,
-            'success_rate': statistics.get('success_rate', 0),
-            'throughput': statistics.get('throughput', 0)
+            "processing_time": processing_time,
+            "success_rate": statistics.get("success_rate", 0),
+            "throughput": statistics.get("throughput", 0),
         }
 
     except Exception as e:
@@ -188,9 +243,9 @@ def test_parallel_processing():
 
 def test_memory_pipeline():
     """メモリ効率パイプラインテスト"""
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("3. メモリ効率パイプラインテスト")
-    print("="*50)
+    print("=" * 50)
 
     try:
         from src.day_trade.data.memory_efficient_pipeline import (
@@ -203,10 +258,10 @@ def test_memory_pipeline():
         # パイプライン初期化
         pipeline = StreamingDataPipeline(
             processors=[
-                TechnicalIndicatorProcessor(['sma_5', 'sma_20', 'rsi']),
-                StatisticalFeatureProcessor([5, 20])
+                TechnicalIndicatorProcessor(["sma_5", "sma_20", "rsi"]),
+                StatisticalFeatureProcessor([5, 20]),
             ],
-            cache_size_mb=128
+            cache_size_mb=128,
         )
         print("✓ ストリーミングパイプライン初期化完了")
 
@@ -233,7 +288,9 @@ def test_memory_pipeline():
         print(f"✓ ストリーミング処理完了: {processing_time:.1f}秒")
         print(f"  - 処理チャンク数: {len(processed_chunks)}")
         print(f"  - メモリ増加: {memory_increase:.1f}MB")
-        print(f"  - スループット: {len(processed_chunks)/processing_time:.1f} チャンク/秒")
+        print(
+            f"  - スループット: {len(processed_chunks)/processing_time:.1f} チャンク/秒"
+        )
 
         # パイプライン統計
         stats = pipeline.get_pipeline_stats()
@@ -246,10 +303,10 @@ def test_memory_pipeline():
         gc.collect()
 
         return True, {
-            'processing_time': processing_time,
-            'processed_chunks': len(processed_chunks),
-            'memory_increase': memory_increase,
-            'memory_efficient': memory_increase < 200  # 200MB以下
+            "processing_time": processing_time,
+            "processed_chunks": len(processed_chunks),
+            "memory_increase": memory_increase,
+            "memory_efficient": memory_increase < 200,  # 200MB以下
         }
 
     except Exception as e:
@@ -259,9 +316,9 @@ def test_memory_pipeline():
 
 def test_sector_analysis():
     """セクター分析システムテスト"""
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("4. セクター分析システムテスト")
-    print("="*50)
+    print("=" * 50)
 
     try:
         from src.day_trade.analysis.sector_analysis_engine import SectorAnalysisEngine
@@ -275,7 +332,7 @@ def test_sector_analysis():
         sector_data = {}
 
         for sector_code in test_sectors:
-            dates = pd.date_range(start='2023-01-01', periods=120)
+            dates = pd.date_range(start="2023-01-01", periods=120)
             np.random.seed(int(sector_code))
 
             base_price = 2000 + int(sector_code) % 1000
@@ -285,15 +342,20 @@ def test_sector_analysis():
             for ret in returns:
                 prices.append(prices[-1] * (1 + ret))
 
-            sector_data[sector_code] = pd.DataFrame({
-                'Close': prices[1:],
-                'Volume': np.random.randint(1000000, 10000000, 120)
-            }, index=dates)
+            sector_data[sector_code] = pd.DataFrame(
+                {
+                    "Close": prices[1:],
+                    "Volume": np.random.randint(1000000, 10000000, 120),
+                },
+                index=dates,
+            )
 
         print(f"✓ テスト用セクターデータ生成完了: {len(sector_data)}セクター")
 
         # セクターパフォーマンス分析
-        performances = analyzer.calculate_sector_performance(sector_data, period_days=60)
+        performances = analyzer.calculate_sector_performance(
+            sector_data, period_days=60
+        )
         print(f"✓ セクターパフォーマンス分析完了: {len(performances)}セクター")
 
         # セクター相関分析
@@ -321,10 +383,12 @@ def test_sector_analysis():
         print(f"  - セクターランキング: {len(comprehensive.sector_rankings)}")
 
         return True, {
-            'sectors_analyzed': len(performances),
-            'correlation_size': correlation_matrix.shape[0] if not correlation_matrix.empty else 0,
-            'rotation_signals': len(rotation_signals),
-            'clusters': len(set(clusters.values())) if clusters else 0
+            "sectors_analyzed": len(performances),
+            "correlation_size": (
+                correlation_matrix.shape[0] if not correlation_matrix.empty else 0
+            ),
+            "rotation_signals": len(rotation_signals),
+            "clusters": len(set(clusters.values())) if clusters else 0,
         }
 
     except Exception as e:
@@ -334,16 +398,18 @@ def test_sector_analysis():
 
 def test_integration_performance(target_symbols: int = 500):
     """統合パフォーマンステスト"""
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("5. 統合パフォーマンステスト")
-    print("="*50)
+    print("=" * 50)
 
     try:
         print(f"目標: {target_symbols}銘柄を20秒以内、1GB以内で処理")
 
         # モックデータ生成
         print("大規模モックデータ生成中...")
-        mock_data = mock_topix500_data(symbol_count=min(target_symbols, 100))  # テスト用に100銘柄に制限
+        mock_data = mock_topix500_data(
+            symbol_count=min(target_symbols, 100)
+        )  # テスト用に100銘柄に制限
 
         # メモリ使用量監視開始
         initial_memory = psutil.Process().memory_info().rss / 1024 / 1024
@@ -354,11 +420,12 @@ def test_integration_performance(target_symbols: int = 500):
 
         # 1. データベース処理
         from src.day_trade.data.topix500_master import TOPIX500MasterManager
+
         master_manager = TOPIX500MasterManager()
         symbols = list(mock_data.keys())
 
         # 2. バッチ作成
-        batches = [symbols[i:i+25] for i in range(0, len(symbols), 25)]
+        batches = [symbols[i : i + 25] for i in range(0, len(symbols), 25)]
 
         # 3. 簡易分析処理（実際のML処理の代替）
         processed_count = 0
@@ -372,16 +439,20 @@ def test_integration_performance(target_symbols: int = 500):
                     data = mock_data[symbol]
 
                     # 基本分析
-                    current_price = float(data['Close'].iloc[-1])
-                    price_change = float(data['Close'].pct_change().iloc[-1])
-                    volatility = float(data['Close'].pct_change().rolling(20).std().iloc[-1])
+                    current_price = float(data["Close"].iloc[-1])
+                    price_change = float(data["Close"].pct_change().iloc[-1])
+                    volatility = float(
+                        data["Close"].pct_change().rolling(20).std().iloc[-1]
+                    )
 
-                    analysis_results.append({
-                        'symbol': symbol,
-                        'current_price': current_price,
-                        'price_change': price_change,
-                        'volatility': volatility
-                    })
+                    analysis_results.append(
+                        {
+                            "symbol": symbol,
+                            "current_price": current_price,
+                            "price_change": price_change,
+                            "volatility": volatility,
+                        }
+                    )
 
                     processed_count += 1
 
@@ -389,8 +460,10 @@ def test_integration_performance(target_symbols: int = 500):
             current_memory = psutil.Process().memory_info().rss / 1024 / 1024
 
             if len(batches) <= 10:  # ログ出力制限
-                print(f"  バッチ{len(batches)-len(batches)+1}完了: {len(batch)}銘柄, "
-                      f"{batch_time:.1f}秒, メモリ{current_memory:.1f}MB")
+                print(
+                    f"  バッチ{len(batches)-len(batches)+1}完了: {len(batch)}銘柄, "
+                    f"{batch_time:.1f}秒, メモリ{current_memory:.1f}MB"
+                )
 
         total_time = time.time() - start_time
         final_memory = psutil.Process().memory_info().rss / 1024 / 1024
@@ -427,12 +500,12 @@ def test_integration_performance(target_symbols: int = 500):
                 print(f"  - {issue}")
 
         return success, {
-            'processed_count': processed_count,
-            'total_time': total_time,
-            'memory_increase': memory_increase,
-            'throughput': processed_count/total_time,
-            'success_rate': processed_count/len(symbols)*100,
-            'target_achieved': success
+            "processed_count": processed_count,
+            "total_time": total_time,
+            "memory_increase": memory_increase,
+            "throughput": processed_count / total_time,
+            "success_rate": processed_count / len(symbols) * 100,
+            "target_achieved": success,
         }
 
     except Exception as e:
@@ -452,31 +525,31 @@ def main():
 
     # 1. データベースシステムテスト
     success, result = test_database_system()
-    test_results['database'] = {'success': success, 'result': result}
+    test_results["database"] = {"success": success, "result": result}
     if not success:
         overall_success = False
 
     # 2. 並列処理システムテスト
     success, result = test_parallel_processing()
-    test_results['parallel'] = {'success': success, 'result': result}
+    test_results["parallel"] = {"success": success, "result": result}
     if not success:
         overall_success = False
 
     # 3. メモリ効率パイプラインテスト
     success, result = test_memory_pipeline()
-    test_results['pipeline'] = {'success': success, 'result': result}
+    test_results["pipeline"] = {"success": success, "result": result}
     if not success:
         overall_success = False
 
     # 4. セクター分析システムテスト
     success, result = test_sector_analysis()
-    test_results['sector'] = {'success': success, 'result': result}
+    test_results["sector"] = {"success": success, "result": result}
     if not success:
         overall_success = False
 
     # 5. 統合パフォーマンステスト
     success, result = test_integration_performance()
-    test_results['performance'] = {'success': success, 'result': result}
+    test_results["performance"] = {"success": success, "result": result}
     if not success:
         overall_success = False
 
@@ -486,18 +559,18 @@ def main():
     print("=" * 80)
 
     test_names = {
-        'database': 'データベースシステム',
-        'parallel': '並列処理システム',
-        'pipeline': 'メモリ効率パイプライン',
-        'sector': 'セクター分析システム',
-        'performance': '統合パフォーマンス'
+        "database": "データベースシステム",
+        "parallel": "並列処理システム",
+        "pipeline": "メモリ効率パイプライン",
+        "sector": "セクター分析システム",
+        "performance": "統合パフォーマンス",
     }
 
     success_count = 0
     for test_key, test_info in test_results.items():
-        status = "✓ 合格" if test_info['success'] else "✗ 不合格"
+        status = "✓ 合格" if test_info["success"] else "✗ 不合格"
         print(f"{test_names[test_key]}: {status}")
-        if test_info['success']:
+        if test_info["success"]:
             success_count += 1
 
     print(f"\n総合結果: {success_count}/{len(test_results)} テスト合格")
@@ -525,5 +598,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n\n予期しないエラー: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)

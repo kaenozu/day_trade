@@ -95,9 +95,13 @@ class PerformanceBenchmark:
 
         # 1. 銘柄検索のベンチマーク
         print("\n1. 銘柄検索パフォーマンス:")
-        self.measure_time("銘柄検索(100件)", self.stock_manager.search_stocks, limit=100)
+        self.measure_time(
+            "銘柄検索(100件)", self.stock_manager.search_stocks, limit=100
+        )
 
-        self.measure_time("銘柄検索(500件)", self.stock_manager.search_stocks, limit=500)
+        self.measure_time(
+            "銘柄検索(500件)", self.stock_manager.search_stocks, limit=500
+        )
 
         # 2. セクター検索のベンチマーク
         print("\n2. セクター検索パフォーマンス:")
@@ -188,7 +192,9 @@ class PerformanceBenchmark:
 
         # 1. 大量検索
         print("\n1. 大量検索パフォーマンス:")
-        self.measure_time("大量銘柄検索(1000件)", self.stock_manager.search_stocks, limit=1000)
+        self.measure_time(
+            "大量銘柄検索(1000件)", self.stock_manager.search_stocks, limit=1000
+        )
 
         # 2. 業種検索
         print("\n2. 業種検索パフォーマンス:")
@@ -238,7 +244,9 @@ class PerformanceBenchmark:
 
         # エラーがあった場合は詳細表示
         failed_tests = [
-            (name, result) for name, result in self.results.items() if not result["success"]
+            (name, result)
+            for name, result in self.results.items()
+            if not result["success"]
         ]
         if failed_tests:
             print("\n警告: エラー詳細:")

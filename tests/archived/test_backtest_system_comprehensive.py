@@ -60,13 +60,17 @@ def create_advanced_strategies() -> Dict[str, callable]:
 
                 # 出来高トレンド
                 volume_trend = (
-                    (volumes[-5:].mean() / volumes[-20:-5].mean() - 1) if len(volumes) >= 20 else 0
+                    (volumes[-5:].mean() / volumes[-20:-5].mean() - 1)
+                    if len(volumes) >= 20
+                    else 0
                 )
 
                 # 複合シグナル計算
                 momentum_score = ret_5d * 0.4 + ret_10d * 0.3 + ret_20d * 0.3
                 volume_score = min(1.0, max(-1.0, volume_trend))
-                volatility_penalty = max(0.5, 1 - volatility * 10)  # 高ボラティリティにペナルティ
+                volatility_penalty = max(
+                    0.5, 1 - volatility * 10
+                )  # 高ボラティリティにペナルティ
 
                 composite_score = momentum_score * volume_score * volatility_penalty
 
@@ -131,10 +135,12 @@ def create_advanced_strategies() -> Dict[str, callable]:
                 recent_returns = returns[-20:]
 
                 # トレンドの一貫性
-                trend_consistency = np.corrcoef(np.arange(len(recent_returns)), recent_returns)[
-                    0, 1
-                ]
-                trend_consistency = 0 if np.isnan(trend_consistency) else trend_consistency
+                trend_consistency = np.corrcoef(
+                    np.arange(len(recent_returns)), recent_returns
+                )[0, 1]
+                trend_consistency = (
+                    0 if np.isnan(trend_consistency) else trend_consistency
+                )
 
                 # ボラティリティレジーム
                 short_vol = np.std(returns[-10:]) if len(returns) >= 10 else 0
@@ -198,7 +204,9 @@ def test_backtest_engine():
         end_date = datetime.now()
         start_date = end_date - timedelta(days=180)
 
-        print(f"テスト期間: {start_date.strftime('%Y-%m-%d')} - {end_date.strftime('%Y-%m-%d')}")
+        print(
+            f"テスト期間: {start_date.strftime('%Y-%m-%d')} - {end_date.strftime('%Y-%m-%d')}"
+        )
         print(f"対象銘柄: {len(test_symbols)}銘柄")
 
         # データ取得
@@ -223,7 +231,9 @@ def test_backtest_engine():
         # バックテスト実行
         print("バックテスト実行中...")
         start_time = time.time()
-        results = engine.execute_backtest(historical_data, test_strategy, rebalance_frequency=5)
+        results = engine.execute_backtest(
+            historical_data, test_strategy, rebalance_frequency=5
+        )
         execution_time = time.time() - start_time
 
         print(f"実行時間: {execution_time:.2f}秒")
@@ -339,7 +349,9 @@ def test_strategy_evaluator():
         print("戦略評価実行中...")
         start_time = time.time()
         evaluation = evaluator.evaluate_strategies(
-            all_strategies, historical_data, parallel_execution=False  # 安定性のため順次実行
+            all_strategies,
+            historical_data,
+            parallel_execution=False,  # 安定性のため順次実行
         )
         evaluation_time = time.time() - start_time
 
@@ -426,7 +438,9 @@ def main():
         result_data = {
             "test_date": datetime.now().isoformat(),
             "system": "integrated_backtest_system",
-            "test_results": [{"name": name, "passed": passed} for name, passed in test_results],
+            "test_results": [
+                {"name": name, "passed": passed} for name, passed in test_results
+            ],
             "success_rate": success_rate,
             "status": "READY" if success_rate >= 0.8 else "NEEDS_IMPROVEMENT",
         }

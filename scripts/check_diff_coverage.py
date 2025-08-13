@@ -69,7 +69,9 @@ class DiffCoverageChecker:
             coverage_data = self._get_coverage_data()
 
             if not coverage_data:
-                logger.warning("⚠️ カバレッジデータが取得できないため、基本チェックのみ実行")
+                logger.warning(
+                    "⚠️ カバレッジデータが取得できないため、基本チェックのみ実行"
+                )
                 return self._basic_validation(changed_files)
 
             # 3. 各ファイルのカバレッジをチェック
@@ -111,7 +113,9 @@ class DiffCoverageChecker:
                 return []
 
             changed_files = [
-                f.strip() for f in result.stdout.split("\n") if f.strip() and f.startswith("src/")
+                f.strip()
+                for f in result.stdout.split("\n")
+                if f.strip() and f.startswith("src/")
             ]
 
             return changed_files
@@ -137,7 +141,9 @@ class DiffCoverageChecker:
             logger.error(f"カバレッジデータ読み込みエラー: {e}")
             return None
 
-    def _check_file_coverage(self, changed_files: List[str], coverage_data: Dict) -> None:
+    def _check_file_coverage(
+        self, changed_files: List[str], coverage_data: Dict
+    ) -> None:
         """各ファイルのカバレッジをチェック"""
 
         files_data = coverage_data.get("files", {})
@@ -170,7 +176,8 @@ class DiffCoverageChecker:
             required_coverage = self._get_required_coverage(file_path)
 
             logger.info(
-                f"📊 {file_path}: {coverage_percent:.1f}% " f"(required: {required_coverage:.1f}%)"
+                f"📊 {file_path}: {coverage_percent:.1f}% "
+                f"(required: {required_coverage:.1f}%)"
             )
 
             if coverage_percent < required_coverage:
@@ -236,7 +243,9 @@ class DiffCoverageChecker:
         if len(self.errors) == 0:
             logger.info("🎉 全ての変更ファイルがカバレッジ要件を満たしています")
         else:
-            logger.error(f"❌ {len(self.errors)}個のファイルがカバレッジ要件を満たしていません")
+            logger.error(
+                f"❌ {len(self.errors)}個のファイルがカバレッジ要件を満たしていません"
+            )
 
         if len(self.warnings) > 0:
             logger.warning(f"⚠️ {len(self.warnings)}件の警告があります")

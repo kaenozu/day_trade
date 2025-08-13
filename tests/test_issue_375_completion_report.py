@@ -359,9 +359,9 @@ class Issue375CompletionReporter:
 
         return {
             "total_test_categories": total_tests,
-            "overall_success_rate": total_success / total_tests
-            if total_tests > 0
-            else 0,
+            "overall_success_rate": (
+                total_success / total_tests if total_tests > 0 else 0
+            ),
             "average_execution_time_ms": avg_execution_time,
             "max_execution_time_ms": 10.0,  # 制限値
             "performance_target_achieved": True,

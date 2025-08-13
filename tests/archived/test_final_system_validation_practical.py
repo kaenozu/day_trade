@@ -18,6 +18,7 @@ print("実データでの最終動作確認テスト（実践版）")
 print("Issue #321: 最優先：実データでの最終動作確認テスト")
 print("=" * 60)
 
+
 class PracticalSystemValidator:
     """実践的システム検証"""
 
@@ -31,10 +32,10 @@ class PracticalSystemValidator:
 
         # パフォーマンス基準
         self.thresholds = {
-            'max_memory_increase_mb': 500,    # 最大メモリ増加500MB
-            'max_cpu_sustained': 70,          # 最大持続CPU70%
-            'max_response_time_ms': 1000,     # 最大応答時間1秒
-            'min_success_rate': 0.8,          # 最小成功率80%
+            "max_memory_increase_mb": 500,  # 最大メモリ増加500MB
+            "max_cpu_sustained": 70,  # 最大持続CPU70%
+            "max_response_time_ms": 1000,  # 最大応答時間1秒
+            "min_success_rate": 0.8,  # 最小成功率80%
         }
 
         print("実践的システム検証初期化完了")
@@ -46,8 +47,14 @@ class PracticalSystemValidator:
         try:
             # 必須モジュール存在確認
             required_modules = [
-                'pandas', 'numpy', 'yfinance', 'matplotlib',
-                'seaborn', 'sklearn', 'flask', 'requests'
+                "pandas",
+                "numpy",
+                "yfinance",
+                "matplotlib",
+                "seaborn",
+                "sklearn",
+                "flask",
+                "requests",
             ]
 
             available_modules = []
@@ -64,7 +71,9 @@ class PracticalSystemValidator:
 
             # Python バージョン確認
             python_version = sys.version_info
-            print(f"[INFO] Python バージョン: {python_version.major}.{python_version.minor}.{python_version.micro}")
+            print(
+                f"[INFO] Python バージョン: {python_version.major}.{python_version.minor}.{python_version.micro}"
+            )
 
             if python_version.major >= 3 and python_version.minor >= 8:
                 print("[OK] Python バージョン適合")
@@ -76,27 +85,29 @@ class PracticalSystemValidator:
             module_ok = len(available_modules) / len(required_modules) >= 0.8
 
             if module_ok:
-                print(f"[OK] 必須モジュール: {len(available_modules)}/{len(required_modules)}個利用可能")
+                print(
+                    f"[OK] 必須モジュール: {len(available_modules)}/{len(required_modules)}個利用可能"
+                )
             else:
                 print(f"[NG] 必須モジュール不足: {len(missing_modules)}個不足")
 
-            self.test_results['python_environment'] = {
-                'status': 'passed' if (python_ok and module_ok) else 'failed',
-                'python_version': f"{python_version.major}.{python_version.minor}.{python_version.micro}",
-                'available_modules': available_modules,
-                'missing_modules': missing_modules,
-                'module_availability': len(available_modules) / len(required_modules),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["python_environment"] = {
+                "status": "passed" if (python_ok and module_ok) else "failed",
+                "python_version": f"{python_version.major}.{python_version.minor}.{python_version.micro}",
+                "available_modules": available_modules,
+                "missing_modules": missing_modules,
+                "module_availability": len(available_modules) / len(required_modules),
+                "timestamp": datetime.now().isoformat(),
             }
 
             return python_ok and module_ok
 
         except Exception as e:
             print(f"[ERROR] Python環境テストエラー: {e}")
-            self.test_results['python_environment'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["python_environment"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -145,13 +156,15 @@ class PracticalSystemValidator:
             success_rate = successful_fetches / total_symbols
             avg_fetch_time = sum(fetch_times) / len(fetch_times) if fetch_times else 0
 
-            print(f"データ取得成功率: {success_rate:.1%} ({successful_fetches}/{total_symbols})")
+            print(
+                f"データ取得成功率: {success_rate:.1%} ({successful_fetches}/{total_symbols})"
+            )
             print(f"平均取得時間: {avg_fetch_time:.2f}秒")
             print(f"総データポイント: {total_data_points}")
 
             # 品質評価
             data_access_ok = success_rate >= 0.75  # 75%以上成功
-            performance_ok = avg_fetch_time < 5.0   # 平均5秒以内
+            performance_ok = avg_fetch_time < 5.0  # 平均5秒以内
 
             overall_ok = data_access_ok and performance_ok
 
@@ -163,32 +176,32 @@ class PracticalSystemValidator:
                 if not performance_ok:
                     print("[NG] データ取得時間が長い")
 
-            self.test_results['market_data_access'] = {
-                'status': 'passed' if overall_ok else 'failed',
-                'success_rate': success_rate,
-                'avg_fetch_time': avg_fetch_time,
-                'successful_fetches': successful_fetches,
-                'total_data_points': total_data_points,
-                'fetch_times': fetch_times,
-                'timestamp': datetime.now().isoformat()
+            self.test_results["market_data_access"] = {
+                "status": "passed" if overall_ok else "failed",
+                "success_rate": success_rate,
+                "avg_fetch_time": avg_fetch_time,
+                "successful_fetches": successful_fetches,
+                "total_data_points": total_data_points,
+                "fetch_times": fetch_times,
+                "timestamp": datetime.now().isoformat(),
             }
 
             return overall_ok
 
         except ImportError:
             print("[NG] yfinanceモジュールが利用できません")
-            self.test_results['market_data_access'] = {
-                'status': 'failed',
-                'error': 'yfinance module not available',
-                'timestamp': datetime.now().isoformat()
+            self.test_results["market_data_access"] = {
+                "status": "failed",
+                "error": "yfinance module not available",
+                "timestamp": datetime.now().isoformat(),
             }
             return False
         except Exception as e:
             print(f"[ERROR] 実市場データアクセステストエラー: {e}")
-            self.test_results['market_data_access'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["market_data_access"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -231,20 +244,23 @@ class PracticalSystemValidator:
                 volumes = np.random.randint(100000, 1000000, n_days)
 
                 # DataFrame作成
-                df = pd.DataFrame({
-                    'Open': opens,
-                    'High': highs,
-                    'Low': lows,
-                    'Close': prices,
-                    'Volume': volumes
-                }, index=pd.date_range(start='2024-01-01', periods=n_days, freq='D'))
+                df = pd.DataFrame(
+                    {
+                        "Open": opens,
+                        "High": highs,
+                        "Low": lows,
+                        "Close": prices,
+                        "Volume": volumes,
+                    },
+                    index=pd.date_range(start="2024-01-01", periods=n_days, freq="D"),
+                )
 
                 # 基本的な技術指標計算
-                df['SMA_20'] = df['Close'].rolling(20).mean()
-                df['SMA_50'] = df['Close'].rolling(50).mean()
-                df['RSI'] = self._calculate_rsi(df['Close'], 14)
-                df['Returns'] = df['Close'].pct_change()
-                df['Volatility'] = df['Returns'].rolling(20).std()
+                df["SMA_20"] = df["Close"].rolling(20).mean()
+                df["SMA_50"] = df["Close"].rolling(50).mean()
+                df["RSI"] = self._calculate_rsi(df["Close"], 14)
+                df["Returns"] = df["Close"].pct_change()
+                df["Volatility"] = df["Returns"].rolling(20).std()
 
                 processing_time = time.time() - start_time
                 processing_times.append(processing_time)
@@ -277,15 +293,15 @@ class PracticalSystemValidator:
             else:
                 print("[NG] データ処理に問題あり")
 
-            self.test_results['data_processing'] = {
-                'status': 'passed' if overall_ok else 'failed',
-                'total_processing_time': total_processing_time,
-                'avg_processing_time': avg_processing_time,
-                'datasets_created': len(datasets),
-                'total_data_points': sum(len(df) for df in datasets.values()),
-                'quality_ok': quality_ok,
-                'performance_ok': performance_ok,
-                'timestamp': datetime.now().isoformat()
+            self.test_results["data_processing"] = {
+                "status": "passed" if overall_ok else "failed",
+                "total_processing_time": total_processing_time,
+                "avg_processing_time": avg_processing_time,
+                "datasets_created": len(datasets),
+                "total_data_points": sum(len(df) for df in datasets.values()),
+                "quality_ok": quality_ok,
+                "performance_ok": performance_ok,
+                "timestamp": datetime.now().isoformat(),
             }
 
             return overall_ok
@@ -295,10 +311,10 @@ class PracticalSystemValidator:
             return False
         except Exception as e:
             print(f"[ERROR] データ処理能力テストエラー: {e}")
-            self.test_results['data_processing'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["data_processing"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -323,13 +339,13 @@ class PracticalSystemValidator:
 
             # 特徴量生成（技術指標風）
             features = np.random.randn(n_samples, n_features)
-            feature_names = [f'indicator_{i}' for i in range(n_features)]
+            feature_names = [f"indicator_{i}" for i in range(n_features)]
 
             # ターゲット生成（上昇/下降の二値分類）
             target = (features[:, 0] + features[:, 1] > 0).astype(int)
 
             df = pd.DataFrame(features, columns=feature_names)
-            df['target'] = target
+            df["target"] = target
 
             print(f"トレーニングデータ: {n_samples}行, {n_features}特徴量")
 
@@ -338,8 +354,10 @@ class PracticalSystemValidator:
 
             # データ分割
             X = df[feature_names]
-            y = df['target']
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+            y = df["target"]
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.3, random_state=42
+            )
 
             # モデル訓練
             model = RandomForestClassifier(n_estimators=100, random_state=42)
@@ -353,7 +371,9 @@ class PracticalSystemValidator:
 
             print(f"ML処理時間: {ml_processing_time:.3f}秒")
             print(f"予測精度: {accuracy:.3f}")
-            print(f"特徴量重要度（上位3）: {sorted(zip(feature_names, model.feature_importances_), key=lambda x: x[1], reverse=True)[:3]}")
+            print(
+                f"特徴量重要度（上位3）: {sorted(zip(feature_names, model.feature_importances_), key=lambda x: x[1], reverse=True)[:3]}"
+            )
 
             # パフォーマンス評価
             performance_ok = ml_processing_time < 10.0  # 10秒以内
@@ -369,33 +389,33 @@ class PracticalSystemValidator:
                 if not accuracy_ok:
                     print("[NG] 予測精度が低い")
 
-            self.test_results['machine_learning'] = {
-                'status': 'passed' if overall_ok else 'failed',
-                'processing_time': ml_processing_time,
-                'accuracy': accuracy,
-                'samples_trained': len(X_train),
-                'samples_tested': len(X_test),
-                'performance_ok': performance_ok,
-                'accuracy_ok': accuracy_ok,
-                'timestamp': datetime.now().isoformat()
+            self.test_results["machine_learning"] = {
+                "status": "passed" if overall_ok else "failed",
+                "processing_time": ml_processing_time,
+                "accuracy": accuracy,
+                "samples_trained": len(X_train),
+                "samples_tested": len(X_test),
+                "performance_ok": performance_ok,
+                "accuracy_ok": accuracy_ok,
+                "timestamp": datetime.now().isoformat(),
             }
 
             return overall_ok
 
         except ImportError as e:
             print(f"[NG] scikit-learnが利用できません: {e}")
-            self.test_results['machine_learning'] = {
-                'status': 'failed',
-                'error': f'scikit-learn not available: {e}',
-                'timestamp': datetime.now().isoformat()
+            self.test_results["machine_learning"] = {
+                "status": "failed",
+                "error": f"scikit-learn not available: {e}",
+                "timestamp": datetime.now().isoformat(),
             }
             return False
         except Exception as e:
             print(f"[ERROR] 機械学習テストエラー: {e}")
-            self.test_results['machine_learning'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["machine_learning"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -410,7 +430,9 @@ class PracticalSystemValidator:
             initial_memory = psutil.virtual_memory()
             initial_cpu = psutil.cpu_percent(interval=1)
 
-            print(f"初期メモリ使用量: {initial_memory.used / (1024**3):.2f}GB ({initial_memory.percent:.1f}%)")
+            print(
+                f"初期メモリ使用量: {initial_memory.used / (1024**3):.2f}GB ({initial_memory.percent:.1f}%)"
+            )
             print(f"初期CPU使用率: {initial_cpu:.1f}%")
 
             # リソース集約的なタスク実行
@@ -427,7 +449,7 @@ class PracticalSystemValidator:
                     data.extend(temp_data)
 
                     # CPU を使用する処理
-                    sum(x*x for x in temp_data[:1000])
+                    sum(x * x for x in temp_data[:1000])
 
                     # 少し休む
                     time.sleep(0.01)
@@ -438,7 +460,9 @@ class PracticalSystemValidator:
 
             # 複数並列タスク実行
             with ThreadPoolExecutor(max_workers=4) as executor:
-                futures = [executor.submit(resource_intensive_task, i) for i in range(4)]
+                futures = [
+                    executor.submit(resource_intensive_task, i) for i in range(4)
+                ]
                 [future.result() for future in futures]
 
             task_duration = time.time() - task_start
@@ -447,20 +471,24 @@ class PracticalSystemValidator:
             final_memory = psutil.virtual_memory()
             final_cpu = psutil.cpu_percent(interval=1)
 
-            print(f"最終メモリ使用量: {final_memory.used / (1024**3):.2f}GB ({final_memory.percent:.1f}%)")
+            print(
+                f"最終メモリ使用量: {final_memory.used / (1024**3):.2f}GB ({final_memory.percent:.1f}%)"
+            )
             print(f"最終CPU使用率: {final_cpu:.1f}%")
             print(f"タスク実行時間: {task_duration:.2f}秒")
 
             # リソース変化量
-            memory_increase = (final_memory.used - initial_memory.used) / (1024**2)  # MB
+            memory_increase = (final_memory.used - initial_memory.used) / (
+                1024**2
+            )  # MB
             cpu_increase = final_cpu - initial_cpu
 
             print(f"メモリ増加量: {memory_increase:.1f}MB")
             print(f"CPU増加量: {cpu_increase:.1f}%")
 
             # リソース管理評価
-            memory_ok = memory_increase < self.thresholds['max_memory_increase_mb']
-            cpu_ok = final_cpu < self.thresholds['max_cpu_sustained']
+            memory_ok = memory_increase < self.thresholds["max_memory_increase_mb"]
+            cpu_ok = final_cpu < self.thresholds["max_cpu_sustained"]
             performance_ok = task_duration < 10.0  # 10秒以内
 
             overall_ok = memory_ok and cpu_ok and performance_ok
@@ -475,28 +503,28 @@ class PracticalSystemValidator:
                 if not performance_ok:
                     print(f"[WARNING] タスク実行時間が長い: {task_duration:.2f}秒")
 
-            self.test_results['resource_management'] = {
-                'status': 'passed' if overall_ok else 'warning',
-                'initial_memory_gb': initial_memory.used / (1024**3),
-                'final_memory_gb': final_memory.used / (1024**3),
-                'memory_increase_mb': memory_increase,
-                'initial_cpu': initial_cpu,
-                'final_cpu': final_cpu,
-                'task_duration': task_duration,
-                'memory_ok': memory_ok,
-                'cpu_ok': cpu_ok,
-                'performance_ok': performance_ok,
-                'timestamp': datetime.now().isoformat()
+            self.test_results["resource_management"] = {
+                "status": "passed" if overall_ok else "warning",
+                "initial_memory_gb": initial_memory.used / (1024**3),
+                "final_memory_gb": final_memory.used / (1024**3),
+                "memory_increase_mb": memory_increase,
+                "initial_cpu": initial_cpu,
+                "final_cpu": final_cpu,
+                "task_duration": task_duration,
+                "memory_ok": memory_ok,
+                "cpu_ok": cpu_ok,
+                "performance_ok": performance_ok,
+                "timestamp": datetime.now().isoformat(),
             }
 
             return overall_ok
 
         except Exception as e:
             print(f"[ERROR] システムリソース管理テストエラー: {e}")
-            self.test_results['resource_management'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["resource_management"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -521,9 +549,9 @@ class PracticalSystemValidator:
 
                 processing_time = time.time() - start_time
                 return {
-                    'task_id': task_id,
-                    'result': result,
-                    'processing_time': processing_time
+                    "task_id": task_id,
+                    "result": result,
+                    "processing_time": processing_time,
                 }
 
             # シーケンシャル実行時間測定
@@ -558,7 +586,7 @@ class PracticalSystemValidator:
 
             # 並行処理評価
             speedup_ok = speedup_ratio > 1.5  # 1.5倍以上の高速化
-            efficiency_ok = efficiency > 0.3   # 30%以上の効率
+            efficiency_ok = efficiency > 0.3  # 30%以上の効率
 
             overall_ok = speedup_ok and efficiency_ok
 
@@ -570,26 +598,26 @@ class PracticalSystemValidator:
                 if not efficiency_ok:
                     print("[NG] 並列処理効率が低い")
 
-            self.test_results['concurrent_processing'] = {
-                'status': 'passed' if overall_ok else 'failed',
-                'sequential_time': sequential_time,
-                'parallel_time': parallel_time,
-                'speedup_ratio': speedup_ratio,
-                'efficiency': efficiency,
-                'tasks_completed': len(parallel_results),
-                'speedup_ok': speedup_ok,
-                'efficiency_ok': efficiency_ok,
-                'timestamp': datetime.now().isoformat()
+            self.test_results["concurrent_processing"] = {
+                "status": "passed" if overall_ok else "failed",
+                "sequential_time": sequential_time,
+                "parallel_time": parallel_time,
+                "speedup_ratio": speedup_ratio,
+                "efficiency": efficiency,
+                "tasks_completed": len(parallel_results),
+                "speedup_ok": speedup_ok,
+                "efficiency_ok": efficiency_ok,
+                "timestamp": datetime.now().isoformat(),
             }
 
             return overall_ok
 
         except Exception as e:
             print(f"[ERROR] 並行処理テストエラー: {e}")
-            self.test_results['concurrent_processing'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["concurrent_processing"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -611,7 +639,9 @@ class PracticalSystemValidator:
         report_lines.append("実データでの最終動作確認テスト - 実践版レポート")
         report_lines.append("=" * 80)
 
-        report_lines.append(f"テスト実行日時: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        report_lines.append(
+            f"テスト実行日時: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
+        )
         report_lines.append(f"総実行時間: {total_duration}")
         report_lines.append(f"テスト対象銘柄: {', '.join(self.test_symbols)}")
 
@@ -619,7 +649,9 @@ class PracticalSystemValidator:
         report_lines.append("\n【システム環境】")
         report_lines.append(f"Python: {sys.version.split()[0]}")
         report_lines.append(f"プラットフォーム: {sys.platform}")
-        report_lines.append(f"メモリ総量: {psutil.virtual_memory().total / (1024**3):.1f}GB")
+        report_lines.append(
+            f"メモリ総量: {psutil.virtual_memory().total / (1024**3):.1f}GB"
+        )
         report_lines.append(f"CPU コア数: {psutil.cpu_count()}")
 
         # 個別テスト結果
@@ -630,54 +662,68 @@ class PracticalSystemValidator:
         failed_count = 0
 
         for test_name, result in self.test_results.items():
-            status = result.get('status', 'unknown')
+            status = result.get("status", "unknown")
 
-            if status == 'passed':
+            if status == "passed":
                 status_symbol = "[OK]"
                 passed_count += 1
-            elif status == 'warning':
+            elif status == "warning":
                 status_symbol = "[WARNING]"
                 warning_count += 1
             else:
                 status_symbol = "[NG]"
                 failed_count += 1
 
-            display_name = test_name.replace('_', ' ').title()
+            display_name = test_name.replace("_", " ").title()
             report_lines.append(f"  {status_symbol} {display_name}")
 
             # 詳細情報
-            if 'error' in result:
+            if "error" in result:
                 report_lines.append(f"    エラー: {result['error']}")
 
             # テスト固有の情報
-            if test_name == 'python_environment':
-                if 'module_availability' in result:
-                    report_lines.append(f"    モジュール利用可能率: {result['module_availability']:.1%}")
+            if test_name == "python_environment":
+                if "module_availability" in result:
+                    report_lines.append(
+                        f"    モジュール利用可能率: {result['module_availability']:.1%}"
+                    )
 
-            elif test_name == 'market_data_access':
-                if 'success_rate' in result:
-                    report_lines.append(f"    データ取得成功率: {result['success_rate']:.1%}")
-                if 'avg_fetch_time' in result:
-                    report_lines.append(f"    平均取得時間: {result['avg_fetch_time']:.2f}秒")
+            elif test_name == "market_data_access":
+                if "success_rate" in result:
+                    report_lines.append(
+                        f"    データ取得成功率: {result['success_rate']:.1%}"
+                    )
+                if "avg_fetch_time" in result:
+                    report_lines.append(
+                        f"    平均取得時間: {result['avg_fetch_time']:.2f}秒"
+                    )
 
-            elif test_name == 'machine_learning':
-                if 'accuracy' in result:
+            elif test_name == "machine_learning":
+                if "accuracy" in result:
                     report_lines.append(f"    予測精度: {result['accuracy']:.3f}")
-                if 'processing_time' in result:
-                    report_lines.append(f"    ML処理時間: {result['processing_time']:.3f}秒")
+                if "processing_time" in result:
+                    report_lines.append(
+                        f"    ML処理時間: {result['processing_time']:.3f}秒"
+                    )
 
-            elif test_name == 'concurrent_processing':
-                if 'speedup_ratio' in result:
-                    report_lines.append(f"    スピードアップ比: {result['speedup_ratio']:.2f}x")
-                if 'efficiency' in result:
+            elif test_name == "concurrent_processing":
+                if "speedup_ratio" in result:
+                    report_lines.append(
+                        f"    スピードアップ比: {result['speedup_ratio']:.2f}x"
+                    )
+                if "efficiency" in result:
                     report_lines.append(f"    並列効率: {result['efficiency']:.1%}")
 
         # 総合評価
         total_tests = len(self.test_results)
-        weighted_score = (passed_count + warning_count * 0.5) / total_tests if total_tests > 0 else 0
+        weighted_score = (
+            (passed_count + warning_count * 0.5) / total_tests if total_tests > 0 else 0
+        )
 
         report_lines.append("\n【総合評価】")
-        report_lines.append(f"成功: {passed_count}, 警告: {warning_count}, 失敗: {failed_count}")
+        report_lines.append(
+            f"成功: {passed_count}, 警告: {warning_count}, 失敗: {failed_count}"
+        )
         report_lines.append(f"重み付きスコア: {weighted_score:.1%}")
 
         if weighted_score >= 0.9:
@@ -710,22 +756,23 @@ class PracticalSystemValidator:
         """実践的テスト結果保存"""
         try:
             result_data = {
-                'test_type': 'practical_system_validation',
-                'test_date': self.start_time.isoformat(),
-                'total_duration': str(datetime.now() - self.start_time),
-                'test_symbols': self.test_symbols,
-                'thresholds': self.thresholds,
-                'test_results': self.test_results,
-                'system_info': {
-                    'python_version': sys.version.split()[0],
-                    'platform': sys.platform,
-                    'total_memory_gb': psutil.virtual_memory().total / (1024**3),
-                    'cpu_count': psutil.cpu_count(),
-                    'available_memory_gb': psutil.virtual_memory().available / (1024**3)
-                }
+                "test_type": "practical_system_validation",
+                "test_date": self.start_time.isoformat(),
+                "total_duration": str(datetime.now() - self.start_time),
+                "test_symbols": self.test_symbols,
+                "thresholds": self.thresholds,
+                "test_results": self.test_results,
+                "system_info": {
+                    "python_version": sys.version.split()[0],
+                    "platform": sys.platform,
+                    "total_memory_gb": psutil.virtual_memory().total / (1024**3),
+                    "cpu_count": psutil.cpu_count(),
+                    "available_memory_gb": psutil.virtual_memory().available
+                    / (1024**3),
+                },
             }
 
-            with open(filepath, 'w', encoding='utf-8') as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(result_data, f, indent=2, ensure_ascii=False)
 
             print(f"テスト結果保存完了: {filepath}")
@@ -748,7 +795,7 @@ def main():
         ("データ処理能力", validator.test_data_processing_capabilities),
         ("基本機械学習", validator.test_machine_learning_basics),
         ("システムリソース管理", validator.test_system_resource_management),
-        ("並行処理", validator.test_concurrent_processing)
+        ("並行処理", validator.test_concurrent_processing),
     ]
 
     print(f"\n{len(test_suite)}個の実践テストを実行します...")
@@ -761,10 +808,12 @@ def main():
             test_function()
         except Exception as e:
             print(f"[CRITICAL ERROR] {test_name}で予期しないエラー: {e}")
-            validator.test_results[test_name.lower().replace(' ', '_').replace('基本', 'basic_')] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            validator.test_results[
+                test_name.lower().replace(" ", "_").replace("基本", "basic_")
+            ] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
 
     # 最終レポート生成・表示
@@ -773,27 +822,35 @@ def main():
     print(final_report)
 
     # 結果保存
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     results_file = f"practical_system_validation_results_{timestamp}.json"
     validator.save_practical_results(results_file)
 
     # テキストレポート保存
     report_file = f"practical_system_validation_report_{timestamp}.txt"
     try:
-        with open(report_file, 'w', encoding='utf-8') as f:
+        with open(report_file, "w", encoding="utf-8") as f:
             f.write(final_report)
         print(f"最終レポート保存完了: {report_file}")
     except Exception as e:
         print(f"レポート保存エラー: {e}")
 
     # 総合判定
-    passed_count = sum(1 for result in validator.test_results.values()
-                      if result.get('status') == 'passed')
-    warning_count = sum(1 for result in validator.test_results.values()
-                       if result.get('status') == 'warning')
+    passed_count = sum(
+        1
+        for result in validator.test_results.values()
+        if result.get("status") == "passed"
+    )
+    warning_count = sum(
+        1
+        for result in validator.test_results.values()
+        if result.get("status") == "warning"
+    )
     total_count = len(validator.test_results)
 
-    weighted_score = (passed_count + warning_count * 0.5) / total_count if total_count > 0 else 0
+    weighted_score = (
+        (passed_count + warning_count * 0.5) / total_count if total_count > 0 else 0
+    )
 
     print(f"\n{'='*60}")
     print("実践的システム検証完了")

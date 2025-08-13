@@ -18,6 +18,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import psutil
+import numpy as np
+
+# 決定論的実行のためのシード設定
+np.random.seed(42)
 
 try:
     from ..analysis.technical_analyzer import TechnicalAnalyzer

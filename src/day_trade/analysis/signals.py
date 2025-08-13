@@ -6,7 +6,7 @@
 import json
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -751,18 +751,13 @@ class TradingSignalGenerator:
             TradingSignal or None
         """
         try:
-            # データの検証
-            min_data = self.config.get_min_data_for_generation()
-            if df.empty or len(df) < min_data:
-                logger.warning(f"データが不足しています（最低{min_data}日分必要）")
+            # データの基本検証 - Issue #657対応
+            if not self._validate_input_data(df, indicators, patterns):
                 return None
 
             # patternsがNoneの場合に空の辞書を代入
             if patterns is None:
                 patterns = {}
-
-            # indicatorsとpatternsはgenerate_signals_seriesから提供される前提
-            # そのため、ここではNoneチェックや再計算は行わない
 
             # 買いシグナルの評価
             buy_conditions = {}
@@ -806,8 +801,12 @@ class TradingSignalGenerator:
                 else 0
             )
 
-            # 最新の価格とタイムスタンプ
-            latest_price = Decimal(str(df["Close"].iloc[-1]))
+            # 最新の価格とタイムスタンプ - Issue #657対応: Decimal型処理改善
+            latest_price = self._safe_decimal_conversion(df["Close"].iloc[-1])
+            if latest_price is None:
+                logger.error("最新価格の取得に失敗しました")
+                return None
+
             latest_timestamp = pd.Timestamp(df.index[-1]).to_pydatetime()
 
             # 強度閾値を設定から取得
@@ -938,18 +937,19 @@ class TradingSignalGenerator:
                 )
 
                 if signal:
-                    signals.append(
-                        {
-                            "Date": signal.timestamp,
-                            "Signal": signal.signal_type.value,
-                            "Strength": signal.strength.value,
-                            "Confidence": signal.confidence,
-                            "Price": float(
-                                signal.price
-                            ),  # DataFrameではDecimalよりfloatが扱いやすい
-                            "Reasons": ", ".join(signal.reasons),
-                        }
-                    )
+                    # Decimal型を安全にfloatに変換 - Issue #657対応
+                    safe_price = self._safe_decimal_to_float(signal.price)
+                    if safe_price is not None:
+                        signals.append(
+                            {
+                                "Date": signal.timestamp,
+                                "Signal": signal.signal_type.value,
+                                "Strength": signal.strength.value,
+                                "Confidence": signal.confidence,
+                                "Price": safe_price,
+                                "Reasons": ", ".join(signal.reasons),
+                            }
+                        )
 
             if signals:
                 signals_df = pd.DataFrame(signals)
@@ -1211,6 +1211,234 @@ class TradingSignalGenerator:
                 "latest_signal": None,
                 "overall_confidence": 0,
             }
+
+    def _validate_input_data(
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+    ) -> bool:
+        """
+        入力データの完全性を検証 - Issue #657対応
+
+        Args:
+            df: 価格データのDataFrame
+            indicators: テクニカル指標のDataFrame
+            patterns: チャートパターン認識結果
+
+        Returns:
+            データが有効かどうか
+        """
+        try:
+            # 価格データの基本検証
+            min_data = self.config.get_min_data_for_generation()
+            if df.empty or len(df) < min_data:
+                logger.warning(f"価格データが不足しています（最低{min_data}日分必要）")
+                return False
+
+            # 必須カラムの存在確認
+            required_columns = ["Open", "High", "Low", "Close", "Volume"]
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                logger.error(f"必須カラムが不足しています: {missing_columns}")
+                return False
+
+            # 最新データのNaN値チェック
+            latest_row = df.iloc[-1]
+            if latest_row[required_columns].isna().any():
+                nan_columns = latest_row[required_columns][latest_row[required_columns].isna()].index.tolist()
+                logger.error(f"最新データにNaN値があります: {nan_columns}")
+                return False
+
+            # 価格データの妥当性チェック
+            if not self._validate_price_data(latest_row):
+                return False
+
+            # 指標データの検証
+            if not self._validate_indicators_data(indicators):
+                return False
+
+            # パターンデータの検証
+            if not self._validate_patterns_data(patterns):
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"入力データ検証中にエラーが発生: {e}")
+            return False
+
+    def _validate_price_data(self, latest_row: pd.Series) -> bool:
+        """
+        価格データの妥当性を検証
+
+        Args:
+            latest_row: 最新の価格データ行
+
+        Returns:
+            価格データが妥当かどうか
+        """
+        try:
+            # 正の値チェック
+            price_columns = ["Open", "High", "Low", "Close", "Volume"]
+            for col in price_columns:
+                if latest_row[col] <= 0:
+                    logger.error(f"{col}が0以下の値です: {latest_row[col]}")
+                    return False
+
+            # 価格の論理的整合性チェック (High >= Low, Close/Open が High-Low 範囲内)
+            high, low, open_price, close = latest_row["High"], latest_row["Low"], latest_row["Open"], latest_row["Close"]
+
+            if high < low:
+                logger.error(f"高値({high})が安値({low})より低い値です")
+                return False
+
+            if not (low <= open_price <= high):
+                logger.error(f"始値({open_price})が高安値範囲({low}-{high})外です")
+                return False
+
+            if not (low <= close <= high):
+                logger.error(f"終値({close})が高安値範囲({low}-{high})外です")
+                return False
+
+            # 極端な価格変動チェック（前日比で99%以上の変動は異常とみなす）
+            return True
+
+        except Exception as e:
+            logger.error(f"価格データ検証中にエラーが発生: {e}")
+            return False
+
+    def _validate_indicators_data(self, indicators: pd.DataFrame) -> bool:
+        """
+        テクニカル指標データの完全性を検証
+
+        Args:
+            indicators: テクニカル指標のDataFrame
+
+        Returns:
+            指標データが有効かどうか
+        """
+        try:
+            if indicators.empty:
+                logger.warning("テクニカル指標データが空です")
+                return True  # 空でも処理は継続可能
+
+            # 最新行の重要指標のNaN値チェック
+            critical_indicators = ["RSI", "MACD", "MACD_Signal"]
+            latest_indicators = indicators.iloc[-1]
+
+            for indicator in critical_indicators:
+                if indicator in indicators.columns:
+                    if pd.isna(latest_indicators[indicator]):
+                        logger.debug(f"重要指標{indicator}の最新値がNaNです")
+                        # NaNでも処理は継続（各ルールで個別にハンドリング）
+
+            # 指標値の範囲チェック（RSIは0-100範囲など）
+            if "RSI" in indicators.columns and not indicators["RSI"].empty:
+                rsi_latest = latest_indicators["RSI"]
+                if not pd.isna(rsi_latest) and not (0 <= rsi_latest <= 100):
+                    logger.warning(f"RSI値が範囲外です: {rsi_latest}")
+
+            return True
+
+        except Exception as e:
+            logger.error(f"指標データ検証中にエラーが発生: {e}")
+            return False
+
+    def _validate_patterns_data(self, patterns: Dict) -> bool:
+        """
+        パターンデータの完全性を検証
+
+        Args:
+            patterns: チャートパターン認識結果
+
+        Returns:
+            パターンデータが有効かどうか
+        """
+        try:
+            if not patterns:
+                logger.debug("パターンデータが空です")
+                return True  # 空でも処理は継続可能
+
+            # DataFrameの構造チェック
+            for key in ["crosses", "breakouts"]:
+                if key in patterns:
+                    pattern_data = patterns[key]
+                    if not isinstance(pattern_data, pd.DataFrame):
+                        logger.warning(f"パターンデータ{key}がDataFrameではありません: {type(pattern_data)}")
+                        # 型が違っても処理は継続
+
+            return True
+
+        except Exception as e:
+            logger.error(f"パターンデータ検証中にエラーが発生: {e}")
+            return False
+
+    def _safe_decimal_conversion(self, value: Any) -> Optional[Decimal]:
+        """
+        安全なDecimal型変換 - Issue #657対応
+
+        Args:
+            value: 変換する値
+
+        Returns:
+            Decimal値またはNone（変換失敗時）
+        """
+        try:
+            if pd.isna(value):
+                logger.error("NaN値をDecimalに変換しようとしました")
+                return None
+
+            # numpy型やpandas型も含めて安全に文字列化
+            str_value = str(float(value))
+
+            # 無限大や非数値のチェック
+            if str_value.lower() in ['inf', '-inf', 'nan']:
+                logger.error(f"無効な数値をDecimalに変換しようとしました: {str_value}")
+                return None
+
+            decimal_value = Decimal(str_value)
+
+            # 負の価格チェック
+            if decimal_value <= 0:
+                logger.error(f"負または0の価格値です: {decimal_value}")
+                return None
+
+            return decimal_value
+
+        except (ValueError, TypeError, InvalidOperation) as e:
+            logger.error(f"Decimal変換エラー: {value} -> {e}")
+            return None
+        except Exception as e:
+            logger.error(f"予期しないDecimal変換エラー: {value} -> {e}")
+            return None
+
+    def _safe_decimal_to_float(self, decimal_value: Decimal) -> Optional[float]:
+        """
+        Decimal型を安全にfloatに変換 - Issue #657対応
+
+        Args:
+            decimal_value: 変換するDecimal値
+
+        Returns:
+            float値またはNone（変換失敗時）
+        """
+        try:
+            if decimal_value is None:
+                return None
+
+            float_value = float(decimal_value)
+
+            # 無限大や非数値のチェック
+            if not (float('inf') > float_value > float('-inf')):
+                logger.error(f"Decimal->float変換で無効な値: {decimal_value}")
+                return None
+
+            return float_value
+
+        except (ValueError, OverflowError) as e:
+            logger.error(f"Decimal->float変換エラー: {decimal_value} -> {e}")
+            return None
+        except Exception as e:
+            logger.error(f"予期しないDecimal->float変換エラー: {decimal_value} -> {e}")
+            return None
 
 
 # カスタムルールの例

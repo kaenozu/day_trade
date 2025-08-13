@@ -24,6 +24,7 @@ from src.day_trade.utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
+
 class SimpleSystemValidator:
     """簡易システム検証器"""
 
@@ -34,12 +35,12 @@ class SimpleSystemValidator:
 
         # 検証結果記録
         self.results = {
-            'start_time': None,
-            'end_time': None,
-            'system_active': False,
-            'predictions_count': 0,
-            'components_initialized': 0,
-            'errors': []
+            "start_time": None,
+            "end_time": None,
+            "system_active": False,
+            "predictions_count": 0,
+            "components_initialized": 0,
+            "errors": [],
         }
 
         logger.info("Simple System Validator initialized")
@@ -55,7 +56,7 @@ class SimpleSystemValidator:
         print(f"Dashboard URL: http://localhost:{self.dashboard_port}")
         print("=" * 60)
 
-        self.results['start_time'] = datetime.now()
+        self.results["start_time"] = datetime.now()
 
         try:
             # Phase 1: システム初期化
@@ -72,12 +73,13 @@ class SimpleSystemValidator:
 
         except Exception as e:
             logger.error(f"Validation failed: {e}")
-            self.results['errors'].append(str(e))
+            self.results["errors"].append(str(e))
             import traceback
+
             traceback.print_exc()
 
         finally:
-            self.results['end_time'] = datetime.now()
+            self.results["end_time"] = datetime.now()
 
         # レポート生成
         self._generate_report()
@@ -98,12 +100,11 @@ class SimpleSystemValidator:
             enable_alerts=True,
             enable_dashboard=False,  # 簡易版ではダッシュボード無効
             update_interval=3.0,  # 3秒間隔
-            detailed_logging=False
+            detailed_logging=False,
         )
 
         manager = create_integration_manager(
-            symbols=self.test_symbols,
-            dashboard_port=self.dashboard_port
+            symbols=self.test_symbols, dashboard_port=self.dashboard_port
         )
 
         print("  OK Integration manager created")
@@ -131,7 +132,7 @@ class SimpleSystemValidator:
             components_count += 1
             print("  OK Alert system initialized")
 
-        self.results['components_initialized'] = components_count
+        self.results["components_initialized"] = components_count
         print(f"  RESULT: {components_count}/4 components initialized")
 
         return manager
@@ -155,22 +156,26 @@ class SimpleSystemValidator:
                 system_status = manager.get_system_status()
                 predictions = manager.get_latest_predictions()
 
-                if system_status and system_status.get('is_running'):
-                    self.results['system_active'] = True
-                    print(f"  Cycle {cycle + 1}: System active, {len(predictions)} predictions")
+                if system_status and system_status.get("is_running"):
+                    self.results["system_active"] = True
+                    print(
+                        f"  Cycle {cycle + 1}: System active, {len(predictions)} predictions"
+                    )
 
                 if predictions:
-                    self.results['predictions_count'] = len(predictions)
+                    self.results["predictions_count"] = len(predictions)
 
                     # 予測結果表示
                     for symbol, prediction in predictions.items():
                         if prediction.action_confidence > 0.6:
-                            print(f"    {symbol}: {prediction.final_action} "
-                                  f"({prediction.action_confidence:.1%} confidence)")
+                            print(
+                                f"    {symbol}: {prediction.final_action} "
+                                f"({prediction.action_confidence:.1%} confidence)"
+                            )
 
             except Exception as e:
                 logger.warning(f"Monitoring cycle {cycle} error: {e}")
-                self.results['errors'].append(f"Cycle {cycle}: {str(e)}")
+                self.results["errors"].append(f"Cycle {cycle}: {str(e)}")
 
         print("  Operation test completed")
 
@@ -194,8 +199,8 @@ class SimpleSystemValidator:
             final_predictions = manager.get_latest_predictions()
 
             if final_status:
-                uptime = final_status.get('uptime_seconds', 0)
-                stats = final_status.get('statistics', {})
+                uptime = final_status.get("uptime_seconds", 0)
+                stats = final_status.get("statistics", {})
 
                 print(f"  System uptime: {uptime:.1f} seconds")
                 print(f"  Total predictions: {stats.get('total_predictions', 0)}")
@@ -204,14 +209,13 @@ class SimpleSystemValidator:
                 print(f"  Active predictions: {len(final_predictions)}")
 
                 # 結果記録
-                self.results['predictions_count'] = max(
-                    self.results['predictions_count'],
-                    stats.get('total_predictions', 0)
+                self.results["predictions_count"] = max(
+                    self.results["predictions_count"], stats.get("total_predictions", 0)
                 )
 
         except Exception as e:
             logger.error(f"Results analysis error: {e}")
-            self.results['errors'].append(f"Analysis: {str(e)}")
+            self.results["errors"].append(f"Analysis: {str(e)}")
 
     def _generate_report(self):
         """レポート生成"""
@@ -221,18 +225,18 @@ class SimpleSystemValidator:
         print("=" * 60)
 
         # 基本情報
-        start_time = self.results['start_time']
-        end_time = self.results['end_time']
+        start_time = self.results["start_time"]
+        end_time = self.results["end_time"]
 
         if start_time and end_time:
             duration = (end_time - start_time).total_seconds()
             print(f"Test Duration: {duration:.1f} seconds")
 
         # 結果サマリー
-        components = self.results['components_initialized']
-        system_active = self.results['system_active']
-        predictions = self.results['predictions_count']
-        errors = len(self.results['errors'])
+        components = self.results["components_initialized"]
+        system_active = self.results["system_active"]
+        predictions = self.results["predictions_count"]
+        errors = len(self.results["errors"])
 
         print("\nRESULTS SUMMARY:")
         print(f"  Components Initialized: {components}/4")
@@ -269,7 +273,7 @@ class SimpleSystemValidator:
         # エラー詳細
         if errors > 0:
             print(f"\nISSUES DETECTED ({errors}):")
-            for i, error in enumerate(self.results['errors'][:3], 1):
+            for i, error in enumerate(self.results["errors"][:3], 1):
                 print(f"  {i}. {error}")
             if errors > 3:
                 print(f"  ... and {errors - 3} more issues")
@@ -293,13 +297,14 @@ class SimpleSystemValidator:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"simple_validation_{timestamp}.json"
 
-            with open(filename, 'w', encoding='utf-8') as f:
+            with open(filename, "w", encoding="utf-8") as f:
                 json.dump(self.results, f, indent=2, default=str, ensure_ascii=False)
 
             print(f"\nReport saved: {filename}")
 
         except Exception as e:
             logger.error(f"Failed to save report: {e}")
+
 
 async def main():
     """メイン実行"""
@@ -313,10 +318,10 @@ async def main():
         results = await validator.run_validation()
 
         # 成功判定
-        components = results['components_initialized']
-        system_active = results['system_active']
-        predictions = results['predictions_count']
-        errors = len(results['errors'])
+        components = results["components_initialized"]
+        system_active = results["system_active"]
+        predictions = results["predictions_count"]
+        errors = len(results["errors"])
 
         # スコア計算
         score = 0.0
@@ -344,8 +349,10 @@ async def main():
     except Exception as e:
         print(f"\nValidation failed: {e}")
         import traceback
+
         traceback.print_exc()
         return 3
+
 
 if __name__ == "__main__":
     # システム検証実行

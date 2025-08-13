@@ -175,7 +175,9 @@ class CacheConfig:
         return CacheConfig(**config_dict)
 
     def __repr__(self) -> str:
-        return f"CacheConfig({', '.join(f'{k}={v}' for k, v in self.to_dict().items())})"
+        return (
+            f"CacheConfig({', '.join(f'{k}={v}' for k, v in self.to_dict().items())})"
+        )
 
 
 # グローバル設定管理

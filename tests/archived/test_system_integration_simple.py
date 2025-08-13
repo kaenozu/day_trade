@@ -11,6 +11,7 @@ from pathlib import Path
 # プロジェクトルート追加
 sys.path.insert(0, str(Path(__file__).parent))
 
+
 def test_basic_imports():
     """基本的なインポートテスト"""
     print("=== 基本インポートテスト ===")
@@ -38,6 +39,7 @@ def test_basic_imports():
         traceback.print_exc()
         return False
 
+
 def test_optimized_ml_engine():
     """Issue #325: ML最適化エンジンテスト"""
     print("\n=== ML最適化エンジンテスト ===")
@@ -49,14 +51,17 @@ def test_optimized_ml_engine():
         from src.day_trade.data.optimized_ml_engine import OptimizedMLEngine
 
         # テストデータ生成
-        dates = pd.date_range(start='2024-01-01', periods=50)
-        test_data = pd.DataFrame({
-            'Open': np.random.uniform(2000, 2500, 50),
-            'High': np.random.uniform(2100, 2600, 50),
-            'Low': np.random.uniform(1900, 2400, 50),
-            'Close': np.random.uniform(2000, 2500, 50),
-            'Volume': np.random.randint(500000, 2000000, 50),
-        }, index=dates)
+        dates = pd.date_range(start="2024-01-01", periods=50)
+        test_data = pd.DataFrame(
+            {
+                "Open": np.random.uniform(2000, 2500, 50),
+                "High": np.random.uniform(2100, 2600, 50),
+                "Low": np.random.uniform(1900, 2400, 50),
+                "Close": np.random.uniform(2000, 2500, 50),
+                "Volume": np.random.randint(500000, 2000000, 50),
+            },
+            index=dates,
+        )
 
         # ML最適化エンジン初期化
         ml_engine = OptimizedMLEngine()
@@ -72,6 +77,7 @@ def test_optimized_ml_engine():
         print(f"[ERROR] ML optimization engine error: {e}")
         traceback.print_exc()
         return False
+
 
 def test_unified_cache():
     """Issue #324: 統合キャッシュテスト"""
@@ -103,6 +109,7 @@ def test_unified_cache():
         traceback.print_exc()
         return False
 
+
 def test_data_quality_manager():
     """Issue #322: データ品質管理テスト"""
     print("\n=== データ品質管理テスト ===")
@@ -115,21 +122,24 @@ def test_data_quality_manager():
 
         # データ品質管理初期化
         quality_manager = DataQualityManager(
-            enable_cache=False,  # テスト用にキャッシュ無効
-            auto_fix_enabled=True
+            enable_cache=False, auto_fix_enabled=True  # テスト用にキャッシュ無効
         )
         print("[OK] DataQualityManager initialization success")
 
         # テストデータ（欠損値含む）
-        test_data = pd.DataFrame({
-            'price': [100, 102, np.nan, 105, 103],
-            'volume': [1000, 1200, 1100, np.nan, 1300],
-            'timestamp': pd.date_range('2024-01-01', periods=5)
-        })
+        test_data = pd.DataFrame(
+            {
+                "price": [100, 102, np.nan, 105, 103],
+                "volume": [1000, 1200, 1100, np.nan, 1300],
+                "timestamp": pd.date_range("2024-01-01", periods=5),
+            }
+        )
 
         # データ品質評価
-        metrics = quality_manager.assess_data_quality(test_data, 'price', 'TEST')
-        print(f"[OK] Data quality assessment success: Score {metrics.overall_score:.3f}")
+        metrics = quality_manager.assess_data_quality(test_data, "price", "TEST")
+        print(
+            f"[OK] Data quality assessment success: Score {metrics.overall_score:.3f}"
+        )
 
         return True
 
@@ -137,6 +147,7 @@ def test_data_quality_manager():
         print(f"[ERROR] Data quality management error: {e}")
         traceback.print_exc()
         return False
+
 
 def test_integration():
     """統合動作テスト"""
@@ -169,6 +180,7 @@ def test_integration():
         print(f"[ERROR] Integration operation error: {e}")
         traceback.print_exc()
         return False
+
 
 def main():
     """メイン実行"""
@@ -203,6 +215,7 @@ def main():
     else:
         print("[WARNING] Some tests failed - requires fixes")
         return False
+
 
 if __name__ == "__main__":
     try:

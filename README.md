@@ -1,4 +1,4 @@
-# Day Trade - 企業レベル高機能株式取引プラットフォーム
+# 📈 DayTrade 全自動取引システム
 
 [![CI/CD Pipeline](https://github.com/kaenozu/day_trade/actions/workflows/optimized-ci.yml/badge.svg)](https://github.com/kaenozu/day_trade/actions/workflows/optimized-ci.yml)
 [![Pre-commit Checks](https://github.com/kaenozu/day_trade/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/kaenozu/day_trade/actions/workflows/pre-commit.yml)
@@ -11,7 +11,33 @@
 [![Memory Efficiency](https://img.shields.io/badge/Memory-98%25%20Reduction-brightgreen.svg)](#システム性能)
 [![Production Ready](https://img.shields.io/badge/Production-Ready-brightgreen.svg)](#本番環境対応)
 
-**🚀 世界水準の高機能株式取引プラットフォーム - 企業レベル完全対応**
+**🚀 なにも考えずに買って売る - 完全自動化された株式推奨システム**
+
+## 🚀 クイックスタート（3分で開始）
+
+```bash
+# 1. クローンとインストール
+git clone https://github.com/kaenozu/day_trade.git
+cd day_trade
+pip install -r requirements.txt
+
+# 2. 今すぐ実行 - TOP3推奨銘柄を自動表示
+python daytrade.py
+```
+
+**これだけで推奨銘柄が表示されます！** 投資判断に必要な情報がすべて自動で分析されます。
+
+### 💡 使用例
+```bash
+python daytrade.py                    # 高速モード（TOP3推奨）
+python daytrade.py --full             # フルモード（全銘柄分析）
+python daytrade.py --symbols 7203,8306 # 特定銘柄のみ
+python daytrade.py --safe             # 安全モード（高リスク除外）
+```
+
+詳細な使用方法は [USAGE.md](USAGE.md) をご覧ください。
+
+---
 
 ## 🎯 システム概要
 
@@ -375,7 +401,6 @@ python system_health_diagnostic.py
 
 - **投資判断の責任**: 本システムの分析結果に基づく投資判断は自己責任
 - **損失の責任**: 投資による損失について開発者は一切責任を負いません
-- **教育目的**: このシステムは教育・学習目的で開発されています  
 - **専門家相談**: 重要な投資判断前には専門家にご相談ください
 
 ## 🚀 ロードマップ
@@ -439,7 +464,7 @@ Day Tradeシステムは、**企業レベルの商用利用に完全対応**し�
 ---
 
 **Day Trade - 企業レベル株式取引プラットフォーム**  
-*Built with ❤️ for professional trading and educational purposes*
+*Built with ❤️ for professional trading*
 
 **完成日**: 2025年8月9日  
 **開発チーム**: Day Trade開発チーム

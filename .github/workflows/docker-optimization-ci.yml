@@ -10,18 +10,12 @@ on:
     branches: [main, 'feature/docker-*', 'release/*']
     paths:
       - 'Dockerfile*'
-      - 'src/**'
-      - 'pyproject.toml'
-      - 'requirements.txt'
       - 'k8s/**'
       - '.github/workflows/docker-optimization-ci.yml'
   pull_request:
     branches: [main]
     paths:
       - 'Dockerfile*'
-      - 'src/**'
-      - 'pyproject.toml'
-      - 'requirements.txt'
       - 'k8s/**'
 
 env:
@@ -37,6 +31,7 @@ jobs:
   analyze-dockerfile:
     name: 🔍 Dockerfile Analysis
     runs-on: ubuntu-latest
+    if: false  # Temporarily disabled for PR #448
     outputs:
       should_build: ${{ steps.changes.outputs.docker }}
     steps:

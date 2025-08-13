@@ -42,7 +42,7 @@ class DeepLearningSystemTester:
             epochs=10,  # テスト用に少なく設定
             batch_size=32,
             early_stopping_patience=3,
-            use_pytorch=False  # NumPy fallbackでテスト
+            use_pytorch=False,  # NumPy fallbackでテスト
         )
 
         self.test_data = self._generate_test_data()
@@ -55,7 +55,7 @@ class DeepLearningSystemTester:
     def _generate_test_data(self) -> pd.DataFrame:
         """テスト用時系列データ生成"""
         np.random.seed(42)
-        dates = pd.date_range('2023-01-01', periods=500, freq='D')
+        dates = pd.date_range("2023-01-01", periods=500, freq="D")
 
         # より複雑な時系列パターン生成
         trend = np.linspace(100, 120, 500)
@@ -66,14 +66,16 @@ class DeepLearningSystemTester:
         prices = trend + seasonality + noise
 
         # OHLCV データ作成
-        return pd.DataFrame({
-            'Date': dates,
-            'Open': prices + np.random.normal(0, 0.5, 500),
-            'High': prices + np.abs(np.random.normal(0, 1, 500)),
-            'Low': prices - np.abs(np.random.normal(0, 1, 500)),
-            'Close': prices,
-            'Volume': np.random.randint(100000, 1000000, 500)
-        }).set_index('Date')
+        return pd.DataFrame(
+            {
+                "Date": dates,
+                "Open": prices + np.random.normal(0, 0.5, 500),
+                "High": prices + np.abs(np.random.normal(0, 1, 500)),
+                "Low": prices - np.abs(np.random.normal(0, 1, 500)),
+                "Close": prices,
+                "Volume": np.random.randint(100000, 1000000, 500),
+            }
+        ).set_index("Date")
 
     def test_transformer_model(self):
         """Transformerモデルテスト"""
@@ -163,8 +165,7 @@ class DeepLearningSystemTester:
         try:
             # 最適化設定
             opt_config = OptimizationConfig(
-                level=OptimizationLevel.OPTIMIZED,
-                performance_monitoring=True
+                level=OptimizationLevel.OPTIMIZED, performance_monitoring=True
             )
 
             manager = DeepLearningModelManager(self.config, opt_config)
@@ -200,7 +201,9 @@ class DeepLearningSystemTester:
             # 性能統計
             performance = manager.get_performance_summary()
             print(f"総実行回数: {performance.get('total_predictions', 0)}")
-            print(f"平均予測時間: {performance.get('average_prediction_time', 0):.4f}秒")
+            print(
+                f"平均予測時間: {performance.get('average_prediction_time', 0):.4f}秒"
+            )
 
             print("[OK] モデル管理システムテスト完了\n")
             return True
@@ -216,7 +219,7 @@ class DeepLearningSystemTester:
         try:
             # Monte Carlo Dropoutを有効にしてモデル作成
             config_with_uncertainty = self.config.__class__(
-                **{**self.config.__dict__, 'dropout_rate': 0.3}
+                **{**self.config.__dict__, "dropout_rate": 0.3}
             )
 
             model = TransformerModel(config_with_uncertainty)
@@ -228,8 +231,7 @@ class DeepLearningSystemTester:
             start_time = time.time()
             recent_data = self.test_data.tail(50)
             prediction_result = model.predict_with_uncertainty(
-                recent_data,
-                num_samples=10  # テスト用に少なく設定
+                recent_data, num_samples=10  # テスト用に少なく設定
             )
             uncertainty_time = time.time() - start_time
 
@@ -241,7 +243,9 @@ class DeepLearningSystemTester:
                 print("不確実性統計:")
                 print(f"  平均: {uncertainty.mean:.4f}")
                 print(f"  標準偏差: {uncertainty.std:.4f}")
-                print(f"  95%信頼区間: [{uncertainty.lower_bound[0]:.4f}, {uncertainty.upper_bound[0]:.4f}]")
+                print(
+                    f"  95%信頼区間: [{uncertainty.lower_bound[0]:.4f}, {uncertainty.upper_bound[0]:.4f}]"
+                )
                 print(f"  エピステミック不確実性: {uncertainty.epistemic:.4f}")
                 print(f"  アレアトリック不確実性: {uncertainty.aleatoric:.4f}")
 
@@ -287,11 +291,11 @@ class DeepLearningSystemTester:
 
         # 全テスト実行
         test_results = {}
-        test_results['transformer'] = self.test_transformer_model()
-        test_results['lstm'] = self.test_lstm_model()
-        test_results['manager'] = self.test_model_manager()
-        test_results['uncertainty'] = self.test_uncertainty_estimation()
-        test_results['feature_importance'] = self.test_feature_importance()
+        test_results["transformer"] = self.test_transformer_model()
+        test_results["lstm"] = self.test_lstm_model()
+        test_results["manager"] = self.test_model_manager()
+        test_results["uncertainty"] = self.test_uncertainty_estimation()
+        test_results["feature_importance"] = self.test_feature_importance()
 
         # 結果集計
         success_count = sum(test_results.values())
@@ -299,7 +303,9 @@ class DeepLearningSystemTester:
 
         print("[SUMMARY] テスト結果サマリー")
         print("=" * 60)
-        print(f"成功テスト: {success_count}/{total_tests} ({success_count/total_tests:.0%})")
+        print(
+            f"成功テスト: {success_count}/{total_tests} ({success_count/total_tests:.0%})"
+        )
 
         for test_name, result in test_results.items():
             status = "[OK]" if result else "[FAIL]"
@@ -307,16 +313,18 @@ class DeepLearningSystemTester:
 
         # 総合評価
         if success_count == total_tests:
-            print("\n[SUCCESS] すべてのテストが成功！深層学習システムは正常動作中です。")
+            print(
+                "\n[SUCCESS] すべてのテストが成功！深層学習システムは正常動作中です。"
+            )
         elif success_count >= total_tests * 0.8:
             print("\n[GOOD] 主要テストが成功。深層学習システムは動作可能です。")
         else:
             print("\n[WARNING] 多くのテストが失敗。設定や依存関係を確認してください。")
 
         return {
-            'success_count': success_count,
-            'total_tests': total_tests,
-            'test_results': test_results
+            "success_count": success_count,
+            "total_tests": total_tests,
+            "test_results": test_results,
         }
 
 
@@ -330,28 +338,29 @@ def main():
         import json
 
         serializable_result = {
-            'success_count': result['success_count'],
-            'total_tests': result['total_tests'],
-            'test_results': result['test_results'],
-            'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-            'system_info': {
-                'sequence_length': tester.config.sequence_length,
-                'prediction_horizon': tester.config.prediction_horizon,
-                'use_pytorch': tester.config.use_pytorch,
-                'test_data_size': len(tester.test_data)
-            }
+            "success_count": result["success_count"],
+            "total_tests": result["total_tests"],
+            "test_results": result["test_results"],
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "system_info": {
+                "sequence_length": tester.config.sequence_length,
+                "prediction_horizon": tester.config.prediction_horizon,
+                "use_pytorch": tester.config.use_pytorch,
+                "test_data_size": len(tester.test_data),
+            },
         }
 
-        with open('deep_learning_test_results.json', 'w', encoding='utf-8') as f:
+        with open("deep_learning_test_results.json", "w", encoding="utf-8") as f:
             json.dump(serializable_result, f, indent=2, ensure_ascii=False)
 
         print("\n[SAVE] テスト結果をdeep_learning_test_results.jsonに保存しました。")
 
-        return 0 if result['success_count'] >= result['total_tests'] * 0.8 else 1
+        return 0 if result["success_count"] >= result["total_tests"] * 0.8 else 1
 
     except Exception as e:
         print(f"[ERROR] テスト実行エラー: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

@@ -78,8 +78,8 @@ def test_trading_engine_safety():
         print(f"監視銘柄数: {status['monitored_symbols']}")
 
         # 安全性アサーション
-        assert status['safe_mode'], "TradingEngineがセーフモードではありません"
-        assert status['trading_disabled'], "取引機能が有効になっています"
+        assert status["safe_mode"], "TradingEngineがセーフモードではありません"
+        assert status["trading_disabled"], "取引機能が有効になっています"
 
         print("\n✓ TradingEngine安全性テスト: 合格")
 
@@ -110,8 +110,8 @@ def test_analysis_only_engine():
         print(f"取引無効: {'有効' if status['trading_disabled'] else '無効'}")
 
         # 安全性アサーション
-        assert status['safe_mode'], "分析エンジンがセーフモードではありません"
-        assert status['trading_disabled'], "取引機能が有効になっています"
+        assert status["safe_mode"], "分析エンジンがセーフモードではありません"
+        assert status["trading_disabled"], "取引機能が有効になっています"
 
         # 推奨事項テスト
         recommendations = engine.get_symbol_recommendations("7203")
