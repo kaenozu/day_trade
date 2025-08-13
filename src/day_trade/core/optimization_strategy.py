@@ -272,11 +272,120 @@ class OptimizationStrategyFactory:
         level: OptimizationLevel,
         strategy_class: Type[OptimizationStrategy],
     ) -> None:
-        """戦略の登録"""
+        """戦略の登録 - Issue #639対応: 型検証強化"""
+        # 型検証の実行
+        cls._validate_strategy_class(strategy_class, component_name, level)
+
         if component_name not in cls._strategies:
             cls._strategies[component_name] = {}
         cls._strategies[component_name][level] = strategy_class
         logger.info(f"戦略登録: {component_name} - {level.value}")
+
+    @classmethod
+    def _validate_strategy_class(
+        cls,
+        strategy_class: Type[OptimizationStrategy],
+        component_name: str,
+        level: OptimizationLevel,
+    ) -> None:
+        """
+        戦略クラスの型検証 - Issue #639対応
+
+        Args:
+            strategy_class: 検証対象の戦略クラス
+            component_name: コンポーネント名（エラーメッセージ用）
+            level: 最適化レベル（エラーメッセージ用）
+
+        Raises:
+            TypeError: 型検証に失敗した場合
+            ValueError: 抽象メソッドが未実装の場合
+        """
+        import inspect
+
+        # 1. 基本的な型検証
+        if not inspect.isclass(strategy_class):
+            raise TypeError(
+                f"戦略登録エラー: {component_name}[{level.value}] - "
+                f"strategy_classはクラスである必要があります。受信: {type(strategy_class)}"
+            )
+
+        # 2. OptimizationStrategyのサブクラス検証
+        if not issubclass(strategy_class, OptimizationStrategy):
+            raise TypeError(
+                f"戦略登録エラー: {component_name}[{level.value}] - "
+                f"strategy_classはOptimizationStrategyのサブクラスである必要があります。"
+                f"受信: {strategy_class.__name__}"
+            )
+
+        # 3. 抽象クラスでないことを検証
+        if inspect.isabstract(strategy_class):
+            # 未実装の抽象メソッドを特定
+            abstract_methods = getattr(strategy_class, '__abstractmethods__', set())
+            raise ValueError(
+                f"戦略登録エラー: {component_name}[{level.value}] - "
+                f"strategy_class '{strategy_class.__name__}' は抽象クラスです。"
+                f"未実装の抽象メソッド: {', '.join(abstract_methods)}"
+            )
+
+        # 4. 必須メソッドの実装検証
+        required_methods = ['execute', 'get_strategy_name']
+        missing_methods = []
+
+        for method_name in required_methods:
+            if not hasattr(strategy_class, method_name):
+                missing_methods.append(method_name)
+            else:
+                method = getattr(strategy_class, method_name)
+                if not callable(method):
+                    missing_methods.append(f"{method_name} (not callable)")
+
+        if missing_methods:
+            raise ValueError(
+                f"戦略登録エラー: {component_name}[{level.value}] - "
+                f"strategy_class '{strategy_class.__name__}' に必須メソッドが不足: "
+                f"{', '.join(missing_methods)}"
+            )
+
+        # 5. コンストラクタ検証（ConfigパラメータをOptimizationConfigとして受け取ることを確認）
+        try:
+            constructor_sig = inspect.signature(strategy_class.__init__)
+            params = list(constructor_sig.parameters.values())[1:]  # selfを除外
+
+            if len(params) < 1:
+                raise ValueError(
+                    f"戦略登録エラー: {component_name}[{level.value}] - "
+                    f"strategy_class '{strategy_class.__name__}' のコンストラクタは"
+                    f"configパラメータを受け取る必要があります"
+                )
+
+        except Exception as e:
+            logger.warning(
+                f"コンストラクタ検証をスキップ: {component_name}[{level.value}] - {e}"
+            )
+
+        # 6. インスタンス化テスト（軽量）
+        try:
+            # テスト用の軽量config
+            test_config = OptimizationConfig(level=OptimizationLevel.STANDARD)
+
+            # インスタンス化テスト
+            test_instance = strategy_class(test_config)
+
+            # 基本メソッドの呼び出しテスト
+            strategy_name = test_instance.get_strategy_name()
+            if not isinstance(strategy_name, str) or not strategy_name.strip():
+                raise ValueError(
+                    f"get_strategy_name()は空でない文字列を返す必要があります。"
+                    f"受信: {repr(strategy_name)}"
+                )
+
+        except Exception as e:
+            raise ValueError(
+                f"戦略登録エラー: {component_name}[{level.value}] - "
+                f"strategy_class '{strategy_class.__name__}' のインスタンス化テストに失敗: {e}"
+            )
+
+        logger.debug(f"戦略クラス検証成功: {component_name}[{level.value}] - {strategy_class.__name__}")
 
     @classmethod
     def get_strategy(
