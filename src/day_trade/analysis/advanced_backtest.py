@@ -148,7 +148,7 @@ class AdvancedBacktestEngine:
             EventType.FILL: [self._handle_fill],
             # 将来的にカスタムイベントハンドラを追加
         }
-        
+
         # 現在の時刻を追跡
         self._current_sim_time: Optional[datetime] = None
         # 各シンボルの最新市場データを保存するための辞書
@@ -201,7 +201,7 @@ class AdvancedBacktestEngine:
         # イベントキューに初期イベントを投入
         # データフレームのインデックスを時系列イベントとして利用
         all_timestamps = sorted(data.index.union(strategy_signals.index).unique())
-        
+
         for timestamp in all_timestamps:
             if timestamp in data.index:
                 # MarketDataEvent を生成
@@ -233,7 +233,7 @@ class AdvancedBacktestEngine:
                     data={"price_target": signal_row.get((symbol, "price_target"))} if isinstance(strategy_signals.columns, pd.MultiIndex) else {"price_target": signal_row.get("price_target")},
                 )
                 self.events.append(signal_event)
-        
+
         # イベントキューを時系列順にソート
         self.events = deque(sorted(list(self.events), key=lambda event: event.timestamp))
 
@@ -320,7 +320,7 @@ class AdvancedBacktestEngine:
 
             if self._should_fill_order(order, symbol_market_data_series):
                 filled_price = self._calculate_fill_price(order, symbol_market_data_series)
-                
+
                 # 約定イベントを生成し、キューにプッシュ
                 fill_event = FillEvent(
                     type=EventType.FILL, # ★修正
@@ -425,7 +425,7 @@ class AdvancedBacktestEngine:
         if current_market_data_event is None:
             logger.warning(f"シグナル処理に十分な市場データがありません: {symbol} at {event.timestamp}") # ★修正
             return
-        
+
         current_price_for_signal = current_market_data_event.close # ★修正
 
         if signal_action in ["buy", "sell"] and confidence > 50.0:
@@ -594,7 +594,7 @@ class AdvancedBacktestEngine:
             self.current_capital += (
                 order.quantity * order.filled_price - order.commission
             )
-        
+
         return realized_pnl_for_order # 計算した実現損益を返す
 
     def _update_positions(self, current_date: datetime, market_data: pd.Series):

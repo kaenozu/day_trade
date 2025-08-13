@@ -132,13 +132,13 @@ class TradeRecord:
     entry_quantity: int
     entry_commission: float
     entry_slippage: float
-    
+
     exit_time: Optional[datetime] = None
     exit_price: Optional[float] = None
     exit_quantity: Optional[int] = None
     exit_commission: Optional[float] = None
     exit_slippage: Optional[float] = None
-    
+
     realized_pnl: float = 0.0
     total_commission: float = 0.0
     total_slippage: float = 0.0
