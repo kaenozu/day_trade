@@ -11,7 +11,12 @@ from functools import lru_cache, wraps
 from typing import Dict, List, Optional, Union
 
 import pandas as pd
-import yfinance as yf
+
+from ..utils.yfinance_import import get_yfinance, is_yfinance_available
+
+# yfinance統一インポート - Issue #614対応
+yf, YFINANCE_AVAILABLE = get_yfinance()
+
 from tenacity import (
     after_log,
     before_sleep_log,
@@ -543,8 +548,12 @@ class StockFetcher:
             },
         )
 
-    def _create_ticker(self, symbol: str) -> yf.Ticker:
-        """Tickerオブジェクトを作成（内部メソッド）"""
+    def _create_ticker(self, symbol: str):
+        """Tickerオブジェクトを作成（内部メソッド）- Issue #614対応"""
+        if not YFINANCE_AVAILABLE:
+            raise ImportError(
+                "yfinanceが利用できません。pip install yfinanceでインストールしてください。"
+            )
         return yf.Ticker(symbol)
 
     def _record_request_start(self):
@@ -1203,7 +1212,11 @@ class StockFetcher:
             batch_start = time.time()
 
             try:
-                # yfinance.Tickersを使用して一括取得
+                # yfinance.Tickersを使用して一括取得 - Issue #614対応
+                if not YFINANCE_AVAILABLE:
+                    logging.error("yfinanceが利用できません")
+                    continue
+
                 tickers = yf.Tickers(" ".join(f"{code}.T" for code in batch_codes))
 
                 for code in batch_codes:
@@ -1322,7 +1335,11 @@ class StockFetcher:
             batch_start = time.time()
 
             try:
-                # yfinance.Tickersを使用して一括取得
+                # yfinance.Tickersを使用して一括取得 - Issue #614対応
+                if not YFINANCE_AVAILABLE:
+                    logging.error("yfinanceが利用できません")
+                    continue
+
                 symbols = " ".join(f"{code}.T" for code in batch_codes)
                 tickers = yf.Tickers(symbols)
 
@@ -1451,7 +1468,11 @@ class StockFetcher:
             batch_start = time.time()
 
             try:
-                # yfinance.downloadを使用した真の一括取得
+                # yfinance.downloadを使用した真の一括取得 - Issue #614対応
+                if not YFINANCE_AVAILABLE:
+                    logging.error("yfinanceが利用できません")
+                    continue
+
                 symbols = [f"{code}.T" for code in batch_codes]
 
                 # 過去2日分のデータを一括取得（最新価格と前日価格を取得するため）
@@ -1623,7 +1644,11 @@ class StockFetcher:
             formatted_symbols = [self._format_symbol(code) for code in batch_codes]
 
             try:
-                # yf.downloadを使用した真の一括取得
+                # yf.downloadを使用した真の一括取得 - Issue #614対応
+                if not YFINANCE_AVAILABLE:
+                    logging.error("yfinanceが利用できません")
+                    continue
+
                 data = yf.download(
                     formatted_symbols,
                     period=period,
