@@ -2,10 +2,19 @@ import logging
 from collections import deque
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ConceptDriftConfig:
+    """コンセプトドリフト検出の設定"""
+    metric_threshold: float = 0.1
+    window_size: int = 30
+    enable_adaptive_detection: bool = True
 
 
 class ConceptDriftDetector:
