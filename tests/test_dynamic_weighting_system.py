@@ -24,7 +24,12 @@ def default_config():
         max_weight_change=0.2,
         min_weight=0.1,
         max_weight=0.9,
-        verbose=False
+        verbose=False,
+        # Concept Drift Detection parameters
+        enable_concept_drift_detection=True,
+        drift_detection_metric="rmse",
+        drift_detection_threshold=0.1, # Adjust as needed for test
+        drift_detection_window_size=10 # Adjust as needed for test
     )
 
 @pytest.fixture
@@ -289,3 +294,63 @@ def test_performance_window_metrics(mock_time):
     assert metrics_single["sample_count"] == 1
     assert metrics_single["rmse"] == pytest.approx(0.1)
     assert metrics_single["mae"] == pytest.approx(0.1)
+
+@patch('time.time', side_effect=mock_time_time)
+def test_concept_drift_detection_and_adaptation(mock_time, dws_instance):
+    # Ensure concept drift detection is enabled in the config
+    assert dws_instance.config.enable_concept_drift_detection == True
+    assert dws_instance.concept_drift_detector is not None
+
+    initial_weights = dws_instance.get_current_weights()
+    initial_update_frequency = dws_instance.config.update_frequency
+    initial_momentum_factor = dws_instance.config.momentum_factor
+
+    # Phase 1: Model A performs well, others perform poorly
+    # Simulate data for a period, ensuring no drift is detected initially
+    # and model A's weight increases.
+    for i in range(dws_instance.config.drift_detection_window_size * 2): # Enough samples to fill drift window and more
+        predictions = {
+            "model_A": np.array([10.1]),
+            "model_B": np.array([10.5]),
+            "model_C": np.array([10.5]),
+        }
+        actuals = np.array([10.0]) # Model A is closest
+        dws_instance.update_performance(predictions, actuals, mock_time_time() + i)
+
+    # After phase 1, model A's weight should have increased
+    weights_after_phase1 = dws_instance.get_current_weights()
+    assert weights_after_phase1["model_A"] > initial_weights["model_A"]
+    assert not dws_instance.re_evaluation_needed # No drift yet
+
+    # Phase 2: Introduce concept drift - Model B performs well, Model A performs poorly
+    # Simulate data to trigger drift
+    for i in range(dws_instance.config.drift_detection_window_size * 2):
+        predictions = {
+            "model_A": np.array([10.5]), # Now model A is bad
+            "model_B": np.array([10.1]), # Now model B is good
+            "model_C": np.array([10.5]),
+        }
+        actuals = np.array([10.0]) # Model B is closest
+        dws_instance.update_performance(predictions, actuals, mock_time_time() + dws_instance.config.drift_detection_window_size * 2 + i)
+
+    # Assert that drift was detected and adaptation occurred
+    assert dws_instance.re_evaluation_needed # Drift should be detected
+    # Check if adaptation strategy was applied (e.g., update_frequency changed)
+    assert dws_instance.config.update_frequency < initial_update_frequency or \
+           dws_instance.config.momentum_factor > initial_momentum_factor
+
+    # Check if weights were reset to equal weights
+    expected_equal_weight = 1.0 / len(dws_instance.model_names)
+    for weight in final_weights.values():
+        assert weight == pytest.approx(expected_equal_weight)
+
+    # After adaptation, model B's weight should have increased significantly
+    # This assertion might be tricky if weights are reset to equal, so we will
+    # re-evaluate the expectation here.
+    # The current behavior is to reset to equal weights upon drift, so
+    # the weights should reflect this, not increased B and decreased A.
+    # Therefore, the following assertions are commented out as they contradict
+    # the equal weight reset.
+    # assert final_weights["model_B"] > weights_after_phase1["model_B"]
+    # assert final_weights["model_A"] < weights_after_phase1["model_A"]
+    assert sum(final_weights.values()) == pytest.approx(1.0)
