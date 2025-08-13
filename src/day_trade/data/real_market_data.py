@@ -16,20 +16,12 @@ import numpy as np
 import pandas as pd
 
 from ..utils.logging_config import get_context_logger
+from ..utils.yfinance_import import get_yfinance, is_yfinance_available
 
 logger = get_context_logger(__name__)
 
-# yfinanceのオプション読み込み（パッケージが無い場合は警告）
-try:
-    import yfinance as yf
-
-    YFINANCE_AVAILABLE = True
-    logger.info("yfinance利用可能")
-except ImportError:
-    YFINANCE_AVAILABLE = False
-    logger.warning(
-        "yfinance未インストール - pip install yfinanceでインストールしてください"
-    )
+# yfinance統一インポート - Issue #614対応
+yf, YFINANCE_AVAILABLE = get_yfinance()
 
 
 class RealMarketDataManager:
