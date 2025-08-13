@@ -181,11 +181,15 @@ class DevelopmentSystemManager:
             self.logger.info(f"環境: {env_info['current_environment']}")
             self.logger.info(f"設定ディレクトリ: {env_info['config_directory']}")
             self.logger.info(f"利用可能設定: {env_info['available_configs']}")
-            self.logger.info(f"環境変数: {list(env_info['environment_variables'].keys())}")
+            self.logger.info(
+                f"環境変数: {list(env_info['environment_variables'].keys())}"
+            )
 
             # システム設定表示
             system_config = self.config_manager.get_system_config()
-            self.logger.info(f"パフォーマンス目標: {system_config.performance_target_seconds}秒")
+            self.logger.info(
+                f"パフォーマンス目標: {system_config.performance_target_seconds}秒"
+            )
             self.logger.info(f"メモリ制限: {system_config.memory_limit_mb}MB")
 
         except Exception as e:

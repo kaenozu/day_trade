@@ -43,9 +43,7 @@ class TestScreeningStrategies:
         )
 
         indicators = pd.DataFrame(
-            {
-                "RSI": [50, 40, 30, 25, 20]  # 最後がRSI 20（過売り）
-            }
+            {"RSI": [50, 40, 30, 25, 20]}  # 最後がRSI 20（過売り）
         )
 
         # RSI 20で閾値30のテスト

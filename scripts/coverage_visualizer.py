@@ -106,7 +106,9 @@ def create_file_coverage_chart(coverage_data: Dict[str, Any], output_dir: Path):
     file_coverage = []
     for filename, data in files_data.items():
         # パス名を短縮
-        short_name = filename.replace("src\\day_trade\\", "").replace("src/day_trade/", "")
+        short_name = filename.replace("src\\day_trade\\", "").replace(
+            "src/day_trade/", ""
+        )
         if len(short_name) > 40:
             short_name = "..." + short_name[-37:]
 
@@ -128,14 +130,19 @@ def create_file_coverage_chart(coverage_data: Dict[str, Any], output_dir: Path):
     # 上位20件（高カバレッジ）
     if top_files:
         names, values = zip(*top_files)
-        colors = ["#27AE60" if v >= 80 else "#F39C12" if v >= 60 else "#E74C3C" for v in values]
+        colors = [
+            "#27AE60" if v >= 80 else "#F39C12" if v >= 60 else "#E74C3C"
+            for v in values
+        ]
 
         y_pos = range(len(names))
         bars1 = ax1.barh(y_pos, values, color=colors, alpha=0.7)
         ax1.set_yticks(y_pos)
         ax1.set_yticklabels(names, fontsize=8)
         ax1.set_xlabel("カバレッジ (%)")
-        ax1.set_title("ファイル別カバレッジ（上位20件）", fontsize=12, fontweight="bold")
+        ax1.set_title(
+            "ファイル別カバレッジ（上位20件）", fontsize=12, fontweight="bold"
+        )
         ax1.set_xlim(0, 100)
 
         # 値をバーに表示
@@ -153,14 +160,18 @@ def create_file_coverage_chart(coverage_data: Dict[str, Any], output_dir: Path):
     # 下位20件（低カバレッジ）
     if bottom_files:
         names, values = zip(*bottom_files)
-        colors = ["#E74C3C" if v < 60 else "#F39C12" if v < 80 else "#27AE60" for v in values]
+        colors = [
+            "#E74C3C" if v < 60 else "#F39C12" if v < 80 else "#27AE60" for v in values
+        ]
 
         y_pos = range(len(names))
         bars2 = ax2.barh(y_pos, values, color=colors, alpha=0.7)
         ax2.set_yticks(y_pos)
         ax2.set_yticklabels(names, fontsize=8)
         ax2.set_xlabel("カバレッジ (%)")
-        ax2.set_title("ファイル別カバレッジ（下位20件）", fontsize=12, fontweight="bold")
+        ax2.set_title(
+            "ファイル別カバレッジ（下位20件）", fontsize=12, fontweight="bold"
+        )
         ax2.set_xlim(0, 100)
 
         # 値をバーに表示
@@ -200,7 +211,9 @@ def create_package_coverage_chart(coverage_data: Dict[str, Any], output_dir: Pat
     for filename, data in files_data.items():
         # パッケージ名を抽出
         path_parts = (
-            filename.replace("src\\day_trade\\", "").replace("src/day_trade/", "").split("/")
+            filename.replace("src\\day_trade\\", "")
+            .replace("src/day_trade/", "")
+            .split("/")
         )
         if "\\" in filename:
             path_parts = filename.replace("src\\day_trade\\", "").split("\\")
@@ -238,7 +251,9 @@ def create_package_coverage_chart(coverage_data: Dict[str, Any], output_dir: Pat
     sizes = [item[2] for item in package_coverage]
 
     # バーの色を設定
-    colors = ["#27AE60" if v >= 80 else "#F39C12" if v >= 60 else "#E74C3C" for v in values]
+    colors = [
+        "#27AE60" if v >= 80 else "#F39C12" if v >= 60 else "#E74C3C" for v in values
+    ]
 
     y_pos = range(len(names))
     bars = ax.barh(y_pos, values, color=colors, alpha=0.7)
@@ -285,12 +300,16 @@ def create_coverage_heatmap(coverage_data: Dict[str, Any], output_dir: Path):
     # ファイル別データを抽出
     file_matrix = []
     for filename, data in files_data.items():
-        short_name = filename.replace("src\\day_trade\\", "").replace("src/day_trade/", "")
+        short_name = filename.replace("src\\day_trade\\", "").replace(
+            "src/day_trade/", ""
+        )
         summary = data.get("summary", {})
         coverage_pct = summary.get("percent_covered", 0)
         num_statements = summary.get("num_statements", 0)
 
-        file_matrix.append({"name": short_name, "coverage": coverage_pct, "size": num_statements})
+        file_matrix.append(
+            {"name": short_name, "coverage": coverage_pct, "size": num_statements}
+        )
 
     # サイズでソート
     file_matrix.sort(key=lambda x: x["size"], reverse=True)
@@ -328,9 +347,7 @@ def create_coverage_heatmap(coverage_data: Dict[str, Any], output_dir: Path):
         # 名前を調整
         display_name = name[:40].ljust(40)
 
-        heatmap_content += (
-            f"{cov_char} {size_char} {display_name} {coverage:6.1f}% ({size:3d} lines)\n"
-        )
+        heatmap_content += f"{cov_char} {size_char} {display_name} {coverage:6.1f}% ({size:3d} lines)\n"
 
     heatmap_content += "```\n"
 
@@ -500,7 +517,9 @@ def create_coverage_dashboard(coverage_files: List[Path], output_dir: Path):
     if coverage_pct < 60:
         recommendations.append("🔴 カバレッジが60%未満です。テストの追加が急務です。")
     elif coverage_pct < 70:
-        recommendations.append("🟡 カバレッジは60%以上ですが、70%を目標に改善を続けてください。")
+        recommendations.append(
+            "🟡 カバレッジは60%以上ですが、70%を目標に改善を続けてください。"
+        )
     elif coverage_pct < 80:
         recommendations.append("🟢 良好なカバレッジです。80%達成を目指しましょう。")
     else:

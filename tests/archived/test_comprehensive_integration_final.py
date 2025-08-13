@@ -21,18 +21,35 @@ print("Issue #313: Complete System Integration Verification")
 print("Phase 1-4 + Performance Monitoring + Auto Recovery")
 print("=" * 80)
 
+
 class IntegratedSystemTestSuite:
     """統合システムテストスイート"""
 
     def __init__(self):
         # テストデータ
         self.test_stocks = [
-            "7203", "9984", "6758", "9432", "8306", "6861", "9433", "4063",
-            "6098", "8031", "6367", "4568", "8035", "4502", "8058", "6954"
+            "7203",
+            "9984",
+            "6758",
+            "9432",
+            "8306",
+            "6861",
+            "9433",
+            "4063",
+            "6098",
+            "8031",
+            "6367",
+            "4568",
+            "8035",
+            "4502",
+            "8058",
+            "6954",
         ]
 
         # 大規模テスト用（100銘柄）
-        self.large_test_stocks = self.test_stocks * 6 + ["TEST" + str(i) for i in range(4)]
+        self.large_test_stocks = self.test_stocks * 6 + [
+            "TEST" + str(i) for i in range(4)
+        ]
 
         # テスト結果記録
         self.test_results = []
@@ -94,7 +111,11 @@ class IntegratedSystemTestSuite:
             start_time = time.time()
 
             # ML分析シミュレーション
-            for i, _stock in enumerate(self.test_stocks[:85] if len(self.test_stocks) >= 85 else self.test_stocks * 6):
+            for i, _stock in enumerate(
+                self.test_stocks[:85]
+                if len(self.test_stocks) >= 85
+                else self.test_stocks * 6
+            ):
                 if i >= 85:
                     break
                 # ML処理シミュレーション
@@ -166,9 +187,11 @@ class IntegratedSystemTestSuite:
             print(f"  Weight sum: {sum(weights):.3f}")
 
             # 成功条件
-            return (optimization_time <= 2.0 and
-                   abs(sum(weights) - 1.0) < 0.001 and
-                   sharpe_ratio > 0.3)
+            return (
+                optimization_time <= 2.0
+                and abs(sum(weights) - 1.0) < 0.001
+                and sharpe_ratio > 0.3
+            )
 
         except Exception as e:
             print(f"Portfolio optimization test failed: {e}")
@@ -195,10 +218,12 @@ class IntegratedSystemTestSuite:
             for day in range(simulation_days):
                 # 日次リターンシミュレーション
                 daily_return = random.uniform(-0.03, 0.05)  # -3%〜+5%
-                portfolio_value *= (1 + daily_return)
+                portfolio_value *= 1 + daily_return
                 daily_returns.append(daily_return)
 
-                print(f"    Day {day+1}: Return {daily_return:+.2%}, Value {portfolio_value:,.0f} JPY")
+                print(
+                    f"    Day {day+1}: Return {daily_return:+.2%}, Value {portfolio_value:,.0f} JPY"
+                )
                 time.sleep(0.1)
 
             simulation_time = time.time() - start_time
@@ -206,7 +231,9 @@ class IntegratedSystemTestSuite:
 
             # シャープレシオ計算
             avg_return = sum(daily_returns) / len(daily_returns)
-            volatility = (sum([(r - avg_return)**2 for r in daily_returns]) / len(daily_returns))**0.5
+            volatility = (
+                sum([(r - avg_return) ** 2 for r in daily_returns]) / len(daily_returns)
+            ) ** 0.5
             sharpe = avg_return / volatility if volatility > 0 else 0
 
             print(f"  Final value: {portfolio_value:,.0f} JPY")
@@ -217,9 +244,11 @@ class IntegratedSystemTestSuite:
             print(f"  Simulation time: {simulation_time:.3f}s")
 
             # 成功条件
-            return (simulation_time <= 2.0 and
-                   portfolio_value > 0 and
-                   abs(total_return) <= 1.0)  # ±100%以内
+            return (
+                simulation_time <= 2.0
+                and portfolio_value > 0
+                and abs(total_return) <= 1.0
+            )  # ±100%以内
 
         except Exception as e:
             print(f"Trading simulation test failed: {e}")
@@ -239,7 +268,7 @@ class IntegratedSystemTestSuite:
                 ("portfolio_optimization", 0.8),
                 ("trading_simulation", 1.5),
                 ("data_fetch", 0.3),
-                ("slow_operation", 6.0)  # アラート生成テスト
+                ("slow_operation", 6.0),  # アラート生成テスト
             ]
 
             alerts_generated = 0
@@ -260,12 +289,14 @@ class IntegratedSystemTestSuite:
                 status = "SUCCESS" if success else "FAILURE"
                 print(f"  Monitored {operation}: {actual_time:.3f}s ({status})")
 
-                monitoring_results.append({
-                    "operation": operation,
-                    "execution_time": actual_time,
-                    "success": success,
-                    "alert": actual_time > 5.0
-                })
+                monitoring_results.append(
+                    {
+                        "operation": operation,
+                        "execution_time": actual_time,
+                        "success": success,
+                        "alert": actual_time > 5.0,
+                    }
+                )
 
             # 監視結果集計
             total_operations = len(monitoring_results)
@@ -325,7 +356,7 @@ class IntegratedSystemTestSuite:
                     return {
                         "active_provider": self.active_provider,
                         "degradation_level": self.degradation_level,
-                        "recovery_actions": len(self.recovery_actions)
+                        "recovery_actions": len(self.recovery_actions),
                     }
 
             # システムテスト実行
@@ -335,7 +366,7 @@ class IntegratedSystemTestSuite:
                 "normal_operation",
                 "primary_fails",
                 "both_fail_degrade",
-                "recovery_test"
+                "recovery_test",
             ]
 
             results = []
@@ -351,14 +382,20 @@ class IntegratedSystemTestSuite:
                     print(f"  {test_case}: BACKUP recovered")
                 elif test_case == "both_fail_degrade":
                     print(f"  {test_case}: BACKUP failed - Backup overload")
-                    print(f"  System degraded to level {fault_system.degradation_level}")
+                    print(
+                        f"  System degraded to level {fault_system.degradation_level}"
+                    )
                 elif test_case == "recovery_test":
                     print(f"  {test_case}: BACKUP success")
 
             # 最終状態確認
             status = fault_system.get_status()
 
-            successful_tests = sum(1 for _, result in results if result["status"] in ["success", "recovered", "degraded"])
+            successful_tests = sum(
+                1
+                for _, result in results
+                if result["status"] in ["success", "recovered", "degraded"]
+            )
 
             print("Fault tolerance test results:")
             print(f"  Test cases: {len(test_cases)}")
@@ -373,10 +410,14 @@ class IntegratedSystemTestSuite:
                 if action == "failover_to_backup":
                     print("    RECOVERY: Failover to backup for primary_fails")
                 elif action == "graceful_degradation":
-                    print(f"    RECOVERY: Degradation level {status['degradation_level']}")
+                    print(
+                        f"    RECOVERY: Degradation level {status['degradation_level']}"
+                    )
 
             # 成功条件：全テストケース成功 + 復旧アクション実行
-            return successful_tests == len(test_cases) and status['recovery_actions'] > 0
+            return (
+                successful_tests == len(test_cases) and status["recovery_actions"] > 0
+            )
 
         except Exception as e:
             print(f"Fault tolerance test failed: {e}")
@@ -451,7 +492,9 @@ class IntegratedSystemTestSuite:
             total_stocks = len(large_stocks)
 
             print(f"Starting large scale processing test with {total_stocks} stocks...")
-            print(f"  Processing {total_stocks} stocks in {(total_stocks + batch_size - 1) // batch_size} batches")
+            print(
+                f"  Processing {total_stocks} stocks in {(total_stocks + batch_size - 1) // batch_size} batches"
+            )
 
             start_time = time.time()
             processed_stocks = 0
@@ -460,7 +503,7 @@ class IntegratedSystemTestSuite:
             # バッチ処理
             for i in range(0, total_stocks, batch_size):
                 batch_start = time.time()
-                batch_stocks = large_stocks[i:i + batch_size]
+                batch_stocks = large_stocks[i : i + batch_size]
 
                 # バッチ処理シミュレーション
                 time.sleep(0.5)  # バッチ処理時間
@@ -472,7 +515,9 @@ class IntegratedSystemTestSuite:
                 # プログレス表示
                 progress = processed_stocks / total_stocks * 100
                 if i // batch_size % 2 == 0:  # 2バッチごとに表示
-                    print(f"    Batch {len(batch_times)}: {len(batch_stocks)} stocks, {batch_time:.3f}s, Progress: {progress:.1f}%")
+                    print(
+                        f"    Batch {len(batch_times)}: {len(batch_stocks)} stocks, {batch_time:.3f}s, Progress: {progress:.1f}%"
+                    )
 
             total_time = time.time() - start_time
             avg_batch_time = sum(batch_times) / len(batch_times)
@@ -495,9 +540,11 @@ class IntegratedSystemTestSuite:
             print(f"  Performance ratio: {performance_ratio:.2f}x")
 
             # 成功条件：全銘柄処理完了 + 合理的な処理時間
-            return (processed_stocks == total_stocks and
-                   total_time <= 10.0 and
-                   performance_ratio <= 1.0)
+            return (
+                processed_stocks == total_stocks
+                and total_time <= 10.0
+                and performance_ratio <= 1.0
+            )
 
         except Exception as e:
             print(f"Large scale processing test failed: {e}")
@@ -518,7 +565,7 @@ class IntegratedSystemTestSuite:
                 "trading_simulator": True,
                 "performance_monitor": True,
                 "fault_tolerance": True,
-                "recovery_system": False  # 1つだけ問題ありとして設定
+                "recovery_system": False,  # 1つだけ問題ありとして設定
             }
 
             start_time = time.time()
@@ -541,7 +588,11 @@ class IntegratedSystemTestSuite:
 
             check_time = time.time() - start_time
             health_ratio = healthy_count / total_count
-            overall_health = "healthy" if health_ratio >= 0.8 else "degraded" if health_ratio >= 0.5 else "critical"
+            overall_health = (
+                "healthy"
+                if health_ratio >= 0.8
+                else "degraded" if health_ratio >= 0.5 else "critical"
+            )
 
             print("System health check results:")
             print(f"  Overall health: {overall_health}")
@@ -598,38 +649,52 @@ class IntegratedSystemTestSuite:
         # Phase1-4統合チェック
         phase_tests = [r for r in self.test_results if "Phase" in r[0]]
         phase_success = all(success for _, success, _ in phase_tests)
-        print(f"  [{'OK' if phase_success else 'NG'}] Phase 1-4 Integration: {'COMPLETE' if phase_success else 'INCOMPLETE'}")
+        print(
+            f"  [{'OK' if phase_success else 'NG'}] Phase 1-4 Integration: {'COMPLETE' if phase_success else 'INCOMPLETE'}"
+        )
 
         # パフォーマンス監視チェック
         perf_test = [r for r in self.test_results if "Performance Monitoring" in r[0]]
         perf_success = perf_test[0][1] if perf_test else False
-        print(f"  [{'OK' if perf_success else 'NG'}] Performance Monitoring: {'IMPLEMENTED' if perf_success else 'INCOMPLETE'}")
+        print(
+            f"  [{'OK' if perf_success else 'NG'}] Performance Monitoring: {'IMPLEMENTED' if perf_success else 'INCOMPLETE'}"
+        )
 
         # フォールトトレランスチェック
         fault_test = [r for r in self.test_results if "Fault Tolerance" in r[0]]
         fault_success = fault_test[0][1] if fault_test else False
-        print(f"  [{'OK' if fault_success else 'NG'}] Fault Tolerance: {'IMPLEMENTED' if fault_success else 'INCOMPLETE'}")
+        print(
+            f"  [{'OK' if fault_success else 'NG'}] Fault Tolerance: {'IMPLEMENTED' if fault_success else 'INCOMPLETE'}"
+        )
 
         # エンドツーエンドワークフロー
         e2e_test = [r for r in self.test_results if "End-to-End" in r[0]]
         e2e_success = e2e_test[0][1] if e2e_test else False
-        print(f"  [{'OK' if e2e_success else 'NG'}] End-to-End Workflow: {'IMPLEMENTED' if e2e_success else 'INCOMPLETE'}")
+        print(
+            f"  [{'OK' if e2e_success else 'NG'}] End-to-End Workflow: {'IMPLEMENTED' if e2e_success else 'INCOMPLETE'}"
+        )
 
         # 大規模処理
         scale_test = [r for r in self.test_results if "Large Scale" in r[0]]
         scale_success = scale_test[0][1] if scale_test else False
-        print(f"  [{'OK' if scale_success else 'NG'}] Large Scale Processing: {'IMPLEMENTED' if scale_success else 'INCOMPLETE'}")
+        print(
+            f"  [{'OK' if scale_success else 'NG'}] Large Scale Processing: {'IMPLEMENTED' if scale_success else 'INCOMPLETE'}"
+        )
 
         # システムヘルス
         health_test = [r for r in self.test_results if "Health" in r[0]]
         health_success = health_test[0][1] if health_test else False
-        print(f"  [{'OK' if health_success else 'NG'}] System Health Check: {'IMPLEMENTED' if health_success else 'INCOMPLETE'}")
+        print(
+            f"  [{'OK' if health_success else 'NG'}] System Health Check: {'IMPLEMENTED' if health_success else 'INCOMPLETE'}"
+        )
 
         print()
 
         # 最終判定
         critical_success = phase_success and fault_success and e2e_success
-        overall_success = success_rate >= 0.75 and critical_success  # 75%以上 + 重要機能成功
+        overall_success = (
+            success_rate >= 0.75 and critical_success
+        )  # 75%以上 + 重要機能成功
 
         if overall_success:
             print("COMPREHENSIVE INTEGRATION TEST: PASSED")
@@ -680,6 +745,7 @@ def main():
     except Exception as e:
         print(f"Comprehensive integration test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

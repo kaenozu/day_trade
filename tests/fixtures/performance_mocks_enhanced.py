@@ -397,16 +397,16 @@ def create_fast_test_environment(
 
     if include_ml:
         environment["ml_manager"] = MLModelMocks.create_fast_ml_model_manager()
-        environment[
-            "feature_manager"
-        ] = MLModelMocks.create_fast_feature_engineering_manager()
+        environment["feature_manager"] = (
+            MLModelMocks.create_fast_feature_engineering_manager()
+        )
         environment["mock_types"].append("ml_models")
 
     if include_backtest:
         environment["backtest_engine"] = BacktestMocks.create_fast_backtest_engine()
-        environment[
-            "portfolio_optimizer"
-        ] = BacktestMocks.create_fast_portfolio_optimizer()
+        environment["portfolio_optimizer"] = (
+            BacktestMocks.create_fast_portfolio_optimizer()
+        )
         environment["mock_types"].append("backtest")
 
     if include_database:
@@ -414,9 +414,9 @@ def create_fast_test_environment(
         environment["mock_types"].append("database")
 
     if include_integration:
-        environment[
-            "analysis_engine"
-        ] = IntegrationTestMocks.create_fast_analysis_engine()
+        environment["analysis_engine"] = (
+            IntegrationTestMocks.create_fast_analysis_engine()
+        )
         environment["mock_types"].append("integration")
 
     return environment

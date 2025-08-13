@@ -23,6 +23,7 @@ from src.day_trade.utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
+
 class MonitoringSystemTest:
     """監視システム統合テスト"""
 
@@ -33,9 +34,9 @@ class MonitoringSystemTest:
     async def run_comprehensive_test(self):
         """包括的テスト実行"""
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("リアルタイムメトリクス・アラートシステム 統合テスト")
-        print("="*70)
+        print("=" * 70)
         print(f"実行日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print()
 
@@ -76,17 +77,17 @@ class MonitoringSystemTest:
             print("  OK ヘルスメトリクス: 準備完了")
             print(f"  処理時間: {processing_time:.3f}秒")
 
-            self.test_results['metrics_collection'] = {
-                'success': True,
-                'collection_result': collection_result,
-                'processing_time': processing_time
+            self.test_results["metrics_collection"] = {
+                "success": True,
+                "collection_result": collection_result,
+                "processing_time": processing_time,
             }
 
         except Exception as e:
             print(f"  NG メトリクス収集エラー: {e}")
-            self.test_results['metrics_collection'] = {
-                'success': False,
-                'error': str(e)
+            self.test_results["metrics_collection"] = {
+                "success": False,
+                "error": str(e),
             }
 
         print()
@@ -106,38 +107,40 @@ class MonitoringSystemTest:
             # テスト用トランザクションデータ
             test_transactions = [
                 {
-                    'symbol': 'AAPL',
-                    'amount': 1000000,  # 100万円
-                    'transaction_type': 'buy',
-                    'user_id': 'test_user_001',
-                    'timestamp': datetime.now().isoformat()
+                    "symbol": "AAPL",
+                    "amount": 1000000,  # 100万円
+                    "transaction_type": "buy",
+                    "user_id": "test_user_001",
+                    "timestamp": datetime.now().isoformat(),
                 },
                 {
-                    'symbol': 'GOOGL',
-                    'amount': 5000000,  # 500万円（高リスク）
-                    'transaction_type': 'sell',
-                    'user_id': 'test_user_002',
-                    'timestamp': datetime.now().isoformat()
+                    "symbol": "GOOGL",
+                    "amount": 5000000,  # 500万円（高リスク）
+                    "transaction_type": "sell",
+                    "user_id": "test_user_002",
+                    "timestamp": datetime.now().isoformat(),
                 },
                 {
-                    'symbol': 'TSLA',
-                    'amount': 15000000,  # 1500万円（非常に高リスク）
-                    'transaction_type': 'buy',
-                    'user_id': 'test_user_003',
-                    'timestamp': datetime.now().isoformat()
-                }
+                    "symbol": "TSLA",
+                    "amount": 15000000,  # 1500万円（非常に高リスク）
+                    "transaction_type": "buy",
+                    "user_id": "test_user_003",
+                    "timestamp": datetime.now().isoformat(),
+                },
             ]
 
             risk_assessments = []
 
             for i, transaction in enumerate(test_transactions):
-                print(f"  リスク分析実行 {i+1}/3: {transaction['symbol']} (¥{transaction['amount']:,})")
+                print(
+                    f"  リスク分析実行 {i+1}/3: {transaction['symbol']} (¥{transaction['amount']:,})"
+                )
 
                 # リスク評価実行
                 assessment = await risk_coordinator.comprehensive_risk_assessment(
                     transaction_data=transaction,
                     enable_ai_analysis=False,  # テスト用に無効化
-                    enable_fraud_detection=True
+                    enable_fraud_detection=True,
                 )
 
                 risk_assessments.append(assessment)
@@ -151,18 +154,18 @@ class MonitoringSystemTest:
             print(f"\n  OK 全リスク分析完了: {len(risk_assessments)}件")
             print(f"  総処理時間: {processing_time:.3f}秒")
 
-            self.test_results['risk_metrics_integration'] = {
-                'success': True,
-                'assessments_count': len(risk_assessments),
-                'risk_scores': [a.overall_risk_score for a in risk_assessments],
-                'processing_time': processing_time
+            self.test_results["risk_metrics_integration"] = {
+                "success": True,
+                "assessments_count": len(risk_assessments),
+                "risk_scores": [a.overall_risk_score for a in risk_assessments],
+                "processing_time": processing_time,
             }
 
         except Exception as e:
             print(f"  NG リスクメトリクス統合エラー: {e}")
-            self.test_results['risk_metrics_integration'] = {
-                'success': False,
-                'error': str(e)
+            self.test_results["risk_metrics_integration"] = {
+                "success": False,
+                "error": str(e),
             }
 
         print()
@@ -190,18 +193,15 @@ class MonitoringSystemTest:
             print("  OK ヘルスチェック: http://localhost:8001/health")
             print(f"  処理時間: {processing_time:.3f}秒")
 
-            self.test_results['metrics_exporter'] = {
-                'success': True,
-                'server_url': 'http://localhost:8001',
-                'processing_time': processing_time
+            self.test_results["metrics_exporter"] = {
+                "success": True,
+                "server_url": "http://localhost:8001",
+                "processing_time": processing_time,
             }
 
         except Exception as e:
             print(f"  NG メトリクスエクスポーターエラー: {e}")
-            self.test_results['metrics_exporter'] = {
-                'success': False,
-                'error': str(e)
-            }
+            self.test_results["metrics_exporter"] = {"success": False, "error": str(e)}
 
         print()
 
@@ -218,66 +218,63 @@ class MonitoringSystemTest:
 
             # テストアラート生成
             test_scenarios = [
-                {'component': 'test_critical', 'symbol': 'TEST1', 'score': 0.95},
-                {'component': 'test_high', 'symbol': 'TEST2', 'score': 0.75},
-                {'component': 'test_medium', 'symbol': 'TEST3', 'score': 0.45}
+                {"component": "test_critical", "symbol": "TEST1", "score": 0.95},
+                {"component": "test_high", "symbol": "TEST2", "score": 0.75},
+                {"component": "test_medium", "symbol": "TEST3", "score": 0.45},
             ]
 
             for scenario in test_scenarios:
                 # リスクスコア更新
                 risk_metrics.update_risk_score(
-                    scenario['component'],
-                    scenario['symbol'],
-                    scenario['score']
+                    scenario["component"], scenario["symbol"], scenario["score"]
                 )
 
                 # アラート生成条件判定
-                if scenario['score'] >= 0.9:
+                if scenario["score"] >= 0.9:
                     level = "critical"
-                elif scenario['score'] >= 0.7:
+                elif scenario["score"] >= 0.7:
                     level = "high"
                 else:
                     level = "medium"
 
                 # アラートメトリクス記録
                 risk_metrics.risk_alerts_total.labels(
-                    alert_level=level,
-                    component=scenario['component']
+                    alert_level=level, component=scenario["component"]
                 ).inc()
 
-                print(f"  OK アラート生成: {level} - {scenario['component']} (スコア: {scenario['score']})")
+                print(
+                    f"  OK アラート生成: {level} - {scenario['component']} (スコア: {scenario['score']})"
+                )
 
             processing_time = time.time() - start_time
 
             print(f"\n  OK アラート生成完了: {len(test_scenarios)}件")
             print(f"  処理時間: {processing_time:.3f}秒")
 
-            self.test_results['alert_generation'] = {
-                'success': True,
-                'alerts_generated': len(test_scenarios),
-                'processing_time': processing_time
+            self.test_results["alert_generation"] = {
+                "success": True,
+                "alerts_generated": len(test_scenarios),
+                "processing_time": processing_time,
             }
 
         except Exception as e:
             print(f"  NG アラート生成エラー: {e}")
-            self.test_results['alert_generation'] = {
-                'success': False,
-                'error': str(e)
-            }
+            self.test_results["alert_generation"] = {"success": False, "error": str(e)}
 
         print()
 
     def _display_results(self):
         """結果表示"""
 
-        print("="*70)
+        print("=" * 70)
         print("テスト結果サマリー")
-        print("="*70)
+        print("=" * 70)
 
         # 成功率計算
         total_tests = len(self.test_results)
-        successful_tests = sum(1 for result in self.test_results.values()
-                             if result.get('success', False))
+        successful_tests = sum(
+            1 for result in self.test_results.values() if result.get("success", False)
+        )
         success_rate = (successful_tests / total_tests) * 100 if total_tests > 0 else 0
 
         print(f"総合成功率: {success_rate:.1f}% ({successful_tests}/{total_tests})")
@@ -285,28 +282,32 @@ class MonitoringSystemTest:
 
         # 個別テスト結果
         for test_name, result in self.test_results.items():
-            status = "OK 成功" if result.get('success') else "NG 失敗"
+            status = "OK 成功" if result.get("success") else "NG 失敗"
             print(f"{test_name.replace('_', ' ').title()}: {status}")
 
-            if result.get('success'):
-                if 'processing_time' in result:
+            if result.get("success"):
+                if "processing_time" in result:
                     print(f"  処理時間: {result['processing_time']:.3f}秒")
-                if 'server_url' in result:
+                if "server_url" in result:
                     print(f"  サーバーURL: {result['server_url']}")
-                if 'assessments_count' in result:
+                if "assessments_count" in result:
                     print(f"  リスク評価実行数: {result['assessments_count']}件")
             else:
-                if 'error' in result:
+                if "error" in result:
                     print(f"  エラー: {result['error']}")
             print()
 
         # 総合評価
         print("-" * 70)
         if success_rate == 100:
-            print("全テスト成功! リアルタイムメトリクス・アラートシステムは正常に動作しています。")
+            print(
+                "全テスト成功! リアルタイムメトリクス・アラートシステムは正常に動作しています。"
+            )
             print()
             print("次のステップ:")
-            print("1. Docker環境での統合テスト: docker-compose -f docker-compose.monitoring.yml up")
+            print(
+                "1. Docker環境での統合テスト: docker-compose -f docker-compose.monitoring.yml up"
+            )
             print("2. Grafana ダッシュボード確認: http://localhost:3000")
             print("3. Prometheus 確認: http://localhost:9090")
             print("4. AlertManager 確認: http://localhost:9093")
@@ -317,7 +318,8 @@ class MonitoringSystemTest:
 
         print()
         print("監視システム統合テスト完了")
-        print("="*70)
+        print("=" * 70)
+
 
 async def main():
     """メイン実行関数"""
@@ -332,7 +334,9 @@ async def main():
     except Exception as e:
         print(f"\n\nテストエラー: {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     print("リアルタイムメトリクス・アラートシステム 統合テスト起動中...")

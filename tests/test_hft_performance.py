@@ -43,9 +43,9 @@ class TestHFTPerformance:
         """テストデータ生成"""
         np.random.seed(42)
         return {
-            'prices': np.random.normal(100, 5, 1000).astype(np.float64),
-            'volumes': np.random.normal(10000, 1000, 1000).astype(np.float64),
-            'model_weights': np.random.normal(0, 0.1, 8).astype(np.float64),
+            "prices": np.random.normal(100, 5, 1000).astype(np.float64),
+            "volumes": np.random.normal(10000, 1000, 1000).astype(np.float64),
+            "model_weights": np.random.normal(0, 0.1, 8).astype(np.float64),
         }
 
     def test_hft_optimizer_initialization(self, hft_config):
@@ -73,25 +73,26 @@ class TestHFTPerformance:
 
         for _ in range(10):
             result = optimizer.predict_ultra_fast(
-                test_data['prices'],
-                test_data['volumes']
+                test_data["prices"], test_data["volumes"]
             )
 
-            assert 'prediction' in result
-            assert 'latency_us' in result
-            assert 'under_target' in result
+            assert "prediction" in result
+            assert "latency_us" in result
+            assert "under_target" in result
 
-            latencies.append(result['latency_us'])
-            predictions.append(result['prediction'])
+            latencies.append(result["latency_us"])
+            predictions.append(result["prediction"])
 
             # 基本的な妥当性チェック
-            assert isinstance(result['prediction'], float)
-            assert result['latency_us'] > 0
+            assert isinstance(result["prediction"], float)
+            assert result["latency_us"] > 0
 
         # パフォーマンス検証
         avg_latency = np.mean(latencies)
         max_latency = np.max(latencies)
-        under_target_rate = np.mean([lat < hft_config.target_latency_us for lat in latencies])
+        under_target_rate = np.mean(
+            [lat < hft_config.target_latency_us for lat in latencies]
+        )
 
         print(f"平均レイテンシ: {avg_latency:.2f}μs")
         print(f"最大レイテンシ: {max_latency:.2f}μs")
@@ -112,8 +113,10 @@ class TestHFTPerformance:
         for i in range(20):
             symbol = f"STOCK_{i:03d}"
             symbols_data[symbol] = {
-                'prices': test_data['prices'] + np.random.normal(0, 1, len(test_data['prices'])),
-                'volumes': test_data['volumes'] + np.random.normal(0, 100, len(test_data['volumes'])),
+                "prices": test_data["prices"]
+                + np.random.normal(0, 1, len(test_data["prices"])),
+                "volumes": test_data["volumes"]
+                + np.random.normal(0, 100, len(test_data["volumes"])),
             }
 
         # バッチ予測実行
@@ -151,8 +154,8 @@ class TestHFTPerformance:
 
         # GPU可用性確認
         gpu_report = accelerator.get_gpu_report()
-        assert 'gpu_available' in gpu_report['availability']
-        assert 'cupy_available' in gpu_report['availability']
+        assert "gpu_available" in gpu_report["availability"]
+        assert "cupy_available" in gpu_report["availability"]
 
         print(f"GPU利用可能: {gpu_report['availability']['gpu_available']}")
         print(f"CuPy利用可能: {gpu_report['availability']['cupy_available']}")
@@ -163,8 +166,8 @@ class TestHFTPerformance:
         """GPU特徴量計算テスト"""
         accelerator = GPUAccelerator(gpu_config)
 
-        prices = test_data['prices'].astype(np.float32)
-        volumes = test_data['volumes'].astype(np.float32)
+        prices = test_data["prices"].astype(np.float32)
+        volumes = test_data["volumes"].astype(np.float32)
 
         # GPU特徴量計算
         start_time = time.perf_counter()
@@ -211,31 +214,33 @@ class TestHFTPerformance:
         for i in range(10):
             symbol = f"TEST_{i}"
             symbols_data[symbol] = {
-                'prices': test_data['prices'] + np.random.normal(0, 2, len(test_data['prices'])),
-                'volumes': test_data['volumes'] + np.random.normal(0, 200, len(test_data['volumes'])),
+                "prices": test_data["prices"]
+                + np.random.normal(0, 2, len(test_data["prices"])),
+                "volumes": test_data["volumes"]
+                + np.random.normal(0, 200, len(test_data["volumes"])),
             }
 
         # 非同期パイプライン実行
         result = await accelerator.async_gpu_pipeline(
-            symbols_data, test_data['model_weights'][:7]
+            symbols_data, test_data["model_weights"][:7]
         )
 
         # 結果検証
-        assert 'predictions' in result
-        assert 'pipeline_stats' in result
+        assert "predictions" in result
+        assert "pipeline_stats" in result
 
-        predictions = result['predictions']
-        pipeline_stats = result['pipeline_stats']
+        predictions = result["predictions"]
+        pipeline_stats = result["pipeline_stats"]
 
-        assert pipeline_stats['total_symbols'] <= 10
-        assert pipeline_stats['pipeline_time_ms'] > 0
-        assert pipeline_stats['symbols_per_second'] > 0
+        assert pipeline_stats["total_symbols"] <= 10
+        assert pipeline_stats["pipeline_time_ms"] > 0
+        assert pipeline_stats["symbols_per_second"] > 0
 
         # 予測結果の妥当性
         for symbol, prediction in predictions.items():
-            assert 'prediction' in prediction
-            assert 'timestamp' in prediction
-            assert isinstance(prediction['prediction'], float)
+            assert "prediction" in prediction
+            assert "timestamp" in prediction
+            assert isinstance(prediction["prediction"], float)
 
         print(f"非同期パイプライン: {pipeline_stats['total_symbols']}銘柄")
         print(f"処理時間: {pipeline_stats['pipeline_time_ms']:.2f}ms")
@@ -272,21 +277,23 @@ class TestHFTPerformance:
         )
 
         # 結果検証
-        assert 'symbol' in prediction_result
-        assert 'prediction' in prediction_result
-        assert 'latency_us' in prediction_result
-        assert 'hft_optimized' in prediction_result
+        assert "symbol" in prediction_result
+        assert "prediction" in prediction_result
+        assert "latency_us" in prediction_result
+        assert "hft_optimized" in prediction_result
 
         # パフォーマンス検証
-        if prediction_result.get('hft_optimized', False):
-            assert prediction_result['latency_us'] < 100.0  # 100μs以内
-            print(f"HFT予測: {prediction_result['latency_us']:.2f}μs (目標: {pipeline_config.hft_target_latency_us}μs)")
+        if prediction_result.get("hft_optimized", False):
+            assert prediction_result["latency_us"] < 100.0  # 100μs以内
+            print(
+                f"HFT予測: {prediction_result['latency_us']:.2f}μs (目標: {pipeline_config.hft_target_latency_us}μs)"
+            )
 
         # GPU特徴量生成テスト
         symbols_data = {
-            'AAPL': {'prices': test_prices, 'volumes': test_volumes},
-            'GOOGL': {'prices': test_prices * 1.5, 'volumes': test_volumes * 0.8},
-            'TSLA': {'prices': test_prices * 2.0, 'volumes': test_volumes * 1.2},
+            "AAPL": {"prices": test_prices, "volumes": test_volumes},
+            "GOOGL": {"prices": test_prices * 1.5, "volumes": test_volumes * 0.8},
+            "TSLA": {"prices": test_prices * 2.0, "volumes": test_volumes * 1.2},
         }
 
         features_result = await pipeline.gpu_batch_feature_generation(symbols_data)
@@ -309,13 +316,13 @@ class TestHFTPerformance:
         print(f"GPU加速操作数: {stats.get('gpu_accelerated_operations', 0)}")
 
         # HFT統計詳細
-        if 'hft_optimization' in stats:
-            hft_stats = stats['hft_optimization']
+        if "hft_optimization" in stats:
+            hft_stats = stats["hft_optimization"]
             print(f"HFT最適化スコア: {hft_stats.get('optimization_score', 0):.1f}/100")
 
         # GPU統計詳細
-        if 'gpu_acceleration' in stats:
-            gpu_stats = stats['gpu_acceleration']
+        if "gpu_acceleration" in stats:
+            gpu_stats = stats["gpu_acceleration"]
             print(f"GPU効率スコア: {gpu_stats.get('efficiency_score', 0):.1f}/100")
 
         pipeline.cleanup()
@@ -370,11 +377,11 @@ class TestHFTPerformance:
             features = np.zeros((data_size, 5))
             if data_size >= 20:
                 for i in range(20, data_size):
-                    features[i, 0] = np.mean(prices[i-5:i])  # MA5
-                    features[i, 1] = np.mean(prices[i-20:i])  # MA20
+                    features[i, 0] = np.mean(prices[i - 5 : i])  # MA5
+                    features[i, 1] = np.mean(prices[i - 20 : i])  # MA20
                     features[i, 2] = prices[i]
                     features[i, 3] = volumes[i]
-                    features[i, 4] = (prices[i] - prices[i-1]) / prices[i-1]
+                    features[i, 4] = (prices[i] - prices[i - 1]) / prices[i - 1]
 
             baseline_time_us = (time.perf_counter_ns() - start_time) / 1000.0
 

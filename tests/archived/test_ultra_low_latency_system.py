@@ -27,6 +27,7 @@ try:
         UltraLowLatencyCore,
         create_ultra_low_latency_core,
     )
+
     MODULES_AVAILABLE = True
 except ImportError as e:
     print(f"モジュール不足: {e}")
@@ -39,9 +40,7 @@ def test_basic_ultra_low_latency():
 
     # 超低レイテンシコア作成
     core = create_ultra_low_latency_core(
-        target_latency_us=10.0,
-        cpu_cores=[2, 3],
-        memory_mb=256
+        target_latency_us=10.0, cpu_cores=[2, 3], memory_mb=256
     )
 
     print("Ultra Low Latency Core initialized")
@@ -58,7 +57,7 @@ def test_basic_ultra_low_latency():
             print(f"Trade {i+1}: {result['latency_us']:.2f}μs (target: <10μs)")
 
     # 統計計算
-    latencies = [r['latency_us'] for r in results]
+    latencies = [r["latency_us"] for r in results]
     under_target = sum(1 for lat in latencies if lat < 10.0)
 
     print("\nResults:")
@@ -68,21 +67,25 @@ def test_basic_ultra_low_latency():
     print(f"Max latency: {max(latencies):.2f}μs")
     if len(latencies) > 1:
         print(f"Std deviation: {stdev(latencies):.2f}μs")
-    print(f"Under 10μs target: {under_target}/{len(results)} ({under_target/len(results)*100:.1f}%)")
+    print(
+        f"Under 10μs target: {under_target}/{len(results)} ({under_target/len(results)*100:.1f}%)"
+    )
 
     # パフォーマンスレポート
     report = core.get_performance_report()
     print(f"Success rate: {report['success_rate']:.1f}%")
-    print(f"Target achievement: {report['performance']['target_achievement_rate']:.1f}%")
+    print(
+        f"Target achievement: {report['performance']['target_achievement_rate']:.1f}%"
+    )
 
     core.cleanup()
 
     return {
-        'avg_latency': mean(latencies),
-        'min_latency': min(latencies),
-        'max_latency': max(latencies),
-        'under_target_rate': under_target / len(results),
-        'report': report
+        "avg_latency": mean(latencies),
+        "min_latency": min(latencies),
+        "max_latency": max(latencies),
+        "under_target_rate": under_target / len(results),
+        "report": report,
     }
 
 
@@ -99,23 +102,23 @@ def test_system_optimization():
     print(f"Platform: {status['platform']}")
     print(f"Applied optimizations: {len(status['applied_optimizations'])}")
 
-    for optimization in status['applied_optimizations']:
+    for optimization in status["applied_optimizations"]:
         print(f"  - {optimization}")
 
     # CPU情報
-    cpu_info = status.get('cpu_info', {})
+    cpu_info = status.get("cpu_info", {})
     if cpu_info:
         print(f"CPU cores configured: {cpu_info.get('cores')}")
         print(f"CPU affinity set: {cpu_info.get('affinity_set')}")
 
-        if 'current_affinity' in cpu_info:
+        if "current_affinity" in cpu_info:
             print(f"Current CPU affinity: {cpu_info['current_affinity']}")
 
     # メモリ情報
-    memory_info = status.get('memory_info', {})
-    if memory_info and 'total' in memory_info:
-        total_gb = memory_info['total'] / (1024**3)
-        available_gb = memory_info['available'] / (1024**3)
+    memory_info = status.get("memory_info", {})
+    if memory_info and "total" in memory_info:
+        total_gb = memory_info["total"] / (1024**3)
+        available_gb = memory_info["available"] / (1024**3)
         print(f"Memory: {available_gb:.1f}GB available / {total_gb:.1f}GB total")
 
     return status
@@ -132,7 +135,7 @@ def test_performance_comparison():
     normal_results = []
     for i in range(50):
         result = normal_core.execute_trade_ultra_fast("USDJPY", "buy", 10000, 150.0)
-        normal_results.append(result['latency_us'])
+        normal_results.append(result["latency_us"])
 
     normal_avg = mean(normal_results)
     normal_core.cleanup()
@@ -140,15 +143,13 @@ def test_performance_comparison():
     # 最適化設定での測定
     print("Optimized configuration testing...")
     optimized_core = create_ultra_low_latency_core(
-        target_latency_us=10.0,
-        cpu_cores=[2, 3],
-        memory_mb=512
+        target_latency_us=10.0, cpu_cores=[2, 3], memory_mb=512
     )
 
     optimized_results = []
     for i in range(50):
         result = optimized_core.execute_trade_ultra_fast("USDJPY", "buy", 10000, 150.0)
-        optimized_results.append(result['latency_us'])
+        optimized_results.append(result["latency_us"])
 
     optimized_avg = mean(optimized_results)
     optimized_core.cleanup()
@@ -162,9 +163,9 @@ def test_performance_comparison():
     print(f"Improvement: {improvement:.1f}%")
 
     return {
-        'normal_avg': normal_avg,
-        'optimized_avg': optimized_avg,
-        'improvement_percent': improvement
+        "normal_avg": normal_avg,
+        "optimized_avg": optimized_avg,
+        "improvement_percent": improvement,
     }
 
 
@@ -178,7 +179,7 @@ def test_latency_distribution():
     latencies = []
     for i in range(1000):
         result = core.execute_trade_ultra_fast("USDJPY", "buy", 10000, 150.0)
-        latencies.append(result['latency_us'])
+        latencies.append(result["latency_us"])
 
         if i % 200 == 0:
             print(f"Progress: {i+1}/1000")
@@ -212,13 +213,13 @@ def test_latency_distribution():
     core.cleanup()
 
     return {
-        'latencies': latencies,
-        'percentiles': {'p50': p50, 'p90': p90, 'p95': p95, 'p99': p99},
-        'under_targets': {
-            '5us': under_5us/10,
-            '10us': under_10us/10,
-            '15us': under_15us/10
-        }
+        "latencies": latencies,
+        "percentiles": {"p50": p50, "p90": p90, "p95": p95, "p99": p99},
+        "under_targets": {
+            "5us": under_5us / 10,
+            "10us": under_10us / 10,
+            "15us": under_15us / 10,
+        },
     }
 
 
@@ -231,7 +232,7 @@ def test_concurrent_performance():
     # 2つのコアで同時実行
     cores = [
         create_ultra_low_latency_core(target_latency_us=10.0, memory_mb=256),
-        create_ultra_low_latency_core(target_latency_us=10.0, memory_mb=256)
+        create_ultra_low_latency_core(target_latency_us=10.0, memory_mb=256),
     ]
 
     results = [[] for _ in cores]
@@ -241,7 +242,7 @@ def test_concurrent_performance():
             result = cores[core_index].execute_trade_ultra_fast(
                 "USDJPY", "buy", 10000, 150.0 + (i * 0.001)
             )
-            results[core_index].append(result['latency_us'])
+            results[core_index].append(result["latency_us"])
 
     # 同時実行開始
     print("Starting concurrent execution...")
@@ -268,16 +269,18 @@ def test_concurrent_performance():
     print("\nConcurrent Performance Summary:")
     print(f"Total trades: {len(all_latencies)}")
     print(f"Overall average: {overall_avg:.2f}μs")
-    print(f"Under 10μs target: {under_10us}/{len(all_latencies)} ({under_10us/len(all_latencies)*100:.1f}%)")
+    print(
+        f"Under 10μs target: {under_10us}/{len(all_latencies)} ({under_10us/len(all_latencies)*100:.1f}%)"
+    )
 
     # クリーンアップ
     for core in cores:
         core.cleanup()
 
     return {
-        'total_trades': len(all_latencies),
-        'overall_avg': overall_avg,
-        'target_rate': under_10us / len(all_latencies)
+        "total_trades": len(all_latencies),
+        "overall_avg": overall_avg,
+        "target_rate": under_10us / len(all_latencies),
     }
 
 
@@ -320,13 +323,17 @@ def main():
         print(f"  Platform: {system_status['platform']}")
 
         print("Performance Improvement:")
-        print(f"  Improvement vs normal: {comparison_results['improvement_percent']:.1f}%")
+        print(
+            f"  Improvement vs normal: {comparison_results['improvement_percent']:.1f}%"
+        )
         print(f"  Optimized average: {comparison_results['optimized_avg']:.2f}μs")
 
         print("Latency Distribution:")
         print(f"  P95 latency: {distribution_results['percentiles']['p95']:.2f}μs")
         print(f"  P99 latency: {distribution_results['percentiles']['p99']:.2f}μs")
-        print(f"  <10μs achievement: {distribution_results['under_targets']['10us']:.1f}%")
+        print(
+            f"  <10μs achievement: {distribution_results['under_targets']['10us']:.1f}%"
+        )
 
         print("Concurrent Performance:")
         print(f"  Concurrent average: {concurrent_results['overall_avg']:.2f}μs")
@@ -334,12 +341,14 @@ def main():
 
         # 目標達成判定
         target_achieved = (
-            basic_results['avg_latency'] < 15.0 and  # 平均15μs以下
-            distribution_results['under_targets']['10us'] > 70 and  # 70%以上が10μs以下
-            comparison_results['improvement_percent'] > 20  # 20%以上の改善
+            basic_results["avg_latency"] < 15.0  # 平均15μs以下
+            and distribution_results["under_targets"]["10us"] > 70  # 70%以上が10μs以下
+            and comparison_results["improvement_percent"] > 20  # 20%以上の改善
         )
 
-        print(f"\nOverall Assessment: {'SUCCESS' if target_achieved else 'NEEDS IMPROVEMENT'}")
+        print(
+            f"\nOverall Assessment: {'SUCCESS' if target_achieved else 'NEEDS IMPROVEMENT'}"
+        )
 
         if target_achieved:
             print("Ultra-low latency targets achieved!")
@@ -351,6 +360,7 @@ def main():
     except Exception as e:
         print(f"Test execution failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

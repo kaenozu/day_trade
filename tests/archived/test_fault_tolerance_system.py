@@ -16,6 +16,7 @@ sys.path.insert(0, str(current_dir))
 print("Fault Tolerance & Auto Recovery System - Integration Test")
 print("=" * 60)
 
+
 def test_basic_structured_logging():
     """基本構造化ログテスト"""
     print("\n=== Basic Structured Logging Test ===")
@@ -35,14 +36,16 @@ def test_basic_structured_logging():
                     "level": level,
                     "message": message,
                     "correlation_id": str(uuid.uuid4())[:8],
-                    **kwargs
+                    **kwargs,
                 }
                 self.logs.append(entry)
-                print(f"[{entry['timestamp'][:19]}] {level} [{entry['correlation_id']}] {message}")
+                print(
+                    f"[{entry['timestamp'][:19]}] {level} [{entry['correlation_id']}] {message}"
+                )
 
             def get_logs(self, level=None):
                 if level:
-                    return [log for log in self.logs if log['level'] == level]
+                    return [log for log in self.logs if log["level"] == level]
                 return self.logs
 
         logger = SimpleStructuredLogger()
@@ -77,6 +80,7 @@ def test_data_source_failover():
     print("\n=== Data Source Failover Test ===")
 
     try:
+
         class MockDataSourceManager:
             def __init__(self):
                 self.providers = {}
@@ -118,12 +122,13 @@ def test_data_source_failover():
                 return {
                     "active_provider": self.active_provider,
                     "failover_count": self.failover_count,
-                    "total_calls": self.call_count
+                    "total_calls": self.call_count,
                 }
 
         # データソース関数
         def unreliable_primary(*args, **kwargs):
             import random
+
             if random.random() < 0.4:  # 40%の確率で失敗
                 raise Exception("Primary source unavailable")
             return {"source": "primary", "data": "primary_data"}
@@ -151,20 +156,23 @@ def test_data_source_failover():
         backup_count = results.count("backup")
         failed_count = results.count("failed")
 
-        print(f"Results: Primary={primary_count}, Backup={backup_count}, Failed={failed_count}")
+        print(
+            f"Results: Primary={primary_count}, Backup={backup_count}, Failed={failed_count}"
+        )
         print(f"Failover count: {stats['failover_count']}")
         print(f"Active provider: {stats['active_provider']}")
 
         # 成功条件
         success_rate = (primary_count + backup_count) / len(results)
         assert success_rate >= 0.8, "Success rate should be >= 80%"
-        assert stats['failover_count'] > 0, "At least one failover should occur"
+        assert stats["failover_count"] > 0, "At least one failover should occur"
 
         print("Data source failover test: PASSED")
 
     except Exception as e:
         print(f"Data source failover test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -176,6 +184,7 @@ def test_graceful_degradation():
     print("\n=== Graceful Degradation Test ===")
 
     try:
+
         class MockDegradationManager:
             def __init__(self):
                 self.current_level = 0
@@ -185,8 +194,18 @@ def test_graceful_degradation():
                 self.levels = {
                     0: {"name": "Normal", "features": []},
                     1: {"name": "Minor Degradation", "features": ["real_time_alerts"]},
-                    2: {"name": "Moderate Degradation", "features": ["real_time_alerts", "detailed_analytics"]},
-                    3: {"name": "Severe Degradation", "features": ["real_time_alerts", "detailed_analytics", "ml_predictions"]}
+                    2: {
+                        "name": "Moderate Degradation",
+                        "features": ["real_time_alerts", "detailed_analytics"],
+                    },
+                    3: {
+                        "name": "Severe Degradation",
+                        "features": [
+                            "real_time_alerts",
+                            "detailed_analytics",
+                            "ml_predictions",
+                        ],
+                    },
                 }
 
             def escalate_degradation(self, reason):
@@ -197,7 +216,9 @@ def test_graceful_degradation():
                     level_info = self.levels[self.current_level]
                     self.disabled_features = level_info["features"]
 
-                    print(f"Degradation escalated: {old_level} -> {self.current_level} ({level_info['name']}) - {reason}")
+                    print(
+                        f"Degradation escalated: {old_level} -> {self.current_level} ({level_info['name']}) - {reason}"
+                    )
                     return True
                 return False
 
@@ -209,7 +230,9 @@ def test_graceful_degradation():
                     level_info = self.levels[self.current_level]
                     self.disabled_features = level_info["features"]
 
-                    print(f"Degradation recovered: {old_level} -> {self.current_level} ({level_info['name']})")
+                    print(
+                        f"Degradation recovered: {old_level} -> {self.current_level} ({level_info['name']})"
+                    )
                     return True
                 return False
 
@@ -221,40 +244,60 @@ def test_graceful_degradation():
                 return {
                     "level": self.current_level,
                     "name": level_info["name"],
-                    "disabled_features": self.disabled_features
+                    "disabled_features": self.disabled_features,
                 }
 
         # テスト実行
         dgm = MockDegradationManager()
 
         # 初期状態確認
-        assert dgm.is_feature_enabled("ml_predictions"), "ML predictions should be enabled initially"
-        assert dgm.is_feature_enabled("real_time_alerts"), "Real-time alerts should be enabled initially"
+        assert dgm.is_feature_enabled(
+            "ml_predictions"
+        ), "ML predictions should be enabled initially"
+        assert dgm.is_feature_enabled(
+            "real_time_alerts"
+        ), "Real-time alerts should be enabled initially"
 
         # デグラデーション段階的テスト
         dgm.escalate_degradation("High error rate")
-        assert not dgm.is_feature_enabled("real_time_alerts"), "Real-time alerts should be disabled at level 1"
-        assert dgm.is_feature_enabled("ml_predictions"), "ML predictions should still be enabled at level 1"
+        assert not dgm.is_feature_enabled(
+            "real_time_alerts"
+        ), "Real-time alerts should be disabled at level 1"
+        assert dgm.is_feature_enabled(
+            "ml_predictions"
+        ), "ML predictions should still be enabled at level 1"
 
         dgm.escalate_degradation("System overload")
-        assert not dgm.is_feature_enabled("detailed_analytics"), "Detailed analytics should be disabled at level 2"
-        assert dgm.is_feature_enabled("ml_predictions"), "ML predictions should still be enabled at level 2"
+        assert not dgm.is_feature_enabled(
+            "detailed_analytics"
+        ), "Detailed analytics should be disabled at level 2"
+        assert dgm.is_feature_enabled(
+            "ml_predictions"
+        ), "ML predictions should still be enabled at level 2"
 
         dgm.escalate_degradation("Critical system failure")
-        assert not dgm.is_feature_enabled("ml_predictions"), "ML predictions should be disabled at level 3"
+        assert not dgm.is_feature_enabled(
+            "ml_predictions"
+        ), "ML predictions should be disabled at level 3"
 
         # 回復テスト
         dgm.recover_degradation(2)
-        assert dgm.is_feature_enabled("ml_predictions"), "ML predictions should be re-enabled after recovery"
-        assert not dgm.is_feature_enabled("real_time_alerts"), "Real-time alerts should still be disabled at level 1"
+        assert dgm.is_feature_enabled(
+            "ml_predictions"
+        ), "ML predictions should be re-enabled after recovery"
+        assert not dgm.is_feature_enabled(
+            "real_time_alerts"
+        ), "Real-time alerts should still be disabled at level 1"
 
         dgm.recover_degradation()
-        assert dgm.is_feature_enabled("real_time_alerts"), "Real-time alerts should be re-enabled at level 0"
+        assert dgm.is_feature_enabled(
+            "real_time_alerts"
+        ), "Real-time alerts should be re-enabled at level 0"
 
         status = dgm.get_status()
         print(f"Final status: Level {status['level']} ({status['name']})")
 
-        assert status['level'] == 0, "Should be back to normal operation"
+        assert status["level"] == 0, "Should be back to normal operation"
 
         print("Graceful degradation test: PASSED")
 
@@ -270,6 +313,7 @@ def test_auto_recovery_system():
     print("\n=== Auto Recovery System Test ===")
 
     try:
+
         class MockAutoRecoverySystem:
             def __init__(self):
                 self.is_monitoring = False
@@ -309,11 +353,13 @@ def test_auto_recovery_system():
                     recovery_action = "emergency_fallback"
 
                 if recovery_action:
-                    self.recovery_actions.append({
-                        "action": recovery_action,
-                        "timestamp": time.time(),
-                        "success": True  # 成功と仮定
-                    })
+                    self.recovery_actions.append(
+                        {
+                            "action": recovery_action,
+                            "timestamp": time.time(),
+                            "success": True,  # 成功と仮定
+                        }
+                    )
 
                     self.recovery_count += 1
                     print(f"Recovery action executed: {recovery_action}")
@@ -327,7 +373,7 @@ def test_auto_recovery_system():
                     "monitoring_active": self.is_monitoring,
                     "current_health": self.system_health,
                     "recovery_count": self.recovery_count,
-                    "recent_actions": self.recovery_actions[-5:]  # 最新5件
+                    "recent_actions": self.recovery_actions[-5:],  # 最新5件
                 }
 
         # テスト実行
@@ -352,9 +398,13 @@ def test_auto_recovery_system():
         print(f"  - Recent actions: {len(stats['recent_actions'])}")
 
         # 成功条件
-        assert stats['current_health'] == 'healthy', "System should be healthy after recovery"
-        assert stats['recovery_count'] >= len(scenarios), "Should have executed recovery actions"
-        assert not stats['monitoring_active'], "Monitoring should be stopped"
+        assert (
+            stats["current_health"] == "healthy"
+        ), "System should be healthy after recovery"
+        assert stats["recovery_count"] >= len(
+            scenarios
+        ), "Should have executed recovery actions"
+        assert not stats["monitoring_active"], "Monitoring should be stopped"
 
         print("Auto recovery system test: PASSED")
 
@@ -370,6 +420,7 @@ def test_circuit_breaker():
     print("\n=== Circuit Breaker Test ===")
 
     try:
+
         class MockCircuitBreaker:
             def __init__(self, failure_threshold=3):
                 self.failure_threshold = failure_threshold
@@ -402,7 +453,9 @@ def test_circuit_breaker():
 
                     if self.failure_count >= self.failure_threshold:
                         self.state = "OPEN"
-                        print(f"Circuit breaker opened after {self.failure_count} failures")
+                        print(
+                            f"Circuit breaker opened after {self.failure_count} failures"
+                        )
 
                     raise e
 
@@ -411,7 +464,7 @@ def test_circuit_breaker():
                     "state": self.state,
                     "failure_count": self.failure_count,
                     "call_count": self.call_count,
-                    "blocked_calls": self.blocked_calls
+                    "blocked_calls": self.blocked_calls,
                 }
 
         # テスト関数
@@ -444,8 +497,8 @@ def test_circuit_breaker():
         print(f"  - Failure count: {stats['failure_count']}")
 
         # 成功条件
-        assert stats['state'] == 'OPEN', "Circuit breaker should be open after failures"
-        assert stats['blocked_calls'] > 0, "Some calls should have been blocked"
+        assert stats["state"] == "OPEN", "Circuit breaker should be open after failures"
+        assert stats["blocked_calls"] > 0, "Some calls should have been blocked"
 
         print("Circuit breaker test: PASSED")
 
@@ -461,6 +514,7 @@ def test_system_availability():
     print("\n=== System Availability Integration Test ===")
 
     try:
+
         class IntegratedFaultTolerantSystem:
             def __init__(self):
                 self.uptime_start = time.time()
@@ -499,13 +553,17 @@ def test_system_availability():
                         self.recovery_actions += 1
                         # 復旧後に再試行
                         self.successful_requests += 1
-                        return {"status": "recovered", "data": "processed_after_recovery"}
+                        return {
+                            "status": "recovered",
+                            "data": "processed_after_recovery",
+                        }
 
                     raise e
 
             def _attempt_auto_recovery(self):
                 # 50%の確率で復旧成功
                 import random
+
                 return random.random() < 0.5
 
             def get_availability_stats(self):
@@ -520,18 +578,14 @@ def test_system_availability():
                     "failed_requests": self.failed_requests,
                     "success_rate": success_rate,
                     "availability_percent": availability_percent,
-                    "recovery_actions": self.recovery_actions
+                    "recovery_actions": self.recovery_actions,
                 }
 
         # システム可用性テスト
         system = IntegratedFaultTolerantSystem()
 
         # 様々なシナリオでのリクエスト処理
-        test_scenarios = [
-            ("normal", 50),
-            ("stress_test", 20),
-            ("network_issue", 30)
-        ]
+        test_scenarios = [("normal", 50), ("stress_test", 20), ("network_issue", 30)]
 
         for scenario, count in test_scenarios:
             for _i in range(count):
@@ -556,10 +610,14 @@ def test_system_availability():
         # Issue #312の目標確認
         target_availability = 99.0  # 99%以上（99.9%を目指すが、テスト環境では緩和）
 
-        assert stats['availability_percent'] >= target_availability, f"Availability should be >= {target_availability}%"
-        assert stats['recovery_actions'] > 0, "Auto recovery should have been triggered"
+        assert (
+            stats["availability_percent"] >= target_availability
+        ), f"Availability should be >= {target_availability}%"
+        assert stats["recovery_actions"] > 0, "Auto recovery should have been triggered"
 
-        print(f"System availability test: PASSED (Target: {target_availability}%, Actual: {stats['availability_percent']:.2f}%)")
+        print(
+            f"System availability test: PASSED (Target: {target_availability}%, Actual: {stats['availability_percent']:.2f}%)"
+        )
 
     except Exception as e:
         print(f"System availability test failed: {e}")

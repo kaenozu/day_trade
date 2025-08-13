@@ -480,8 +480,8 @@ class TestDatabaseOptimization:
             optimized_get_time = time.time() - start_time
 
             # ウォッチリスト結果の厳密な検証
-            assert (
-                len(optimized_watchlist) == len(bulk_data)
+            assert len(optimized_watchlist) == len(
+                bulk_data
             ), f"Expected {len(bulk_data)} items in watchlist, got {len(optimized_watchlist)}"
 
             # 各ウォッチリスト項目の検証

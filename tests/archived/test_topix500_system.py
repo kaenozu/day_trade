@@ -19,6 +19,7 @@ from pathlib import Path
 # プロジェクトルート追加
 sys.path.insert(0, str(Path(__file__).parent))
 
+
 def test_topix500_manager_import():
     """TOPIX500管理システムインポートテスト"""
     print("=== TOPIX500管理システムインポートテスト ===")
@@ -27,6 +28,7 @@ def test_topix500_manager_import():
         from src.day_trade.data.topix500_manager import (
             TOPIX500Stock,
         )
+
         print("[OK] TOPIX500Manager import success")
 
         # 基本クラステスト
@@ -34,7 +36,7 @@ def test_topix500_manager_import():
             code="7203",
             name="トヨタ自動車",
             sector="Transportation",
-            industry="Automotive"
+            industry="Automotive",
         )
         print(f"[OK] TOPIX500Stock creation: {stock.code} - {stock.name}")
 
@@ -44,6 +46,7 @@ def test_topix500_manager_import():
         print(f"[ERROR] Import error: {e}")
         traceback.print_exc()
         return False
+
 
 async def test_topix500_initialization():
     """TOPIX500システム初期化テスト"""
@@ -57,7 +60,7 @@ async def test_topix500_initialization():
             enable_cache=True,
             batch_size=50,
             max_concurrent=10,
-            target_processing_time=20
+            target_processing_time=20,
         )
         print("[OK] TOPIX500Manager initialization success")
 
@@ -72,6 +75,7 @@ async def test_topix500_initialization():
         traceback.print_exc()
         return None, False
 
+
 async def test_topix500_stock_loading(manager):
     """TOPIX500銘柄ロードテスト"""
     print("\n=== TOPIX500銘柄ロードテスト ===")
@@ -81,12 +85,18 @@ async def test_topix500_stock_loading(manager):
         success = await manager.load_topix500_list(source="auto")
 
         if success:
-            print(f"[OK] Stock loading success: {len(manager.topix500_stocks)} stocks loaded")
+            print(
+                f"[OK] Stock loading success: {len(manager.topix500_stocks)} stocks loaded"
+            )
 
             # セクター情報確認
             sector_summary = manager.get_sector_summary()
-            print(f"[OK] Sector organization: {sector_summary['total_sectors']} sectors")
-            print(f"[INFO] Largest sector: {sector_summary.get('largest_sector', 'N/A')}")
+            print(
+                f"[OK] Sector organization: {sector_summary['total_sectors']} sectors"
+            )
+            print(
+                f"[INFO] Largest sector: {sector_summary.get('largest_sector', 'N/A')}"
+            )
 
             return True
         else:
@@ -97,6 +107,7 @@ async def test_topix500_stock_loading(manager):
         print(f"[ERROR] Stock loading error: {e}")
         traceback.print_exc()
         return False
+
 
 async def test_small_batch_analysis(manager):
     """小規模バッチ分析テスト（5銘柄）"""
@@ -117,14 +128,15 @@ async def test_small_batch_analysis(manager):
         # 分析実行
         start_time = time.time()
         results = await manager.analyze_all_topix500(
-            enable_sector_analysis=True,
-            save_results=False  # テスト用に保存無効
+            enable_sector_analysis=True, save_results=False  # テスト用に保存無効
         )
         processing_time = time.time() - start_time
 
         # 結果確認
         summary = results["analysis_summary"]
-        print(f"[OK] Analysis completed: {summary['successful_analysis']}/{summary['total_stocks']} stocks")
+        print(
+            f"[OK] Analysis completed: {summary['successful_analysis']}/{summary['total_stocks']} stocks"
+        )
         print(f"[OK] Processing time: {processing_time:.2f}s")
         print(f"[OK] Memory usage: {summary.get('memory_usage', 0):.1f}MB")
         print(f"[OK] Sectors analyzed: {len(results['sector_analysis'])}")
@@ -139,6 +151,7 @@ async def test_small_batch_analysis(manager):
         print(f"[ERROR] Small batch analysis error: {e}")
         traceback.print_exc()
         return False
+
 
 async def test_sector_analysis(manager):
     """セクター分析テスト"""
@@ -161,6 +174,7 @@ async def test_sector_analysis(manager):
         traceback.print_exc()
         return False
 
+
 async def test_performance_projection():
     """パフォーマンス予測テスト"""
     print("\n=== パフォーマンス予測テスト ===")
@@ -170,10 +184,10 @@ async def test_performance_projection():
 
         # Issue基盤性能データ
         base_performance = {
-            "ml_speedup": 97,        # Issue #325: 97%高速化 (23.6s→0.3s)
+            "ml_speedup": 97,  # Issue #325: 97%高速化 (23.6s→0.3s)
             "memory_reduction": 98,  # Issue #324: 98%削減 (500MB→4.6MB)
-            "parallel_speedup": 100, # Issue #323: 100倍並列化
-            "accuracy": 89           # Issue #322: 89%精度
+            "parallel_speedup": 100,  # Issue #323: 100倍並列化
+            "accuracy": 89,  # Issue #322: 89%精度
         }
 
         # 現在の小規模処理性能から予測
@@ -183,11 +197,13 @@ async def test_performance_projection():
 
         # 並列処理効果を考慮した処理時間予測
         base_processing_time = 0.3  # 1銘柄あたりの処理時間（秒）
-        parallel_efficiency = 0.8   # 並列効率
+        parallel_efficiency = 0.8  # 並列効率
 
         # 予測計算
         sequential_time = target_stocks * base_processing_time
-        parallel_time = sequential_time / (base_performance["parallel_speedup"] * parallel_efficiency / 100)
+        parallel_time = sequential_time / (
+            base_performance["parallel_speedup"] * parallel_efficiency / 100
+        )
 
         # メモリ予測
         base_memory = 4.6  # MB
@@ -210,6 +226,7 @@ async def test_performance_projection():
         traceback.print_exc()
         return False
 
+
 async def main():
     """メイン実行関数"""
     print("TOPIX500システムテスト開始")
@@ -230,8 +247,12 @@ async def main():
             results.append(("銘柄ロードテスト", loading_success))
 
             if loading_success:
-                results.append(("小規模分析テスト", await test_small_batch_analysis(manager)))
-                results.append(("セクター分析テスト", await test_sector_analysis(manager)))
+                results.append(
+                    ("小規模分析テスト", await test_small_batch_analysis(manager))
+                )
+                results.append(
+                    ("セクター分析テスト", await test_sector_analysis(manager))
+                )
 
     # パフォーマンス予測（独立テスト）
     results.append(("パフォーマンス予測", await test_performance_projection()))
@@ -262,6 +283,7 @@ async def main():
     else:
         print("[WARNING] 一部テスト失敗 - 要追加開発")
         return False
+
 
 if __name__ == "__main__":
     try:

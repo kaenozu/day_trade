@@ -46,12 +46,23 @@ def test_basic_functionality():
     print("✓ API呼び出し記録")
 
     # 構造化ログ記録テスト
-    monitoring.log_structured("INFO", "システム正常稼働", "SystemMonitor",
-                             cpu_usage=65.5, memory_usage=78.2)
-    monitoring.log_structured("WARNING", "レスポンス時間増加", "APIGateway",
-                             endpoint="/api/orders", response_time=89.1)
-    monitoring.log_structured("ERROR", "データベース接続エラー", "DatabaseManager",
-                             error_code="DB001", retry_count=3)
+    monitoring.log_structured(
+        "INFO", "システム正常稼働", "SystemMonitor", cpu_usage=65.5, memory_usage=78.2
+    )
+    monitoring.log_structured(
+        "WARNING",
+        "レスポンス時間増加",
+        "APIGateway",
+        endpoint="/api/orders",
+        response_time=89.1,
+    )
+    monitoring.log_structured(
+        "ERROR",
+        "データベース接続エラー",
+        "DatabaseManager",
+        error_code="DB001",
+        retry_count=3,
+    )
     print("✓ 構造化ログ記録")
 
     # 少し待機してから結果確認
@@ -75,11 +86,11 @@ def test_basic_functionality():
     print("✓ 監視システム停止")
 
     return {
-        'dashboard': dashboard,
-        'cpu_summary': cpu_summary,
-        'response_time_summary': response_time_summary,
-        'recent_logs_count': len(recent_logs),
-        'error_logs_count': len(error_logs)
+        "dashboard": dashboard,
+        "cpu_summary": cpu_summary,
+        "response_time_summary": response_time_summary,
+        "recent_logs_count": len(recent_logs),
+        "error_logs_count": len(error_logs),
     }
 
 
@@ -102,14 +113,18 @@ async def test_distributed_tracing():
             monitoring.tracer.add_span_log(auth_span, "認証処理完了")
 
         # セッション作成フェーズ
-        async with monitoring.trace_operation("session_creation", main_span) as session_span:
+        async with monitoring.trace_operation(
+            "session_creation", main_span
+        ) as session_span:
             monitoring.tracer.add_span_log(session_span, "セッション作成開始")
             await asyncio.sleep(0.05)
             monitoring.tracer.add_span_tag(session_span, "session_id", "sess_456")
             monitoring.tracer.add_span_log(session_span, "セッション作成完了")
 
         # ユーザーデータ取得フェーズ
-        async with monitoring.trace_operation("user_data_fetch", main_span) as data_span:
+        async with monitoring.trace_operation(
+            "user_data_fetch", main_span
+        ) as data_span:
             monitoring.tracer.add_span_log(data_span, "ユーザーデータ取得開始")
             await asyncio.sleep(0.08)
             monitoring.tracer.add_span_tag(data_span, "database", "user_db")
@@ -119,7 +134,7 @@ async def test_distributed_tracing():
 
     # トレース結果確認
     dashboard = monitoring.get_dashboard_data()
-    trace_info = dashboard['traces']
+    trace_info = dashboard["traces"]
 
     print(f"✓ アクティブトレース: {trace_info['active_traces']}")
     print(f"✓ 完了トレース: {trace_info['completed_traces']}")
@@ -156,15 +171,19 @@ def test_slo_monitoring():
     print("✓ SLO状態取得")
 
     if api_latency_status:
-        print(f"  - API レイテンシー: {api_latency_status.current_percentage:.2f}% "
-              f"(目標: {api_latency_status.config.target_percentage:.2f}%) "
-              f"状態: {api_latency_status.status}")
-        print(f"  - エラーバジェット消費: {api_latency_status.error_budget_consumed:.1f}%")
+        print(
+            f"  - API レイテンシー: {api_latency_status.current_percentage:.2f}% "
+            f"(目標: {api_latency_status.config.target_percentage:.2f}%) "
+            f"状態: {api_latency_status.status}"
+        )
+        print(
+            f"  - エラーバジェット消費: {api_latency_status.error_budget_consumed:.1f}%"
+        )
 
     return {
-        'api_latency_status': api_latency_status,
-        'system_availability_status': system_availability_status,
-        'total_slos': len(all_slo_status)
+        "api_latency_status": api_latency_status,
+        "system_availability_status": system_availability_status,
+        "total_slos": len(all_slo_status),
     }
 
 
@@ -201,13 +220,15 @@ def test_anomaly_detection():
     anomaly_results = []
     for metric_name, value, description in test_cases:
         is_anomaly, score = anomaly_detector.detect_anomaly(metric_name, value)
-        anomaly_results.append({
-            'metric': metric_name,
-            'value': value,
-            'description': description,
-            'is_anomaly': is_anomaly,
-            'score': score
-        })
+        anomaly_results.append(
+            {
+                "metric": metric_name,
+                "value": value,
+                "description": description,
+                "is_anomaly": is_anomaly,
+                "score": score,
+            }
+        )
         print(f"  - {description}: 値={value}, 異常={is_anomaly}, スコア={score:.3f}")
 
     print("✓ 異常検知テスト完了")
@@ -228,11 +249,14 @@ def test_comprehensive_monitoring():
         {"api": "/api/users", "response_time": 25.0, "status": 200, "success": True},
         {"api": "/api/trades", "response_time": 35.0, "status": 200, "success": True},
         {"api": "/api/orders", "response_time": 42.0, "status": 201, "success": True},
-
         # 警告ケース
-        {"api": "/api/analytics", "response_time": 65.0, "status": 200, "success": True},
+        {
+            "api": "/api/analytics",
+            "response_time": 65.0,
+            "status": 200,
+            "success": True,
+        },
         {"api": "/api/reports", "response_time": 78.0, "status": 200, "success": True},
-
         # エラーケース
         {"api": "/api/trades", "response_time": 120.0, "status": 500, "success": False},
         {"api": "/api/orders", "response_time": 95.0, "status": 503, "success": False},
@@ -240,25 +264,34 @@ def test_comprehensive_monitoring():
 
     for scenario in test_scenarios:
         monitoring.record_api_call(
-            scenario["api"], "GET",
+            scenario["api"],
+            "GET",
             scenario["response_time"],
             scenario["status"],
-            scenario["success"]
+            scenario["success"],
         )
 
         # カスタムメトリクス
-        monitoring.record_metric("custom.trade_volume", 1000 + (scenario["response_time"] * 100))
-        monitoring.record_metric("custom.active_users", 500 + int(scenario["response_time"]))
+        monitoring.record_metric(
+            "custom.trade_volume", 1000 + (scenario["response_time"] * 100)
+        )
+        monitoring.record_metric(
+            "custom.active_users", 500 + int(scenario["response_time"])
+        )
 
         # ログ記録
-        log_level = "ERROR" if not scenario["success"] else "WARNING" if scenario["response_time"] > 60 else "INFO"
+        log_level = (
+            "ERROR"
+            if not scenario["success"]
+            else "WARNING" if scenario["response_time"] > 60 else "INFO"
+        )
         monitoring.log_structured(
             log_level,
             f"API処理: {scenario['api']}",
             "APIGateway",
             response_time=scenario["response_time"],
             status_code=scenario["status"],
-            endpoint=scenario["api"]
+            endpoint=scenario["api"],
         )
 
     # 少し待機して処理完了を待つ
@@ -270,7 +303,9 @@ def test_comprehensive_monitoring():
     print("✓ 包括的監視テスト完了")
     print(f"  - システムヘルス: {dashboard['system_health']['status']}")
     print(f"  - 総リクエスト: {dashboard['statistics']['total_requests']}")
-    print(f"  - 成功率: {dashboard['statistics']['successful_requests'] / max(1, dashboard['statistics']['total_requests']):.1%}")
+    print(
+        f"  - 成功率: {dashboard['statistics']['successful_requests'] / max(1, dashboard['statistics']['total_requests']):.1%}"
+    )
     print(f"  - 平均応答時間: {dashboard['statistics']['avg_response_time']:.2f}ms")
     print(f"  - アラート数: {dashboard['alerts']['total']}")
     print(f"  - 異常検知: {dashboard['statistics']['anomalies_detected']}")
@@ -307,7 +342,9 @@ async def main():
         print("=" * 60)
 
         print("✅ 基本機能:")
-        print(f"   - ダッシュボード: {basic_results['dashboard']['system_health']['status']}")
+        print(
+            f"   - ダッシュボード: {basic_results['dashboard']['system_health']['status']}"
+        )
         print(f"   - CPU監視: {len(basic_results.get('cpu_summary', {}))}項目")
         print(f"   - ログ収集: {basic_results['recent_logs_count']}件")
 
@@ -316,18 +353,24 @@ async def main():
         print(f"   - 完了トレース: {trace_results['completed_traces']}")
 
         print("✅ SLO監視:")
-        if slo_results['api_latency_status']:
-            print(f"   - APIレイテンシー: {slo_results['api_latency_status'].current_percentage:.1f}%")
+        if slo_results["api_latency_status"]:
+            print(
+                f"   - APIレイテンシー: {slo_results['api_latency_status'].current_percentage:.1f}%"
+            )
             print(f"   - SLO状態: {slo_results['api_latency_status'].status}")
         print(f"   - 監視SLO数: {slo_results['total_slos']}")
 
         print("✅ 異常検知:")
-        anomaly_detected = sum(1 for r in anomaly_results if r['is_anomaly'])
+        anomaly_detected = sum(1 for r in anomaly_results if r["is_anomaly"])
         print(f"   - 異常検知数: {anomaly_detected}/{len(anomaly_results)}")
 
         print("✅ 包括的監視:")
-        print(f"   - システムヘルス: {comprehensive_results['system_health']['status']}")
-        print(f"   - 総処理リクエスト: {comprehensive_results['statistics']['total_requests']}")
+        print(
+            f"   - システムヘルス: {comprehensive_results['system_health']['status']}"
+        )
+        print(
+            f"   - 総処理リクエスト: {comprehensive_results['statistics']['total_requests']}"
+        )
         print(f"   - 発生アラート: {comprehensive_results['alerts']['total']}")
 
         print("\n🎉 すべてのテストが正常に完了しました!")
@@ -336,6 +379,7 @@ async def main():
     except Exception as e:
         print(f"\n❌ テスト実行中にエラーが発生しました: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

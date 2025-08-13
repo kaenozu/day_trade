@@ -40,6 +40,7 @@ print("高度リスク管理システム統合テスト")
 print("Issue #316: 高優先：リスク管理機能強化")
 print("=" * 60)
 
+
 class RiskManagementSystemValidator:
     """リスク管理システム検証"""
 
@@ -53,7 +54,7 @@ class RiskManagementSystemValidator:
             "7203.T": 0.25,  # トヨタ自動車
             "8306.T": 0.25,  # 三菱UFJフィナンシャル
             "9984.T": 0.30,  # ソフトバンクグループ
-            "6758.T": 0.20   # ソニーグループ
+            "6758.T": 0.20,  # ソニーグループ
         }
 
         print("リスク管理システム検証初期化完了")
@@ -65,9 +66,7 @@ class RiskManagementSystemValidator:
         try:
             # エンジン初期化
             engine = DynamicRebalancingEngine(
-                lookback_window=180,
-                volatility_window=30,
-                momentum_window=60
+                lookback_window=180, volatility_window=30, momentum_window=60
             )
             print("[OK] DynamicRebalancingEngine初期化成功")
 
@@ -112,7 +111,9 @@ class RiskManagementSystemValidator:
             metrics_ok = True
 
             if not (0 <= risk_metrics.portfolio_volatility <= 1):
-                print(f"[WARNING] ボラティリティ範囲異常: {risk_metrics.portfolio_volatility}")
+                print(
+                    f"[WARNING] ボラティリティ範囲異常: {risk_metrics.portfolio_volatility}"
+                )
                 metrics_ok = False
 
             if not (-1 <= risk_metrics.max_drawdown <= 0):
@@ -127,26 +128,26 @@ class RiskManagementSystemValidator:
             else:
                 print("[WARNING] リスクメトリクスに異常値")
 
-            self.test_results['dynamic_rebalancing'] = {
-                'status': 'passed' if metrics_ok else 'warning',
-                'market_regime': market_regime.value,
-                'signal_generated': signal is not None,
-                'risk_metrics': {
-                    'volatility': risk_metrics.portfolio_volatility,
-                    'max_drawdown': risk_metrics.max_drawdown,
-                    'sharpe_ratio': risk_metrics.sharpe_ratio
+            self.test_results["dynamic_rebalancing"] = {
+                "status": "passed" if metrics_ok else "warning",
+                "market_regime": market_regime.value,
+                "signal_generated": signal is not None,
+                "risk_metrics": {
+                    "volatility": risk_metrics.portfolio_volatility,
+                    "max_drawdown": risk_metrics.max_drawdown,
+                    "sharpe_ratio": risk_metrics.sharpe_ratio,
                 },
-                'timestamp': datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
             return True
 
         except Exception as e:
             print(f"[ERROR] 動的リバランシングエンジンテストエラー: {e}")
-            self.test_results['dynamic_rebalancing'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["dynamic_rebalancing"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -157,8 +158,7 @@ class RiskManagementSystemValidator:
         try:
             # フレームワーク初期化
             framework = AdvancedStressTestFramework(
-                confidence_level=0.95,
-                simulation_runs=100  # テスト用に軽量化
+                confidence_level=0.95, simulation_runs=100  # テスト用に軽量化
             )
             print("[OK] AdvancedStressTestFramework初期化成功")
 
@@ -210,7 +210,9 @@ class RiskManagementSystemValidator:
             )
 
             if comprehensive_results:
-                print(f"[OK] 包括的ストレステスト成功: {len(comprehensive_results)}シナリオ")
+                print(
+                    f"[OK] 包括的ストレステスト成功: {len(comprehensive_results)}シナリオ"
+                )
 
                 # 結果妥当性チェック
                 valid_results = 0
@@ -221,7 +223,9 @@ class RiskManagementSystemValidator:
                 if valid_results == len(comprehensive_results):
                     print("[OK] 全結果が妥当な範囲内")
                 else:
-                    print(f"[WARNING] {len(comprehensive_results)-valid_results}件の結果に異常")
+                    print(
+                        f"[WARNING] {len(comprehensive_results)-valid_results}件の結果に異常"
+                    )
 
             else:
                 print("[NG] 包括的ストレステスト失敗")
@@ -238,24 +242,24 @@ class RiskManagementSystemValidator:
                 print("[NG] レポート生成失敗")
                 return False
 
-            self.test_results['stress_test_framework'] = {
-                'status': 'passed',
-                'execution_time': execution_time,
-                'scenarios_tested': len(comprehensive_results),
-                'crash_scenario_loss': crash_result.percentage_loss,
-                'liquidity_scenario_loss': liquidity_result.percentage_loss,
-                'report_length': len(report),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["stress_test_framework"] = {
+                "status": "passed",
+                "execution_time": execution_time,
+                "scenarios_tested": len(comprehensive_results),
+                "crash_scenario_loss": crash_result.percentage_loss,
+                "liquidity_scenario_loss": liquidity_result.percentage_loss,
+                "report_length": len(report),
+                "timestamp": datetime.now().isoformat(),
             }
 
             return True
 
         except Exception as e:
             print(f"[ERROR] ストレステストフレームワークテストエラー: {e}")
-            self.test_results['stress_test_framework'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["stress_test_framework"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -271,8 +275,7 @@ class RiskManagementSystemValidator:
                 print(f"\n{tolerance.upper()}設定テスト...")
 
                 risk_system = IntegratedRiskManagementSystem(
-                    risk_tolerance=tolerance,
-                    monitoring_frequency=1440
+                    risk_tolerance=tolerance, monitoring_frequency=1440
                 )
                 print(f"[OK] 統合リスク管理システム初期化成功: {tolerance}")
 
@@ -290,9 +293,13 @@ class RiskManagementSystemValidator:
 
                 if risk_profile:
                     print(f"[OK] 総合リスク評価成功 ({evaluation_time:.2f}秒)")
-                    print(f"  総合リスクレベル: {risk_profile.overall_risk_level.value}")
+                    print(
+                        f"  総合リスクレベル: {risk_profile.overall_risk_level.value}"
+                    )
                     print(f"  アクティブアラート数: {len(risk_profile.active_alerts)}")
-                    print(f"  リバランシング必要: {'はい' if risk_profile.rebalancing_needed else 'いいえ'}")
+                    print(
+                        f"  リバランシング必要: {'はい' if risk_profile.rebalancing_needed else 'いいえ'}"
+                    )
 
                     # リスクレベル妥当性チェック
                     if isinstance(risk_profile.overall_risk_level, RiskLevel):
@@ -321,8 +328,10 @@ class RiskManagementSystemValidator:
 
                 dashboard_data = risk_system.get_risk_summary_dashboard()
 
-                required_keys = ['overall_risk_level', 'key_metrics', 'alerts_count']
-                missing_keys = [key for key in required_keys if key not in dashboard_data]
+                required_keys = ["overall_risk_level", "key_metrics", "alerts_count"]
+                missing_keys = [
+                    key for key in required_keys if key not in dashboard_data
+                ]
 
                 if not missing_keys:
                     print("[OK] ダッシュボードデータ生成成功")
@@ -330,24 +339,24 @@ class RiskManagementSystemValidator:
                     print(f"[NG] ダッシュボードデータ不完全: 欠損キー {missing_keys}")
                     return False
 
-            self.test_results['integrated_risk_management'] = {
-                'status': 'passed',
-                'tolerances_tested': len(risk_tolerances),
-                'evaluation_time': evaluation_time,
-                'risk_level': risk_profile.overall_risk_level.value,
-                'alerts_generated': len(risk_profile.active_alerts),
-                'report_length': len(report),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["integrated_risk_management"] = {
+                "status": "passed",
+                "tolerances_tested": len(risk_tolerances),
+                "evaluation_time": evaluation_time,
+                "risk_level": risk_profile.overall_risk_level.value,
+                "alerts_generated": len(risk_profile.active_alerts),
+                "report_length": len(report),
+                "timestamp": datetime.now().isoformat(),
             }
 
             return True
 
         except Exception as e:
             print(f"[ERROR] 統合リスク管理システムテストエラー: {e}")
-            self.test_results['integrated_risk_management'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["integrated_risk_management"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -376,7 +385,9 @@ class RiskManagementSystemValidator:
 
             results = []
             for _i in range(5):  # 5回実行
-                result = risk_system.assess_portfolio_risk(self.test_portfolio, price_data)
+                result = risk_system.assess_portfolio_risk(
+                    self.test_portfolio, price_data
+                )
                 results.append(result)
 
             execution_time = time.time() - start_time
@@ -389,7 +400,9 @@ class RiskManagementSystemValidator:
             cpu_increase = final_cpu - initial_cpu
 
             print(f"実行時間: {execution_time:.2f}秒")
-            print(f"最終メモリ使用量: {final_memory:.2f}GB (増加: {memory_increase:.2f}GB)")
+            print(
+                f"最終メモリ使用量: {final_memory:.2f}GB (増加: {memory_increase:.2f}GB)"
+            )
             print(f"最終CPU使用率: {final_cpu:.1f}% (増加: {cpu_increase:.1f}%)")
 
             # パフォーマンス評価
@@ -408,24 +421,24 @@ class RiskManagementSystemValidator:
             else:
                 print("[WARNING] システムパフォーマンスに課題")
 
-            self.test_results['system_performance'] = {
-                'status': 'passed' if performance_ok else 'warning',
-                'execution_time': execution_time,
-                'memory_increase_gb': memory_increase,
-                'cpu_increase': cpu_increase,
-                'tests_completed': len(results),
-                'performance_ok': performance_ok,
-                'timestamp': datetime.now().isoformat()
+            self.test_results["system_performance"] = {
+                "status": "passed" if performance_ok else "warning",
+                "execution_time": execution_time,
+                "memory_increase_gb": memory_increase,
+                "cpu_increase": cpu_increase,
+                "tests_completed": len(results),
+                "performance_ok": performance_ok,
+                "timestamp": datetime.now().isoformat(),
             }
 
             return True
 
         except Exception as e:
             print(f"[ERROR] システムパフォーマンステストエラー: {e}")
-            self.test_results['system_performance'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["system_performance"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -466,7 +479,7 @@ class RiskManagementSystemValidator:
         import pandas as pd
 
         # 6ヶ月分のダミーデータ
-        dates = pd.date_range(end=datetime.now(), periods=180, freq='D')
+        dates = pd.date_range(end=datetime.now(), periods=180, freq="D")
 
         # ランダムウォークで価格生成
         np.random.seed(hash(symbol) % 1000)  # シンボルベースのシード
@@ -484,13 +497,16 @@ class RiskManagementSystemValidator:
         lows = np.minimum(opens, prices) * np.random.uniform(0.98, 1.0, len(prices))
         volumes = np.random.randint(100000, 1000000, len(prices))
 
-        return pd.DataFrame({
-            'Open': opens,
-            'High': highs,
-            'Low': lows,
-            'Close': prices,
-            'Volume': volumes
-        }, index=dates)
+        return pd.DataFrame(
+            {
+                "Open": opens,
+                "High": highs,
+                "Low": lows,
+                "Close": prices,
+                "Volume": volumes,
+            },
+            index=dates,
+        )
 
     def generate_validation_report(self) -> str:
         """検証レポート生成"""
@@ -501,7 +517,9 @@ class RiskManagementSystemValidator:
         report_lines.append("高度リスク管理システム統合テスト レポート")
         report_lines.append("=" * 80)
 
-        report_lines.append(f"テスト実行日時: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        report_lines.append(
+            f"テスト実行日時: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
+        )
         report_lines.append(f"総実行時間: {total_duration}")
         report_lines.append(f"テスト対象: {len(self.test_portfolio)}銘柄ポートフォリオ")
 
@@ -513,57 +531,71 @@ class RiskManagementSystemValidator:
         failed_count = 0
 
         for test_name, result in self.test_results.items():
-            status = result.get('status', 'unknown')
+            status = result.get("status", "unknown")
 
-            if status == 'passed':
+            if status == "passed":
                 status_symbol = "[OK]"
                 passed_count += 1
-            elif status == 'warning':
+            elif status == "warning":
                 status_symbol = "[WARNING]"
                 warning_count += 1
             else:
                 status_symbol = "[NG]"
                 failed_count += 1
 
-            display_name = test_name.replace('_', ' ').title()
+            display_name = test_name.replace("_", " ").title()
             report_lines.append(f"  {status_symbol} {display_name}")
 
             # 詳細情報
-            if 'error' in result:
+            if "error" in result:
                 report_lines.append(f"    エラー: {result['error']}")
 
             # テスト固有の情報
-            if test_name == 'dynamic_rebalancing':
-                if 'market_regime' in result:
+            if test_name == "dynamic_rebalancing":
+                if "market_regime" in result:
                     report_lines.append(f"    市場レジーム: {result['market_regime']}")
-                if 'risk_metrics' in result:
-                    volatility = result['risk_metrics']['volatility']
+                if "risk_metrics" in result:
+                    volatility = result["risk_metrics"]["volatility"]
                     report_lines.append(f"    ボラティリティ: {volatility:.2%}")
 
-            elif test_name == 'stress_test_framework':
-                if 'scenarios_tested' in result:
-                    report_lines.append(f"    テスト済みシナリオ数: {result['scenarios_tested']}")
-                if 'execution_time' in result:
-                    report_lines.append(f"    実行時間: {result['execution_time']:.2f}秒")
+            elif test_name == "stress_test_framework":
+                if "scenarios_tested" in result:
+                    report_lines.append(
+                        f"    テスト済みシナリオ数: {result['scenarios_tested']}"
+                    )
+                if "execution_time" in result:
+                    report_lines.append(
+                        f"    実行時間: {result['execution_time']:.2f}秒"
+                    )
 
-            elif test_name == 'integrated_risk_management':
-                if 'risk_level' in result:
+            elif test_name == "integrated_risk_management":
+                if "risk_level" in result:
                     report_lines.append(f"    リスクレベル: {result['risk_level']}")
-                if 'alerts_generated' in result:
-                    report_lines.append(f"    生成アラート数: {result['alerts_generated']}")
+                if "alerts_generated" in result:
+                    report_lines.append(
+                        f"    生成アラート数: {result['alerts_generated']}"
+                    )
 
-            elif test_name == 'system_performance':
-                if 'execution_time' in result:
-                    report_lines.append(f"    実行時間: {result['execution_time']:.2f}秒")
-                if 'memory_increase_gb' in result:
-                    report_lines.append(f"    メモリ増加: {result['memory_increase_gb']:.2f}GB")
+            elif test_name == "system_performance":
+                if "execution_time" in result:
+                    report_lines.append(
+                        f"    実行時間: {result['execution_time']:.2f}秒"
+                    )
+                if "memory_increase_gb" in result:
+                    report_lines.append(
+                        f"    メモリ増加: {result['memory_increase_gb']:.2f}GB"
+                    )
 
         # 総合評価
         total_tests = len(self.test_results)
-        weighted_score = (passed_count + warning_count * 0.7) / total_tests if total_tests > 0 else 0
+        weighted_score = (
+            (passed_count + warning_count * 0.7) / total_tests if total_tests > 0 else 0
+        )
 
         report_lines.append("\n【総合評価】")
-        report_lines.append(f"成功: {passed_count}, 警告: {warning_count}, 失敗: {failed_count}")
+        report_lines.append(
+            f"成功: {passed_count}, 警告: {warning_count}, 失敗: {failed_count}"
+        )
         report_lines.append(f"重み付きスコア: {weighted_score:.1%}")
 
         if weighted_score >= 0.9:
@@ -606,7 +638,7 @@ def main():
         ("動的リバランシングエンジン", validator.test_dynamic_rebalancing_engine),
         ("ストレステストフレームワーク", validator.test_stress_test_framework),
         ("統合リスク管理", validator.test_integrated_risk_management),
-        ("システムパフォーマンス", validator.test_system_performance)
+        ("システムパフォーマンス", validator.test_system_performance),
     ]
 
     print(f"\n{len(test_suite)}個のテストを実行します...")
@@ -619,10 +651,10 @@ def main():
             test_function()
         except Exception as e:
             print(f"[CRITICAL ERROR] {test_name}で予期しないエラー: {e}")
-            validator.test_results[test_name.lower().replace(' ', '_')] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            validator.test_results[test_name.lower().replace(" ", "_")] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
 
     # 最終レポート生成・表示
@@ -631,19 +663,24 @@ def main():
     print(final_report)
 
     # 結果保存
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     results_file = f"advanced_risk_management_test_results_{timestamp}.json"
 
     try:
-        with open(results_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                'test_metadata': {
-                    'test_date': validator.start_time.isoformat(),
-                    'duration': str(datetime.now() - validator.start_time),
-                    'portfolio': validator.test_portfolio
+        with open(results_file, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "test_metadata": {
+                        "test_date": validator.start_time.isoformat(),
+                        "duration": str(datetime.now() - validator.start_time),
+                        "portfolio": validator.test_portfolio,
+                    },
+                    "test_results": validator.test_results,
                 },
-                'test_results': validator.test_results
-            }, f, indent=2, ensure_ascii=False)
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
 
         print(f"テスト結果保存完了: {results_file}")
     except Exception as e:
@@ -652,20 +689,28 @@ def main():
     # テキストレポート保存
     report_file = f"advanced_risk_management_report_{timestamp}.txt"
     try:
-        with open(report_file, 'w', encoding='utf-8') as f:
+        with open(report_file, "w", encoding="utf-8") as f:
             f.write(final_report)
         print(f"最終レポート保存完了: {report_file}")
     except Exception as e:
         print(f"レポート保存エラー: {e}")
 
     # 総合判定
-    passed_count = sum(1 for result in validator.test_results.values()
-                      if result.get('status') == 'passed')
-    warning_count = sum(1 for result in validator.test_results.values()
-                       if result.get('status') == 'warning')
+    passed_count = sum(
+        1
+        for result in validator.test_results.values()
+        if result.get("status") == "passed"
+    )
+    warning_count = sum(
+        1
+        for result in validator.test_results.values()
+        if result.get("status") == "warning"
+    )
     total_count = len(validator.test_results)
 
-    weighted_score = (passed_count + warning_count * 0.7) / total_count if total_count > 0 else 0
+    weighted_score = (
+        (passed_count + warning_count * 0.7) / total_count if total_count > 0 else 0
+    )
 
     print(f"\n{'='*60}")
     print("高度リスク管理システム統合テスト完了")

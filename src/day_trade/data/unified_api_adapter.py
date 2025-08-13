@@ -19,10 +19,12 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
 import aiohttp
-import yfinance as yf
 
 # プロジェクトモジュール
 try:
+    from ..utils.yfinance_import import get_yfinance, is_yfinance_available
+    # yfinance統一インポート - Issue #614対応
+    yf, YFINANCE_AVAILABLE = get_yfinance()
     from ..utils.cache_utils import generate_safe_cache_key
     from ..utils.exceptions import APIError, NetworkError, ValidationError
     from ..utils.logging_config import get_context_logger, log_performance_metric
