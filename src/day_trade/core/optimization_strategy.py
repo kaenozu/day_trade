@@ -39,7 +39,7 @@ class OptimizationConfig:
     timeout_seconds: int = 30  # タイムアウト（秒）
     memory_limit_mb: int = 512  # メモリ制限（MB）
     ci_test_mode: bool = False  # CI テストモード（軽量化）
-    
+
     # Issue #634対応: デフォルト値の統合
     @classmethod
     def get_default_values(cls) -> Dict[str, Any]:
@@ -68,7 +68,7 @@ class OptimizationConfig:
 
         # Issue #634対応: デフォルト値の統合使用
         defaults = cls.get_default_values()
-        
+
         return cls(
             level=level,
             auto_fallback=cls._parse_env_bool("DAYTRADE_AUTO_FALLBACK", defaults["auto_fallback"]),
@@ -177,7 +177,7 @@ class OptimizationConfig:
 
             # Issue #634, #635対応: デフォルト値統合と堅牢な型変換
             defaults = cls.get_default_values()
-            
+
             # OptimizationLevelの安全な変換
             level_str = cls._safe_str_conversion(data.get("level", defaults["level"].value)).lower()
             try:

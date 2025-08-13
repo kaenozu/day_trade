@@ -60,12 +60,12 @@ class SignalRulesConfig:
     def __init__(self, config_path: Optional[str] = None):
         self.config_path = self._resolve_config_path(config_path)
         self.config = self._load_config()
-        
+
     def _resolve_config_path(self, config_path: Optional[str]) -> Path:
         """設定ファイルパスを解決"""
         if config_path is not None:
             return Path(config_path)
-            
+
         # プロジェクトルートからの絶対パス設定
         current_file = Path(__file__)
         project_root = current_file.parent.parent.parent.parent
@@ -87,7 +87,7 @@ class SignalRulesConfig:
         """デフォルト設定を返す"""
         # 統合されたデフォルト設定値
         return self._create_default_config_structure()
-        
+
     def _create_default_config_structure(self) -> Dict[str, Any]:
         """デフォルト設定構造を作成"""
         return {
@@ -105,7 +105,7 @@ class SignalRulesConfig:
                 "confidence_multiplier": 20.0,
             },
         }
-        
+
     def _get_default_signal_settings(self) -> Dict[str, Any]:
         """デフォルトシグナル設定を取得"""
         return {
@@ -535,15 +535,15 @@ class PatternBreakoutRule(SignalRule):
     ) -> Tuple[bool, float]:
         # Issue #653: パターンデータ一貫性の強化
         breakouts = patterns.get("breakouts")
-        
+
         # より厳密なデータ検証
         if breakouts is None:
             return False, 0.0
-            
+
         if not isinstance(breakouts, pd.DataFrame):
             logger.warning(f"PatternBreakoutRule: breakouts is not DataFrame, got {type(breakouts)}")
             return False, 0.0
-            
+
         if breakouts.empty:
             return False, 0.0
 
@@ -708,7 +708,7 @@ class TradingSignalGenerator:
     def _get_rule_mapping(self) -> Dict[str, type]:
         """
         ルールタイプとクラスのマッピングを取得（Issue #655対応）
-        
+
         Returns:
             ルール名とクラスのマッピング辞書
         """
