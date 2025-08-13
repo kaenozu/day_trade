@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trading-staging
+  labels:
+    name: trading-staging
+    environment: staging
+    app: day-trade-system
+---
+...
