@@ -35,7 +35,7 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
     warnings.warn(
-        "PyTorch未インストール - NumPy簡易実装にフォールバック（性能制限あり）", 
+        "PyTorch未インストール - NumPy簡易実装にフォールバック（性能制限あり）",
         ImportWarning, stacklevel=2
     )
 
@@ -382,19 +382,19 @@ class BaseDeepLearningModel(ABC):
     ) -> PredictionResult:
         """
         不確実性付き予測
-        
+
         Issue #695対応: Monte Carlo Dropout並列化
-        
+
         Args:
             data: 予測対象データ
             num_samples: Monte Carloサンプル数
             n_jobs: 並列ジョブ数（None=自動、1=直列、-1=全CPU使用）
         """
         start_time = time.time()
-        
+
         # 並列化設定の最適化
         optimal_n_jobs = self._optimize_mc_dropout_parallel_jobs(num_samples, n_jobs)
-        
+
         if optimal_n_jobs > 1 and JOBLIB_AVAILABLE:
             # Issue #695対応: joblib並列化によるMonte Carlo Dropout
             logger.info(f"Monte Carlo Dropout並列化実行: {num_samples}サンプル x {optimal_n_jobs}並列")
@@ -403,7 +403,7 @@ class BaseDeepLearningModel(ABC):
             # 直列実行（フォールバック）
             if optimal_n_jobs > 1:
                 logger.warning("joblib未使用のため直列実行にフォールバック")
-            
+
             predictions_list = []
             for i in range(num_samples):
                 if i % 20 == 0:
@@ -440,9 +440,9 @@ class BaseDeepLearningModel(ABC):
     def get_feature_importance(self, data: Optional[pd.DataFrame] = None, n_jobs: Optional[int] = None) -> Dict[str, float]:
         """
         特徴量重要度分析
-        
+
         Issue #695対応: Permutation Importance並列化
-        
+
         Args:
             data: 分析対象データ
             n_jobs: 並列ジョブ数（None=自動、1=直列、-1=全CPU使用）
@@ -455,9 +455,9 @@ class BaseDeepLearningModel(ABC):
             else:
                 logger.warning(f"{self.__class__.__name__}: データ未提供のため特徴量重要度を取得できません（DeepLearningモデルではデータが必要）")
                 return {}
-        
+
         start_time = time.time()
-        
+
         try:
             # Permutation Importanceによる特徴量重要度計算
             X, y = self.prepare_data(data)
@@ -468,10 +468,10 @@ class BaseDeepLearningModel(ABC):
         baseline_error = np.mean((baseline_pred - y) ** 2) if y is not None else 0.0
 
         feature_names = ["Open", "High", "Low", "Close", "Volume"][: X.shape[-1]]
-        
+
         # 並列化設定の最適化
         optimal_n_jobs = self._optimize_permutation_parallel_jobs(len(feature_names), n_jobs)
-        
+
         if optimal_n_jobs > 1 and JOBLIB_AVAILABLE:
             # Issue #695対応: joblib並列化によるPermutation Importance
             logger.info(f"Permutation Importance並列化実行: {len(feature_names)}特徴量 x {optimal_n_jobs}並列")
@@ -482,7 +482,7 @@ class BaseDeepLearningModel(ABC):
             # 直列実行（フォールバック）
             if optimal_n_jobs > 1:
                 logger.warning("joblib未使用のため直列実行にフォールバック")
-            
+
             feature_importance = {}
             for i, feature_name in enumerate(feature_names):
                 # 特徴量をシャッフル
@@ -507,11 +507,11 @@ class BaseDeepLearningModel(ABC):
         logger.info(f"Permutation Importance完了: {processing_time:.2f}秒 ({len(feature_names)}特徴量)")
 
         return feature_importance
-    
+
     def has_feature_importance(self) -> bool:
         """
         Issue #495対応: DeepLearningモデルは特徴量重要度を提供可能（データが必要）
-        
+
         Returns:
             学習済みの場合True（実際にはデータが必要だが、提供可能性としてTrue）
         """
@@ -522,16 +522,16 @@ class BaseDeepLearningModel(ABC):
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         時系列データ準備
-        
+
         Issue #694対応: データ準備最適化
-        
+
         Args:
             data: 入力データ
             target_column: ターゲット列名
             use_optimized: 最適化版を使用するかどうか
         """
         start_time = time.time()
-        
+
         # OHLCV特徴量使用
         feature_columns = ["Open", "High", "Low", "Close", "Volume"]
         available_columns = [col for col in feature_columns if col in data.columns]
@@ -541,7 +541,7 @@ class BaseDeepLearningModel(ABC):
 
         # データ正規化
         features = data[available_columns].values.astype(np.float32)  # Issue #694: float32で最適化
-        
+
         # Issue #694対応: ベクトル化された正規化
         features_mean = np.mean(features, axis=0, keepdims=True)
         features_std = np.std(features, axis=0, keepdims=True) + 1e-8
@@ -566,35 +566,35 @@ class BaseDeepLearningModel(ABC):
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Issue #694対応: stride_tricksによるメモリ効率化データ準備
-        
+
         Args:
             features: 正規化済み特徴量データ
             data: 元データ
             target_column: ターゲット列名
-            
+
         Returns:
             X, y のタプル
         """
         sequence_length = self.config.sequence_length
         prediction_horizon = self.config.prediction_horizon
-        
+
         # 有効なシーケンス数を計算
         n_sequences = len(features) - sequence_length - prediction_horizon + 1
-        
+
         if n_sequences <= 0:
             raise ValueError(f"データが不足: {len(features)}サンプル < {sequence_length + prediction_horizon}必要")
-        
+
         try:
             # Issue #694対応: sliding_window_viewによるメモリ効率化
             # NumPy 1.20.0+ でsliding_window_viewが利用可能
             X = sliding_window_view(features, window_shape=sequence_length, axis=0)
             X = X[:n_sequences]  # 有効な範囲のみ切り出し
-            
+
         except (ImportError, AttributeError):
             # sliding_window_view未利用環境でのフォールバック
             logger.warning("sliding_window_view未利用、手動stride実装を使用")
             X = self._manual_sliding_window(features, sequence_length, n_sequences)
-        
+
         # ターゲットデータ準備
         if target_column in data.columns:
             target_data = data[target_column].values.astype(np.float32)
@@ -602,7 +602,7 @@ class BaseDeepLearningModel(ABC):
             target_mean = np.mean(target_data)
             target_std = np.std(target_data) + 1e-8
             target_data = (target_data - target_mean) / target_std
-            
+
             # Issue #694対応: ベクトル化されたターゲット抽出
             if prediction_horizon == 1:
                 y = target_data[sequence_length:sequence_length + n_sequences]
@@ -622,7 +622,7 @@ class BaseDeepLearningModel(ABC):
                     features[i + sequence_length:i + sequence_length + prediction_horizon, close_idx]
                     for i in range(n_sequences)
                 ])
-        
+
         return X, y
 
     def _prepare_data_legacy(
@@ -630,12 +630,12 @@ class BaseDeepLearningModel(ABC):
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Issue #694対応: 従来版データ準備（比較・デバッグ用）
-        
+
         Args:
             features: 正規化済み特徴量データ
             data: 元データ
             target_column: ターゲット列名
-            
+
         Returns:
             X, y のタプル
         """
@@ -654,7 +654,7 @@ class BaseDeepLearningModel(ABC):
                 target_mean = np.mean(target_data)
                 target_std = np.std(target_data) + 1e-8
                 target_data = (target_data - target_mean) / target_std
-                
+
                 y.append(
                     target_data[
                         i + self.config.sequence_length : i
@@ -680,39 +680,39 @@ class BaseDeepLearningModel(ABC):
     ) -> np.ndarray:
         """
         Issue #694対応: 手動sliding window実装（フォールバック用）
-        
+
         Args:
             features: 特徴量データ
             sequence_length: シーケンス長
             n_sequences: 生成するシーケンス数
-            
+
         Returns:
             スライディングウィンドウデータ
         """
         n_features = features.shape[1]
-        
+
         # 事前にサイズを決めてNumPy配列を確保
         X = np.empty((n_sequences, sequence_length, n_features), dtype=np.float32)
-        
+
         for i in range(n_sequences):
             X[i] = features[i:i + sequence_length]
-        
+
         return X
 
     def _optimize_mc_dropout_parallel_jobs(self, num_samples: int, n_jobs: Optional[int] = None) -> int:
         """
         Issue #695対応: Monte Carlo Dropout並列化の最適化
-        
+
         Args:
             num_samples: Monte Carloサンプル数
             n_jobs: ユーザー指定並列ジョブ数
-            
+
         Returns:
             最適化された並列ジョブ数
         """
         try:
             cpu_count = mp.cpu_count()
-            
+
             if n_jobs is not None:
                 if n_jobs == -1:
                     return cpu_count
@@ -720,7 +720,7 @@ class BaseDeepLearningModel(ABC):
                     return min(n_jobs, cpu_count)
                 else:
                     return 1
-            
+
             # 自動最適化
             if num_samples < 10:
                 return 1  # 少数サンプルは直列が効率的
@@ -731,7 +731,7 @@ class BaseDeepLearningModel(ABC):
             else:
                 # 大量サンプル：CPUの75%を使用
                 return min(max(2, int(cpu_count * 0.75)), cpu_count)
-                
+
         except Exception as e:
             logger.warning(f"Monte Carlo Dropout並列化設定エラー: {e}")
             return 1
@@ -739,17 +739,17 @@ class BaseDeepLearningModel(ABC):
     def _optimize_permutation_parallel_jobs(self, num_features: int, n_jobs: Optional[int] = None) -> int:
         """
         Issue #695対応: Permutation Importance並列化の最適化
-        
+
         Args:
             num_features: 特徴量数
             n_jobs: ユーザー指定並列ジョブ数
-            
+
         Returns:
             最適化された並列ジョブ数
         """
         try:
             cpu_count = mp.cpu_count()
-            
+
             if n_jobs is not None:
                 if n_jobs == -1:
                     return min(num_features, cpu_count)
@@ -757,7 +757,7 @@ class BaseDeepLearningModel(ABC):
                     return min(n_jobs, cpu_count, num_features)
                 else:
                     return 1
-            
+
             # 自動最適化
             if num_features < 3:
                 return 1  # 少数特徴量は直列が効率的
@@ -766,7 +766,7 @@ class BaseDeepLearningModel(ABC):
             else:
                 # 特徴量数が多い場合は適度な並列化
                 return min(cpu_count, max(2, cpu_count // 2))
-                
+
         except Exception as e:
             logger.warning(f"Permutation Importance並列化設定エラー: {e}")
             return 1
@@ -774,12 +774,12 @@ class BaseDeepLearningModel(ABC):
     def _parallel_monte_carlo_dropout(self, data: pd.DataFrame, num_samples: int, n_jobs: int) -> List[np.ndarray]:
         """
         Issue #695対応: 並列化Monte Carlo Dropout実行
-        
+
         Args:
             data: 予測対象データ
-            num_samples: Monte Carloサンプル数  
+            num_samples: Monte Carloサンプル数
             n_jobs: 並列ジョブ数
-            
+
         Returns:
             予測結果リスト
         """
@@ -788,53 +788,53 @@ class BaseDeepLearningModel(ABC):
             np.random.seed(sample_idx)  # 再現性のためのシード設定
             pred_result = self.predict(data)
             return pred_result.predictions
-        
+
         # joblib並列実行
         predictions_list = Parallel(n_jobs=n_jobs, backend='threading')(
             delayed(_single_prediction)(i) for i in range(num_samples)
         )
-        
+
         return predictions_list
 
     def _parallel_permutation_importance(
-        self, X: np.ndarray, baseline_pred: np.ndarray, baseline_error: float, 
+        self, X: np.ndarray, baseline_pred: np.ndarray, baseline_error: float,
         feature_names: List[str], n_jobs: int
     ) -> Dict[str, float]:
         """
         Issue #695対応: 並列化Permutation Importance実行
-        
+
         Args:
             X: 入力データ
             baseline_pred: ベースライン予測
             baseline_error: ベースラインエラー
             feature_names: 特徴量名リスト
             n_jobs: 並列ジョブ数
-            
+
         Returns:
             特徴量重要度辞書
         """
         def _calculate_feature_importance(feature_idx_and_name: Tuple[int, str]) -> Tuple[str, float]:
             """単一特徴量重要度計算（並列処理用）"""
             feature_idx, feature_name = feature_idx_and_name
-            
+
             # 特徴量をシャッフル
             X_shuffled = X.copy()
             if len(X_shuffled.shape) == 3:  # (samples, sequence, features)
                 np.random.seed(feature_idx)  # 再現性のため
                 X_shuffled[:, :, feature_idx] = np.random.permutation(X_shuffled[:, :, feature_idx])
-            
+
             shuffled_pred = self._predict_internal(X_shuffled)
             shuffled_error = np.mean((shuffled_pred - baseline_pred) ** 2)
-            
+
             importance = max(0, shuffled_error - baseline_error) / (baseline_error + 1e-8)
             return feature_name, float(importance)
-        
+
         # joblib並列実行
         results = Parallel(n_jobs=n_jobs, backend='threading')(
-            delayed(_calculate_feature_importance)((i, name)) 
+            delayed(_calculate_feature_importance)((i, name))
             for i, name in enumerate(feature_names)
         )
-        
+
         return dict(results)
 
 
@@ -1172,7 +1172,7 @@ class TransformerModel(BaseDeepLearningModel):
     ) -> TrainingResult:
         """
         NumPyフォールバックモデル訓練
-        
+
         Issue #696対応: 重要警告 - これは簡易線形回帰実装です
         深層学習モデルとしての性能は期待できません。
         本番環境では必ずPyTorchをインストールしてください。
@@ -1186,7 +1186,7 @@ class TransformerModel(BaseDeepLearningModel):
             "PyTorchインストール推奨: pip install torch\n"
             "================================"
         )
-        
+
         # 線形回帰フォールバック（最小二乗法）
         X_flattened = X.reshape(X.shape[0], -1)
 
@@ -1713,8 +1713,121 @@ class DeepLearningModelManager:
         self.models[name] = model
         logger.info(f"モデル登録完了: {name}")
 
-    def train_ensemble(self, data: pd.DataFrame) -> Dict[str, ModelTrainingResult]:
-        """アンサンブル訓練"""
+    def train_ensemble(self, data: pd.DataFrame, parallel: bool = True) -> Dict[str, ModelTrainingResult]:
+        """
+        アンサンブル訓練 - Issue #708対応並列化版
+
+        Args:
+            data: 訓練データ
+            parallel: 並列訓練を有効にするか
+
+        Returns:
+            Dict[str, ModelTrainingResult]: 各モデルの訓練結果
+        """
+        if parallel and len(self.models) > 1:
+            return self._parallel_train_ensemble(data)
+        else:
+            return self._sequential_train_ensemble(data)
+
+    def _parallel_train_ensemble(self, data: pd.DataFrame) -> Dict[str, ModelTrainingResult]:
+        """並列アンサンブル訓練実装"""
+        from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+        import multiprocessing as mp
+
+        def train_single_deep_model(args):
+            """単一深層学習モデルの訓練関数"""
+            model_name, model, data_copy, dl_config = args
+            try:
+                logger.info(f"深層学習モデル並列訓練開始: {model_name}")
+                start_time = time.time()
+
+                # ModelConfigからDeepLearningConfigに変換
+                model_config = ModelConfig(
+                    sequence_length=dl_config.sequence_length,
+                    prediction_horizon=dl_config.prediction_horizon,
+                    hidden_size=dl_config.hidden_dim,
+                    num_layers=dl_config.num_layers,
+                    dropout_rate=dl_config.dropout_rate,
+                    learning_rate=dl_config.learning_rate,
+                    epochs=dl_config.epochs,
+                    batch_size=dl_config.batch_size,
+                    early_stopping_patience=dl_config.early_stopping_patience,
+                )
+                model.config = model_config
+
+                # データ準備と訓練
+                result = model.train(data_copy)
+                training_time = time.time() - start_time
+
+                # ModelTrainingResult形式に変換
+                training_result = ModelTrainingResult(
+                    final_loss=result.final_loss,
+                    best_loss=result.best_loss,
+                    epochs_run=result.epochs_run,
+                    training_time=training_time,
+                    validation_metrics={"mse": result.final_loss},
+                    convergence_achieved=True,
+                )
+
+                logger.info(f"深層学習モデル並列訓練完了: {model_name} ({training_time:.2f}秒)")
+                return model_name, training_result
+
+            except Exception as e:
+                logger.error(f"深層学習モデル並列訓練エラー {model_name}: {e}")
+                return model_name, ModelTrainingResult(
+                    final_loss=float('inf'),
+                    best_loss=float('inf'),
+                    epochs_run=0,
+                    training_time=0.0,
+                    validation_metrics={"error": str(e)},
+                    convergence_achieved=False,
+                )
+
+        results = {}
+
+        # 並列処理設定 (深層学習はCPU集約的でないため、スレッドプールを使用)
+        n_jobs = min(len(self.models), mp.cpu_count())
+        logger.info(f"アンサンブル並列訓練開始: {len(self.models)}モデルを{n_jobs}スレッドで実行")
+
+        # 訓練引数準備
+        training_args = [
+            (model_name, model, data.copy(), self.dl_config)
+            for model_name, model in self.models.items()
+        ]
+
+        try:
+            # ThreadPoolExecutorを使用 (深層学習モデルはI/O待機が多い)
+            with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+                future_to_model = {
+                    executor.submit(train_single_deep_model, args): args[0]
+                    for args in training_args
+                }
+
+                for future in as_completed(future_to_model):
+                    model_name = future_to_model[future]
+                    try:
+                        result_name, result = future.result(timeout=7200)  # 2時間のタイムアウト
+                        results[result_name] = result
+                    except Exception as e:
+                        logger.error(f"深層学習モデル並列訓練例外 {model_name}: {e}")
+                        results[model_name] = ModelTrainingResult(
+                            final_loss=float('inf'),
+                            best_loss=float('inf'),
+                            epochs_run=0,
+                            training_time=0.0,
+                            validation_metrics={"timeout_error": str(e)},
+                            convergence_achieved=False,
+                        )
+
+        except Exception as e:
+            logger.warning(f"並列アンサンブル訓練フォールバック: {e}")
+            # フォールバック: 順次実行
+            return self._sequential_train_ensemble(data)
+
+        return results
+
+    def _sequential_train_ensemble(self, data: pd.DataFrame) -> Dict[str, ModelTrainingResult]:
+        """順次アンサンブル訓練実装（フォールバック）"""
         results = {}
 
         for name, model in self.models.items():
