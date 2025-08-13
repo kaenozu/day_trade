@@ -39,6 +39,22 @@ class OptimizationConfig:
     timeout_seconds: int = 30  # タイムアウト（秒）
     memory_limit_mb: int = 512  # メモリ制限（MB）
     ci_test_mode: bool = False  # CI テストモード（軽量化）
+    
+    # Issue #634対応: デフォルト値の統合
+    @classmethod
+    def get_default_values(cls) -> Dict[str, Any]:
+        """統合されたデフォルト値辞書を取得"""
+        return {
+            "level": OptimizationLevel.STANDARD,
+            "auto_fallback": True,
+            "performance_monitoring": True,
+            "cache_enabled": True,
+            "parallel_processing": False,
+            "batch_size": 100,
+            "timeout_seconds": 30,
+            "memory_limit_mb": 512,
+            "ci_test_mode": False,
+        }
 
     @classmethod
     def from_env(cls) -> "OptimizationConfig":
@@ -50,16 +66,19 @@ class OptimizationConfig:
             logger.warning(f"無効な最適化レベル: {level_str}, 標準レベルを使用")
             level = OptimizationLevel.STANDARD
 
+        # Issue #634対応: デフォルト値の統合使用
+        defaults = cls.get_default_values()
+        
         return cls(
             level=level,
-            auto_fallback=cls._parse_env_bool("DAYTRADE_AUTO_FALLBACK", True),
-            performance_monitoring=cls._parse_env_bool("DAYTRADE_PERF_MONITORING", True),
-            cache_enabled=cls._parse_env_bool("DAYTRADE_CACHE_ENABLED", True),
-            parallel_processing=cls._parse_env_bool("DAYTRADE_PARALLEL", False),
-            batch_size=cls._parse_env_int("DAYTRADE_BATCH_SIZE", 100),
-            timeout_seconds=cls._parse_env_int("DAYTRADE_TIMEOUT", 30),
-            memory_limit_mb=cls._parse_env_int("DAYTRADE_MEMORY_LIMIT", 512),
-            ci_test_mode=cls._parse_env_bool("CI", False),  # CI環境自動検出
+            auto_fallback=cls._parse_env_bool("DAYTRADE_AUTO_FALLBACK", defaults["auto_fallback"]),
+            performance_monitoring=cls._parse_env_bool("DAYTRADE_PERF_MONITORING", defaults["performance_monitoring"]),
+            cache_enabled=cls._parse_env_bool("DAYTRADE_CACHE_ENABLED", defaults["cache_enabled"]),
+            parallel_processing=cls._parse_env_bool("DAYTRADE_PARALLEL", defaults["parallel_processing"]),
+            batch_size=cls._parse_env_int("DAYTRADE_BATCH_SIZE", defaults["batch_size"]),
+            timeout_seconds=cls._parse_env_int("DAYTRADE_TIMEOUT", defaults["timeout_seconds"]),
+            memory_limit_mb=cls._parse_env_int("DAYTRADE_MEMORY_LIMIT", defaults["memory_limit_mb"]),
+            ci_test_mode=cls._parse_env_bool("CI", defaults["ci_test_mode"]),  # CI環境自動検出
         )
 
     @staticmethod
@@ -156,24 +175,34 @@ class OptimizationConfig:
             with open(config_path, encoding="utf-8") as f:
                 data = json.load(f)
 
+            # Issue #634, #635対応: デフォルト値統合と堅牢な型変換
+            defaults = cls.get_default_values()
+            
             # OptimizationLevelの安全な変換
-            level_str = cls._safe_str_conversion(data.get("level", "standard")).lower()
-            level = OptimizationLevel(level_str)
+            level_str = cls._safe_str_conversion(data.get("level", defaults["level"].value)).lower()
+            try:
+                level = OptimizationLevel(level_str)
+            except ValueError:
+                logger.warning(f"無効な最適化レベル: {level_str}, デフォルトレベルを使用")
+                level = defaults["level"]
 
             return cls(
                 level=level,
-                auto_fallback=cls._safe_bool_conversion(data.get("auto_fallback"), True),
-                performance_monitoring=cls._safe_bool_conversion(data.get("performance_monitoring"), True),
-                cache_enabled=cls._safe_bool_conversion(data.get("cache_enabled"), True),
-                parallel_processing=cls._safe_bool_conversion(data.get("parallel_processing"), False),
-                batch_size=cls._safe_int_conversion(data.get("batch_size"), 100, min_val=1, max_val=10000),
-                timeout_seconds=cls._safe_int_conversion(data.get("timeout_seconds"), 30, min_val=1, max_val=3600),
-                memory_limit_mb=cls._safe_int_conversion(data.get("memory_limit_mb"), 512, min_val=64, max_val=16384),
+                auto_fallback=cls._safe_bool_conversion(data.get("auto_fallback"), defaults["auto_fallback"]),
+                performance_monitoring=cls._safe_bool_conversion(data.get("performance_monitoring"), defaults["performance_monitoring"]),
+                cache_enabled=cls._safe_bool_conversion(data.get("cache_enabled"), defaults["cache_enabled"]),
+                parallel_processing=cls._safe_bool_conversion(data.get("parallel_processing"), defaults["parallel_processing"]),
+                batch_size=cls._safe_int_conversion(data.get("batch_size"), defaults["batch_size"], min_val=1, max_val=10000),
+                timeout_seconds=cls._safe_int_conversion(data.get("timeout_seconds"), defaults["timeout_seconds"], min_val=1, max_val=3600),
+                memory_limit_mb=cls._safe_int_conversion(data.get("memory_limit_mb"), defaults["memory_limit_mb"], min_val=64, max_val=16384),
+                ci_test_mode=cls._safe_bool_conversion(data.get("ci_test_mode"), defaults["ci_test_mode"]),
             )
 
         except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
             logger.error(f"設定ファイル読み込み失敗: {e}, デフォルト設定を使用")
-            return cls()
+            # Issue #634対応: デフォルト値辞書を使った統一的な初期化
+            defaults = cls.get_default_values()
+            return cls(**defaults)
 
     @classmethod
     def _safe_str_conversion(cls, value: Any, default: str = "") -> str:
@@ -214,10 +243,19 @@ class OptimizationConfig:
                 return value
             if isinstance(value, str):
                 # 文字列の場合は大文字小文字を無視して判定
-                return value.lower() in ("true", "yes", "1", "on", "enabled")
+                str_value = value.lower()
+                if str_value in ("true", "yes", "1", "on", "enabled"):
+                    return True
+                elif str_value in ("false", "no", "0", "off", "disabled"):
+                    return False
+                else:
+                    # 無効な文字列の場合はデフォルト値を使用
+                    logger.warning(f"無効なbool値: {value}, デフォルト値使用: {default}")
+                    return default
             if isinstance(value, (int, float)):
                 # 数値の場合は0以外をTrueとする
                 return bool(value)
+            # その他の型は変換を試みる
             return bool(value)
         except Exception as e:
             logger.warning(f"bool変換エラー: {value} -> {e}, デフォルト値使用: {default}")
