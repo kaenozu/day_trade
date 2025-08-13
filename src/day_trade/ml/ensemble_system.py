@@ -224,16 +224,8 @@ class EnsembleSystem:
                 except Exception as e:
                     logger.warning(f"LSTM-Transformer学習失敗: {e}")
 
-            # 2. 従来MLモデル学習
-            for model_name, model in self.base_models.items():
-                try:
-                    logger.info(f"{model_name}学習開始")
-                    result = model.fit(X, y, validation_data=validation_data)
-                    model_results[model_name] = result
-                    logger.info(f"{model_name}学習完了")
-                except Exception as e:
-                    logger.error(f"{model_name}学習エラー: {e}")
-                    model_results[model_name] = {"status": "失敗", "error": str(e)}
+            # 2. 従来MLモデル学習 - Issue #705対応: 並列化実装
+            model_results.update(self._parallel_model_training(X, y, validation_data))
 
             # 3. スタッキングアンサンブル学習
             if self.stacking_ensemble and validation_data:
@@ -305,15 +297,9 @@ class EnsembleSystem:
                 except Exception as e:
                     logger.warning(f"LSTM-Transformer予測失敗: {e}")
 
-            # 2. 従来MLモデル予測
-            for model_name, model in self.base_models.items():
-                if not model.is_trained:
-                    continue
-                try:
-                    pred_result = model.predict(X)
-                    individual_predictions[model_name] = pred_result.predictions
-                except Exception as e:
-                    logger.warning(f"{model_name}予測失敗: {e}")
+            # 2. 従来MLモデル予測 - Issue #705対応: 並列化実装
+            parallel_predictions = self._parallel_model_prediction(X)
+            individual_predictions.update(parallel_predictions)
 
             # 3. アンサンブル統合
             if method == EnsembleMethod.VOTING:
@@ -724,6 +710,174 @@ class EnsembleSystem:
             info['dynamic_weighting_info'] = self.dynamic_weighting.get_performance_summary()
 
         return info
+
+    def _parallel_model_training(self, X: np.ndarray, y: np.ndarray,
+                                validation_data: Optional[Tuple[np.ndarray, np.ndarray]] = None) -> Dict[str, Any]:
+        """
+        ベースモデルの並列学習 - Issue #705対応
+
+        Args:
+            X: 訓練データの特徴量
+            y: 訓練データの目標変数
+            validation_data: 検証データ
+
+        Returns:
+            Dict[str, Any]: 各モデルの学習結果
+        """
+        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+        import multiprocessing as mp
+
+        def train_single_model(args):
+            """単一モデルの学習関数"""
+            model_name, model, X_data, y_data, val_data = args
+            try:
+                logger.info(f"{model_name}並列学習開始")
+                result = model.fit(X_data, y_data, validation_data=val_data)
+                result['training_method'] = 'parallel'
+                logger.info(f"{model_name}並列学習完了")
+                return model_name, result
+            except Exception as e:
+                logger.error(f"{model_name}並列学習エラー: {e}")
+                return model_name, {"status": "失敗", "error": str(e), "training_method": "parallel"}
+
+        model_results = {}
+
+        if not self.base_models:
+            return model_results
+
+        # 並列処理設定
+        n_jobs = getattr(self.config, 'n_jobs', -1)
+        if n_jobs == -1:
+            n_jobs = min(len(self.base_models), mp.cpu_count())
+        elif n_jobs <= 0:
+            n_jobs = 1
+
+        logger.info(f"並列学習開始: {len(self.base_models)}モデルを{n_jobs}プロセスで実行")
+
+        # 並列学習実行
+        training_args = [
+            (model_name, model, X, y, validation_data)
+            for model_name, model in self.base_models.items()
+        ]
+
+        try:
+            # ThreadPoolExecutorを使用（scikit-learnモデルはピクル化に問題がある場合があるため）
+            with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+                future_to_model = {
+                    executor.submit(train_single_model, args): args[0]
+                    for args in training_args
+                }
+
+                for future in as_completed(future_to_model):
+                    model_name = future_to_model[future]
+                    try:
+                        result_name, result = future.result(timeout=3600)  # 1時間のタイムアウト
+                        model_results[result_name] = result
+                    except Exception as e:
+                        logger.error(f"{model_name}並列学習例外: {e}")
+                        model_results[model_name] = {
+                            "status": "失敗",
+                            "error": f"並列処理例外: {str(e)}",
+                            "training_method": "parallel"
+                        }
+
+        except Exception as e:
+            logger.warning(f"並列学習フォールバック: {e}")
+            # フォールバック: 順次実行
+            logger.info("順次学習にフォールバック")
+            for model_name, model in self.base_models.items():
+                try:
+                    logger.info(f"{model_name}学習開始（順次）")
+                    result = model.fit(X, y, validation_data=validation_data)
+                    result['training_method'] = 'sequential_fallback'
+                    model_results[model_name] = result
+                    logger.info(f"{model_name}学習完了（順次）")
+                except Exception as model_e:
+                    logger.error(f"{model_name}学習エラー（順次）: {model_e}")
+                    model_results[model_name] = {
+                        "status": "失敗",
+                        "error": str(model_e),
+                        "training_method": "sequential_fallback"
+                    }
+
+        return model_results
+
+    def _parallel_model_prediction(self, X: np.ndarray) -> Dict[str, np.ndarray]:
+        """
+        ベースモデルの並列予測 - Issue #705対応
+
+        Args:
+            X: 予測対象の特徴量
+
+        Returns:
+            Dict[str, np.ndarray]: 各モデルの予測結果
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import multiprocessing as mp
+
+        def predict_single_model(args):
+            """単一モデルの予測関数"""
+            model_name, model, X_data = args
+            try:
+                if not model.is_trained:
+                    return model_name, None
+                pred_result = model.predict(X_data)
+                return model_name, pred_result.predictions
+            except Exception as e:
+                logger.warning(f"{model_name}並列予測失敗: {e}")
+                return model_name, None
+
+        predictions = {}
+
+        # 学習済みモデルのみフィルタリング
+        trained_models = {
+            name: model for name, model in self.base_models.items()
+            if model.is_trained
+        }
+
+        if not trained_models:
+            return predictions
+
+        # 並列処理設定
+        n_jobs = getattr(self.config, 'n_jobs', -1)
+        if n_jobs == -1:
+            n_jobs = min(len(trained_models), mp.cpu_count())
+        elif n_jobs <= 0:
+            n_jobs = 1
+
+        # 並列予測実行
+        prediction_args = [
+            (model_name, model, X)
+            for model_name, model in trained_models.items()
+        ]
+
+        try:
+            with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+                future_to_model = {
+                    executor.submit(predict_single_model, args): args[0]
+                    for args in prediction_args
+                }
+
+                for future in as_completed(future_to_model):
+                    model_name = future_to_model[future]
+                    try:
+                        result_name, pred = future.result(timeout=300)  # 5分のタイムアウト
+                        if pred is not None:
+                            predictions[result_name] = pred
+                    except Exception as e:
+                        logger.warning(f"{model_name}並列予測例外: {e}")
+
+        except Exception as e:
+            logger.warning(f"並列予測フォールバック: {e}")
+            # フォールバック: 順次実行
+            for model_name, model in trained_models.items():
+                try:
+                    pred_result = model.predict(X)
+                    predictions[model_name] = pred_result.predictions
+                except Exception as model_e:
+                    logger.warning(f"{model_name}予測失敗（順次）: {model_e}")
+
+        return predictions
 
 
 if __name__ == "__main__":
