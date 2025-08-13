@@ -242,9 +242,9 @@ if PYTORCH_AVAILABLE:
 
             self.register_buffer("pe", pe)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """位置エンコーディング追加"""
-        return x + self.pe[: x.size(0), :].transpose(0, 1)
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            """位置エンコーディング追加"""
+            return x + self.pe[: x.size(0), :].transpose(0, 1)
 
 
 class AdvancedMLEngine:
