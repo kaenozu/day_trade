@@ -135,7 +135,7 @@ class EnsembleSystem:
                     AdvancedModelType.LSTM_TRANSFORMER
                 )
                 logger.info(f"Advanced ML Engine初期化完了: {self.advanced_ml_engine.get_model_type().value}")
-                
+
                 # 能力情報をログ出力
                 capabilities = self.advanced_ml_engine.get_capabilities()
                 logger.info(f"Engine能力: シーケンス予測={capabilities.supports_sequence_prediction}, "
@@ -240,11 +240,11 @@ class EnsembleSystem:
             if self.advanced_ml_engine:
                 try:
                     logger.info(f"Advanced ML Engine学習開始: {self.advanced_ml_engine.get_model_type().value}")
-                    
+
                     # データ形状の検証
                     if not self.advanced_ml_engine.validate_input_shape(X):
                         logger.warning("Advanced ML Engine: 入力データ形状が不適切です")
-                    
+
                     # 学習実行
                     training_metrics = self.advanced_ml_engine.train(X, y, validation_data)
                     model_results["lstm_transformer"] = {
@@ -253,21 +253,13 @@ class EnsembleSystem:
                         "model_type": self.advanced_ml_engine.get_model_type().value
                     }
                     logger.info(f"Advanced ML Engine学習完了: 精度={training_metrics.accuracy:.4f}")
-                    
+
                 except Exception as e:
                     logger.warning(f"Advanced ML Engine学習失敗: {e}")
                     model_results["lstm_transformer"] = {"status": "学習失敗", "error": str(e)}
 
-            # 2. 従来MLモデル学習
-            for model_name, model in self.base_models.items():
-                try:
-                    logger.info(f"{model_name}学習開始")
-                    result = model.fit(X, y, validation_data=validation_data)
-                    model_results[model_name] = result
-                    logger.info(f"{model_name}学習完了")
-                except Exception as e:
-                    logger.error(f"{model_name}学習エラー: {e}")
-                    model_results[model_name] = {"status": "失敗", "error": str(e)}
+            # 2. 従来MLモデル学習 - Issue #705対応: 並列化実装
+            model_results.update(self._parallel_model_training(X, y, validation_data))
 
             # 3. スタッキングアンサンブル学習
             if self.stacking_ensemble and validation_data:
@@ -340,41 +332,32 @@ class EnsembleSystem:
                     else:
                         transformed_X = self.advanced_ml_engine.prepare_data(X)
                         prediction_result = self.advanced_ml_engine.predict(
-                            transformed_X, 
+                            transformed_X,
                             return_confidence=True,
                             return_attention=False
                         )
-                        
+
                         if hasattr(prediction_result, 'predictions') and prediction_result.predictions is not None:
                             lstm_pred = prediction_result.predictions.flatten()
                             logger.debug(f"Advanced ML Engine予測: 形状{prediction_result.predictions.shape}, "
                                       f"信頼度平均={getattr(prediction_result, 'confidence', 'N/A')}")
                         else:
                             lstm_pred = np.zeros(len(X))
-                            
+
                     individual_predictions["lstm_transformer"] = lstm_pred
                 except Exception as e:
                     logger.warning(f"LSTM-Transformer予測失敗: {e}")
 
-            # 2. 従来MLモデル予測
-            for model_name, model in self.base_models.items():
-                if not model.is_trained:
-                    continue
-                try:
-                    pred_result = model.predict(X)
-                    individual_predictions[model_name] = pred_result.predictions
-                except Exception as e:
-                    logger.warning(f"{model_name}予測失敗: {e}")
+            # 2. 従来MLモデル予測 - Issue #705対応: 並列化実装
+            parallel_predictions = self._parallel_model_prediction(X)
+            individual_predictions.update(parallel_predictions)
 
-            # 3. アンサンブル統合
-            if method == EnsembleMethod.VOTING:
-                final_predictions = self._voting_ensemble(individual_predictions)
-            elif method == EnsembleMethod.WEIGHTED:
-                final_predictions = self._weighted_ensemble(individual_predictions)
-            elif method == EnsembleMethod.STACKING:
+            # 3. アンサンブル統合 - Issue #470対応統合実装
+            if method == EnsembleMethod.STACKING:
                 final_predictions = self._stacking_ensemble(individual_predictions, X)
             else:
-                final_predictions = self._voting_ensemble(individual_predictions)
+                # 統合アンサンブル手法を使用（VOTING/WEIGHTEDを効率的に統合）
+                final_predictions = self._unified_ensemble(individual_predictions, method)
 
             # 信頼度計算
             ensemble_confidence = self._calculate_ensemble_confidence(individual_predictions)
@@ -398,35 +381,68 @@ class EnsembleSystem:
             logger.error(f"アンサンブル予測エラー: {e}")
             raise
 
-    def _voting_ensemble(self, predictions: Dict[str, np.ndarray]) -> np.ndarray:
-        """投票アンサンブル（単純平均）"""
+    def _unified_ensemble(self, predictions: Dict[str, np.ndarray], method: EnsembleMethod) -> np.ndarray:
+        """
+        統合アンサンブル手法 - Issue #470対応
+
+        voting と weighted ensemble を統合した効率的実装
+
+        Args:
+            predictions: モデル別予測結果
+            method: アンサンブル手法
+
+        Returns:
+            統合予測結果
+        """
         if not predictions:
             raise ValueError("予測結果が空です")
 
-        # 全予測を配列に変換
-        pred_array = np.array(list(predictions.values()))
+        # 予測配列とモデル名の準備
+        model_names = list(predictions.keys())
+        pred_values = list(predictions.values())
 
-        # 単純平均
-        return np.mean(pred_array, axis=0)
+        # 形状チェックと標準化
+        shapes = [pred.shape for pred in pred_values]
+        if len(set(shapes)) > 1:
+            logger.warning(f"予測形状が不統一: {shapes}")
+            # 最小サイズに合わせる
+            min_len = min(pred.shape[0] for pred in pred_values)
+            pred_values = [pred[:min_len] for pred in pred_values]
+
+        pred_array = np.array(pred_values)
+
+        if method == EnsembleMethod.VOTING:
+            # 投票アンサンブル（効率的な単純平均）
+            return np.mean(pred_array, axis=0)
+
+        elif method == EnsembleMethod.WEIGHTED:
+            # 重み付きアンサンブル（ベクトル化実装）
+            weights = np.array([
+                self.model_weights.get(model_name, 1.0)
+                for model_name in model_names
+            ])
+
+            # 重みの正規化
+            if np.sum(weights) > 0:
+                weights = weights / np.sum(weights)
+            else:
+                weights = np.ones(len(model_names)) / len(model_names)
+
+            # ベクトル化重み付き平均
+            return np.average(pred_array, axis=0, weights=weights)
+
+        else:
+            # デフォルト: 単純平均
+            logger.warning(f"未対応のアンサンブル手法: {method}、単純平均を使用")
+            return np.mean(pred_array, axis=0)
+
+    def _voting_ensemble(self, predictions: Dict[str, np.ndarray]) -> np.ndarray:
+        """投票アンサンブル（単純平均）- 後方互換性のため残存"""
+        return self._unified_ensemble(predictions, EnsembleMethod.VOTING)
 
     def _weighted_ensemble(self, predictions: Dict[str, np.ndarray]) -> np.ndarray:
-        """重み付きアンサンブル"""
-        if not predictions:
-            raise ValueError("予測結果が空です")
-
-        weighted_sum = np.zeros_like(list(predictions.values())[0])
-        total_weight = 0.0
-
-        for model_name, pred in predictions.items():
-            if model_name in self.model_weights:
-                weight = self.model_weights[model_name]
-                weighted_sum += weight * pred
-                total_weight += weight
-
-        if total_weight > 0:
-            return weighted_sum / total_weight
-        else:
-            return self._voting_ensemble(predictions)
+        """重み付きアンサンブル - 後方互換性のため残存"""
+        return self._unified_ensemble(predictions, EnsembleMethod.WEIGHTED)
 
     def _stacking_ensemble(self, predictions: Dict[str, np.ndarray], X: np.ndarray) -> np.ndarray:
         """スタッキングアンサンブル（メタ学習）"""
@@ -735,7 +751,7 @@ class EnsembleSystem:
                               actuals: np.ndarray, timestamp: int = None):
         """
         Issue #472対応: 簡素化された動的重み更新
-        
+
         DynamicWeightingSystemが内部で完結した重み更新・同期を実行
 
         Args:
@@ -749,7 +765,7 @@ class EnsembleSystem:
                 updated_weights = self.dynamic_weighting.sync_and_update_performance(
                     predictions, actuals, self.model_weights, timestamp
                 )
-                
+
                 logger.debug(f"動的重み更新完了: {len(updated_weights)}モデル")
 
             except Exception as e:
@@ -758,33 +774,33 @@ class EnsembleSystem:
     def create_simplified_weight_updater(self):
         """
         Issue #472対応: 簡潔な重み更新関数の生成
-        
+
         Returns:
             簡潔な重み更新関数
         """
         if not self.dynamic_weighting:
             return lambda *args, **kwargs: False
-            
+
         return self.dynamic_weighting.create_weight_updater()
 
     def get_dynamic_weight_update_strategy(self) -> str:
         """
         Issue #472対応: 動的重み更新戦略の取得
-        
+
         Returns:
             現在の重み更新戦略の説明
         """
         if not self.dynamic_weighting:
             return "動的重み調整は無効です"
-            
+
         strategy_info = [
             "統合重み更新戦略:",
             "1. パフォーマンス蓄積",
-            "2. 重み再計算（閾値達成時）", 
+            "2. 重み再計算（閾値達成時）",
             "3. EnsembleSystem重み直接同期",
             "4. 手動マージ処理の排除"
         ]
-        
+
         return " → ".join(strategy_info)
 
     def get_ensemble_info(self) -> Dict[str, Any]:
@@ -806,6 +822,174 @@ class EnsembleSystem:
             info['dynamic_weighting_info'] = self.dynamic_weighting.get_performance_summary()
 
         return info
+
+    def _parallel_model_training(self, X: np.ndarray, y: np.ndarray,
+                                validation_data: Optional[Tuple[np.ndarray, np.ndarray]] = None) -> Dict[str, Any]:
+        """
+        ベースモデルの並列学習 - Issue #705対応
+
+        Args:
+            X: 訓練データの特徴量
+            y: 訓練データの目標変数
+            validation_data: 検証データ
+
+        Returns:
+            Dict[str, Any]: 各モデルの学習結果
+        """
+        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+        import multiprocessing as mp
+
+        def train_single_model(args):
+            """単一モデルの学習関数"""
+            model_name, model, X_data, y_data, val_data = args
+            try:
+                logger.info(f"{model_name}並列学習開始")
+                result = model.fit(X_data, y_data, validation_data=val_data)
+                result['training_method'] = 'parallel'
+                logger.info(f"{model_name}並列学習完了")
+                return model_name, result
+            except Exception as e:
+                logger.error(f"{model_name}並列学習エラー: {e}")
+                return model_name, {"status": "失敗", "error": str(e), "training_method": "parallel"}
+
+        model_results = {}
+
+        if not self.base_models:
+            return model_results
+
+        # 並列処理設定
+        n_jobs = getattr(self.config, 'n_jobs', -1)
+        if n_jobs == -1:
+            n_jobs = min(len(self.base_models), mp.cpu_count())
+        elif n_jobs <= 0:
+            n_jobs = 1
+
+        logger.info(f"並列学習開始: {len(self.base_models)}モデルを{n_jobs}プロセスで実行")
+
+        # 並列学習実行
+        training_args = [
+            (model_name, model, X, y, validation_data)
+            for model_name, model in self.base_models.items()
+        ]
+
+        try:
+            # ThreadPoolExecutorを使用（scikit-learnモデルはピクル化に問題がある場合があるため）
+            with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+                future_to_model = {
+                    executor.submit(train_single_model, args): args[0]
+                    for args in training_args
+                }
+
+                for future in as_completed(future_to_model):
+                    model_name = future_to_model[future]
+                    try:
+                        result_name, result = future.result(timeout=3600)  # 1時間のタイムアウト
+                        model_results[result_name] = result
+                    except Exception as e:
+                        logger.error(f"{model_name}並列学習例外: {e}")
+                        model_results[model_name] = {
+                            "status": "失敗",
+                            "error": f"並列処理例外: {str(e)}",
+                            "training_method": "parallel"
+                        }
+
+        except Exception as e:
+            logger.warning(f"並列学習フォールバック: {e}")
+            # フォールバック: 順次実行
+            logger.info("順次学習にフォールバック")
+            for model_name, model in self.base_models.items():
+                try:
+                    logger.info(f"{model_name}学習開始（順次）")
+                    result = model.fit(X, y, validation_data=validation_data)
+                    result['training_method'] = 'sequential_fallback'
+                    model_results[model_name] = result
+                    logger.info(f"{model_name}学習完了（順次）")
+                except Exception as model_e:
+                    logger.error(f"{model_name}学習エラー（順次）: {model_e}")
+                    model_results[model_name] = {
+                        "status": "失敗",
+                        "error": str(model_e),
+                        "training_method": "sequential_fallback"
+                    }
+
+        return model_results
+
+    def _parallel_model_prediction(self, X: np.ndarray) -> Dict[str, np.ndarray]:
+        """
+        ベースモデルの並列予測 - Issue #705対応
+
+        Args:
+            X: 予測対象の特徴量
+
+        Returns:
+            Dict[str, np.ndarray]: 各モデルの予測結果
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import multiprocessing as mp
+
+        def predict_single_model(args):
+            """単一モデルの予測関数"""
+            model_name, model, X_data = args
+            try:
+                if not model.is_trained:
+                    return model_name, None
+                pred_result = model.predict(X_data)
+                return model_name, pred_result.predictions
+            except Exception as e:
+                logger.warning(f"{model_name}並列予測失敗: {e}")
+                return model_name, None
+
+        predictions = {}
+
+        # 学習済みモデルのみフィルタリング
+        trained_models = {
+            name: model for name, model in self.base_models.items()
+            if model.is_trained
+        }
+
+        if not trained_models:
+            return predictions
+
+        # 並列処理設定
+        n_jobs = getattr(self.config, 'n_jobs', -1)
+        if n_jobs == -1:
+            n_jobs = min(len(trained_models), mp.cpu_count())
+        elif n_jobs <= 0:
+            n_jobs = 1
+
+        # 並列予測実行
+        prediction_args = [
+            (model_name, model, X)
+            for model_name, model in trained_models.items()
+        ]
+
+        try:
+            with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+                future_to_model = {
+                    executor.submit(predict_single_model, args): args[0]
+                    for args in prediction_args
+                }
+
+                for future in as_completed(future_to_model):
+                    model_name = future_to_model[future]
+                    try:
+                        result_name, pred = future.result(timeout=300)  # 5分のタイムアウト
+                        if pred is not None:
+                            predictions[result_name] = pred
+                    except Exception as e:
+                        logger.warning(f"{model_name}並列予測例外: {e}")
+
+        except Exception as e:
+            logger.warning(f"並列予測フォールバック: {e}")
+            # フォールバック: 順次実行
+            for model_name, model in trained_models.items():
+                try:
+                    pred_result = model.predict(X)
+                    predictions[model_name] = pred_result.predictions
+                except Exception as model_e:
+                    logger.warning(f"{model_name}予測失敗（順次）: {model_e}")
+
+        return predictions
 
 
 if __name__ == "__main__":
