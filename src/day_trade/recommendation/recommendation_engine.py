@@ -481,40 +481,16 @@ class RecommendationEngine:
     def _get_all_symbols(self) -> List[str]:
         """全銘柄リスト取得"""
         try:
-            # settings.jsonから銘柄リストを取得
-            import json
-            from pathlib import Path
+            # StockNameHelperのインスタンスから全銘柄情報を取得
+            all_stock_info = self.stock_helper.get_all_symbols()
+            symbols = list(all_stock_info.keys())
 
-            config_path = Path(__file__).parent.parent.parent.parent / "config" / "settings.json"
-
-            if config_path.exists():
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    settings = json.load(f)
-
-                symbols = []
-
-                # stock_infoから銘柄を取得
-                if 'stock_info' in settings:
-                    for symbol, info in settings['stock_info'].items():
-                        if isinstance(info, dict) and info.get('name'):
-                            symbols.append(symbol)
-
-                # watchlist.symbolsから取得
-                if not symbols and 'watchlist' in settings and 'symbols' in settings['watchlist']:
-                    for stock in settings['watchlist']['symbols']:
-                        if isinstance(stock, dict) and 'code' in stock:
-                            symbols.append(stock['code'])
-
-                # symbolsリストからも取得（フォールバック）
-                if not symbols and 'symbols' in settings:
-                    symbols = settings['symbols']
-
-                logger.info(f"設定ファイルから {len(symbols)} 銘柄を取得")
-                if symbols:
-                    return symbols
+            logger.info(f"StockNameHelperから {len(symbols)} 銘柄を取得")
+            if symbols:
+                return symbols
 
         except Exception as e:
-            logger.warning(f"設定ファイル読み込みエラー: {e}")
+            logger.warning(f"StockNameHelperからの銘柄情報取得エラー: {e}")
 
         # フォールバック: デフォルト銘柄
         default_symbols = ["7203", "8306", "9984", "6758", "4689"]
