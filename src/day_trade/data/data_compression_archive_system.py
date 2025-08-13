@@ -545,10 +545,11 @@ class DataCompressionArchiveSystem:
             "total_compressed_size_mb": sum(compressed_sizes) / (1024 * 1024),
             "total_space_saved_mb": (sum(original_sizes) - sum(compressed_sizes))
             / (1024 * 1024),
-            "space_saving_percentage": (1 - sum(compressed_sizes) / sum(original_sizes))
-            * 100
-            if sum(original_sizes) > 0
-            else 0,
+            "space_saving_percentage": (
+                (1 - sum(compressed_sizes) / sum(original_sizes)) * 100
+                if sum(original_sizes) > 0
+                else 0
+            ),
         }
 
     async def get_archive_status(self) -> Dict[str, Any]:

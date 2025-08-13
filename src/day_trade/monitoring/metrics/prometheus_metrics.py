@@ -237,18 +237,24 @@ class PrometheusMetricsCollector:
             "timestamp": timestamp.isoformat(),
             "system_metrics": {
                 "cpu_usage": health_metrics.cpu_usage.get(),
-                "memory_usage": health_metrics.memory_usage.labels(type="used").get()
-                / health_metrics.memory_usage.labels(type="total").get()
-                * 100
-                if health_metrics.memory_usage.labels(type="total").get()
-                else 0,  # Convert bytes to percentage
-                "disk_usage": health_metrics.disk_usage.labels(
-                    mount_point="/", type="used"
-                ).get()
-                / health_metrics.disk_usage.labels(mount_point="/", type="total").get()
-                * 100
-                if health_metrics.disk_usage.labels(mount_point="/", type="total").get()
-                else 0,
+                "memory_usage": (
+                    health_metrics.memory_usage.labels(type="used").get()
+                    / health_metrics.memory_usage.labels(type="total").get()
+                    * 100
+                    if health_metrics.memory_usage.labels(type="total").get()
+                    else 0
+                ),  # Convert bytes to percentage
+                "disk_usage": (
+                    health_metrics.disk_usage.labels(mount_point="/", type="used").get()
+                    / health_metrics.disk_usage.labels(
+                        mount_point="/", type="total"
+                    ).get()
+                    * 100
+                    if health_metrics.disk_usage.labels(
+                        mount_point="/", type="total"
+                    ).get()
+                    else 0
+                ),
             },
             "collection_count": self.metrics_collection_total._value._value,
         }

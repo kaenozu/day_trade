@@ -697,9 +697,11 @@ class PortfolioManager:
         return {
             "symbol_deviations": deviations,
             "max_deviation": max(absolute_deviations) if absolute_deviations else 0,
-            "average_deviation": sum(absolute_deviations) / len(absolute_deviations)
-            if absolute_deviations
-            else 0,
+            "average_deviation": (
+                sum(absolute_deviations) / len(absolute_deviations)
+                if absolute_deviations
+                else 0
+            ),
             "total_absolute_deviation": sum(absolute_deviations),
         }
 
@@ -780,9 +782,11 @@ class PortfolioManager:
                     result[k] = self._prepare_data_for_json(v)
                 elif isinstance(v, list):
                     result[k] = [
-                        self._prepare_data_for_json(item)
-                        if isinstance(item, dict)
-                        else item
+                        (
+                            self._prepare_data_for_json(item)
+                            if isinstance(item, dict)
+                            else item
+                        )
                         for item in v
                     ]
                 else:

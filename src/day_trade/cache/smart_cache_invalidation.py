@@ -218,12 +218,16 @@ class DependencyGraph:
                 "keys_with_dependencies": len(self.dependencies),
                 "keys_with_dependents": len(self.dependents),
                 "access_history_size": len(self.access_history),
-                "max_fanout": max(len(deps) for deps in self.dependents.values())
-                if self.dependents
-                else 0,
-                "max_fanin": max(len(deps) for deps in self.dependencies.values())
-                if self.dependencies
-                else 0,
+                "max_fanout": (
+                    max(len(deps) for deps in self.dependents.values())
+                    if self.dependents
+                    else 0
+                ),
+                "max_fanin": (
+                    max(len(deps) for deps in self.dependencies.values())
+                    if self.dependencies
+                    else 0
+                ),
             }
 
 

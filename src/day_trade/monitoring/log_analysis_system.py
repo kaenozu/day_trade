@@ -664,14 +664,14 @@ class LogAnalysisSystem:
 
         report = f"""
 === ログ分析サマリーレポート ===
-分析時刻: {analysis['timestamp']}
-時間窓: {analysis['time_window_hours']}時間
-処理ファイル数: {analysis['processed_files']}個
-総ログエントリ数: {analysis['total_entries']}個
+分析時刻: {analysis["timestamp"]}
+時間窓: {analysis["time_window_hours"]}時間
+処理ファイル数: {analysis["processed_files"]}個
+総ログエントリ数: {analysis["total_entries"]}個
 
 === 統計情報 ===
-エラー率: {stats.get('error_rate_percent', 0)}%
-レベル分布: {stats.get('level_distribution', {})}
+エラー率: {stats.get("error_rate_percent", 0)}%
+レベル分布: {stats.get("level_distribution", {})}
 
 === 検出結果 ===
 パターン数: {len(patterns)}個
@@ -681,7 +681,7 @@ class LogAnalysisSystem:
 
         for anomaly in anomalies:
             report += f"""
-- {anomaly['type']}: {anomaly['description']} [{anomaly['severity']}]"""
+- {anomaly["type"]}: {anomaly["description"]} [{anomaly["severity"]}]"""
 
         return report
 
@@ -696,23 +696,23 @@ class LogAnalysisSystem:
 
         for pattern in patterns[:10]:  # 上位10パターン
             detailed += f"""
-パターンID: {pattern['pattern_id']}
-説明: {pattern['description']}
-重要度: {pattern['severity']}
-発生回数: {pattern['count']}
-初回検出: {pattern.get('first_seen', 'N/A')}
-最終検出: {pattern.get('last_seen', 'N/A')}
+パターンID: {pattern["pattern_id"]}
+説明: {pattern["description"]}
+重要度: {pattern["severity"]}
+発生回数: {pattern["count"]}
+初回検出: {pattern.get("first_seen", "N/A")}
+最終検出: {pattern.get("last_seen", "N/A")}
 """
 
         detailed += "\n=== 異常詳細 ==="
         for anomaly in anomalies:
             detailed += f"""
-異常ID: {anomaly['anomaly_id']}
-タイプ: {anomaly['type']}
-説明: {anomaly['description']}
-重要度: {anomaly['severity']}
-影響コンポーネント: {', '.join(anomaly.get('affected_components', []))}
-証拠: {'; '.join(anomaly.get('evidence', []))}
+異常ID: {anomaly["anomaly_id"]}
+タイプ: {anomaly["type"]}
+説明: {anomaly["description"]}
+重要度: {anomaly["severity"]}
+影響コンポーネント: {", ".join(anomaly.get("affected_components", []))}
+証拠: {"; ".join(anomaly.get("evidence", []))}
 """
 
         return detailed

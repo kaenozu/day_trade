@@ -245,9 +245,11 @@ class PredictionOrchestrator:
                 "uncertainty": prediction_uncertainty,
                 "ml_predictions": ml_predictions,
                 "ml_confidence": ml_confidence,
-                "ensemble_signal": ensemble_signal.ensemble_signal.signal_type.value
-                if ensemble_signal
-                else None,
+                "ensemble_signal": (
+                    ensemble_signal.ensemble_signal.signal_type.value
+                    if ensemble_signal
+                    else None
+                ),
                 "features_used": len(features.columns),
             }
 
@@ -943,9 +945,11 @@ class PredictionOrchestrator:
                     "voting_type": self.config.voting_type.value,
                 },
                 "ml_enabled": self.enable_ml,
-                "last_retrain_date": self.last_retrain_date.isoformat()
-                if self.last_retrain_date
-                else None,
+                "last_retrain_date": (
+                    self.last_retrain_date.isoformat()
+                    if self.last_retrain_date
+                    else None
+                ),
                 "prediction_history_length": len(self.prediction_history),
                 "model_weights": self.model_weights.copy(),
                 "performance_metrics": {

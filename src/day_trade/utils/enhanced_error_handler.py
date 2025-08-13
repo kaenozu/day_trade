@@ -585,9 +585,9 @@ class EnhancedErrorHandler:
             limited_context = dict(
                 list(context.items())[: self.config.max_context_items]
             )
-            limited_context[
-                "_context_truncated"
-            ] = f"表示制限により {len(context) - self.config.max_context_items} 項目が省略されました"
+            limited_context["_context_truncated"] = (
+                f"表示制限により {len(context) - self.config.max_context_items} 項目が省略されました"
+            )
             context = limited_context
 
         # ユーザーアクションをコンテキストに追加

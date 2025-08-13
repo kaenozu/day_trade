@@ -282,9 +282,11 @@ class SocialMediaAnalyzer:
                     # ツイート検索
                     tweets = tweepy.Paginator(
                         self.twitter_api.search_recent_tweets,
-                        query=f"{keyword} -is:retweet"
-                        if self.config.filter_retweets
-                        else keyword,
+                        query=(
+                            f"{keyword} -is:retweet"
+                            if self.config.filter_retweets
+                            else keyword
+                        ),
                         tweet_fields=[
                             "created_at",
                             "author_id",
@@ -415,9 +417,9 @@ class SocialMediaAnalyzer:
                 text=text,
                 platform="twitter",
                 post_id=str(tweet.id),
-                author=str(tweet.author_id)
-                if hasattr(tweet, "author_id")
-                else "unknown",
+                author=(
+                    str(tweet.author_id) if hasattr(tweet, "author_id") else "unknown"
+                ),
                 created_at=tweet.created_at,
                 likes=metrics.get("like_count", 0),
                 retweets=metrics.get("retweet_count", 0),
@@ -876,9 +878,9 @@ class SocialMediaAnalyzer:
         if hourly_engagement:
             peak_hour = max(
                 hourly_engagement.keys(),
-                key=lambda h: np.mean(hourly_engagement[h])
-                if hourly_engagement[h]
-                else 0,
+                key=lambda h: (
+                    np.mean(hourly_engagement[h]) if hourly_engagement[h] else 0
+                ),
             )
             analysis["peak_engagement_hour"] = peak_hour
 
@@ -915,16 +917,22 @@ class SocialMediaAnalyzer:
                 "posts": [
                     {
                         "platform": post.platform,
-                        "text": post.text[:200] + "..."
-                        if len(post.text) > 200
-                        else post.text,
+                        "text": (
+                            post.text[:200] + "..."
+                            if len(post.text) > 200
+                            else post.text
+                        ),
                         "author": post.author,
-                        "sentiment_label": post.sentiment_result.sentiment_label
-                        if post.sentiment_result
-                        else None,
-                        "sentiment_score": post.sentiment_result.sentiment_score
-                        if post.sentiment_result
-                        else 0,
+                        "sentiment_label": (
+                            post.sentiment_result.sentiment_label
+                            if post.sentiment_result
+                            else None
+                        ),
+                        "sentiment_score": (
+                            post.sentiment_result.sentiment_score
+                            if post.sentiment_result
+                            else 0
+                        ),
                         "engagement_score": post.engagement_score,
                         "influence_score": post.influence_score,
                         "hashtags": post.hashtags,

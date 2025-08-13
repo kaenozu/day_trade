@@ -215,25 +215,19 @@ class TestAnalysisOnlyEngineComprehensive:
 
         # 増加パターン
         increasing_data = pd.DataFrame(
-            {
-                "Volume": [1000, 1100, 1200, 2000, 2100, 2200]  # 後半が増加
-            }
+            {"Volume": [1000, 1100, 1200, 2000, 2100, 2200]}  # 後半が増加
         )
         assert engine._analyze_volume_trend(increasing_data) == "増加"
 
         # 減少パターン
         decreasing_data = pd.DataFrame(
-            {
-                "Volume": [2000, 2100, 2200, 1000, 1100, 1200]  # 後半が減少
-            }
+            {"Volume": [2000, 2100, 2200, 1000, 1100, 1200]}  # 後半が減少
         )
         assert engine._analyze_volume_trend(decreasing_data) == "減少"
 
         # 安定パターン
         stable_data = pd.DataFrame(
-            {
-                "Volume": [1500, 1400, 1600, 1500, 1400, 1600]  # ほぼ同じ
-            }
+            {"Volume": [1500, 1400, 1600, 1500, 1400, 1600]}  # ほぼ同じ
         )
         assert engine._analyze_volume_trend(stable_data) == "安定"
 

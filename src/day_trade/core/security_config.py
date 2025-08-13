@@ -597,9 +597,11 @@ class EnvironmentConfigLoader:
             "smtp_user": os.environ.get("DAYTRADE_SMTP_USER"),
             "smtp_pass": os.environ.get("DAYTRADE_SMTP_PASS"),
             "smtp_from_email": os.environ.get("DAYTRADE_SMTP_FROM_EMAIL"),
-            "smtp_to_emails": os.environ.get("DAYTRADE_SMTP_TO_EMAILS", "").split(",")
-            if os.environ.get("DAYTRADE_SMTP_TO_EMAILS")
-            else [],
+            "smtp_to_emails": (
+                os.environ.get("DAYTRADE_SMTP_TO_EMAILS", "").split(",")
+                if os.environ.get("DAYTRADE_SMTP_TO_EMAILS")
+                else []
+            ),
         }
 
 

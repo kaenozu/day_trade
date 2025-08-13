@@ -1,88 +1,137 @@
-    def calculate_advanced_bollinger_bands(
+#!/usr/bin/env python3
+"""
+Issue #619対応: 高度テクニカル指標計算（統合システム使用）
+
+旧AdvancedTechnicalIndicatorsクラスの後方互換性を保ちながら、
+統合テクニカル指標システムに移行
+"""
+
+import warnings
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+import pandas as pd
+
+from ..utils.logging_config import get_context_logger
+from .technical_indicators_consolidated import (
+    TechnicalIndicatorsManager,
+    IndicatorConfig,
+    calculate_technical_indicators,
+    calculate_sma,
+    calculate_rsi,
+    calculate_macd
+)
+
+logger = get_context_logger(__name__)
+
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+
+
+class AdvancedTechnicalIndicators:
+    """
+    Issue #619対応: 高度テクニカル指標計算（統合システム委譲）
+
+    移動平均線、RSI、MACD、ボリンジャーバンドなど、
+    様々なテクニカル指標を計算・提供し、市場分析を支援
+
+    注意: このクラスは後方互換性のために保持されています。
+    新しいコードでは technical_indicators_consolidated.TechnicalIndicatorsManager を使用してください。
+    """
+
+    def __init__(self):
+        # Issue #619対応: 統合システムに委譲
+        self._manager = TechnicalIndicatorsManager(IndicatorConfig())
+        logger.info("高度テクニカル指標計算初期化完了 (統合システム使用)")
+        logger.warning("AdvancedTechnicalIndicatorsは非推奨です。TechnicalIndicatorsManagerの使用を推奨します")
+
+    def calculate_sma(self, data: pd.DataFrame, period: int = 20) -> np.ndarray:
+        """単純移動平均計算（統合システム委譲）"""
+        return calculate_sma(data, period)
+
+    def calculate_ema(self, data: pd.DataFrame, period: int = 20) -> np.ndarray:
+        """指数移動平均計算（統合システム委譲）"""
+        result = self._manager.calculate_indicators(data, ["ema"], period=period)
+        return list(result.values())[0][0].values
+
+    def calculate_rsi(self, data: pd.DataFrame, period: int = 14) -> np.ndarray:
+        """RSI計算（統合システム委譲）"""
+        return calculate_rsi(data, period)
+
+    def calculate_macd(
         self,
         data: pd.DataFrame,
-        periods: Optional[List[int]] = None,
-        std_devs: Optional[List[float]] = None,
-    ) -> pd.DataFrame:
-        """
-        高度ボリンジャーバンド分析
+        fast: int = 12,
+        slow: int = 26,
+        signal: int = 9
+    ) -> Dict[str, np.ndarray]:
+        """MACD計算（統合システム委譲）"""
+        return calculate_macd(data, fast, slow, signal)
 
-        Args:
-            data: OHLCV価格データ
-            periods: SMA期間のリスト (デフォルト: [20, 50])
-            std_devs: 標準偏差の倍数リスト (デフォルト: [1.0, 2.0, 3.0])
+    def calculate_bollinger_bands(
+        self,
+        data: pd.DataFrame,
+        period: int = 20,
+        std_dev: float = 2.0
+    ) -> Dict[str, np.ndarray]:
+        """ボリンジャーバンド計算（統合システム委譲）"""
+        result = self._manager.calculate_indicators(
+            data, ["bollinger_bands"],
+            period=period, std_dev=std_dev
+        )
+        return list(result.values())[0][0].values
 
-        Returns:
-            計算済みデータフレーム (bb_upper, bb_lower, bb_width, bb_percent_b, bb_squeeze)
-        """
-        try:
-            df = data.copy()
+    def calculate_stochastic(
+        self,
+        data: pd.DataFrame,
+        k_period: int = 14,
+        d_period: int = 3
+    ) -> Dict[str, np.ndarray]:
+        """ストキャスティクス計算（統合システム委譲）"""
+        result = self._manager.calculate_indicators(
+            data, ["stochastic"],
+            k_period=k_period, d_period=d_period
+        )
+        return list(result.values())[0][0].values
 
-            if periods is None:
-                periods = [20, 50]
-            if std_devs is None:
-                std_devs = [1.0, 2.0, 3.0]
+    def calculate_ichimoku(
+        self,
+        data: pd.DataFrame,
+        conversion_period: int = 9,
+        base_period: int = 26,
+        leading_span_b_period: int = 52,
+        lagging_span_period: int = 26
+    ) -> Dict[str, np.ndarray]:
+        """一目均衡表計算（統合システム委譲）"""
+        result = self._manager.calculate_indicators(
+            data, ["ichimoku"],
+            conversion_period=conversion_period,
+            base_period=base_period,
+            leading_span_b_period=leading_span_b_period,
+            lagging_span_period=lagging_span_period
+        )
+        return list(result.values())[0][0].values
 
-            for period in periods:
-                sma = df["Close"].rolling(window=period).mean()
-                std = df["Close"].rolling(window=period).std()
-                df[f"bb_upper_{period}"] = sma + (
-                    std * std_devs[-1]
-                )  # 最大標準偏差を使用
-                df[f"bb_lower_{period}"] = sma - (std * std_devs[-1])
-                df[f"bb_width_{period}"] = (
-                    df["bb_upper_{period}"] - df["bb_lower_{period}"]
-                ) / sma
-                df[f"bb_percent_b_{period}"] = (
-                    df["Close"] - df["bb_lower_{period}"]
-                ) / (df["bb_upper_{period}"] - df["bb_lower_{period}"])
+    def get_performance_summary(self) -> Dict[str, Any]:
+        """パフォーマンス概要取得（統合システム委譲）"""
+        return self._manager.get_performance_summary()
 
-            # スクイーズ検出
-            df["bb_squeeze"] = (
-                df["bb_upper_20"] - df["bb_lower_20"]
-                < df["bb_upper_50"] - df["bb_lower_50"]
-            )  # 20期間が50期間より狭い
 
-            # ボリンジャーバンド戦略シグナル生成
-            df["bb_signal"] = 0
-            for i in range(1, len(df)):
-                # ボラティリティブレイクアウト
-                if (
-                    df["bb_percent_b_20"].iloc[i] > 1
-                    and df["bb_percent_b_20"].iloc[i - 1] < 1
-                ):  # 上抜け
-                    df["bb_signal"].iloc[i] = 1  # 買いシグナル
-                elif (
-                    df["bb_percent_b_20"].iloc[i] < 0
-                    and df["bb_percent_b_20"].iloc[i - 1] > 0
-                ):  # 下抜け
-                    df["bb_signal"].iloc[i] = -1  # 売りシグナル
+# Issue #619対応: 直接関数として利用可能にする（後方互換性）
 
-                # スクイーズブレイクアウト
-                if "bb_squeeze" in df.columns:
-                    if df["bb_squeeze"].iloc[i - 1] and not df["bb_squeeze"].iloc[i]:
-                        # ブレイクアウト方向を判定
-                        if df["Close"].iloc[i] > df["Close"].iloc[i - 5 : i].mean():
-                            pass  # breakout_buy のロジック
-                        else:
-                            pass  # breakout_sell のロジック
-                        # シグナルを付与 (例: 2 for buy, -2 for sell)
-                        # df["bb_signal"].iloc[i] = 2 if signal == "breakout_buy" else -2
+def calculate_advanced_sma(data: pd.DataFrame, period: int = 20) -> np.ndarray:
+    """高度SMA計算（統合システム使用）"""
+    return calculate_sma(data, period)
 
-            # 不要な中間列を削除
-            cols_to_drop = [
-                col
-                for col in df.columns
-                if "SMA" in col
-                or "StdDev" in col
-                or "EMA_Fast" in col
-                or "EMA_Slow" in col
-            ]
-            df = df.drop(columns=cols_to_drop, errors="ignore")
+def calculate_advanced_rsi(data: pd.DataFrame, period: int = 14) -> np.ndarray:
+    """高度RSI計算（統合システム使用）"""
+    return calculate_rsi(data, period)
 
-            logger.info("高度ボリンジャーバンド分析完了")
-            return df
-
-        except Exception as e:
-            logger.error(f"高度ボリンジャーバンド分析エラー: {e}")
-            return data
+def calculate_advanced_macd(
+    data: pd.DataFrame,
+    fast: int = 12,
+    slow: int = 26,
+    signal: int = 9
+) -> Dict[str, np.ndarray]:
+    """高度MACD計算（統合システム使用）"""
+    return calculate_macd(data, fast, slow, signal)

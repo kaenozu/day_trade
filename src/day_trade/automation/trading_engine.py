@@ -326,30 +326,30 @@ class TradingEngine:
             if position.trade_type == TradeType.BUY:
                 if pnl_ratio >= self.risk_params.take_profit_ratio:
                     logger.info(
-                        f"【分析】{symbol}: 利益確定推奨 - 利益率 {pnl_ratio*100:.2f}% (+{pnl_amount:.0f}円)"
+                        f"【分析】{symbol}: 利益確定推奨 - 利益率 {pnl_ratio * 100:.2f}% (+{pnl_amount:.0f}円)"
                     )
                 elif pnl_ratio <= -self.risk_params.stop_loss_ratio:
                     logger.info(
-                        f"【分析】{symbol}: 損切り推奨 - 損失率 {pnl_ratio*100:.2f}% ({pnl_amount:.0f}円)"
+                        f"【分析】{symbol}: 損切り推奨 - 損失率 {pnl_ratio * 100:.2f}% ({pnl_amount:.0f}円)"
                     )
                 else:
                     logger.info(
-                        f"【分析】{symbol}: ホールド推奨 - 損益率 {pnl_ratio*100:.2f}% ({pnl_amount:+.0f}円)"
+                        f"【分析】{symbol}: ホールド推奨 - 損益率 {pnl_ratio * 100:.2f}% ({pnl_amount:+.0f}円)"
                     )
 
             # 売りポジションの分析
             elif position.trade_type == TradeType.SELL:
                 if pnl_ratio <= -self.risk_params.take_profit_ratio:
                     logger.info(
-                        f"【分析】{symbol}: 利益確定推奨 - 利益率 {abs(pnl_ratio)*100:.2f}% (+{abs(pnl_amount):.0f}円)"
+                        f"【分析】{symbol}: 利益確定推奨 - 利益率 {abs(pnl_ratio) * 100:.2f}% (+{abs(pnl_amount):.0f}円)"
                     )
                 elif pnl_ratio >= self.risk_params.stop_loss_ratio:
                     logger.info(
-                        f"【分析】{symbol}: 損切り推奨 - 損失率 {pnl_ratio*100:.2f}% ({pnl_amount:.0f}円)"
+                        f"【分析】{symbol}: 損切り推奨 - 損失率 {pnl_ratio * 100:.2f}% ({pnl_amount:.0f}円)"
                     )
                 else:
                     logger.info(
-                        f"【分析】{symbol}: ホールド推奨 - 損益率 {pnl_ratio*100:.2f}% ({pnl_amount:+.0f}円)"
+                        f"【分析】{symbol}: ホールド推奨 - 損益率 {pnl_ratio * 100:.2f}% ({pnl_amount:+.0f}円)"
                     )
 
             logger.info("  ※ 注意: これは分析情報であり、実際の取引実行は行いません")

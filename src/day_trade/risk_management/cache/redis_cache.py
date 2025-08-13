@@ -305,9 +305,11 @@ class RedisCacheProvider(ICacheProvider):
             # プレフィックスを除去
             prefix_len = len(self.key_prefix)
             return [
-                key.decode("utf-8")[prefix_len:]
-                if isinstance(key, bytes)
-                else key[prefix_len:]
+                (
+                    key.decode("utf-8")[prefix_len:]
+                    if isinstance(key, bytes)
+                    else key[prefix_len:]
+                )
                 for key in redis_keys
             ]
 

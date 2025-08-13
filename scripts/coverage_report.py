@@ -267,11 +267,11 @@ def analyze_coverage_trends(reports_dir: Path) -> Dict[str, Any]:
 
         trends["trend_analysis"] = {
             "coverage_change": coverage_change,
-            "coverage_direction": "improving"
-            if coverage_change > 0
-            else "declining"
-            if coverage_change < 0
-            else "stable",
+            "coverage_direction": (
+                "improving"
+                if coverage_change > 0
+                else "declining" if coverage_change < 0 else "stable"
+            ),
             "statements_change": statements_change,
             "code_growth": statements_change > 0,
         }

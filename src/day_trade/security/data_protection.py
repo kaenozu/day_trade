@@ -126,9 +126,11 @@ class EncryptedData:
             salt=base64.b64decode(data["salt"]) if data.get("salt") else None,
             iv=base64.b64decode(data["iv"]) if data.get("iv") else None,
             tag=base64.b64decode(data["tag"]) if data.get("tag") else None,
-            encrypted_at=datetime.fromisoformat(data["encrypted_at"])
-            if data.get("encrypted_at")
-            else datetime.utcnow(),
+            encrypted_at=(
+                datetime.fromisoformat(data["encrypted_at"])
+                if data.get("encrypted_at")
+                else datetime.utcnow()
+            ),
             key_id=data.get("key_id"),
             compression_used=data.get("compression_used", False),
         )

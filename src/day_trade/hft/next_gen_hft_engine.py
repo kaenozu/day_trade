@@ -8,35 +8,36 @@ Issue #366: バッチ・キャッシュシステム統合による超高性能HF
 """
 
 import asyncio
+import concurrent.futures
 import threading
 import time
-from dataclasses import dataclass, field
-from enum import IntEnum, Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
-import concurrent.futures
 import uuid
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from enum import Enum, IntEnum
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
 # 今回実装したシステムの統合
 try:
-    from ..batch.parallel_batch_engine import ParallelBatchEngine, BatchJob, BatchResult
-    from ..batch.unified_batch_dataflow import UnifiedBatchDataflow, DataflowStage
-    from ..cache.redis_enhanced_cache import RedisEnhancedCache, CacheStrategy
+    from ..batch.parallel_batch_engine import BatchJob, BatchResult, ParallelBatchEngine
+    from ..batch.unified_batch_dataflow import DataflowStage, UnifiedBatchDataflow
+    from ..cache.redis_enhanced_cache import CacheStrategy, RedisEnhancedCache
     from ..cache.smart_cache_invalidation import SmartCacheInvalidator
-    from ..monitoring.performance_optimization_system import get_optimization_manager
     from ..monitoring.log_aggregation_system import create_log_aggregation_system
+    from ..monitoring.performance_optimization_system import get_optimization_manager
     from ..utils.logging_config import get_context_logger
+    from .market_data_processor import MarketUpdate, UltraFastMarketDataProcessor
+    from .microsecond_monitor import LatencyMetrics, MicrosecondMonitor
+    from .realtime_decision_engine import RealtimeDecisionEngine, TradingSignal
 
     # 既存HFTモジュール
-    from .ultra_fast_executor import UltraFastExecutor, OrderEntry, ExecutionResult
-    from .realtime_decision_engine import RealtimeDecisionEngine, TradingSignal
-    from .microsecond_monitor import MicrosecondMonitor, LatencyMetrics
-    from .market_data_processor import UltraFastMarketDataProcessor, MarketUpdate
+    from .ultra_fast_executor import ExecutionResult, OrderEntry, UltraFastExecutor
 
 except ImportError:
     import logging
+
     logging.basicConfig(level=logging.INFO)
 
     def get_context_logger(name):
@@ -51,19 +52,22 @@ except ImportError:
         def __init__(self):
             pass
 
+
 logger = get_context_logger(__name__)
 
 
 class HFTExecutionMode(Enum):
     """HFT実行モード"""
-    ULTRA_LOW_LATENCY = "ultra_low_latency"    # <30μs 最高速度
-    HIGH_THROUGHPUT = "high_throughput"        # 高スループット重視
-    ADAPTIVE = "adaptive"                      # 市況に応じて自動調整
-    RISK_AWARE = "risk_aware"                 # リスク管理重視
+
+    ULTRA_LOW_LATENCY = "ultra_low_latency"  # <30μs 最高速度
+    HIGH_THROUGHPUT = "high_throughput"  # 高スループット重視
+    ADAPTIVE = "adaptive"  # 市況に応じて自動調整
+    RISK_AWARE = "risk_aware"  # リスク管理重視
 
 
 class MarketRegime(Enum):
     """市場状況分類"""
+
     NORMAL = "normal"
     VOLATILE = "volatile"
     TRENDING = "trending"
@@ -74,6 +78,7 @@ class MarketRegime(Enum):
 @dataclass
 class NextGenHFTConfig:
     """次世代HFT設定"""
+
     # 実行性能設定
     target_latency_us: int = 30
     max_latency_us: int = 50
@@ -109,6 +114,7 @@ class NextGenHFTConfig:
 @dataclass
 class HFTMarketData:
     """高頻度取引用市場データ"""
+
     symbol: str
     timestamp_us: int  # マイクロ秒精度
     bid_price: float
@@ -130,6 +136,7 @@ class HFTMarketData:
 @dataclass
 class NextGenExecutionOrder:
     """次世代実行オーダー"""
+
     order_id: str
     symbol: str
     side: str  # "BUY" or "SELL"
@@ -156,6 +163,7 @@ class NextGenExecutionOrder:
 @dataclass
 class NextGenExecutionResult:
     """次世代実行結果"""
+
     order_id: str
     execution_id: str
     status: str  # "FILLED", "PARTIAL", "REJECTED", "PENDING"
@@ -210,7 +218,7 @@ class NextGenHFTEngine:
             "failed_executions": 0,
             "cache_hits": 0,
             "batch_optimizations": 0,
-            "risk_blocks": 0
+            "risk_blocks": 0,
         }
 
         logger.info(f"NextGenHFTEngine {self.engine_id} 初期化完了")
@@ -251,8 +259,7 @@ class NextGenHFTEngine:
         """バッチシステム統合"""
         try:
             self.batch_engine = ParallelBatchEngine(
-                max_workers=4,
-                queue_size=self.config.batch_size
+                max_workers=4, queue_size=self.config.batch_size
             )
 
             self.batch_dataflow = UnifiedBatchDataflow()
@@ -277,7 +284,7 @@ class NextGenHFTEngine:
             name="order_preprocessing",
             function=self._batch_preprocess_orders,
             parallel=True,
-            timeout=5
+            timeout=5,
         )
 
         # ステージ2: リスク分析
@@ -285,7 +292,7 @@ class NextGenHFTEngine:
             name="risk_analysis",
             function=self._batch_risk_analysis,
             parallel=True,
-            timeout=10
+            timeout=10,
         )
 
         # ステージ3: 実行最適化
@@ -293,7 +300,7 @@ class NextGenHFTEngine:
             name="execution_optimization",
             function=self._batch_execution_optimization,
             parallel=False,
-            timeout=15
+            timeout=15,
         )
 
         # ステージ追加
@@ -308,13 +315,11 @@ class NextGenHFTEngine:
                 host="localhost",
                 port=6379,
                 strategy=CacheStrategy.WRITE_THROUGH,
-                ttl=self.config.cache_ttl_ms
+                ttl=self.config.cache_ttl_ms,
             )
 
             if self.config.enable_smart_invalidation:
-                self.cache_invalidator = SmartCacheInvalidator(
-                    cache=self.redis_cache
-                )
+                self.cache_invalidator = SmartCacheInvalidator(cache=self.redis_cache)
 
             logger.info("キャッシュシステム統合完了")
 
@@ -383,7 +388,9 @@ class NextGenHFTEngine:
             submit_latency = (time.time() * 1_000_000) - start_time
             self.stats["total_latency_us"] += submit_latency
 
-            logger.debug(f"オーダー投入完了: {order.order_id}, レイテンシー: {submit_latency:.1f}μs")
+            logger.debug(
+                f"オーダー投入完了: {order.order_id}, レイテンシー: {submit_latency:.1f}μs"
+            )
 
             return order.order_id
 
@@ -420,7 +427,7 @@ class NextGenHFTEngine:
                 last_price=150.05 + np.random.normal(0, 0.5),
                 volume=1000,
                 sequence_number=1,
-                market_regime=MarketRegime.NORMAL
+                market_regime=MarketRegime.NORMAL,
             )
 
             # キャッシュに保存
@@ -432,10 +439,7 @@ class NextGenHFTEngine:
             try:
                 # オーダーキューから取得
                 try:
-                    order = await asyncio.wait_for(
-                        self.order_queue.get(),
-                        timeout=0.01
-                    )
+                    order = await asyncio.wait_for(self.order_queue.get(), timeout=0.01)
                     await self._execute_order(order)
 
                 except asyncio.TimeoutError:
@@ -476,7 +480,7 @@ class NextGenHFTEngine:
                 market_to_fill_us=15,
                 total_latency_us=int((time.time() * 1_000_000) - start_time),
                 slippage=abs(execution_price - market_data.mid_price()),
-                cache_hit=True
+                cache_hit=True,
             )
 
             # 結果をキューに追加
@@ -484,7 +488,9 @@ class NextGenHFTEngine:
 
             self.stats["successful_executions"] += 1
 
-            logger.debug(f"オーダー実行完了: {order.order_id}, レイテンシー: {result.total_latency_us}μs")
+            logger.debug(
+                f"オーダー実行完了: {order.order_id}, レイテンシー: {result.total_latency_us}μs"
+            )
 
         except Exception as e:
             logger.error(f"オーダー実行エラー: {e}")
@@ -532,7 +538,9 @@ class NextGenHFTEngine:
 
         self.stats["batch_optimizations"] += 1
 
-    async def _optimize_order_batch(self, orders: List[NextGenExecutionOrder]) -> List[NextGenExecutionOrder]:
+    async def _optimize_order_batch(
+        self, orders: List[NextGenExecutionOrder]
+    ) -> List[NextGenExecutionOrder]:
         """オーダーバッチ最適化"""
         # シンボルごとにグループ化
         symbol_groups = {}
@@ -550,7 +558,9 @@ class NextGenHFTEngine:
 
         return optimized_orders
 
-    async def _optimize_symbol_orders(self, symbol: str, orders: List[NextGenExecutionOrder]) -> List[NextGenExecutionOrder]:
+    async def _optimize_symbol_orders(
+        self, symbol: str, orders: List[NextGenExecutionOrder]
+    ) -> List[NextGenExecutionOrder]:
         """シンボル別オーダー最適化"""
         # ネッティング（売り買いの相殺）
         buy_quantity = sum(o.quantity for o in orders if o.side == "BUY")
@@ -566,7 +576,7 @@ class NextGenHFTEngine:
                     symbol=symbol,
                     side="BUY",
                     quantity=net_quantity,
-                    execution_strategy="BATCH_OPTIMIZED"
+                    execution_strategy="BATCH_OPTIMIZED",
                 )
                 return [net_order]
             elif net_quantity < 0:
@@ -575,7 +585,7 @@ class NextGenHFTEngine:
                     symbol=symbol,
                     side="SELL",
                     quantity=abs(net_quantity),
-                    execution_strategy="BATCH_OPTIMIZED"
+                    execution_strategy="BATCH_OPTIMIZED",
                 )
                 return [net_order]
             else:
@@ -603,7 +613,9 @@ class NextGenHFTEngine:
             return
 
         avg_latency = self.stats["total_latency_us"] / self.stats["orders_processed"]
-        success_rate = self.stats["successful_executions"] / self.stats["orders_processed"] * 100
+        success_rate = (
+            self.stats["successful_executions"] / self.stats["orders_processed"] * 100
+        )
         cache_hit_rate = self.stats["cache_hits"] / self.stats["orders_processed"] * 100
 
         logger.info(
@@ -647,7 +659,7 @@ class NextGenHFTEngine:
             await self.redis_cache.set(
                 f"price:{market_data.symbol}",
                 str(market_data.mid_price()),
-                ttl=self.config.cache_ttl_ms
+                ttl=self.config.cache_ttl_ms,
             )
         except Exception as e:
             logger.debug(f"キャッシュ保存エラー: {e}")
@@ -673,10 +685,12 @@ class NextGenHFTEngine:
             ask_size=100,
             last_price=150.05,
             volume=1000,
-            sequence_number=1
+            sequence_number=1,
         )
 
-    def _determine_execution_price(self, order: NextGenExecutionOrder, market_data: HFTMarketData) -> float:
+    def _determine_execution_price(
+        self, order: NextGenExecutionOrder, market_data: HFTMarketData
+    ) -> float:
         """実行価格決定"""
         if order.order_type == "MARKET":
             if order.side == "BUY":
@@ -694,26 +708,33 @@ class NextGenHFTEngine:
             return {"status": "no_data"}
 
         avg_latency = self.stats["total_latency_us"] / self.stats["orders_processed"]
-        success_rate = self.stats["successful_executions"] / self.stats["orders_processed"] * 100
+        success_rate = (
+            self.stats["successful_executions"] / self.stats["orders_processed"] * 100
+        )
 
         return {
             "engine_id": self.engine_id,
             "config": {
                 "target_latency_us": self.config.target_latency_us,
                 "execution_mode": self.config.execution_mode.value,
-                "batch_optimization": self.config.enable_batch_optimization
+                "batch_optimization": self.config.enable_batch_optimization,
             },
             "performance": {
                 "orders_processed": self.stats["orders_processed"],
                 "avg_latency_us": round(avg_latency, 2),
                 "success_rate_percent": round(success_rate, 2),
-                "cache_hit_rate_percent": round(self.stats["cache_hits"] / max(1, self.stats["orders_processed"]) * 100, 2)
+                "cache_hit_rate_percent": round(
+                    self.stats["cache_hits"]
+                    / max(1, self.stats["orders_processed"])
+                    * 100,
+                    2,
+                ),
             },
             "optimizations": {
                 "batch_optimizations": self.stats["batch_optimizations"],
-                "risk_blocks": self.stats["risk_blocks"]
+                "risk_blocks": self.stats["risk_blocks"],
             },
-            "status": "running" if self.is_running else "stopped"
+            "status": "running" if self.is_running else "stopped",
         }
 
 
@@ -722,21 +743,23 @@ def create_next_gen_hft_engine(
     target_latency_us: int = 30,
     execution_mode: HFTExecutionMode = HFTExecutionMode.ULTRA_LOW_LATENCY,
     enable_batch_optimization: bool = True,
-    cache_ttl_ms: int = 100
+    cache_ttl_ms: int = 100,
 ) -> NextGenHFTEngine:
     """次世代HFTエンジン作成"""
     config = NextGenHFTConfig(
         target_latency_us=target_latency_us,
         execution_mode=execution_mode,
         enable_batch_optimization=enable_batch_optimization,
-        cache_ttl_ms=cache_ttl_ms
+        cache_ttl_ms=cache_ttl_ms,
     )
 
     return NextGenHFTEngine(config)
 
 
 # バッチ処理用関数
-async def _batch_preprocess_orders(orders: List[NextGenExecutionOrder]) -> List[NextGenExecutionOrder]:
+async def _batch_preprocess_orders(
+    orders: List[NextGenExecutionOrder],
+) -> List[NextGenExecutionOrder]:
     """オーダー前処理（バッチ処理用）"""
     processed_orders = []
 
@@ -748,7 +771,9 @@ async def _batch_preprocess_orders(orders: List[NextGenExecutionOrder]) -> List[
     return processed_orders
 
 
-async def _batch_risk_analysis(orders: List[NextGenExecutionOrder]) -> List[NextGenExecutionOrder]:
+async def _batch_risk_analysis(
+    orders: List[NextGenExecutionOrder],
+) -> List[NextGenExecutionOrder]:
     """リスク分析（バッチ処理用）"""
     approved_orders = []
 
@@ -760,7 +785,9 @@ async def _batch_risk_analysis(orders: List[NextGenExecutionOrder]) -> List[Next
     return approved_orders
 
 
-async def _batch_execution_optimization(orders: List[NextGenExecutionOrder]) -> List[NextGenExecutionOrder]:
+async def _batch_execution_optimization(
+    orders: List[NextGenExecutionOrder],
+) -> List[NextGenExecutionOrder]:
     """実行最適化（バッチ処理用）"""
     # 実行順序最適化
     optimized = sorted(orders, key=lambda x: (x.symbol, -x.quantity))
@@ -776,7 +803,7 @@ if __name__ == "__main__":
         engine = create_next_gen_hft_engine(
             target_latency_us=25,
             execution_mode=HFTExecutionMode.ULTRA_LOW_LATENCY,
-            enable_batch_optimization=True
+            enable_batch_optimization=True,
         )
 
         # テスト用オーダー作成
@@ -786,7 +813,7 @@ if __name__ == "__main__":
                 symbol="AAPL",
                 side="BUY" if i % 2 == 0 else "SELL",
                 quantity=100 + i * 10,
-                order_type="MARKET"
+                order_type="MARKET",
             )
             for i in range(10)
         ]
@@ -811,10 +838,18 @@ if __name__ == "__main__":
         summary = await engine.get_performance_summary()
         print("\n=== パフォーマンス要約 ===")
         print(f"エンジンID: {summary.get('engine_id', 'N/A')}")
-        print(f"処理オーダー数: {summary.get('performance', {}).get('orders_processed', 0)}")
-        print(f"平均レイテンシー: {summary.get('performance', {}).get('avg_latency_us', 0):.1f}μs")
-        print(f"成功率: {summary.get('performance', {}).get('success_rate_percent', 0):.1f}%")
-        print(f"キャッシュヒット率: {summary.get('performance', {}).get('cache_hit_rate_percent', 0):.1f}%")
+        print(
+            f"処理オーダー数: {summary.get('performance', {}).get('orders_processed', 0)}"
+        )
+        print(
+            f"平均レイテンシー: {summary.get('performance', {}).get('avg_latency_us', 0):.1f}μs"
+        )
+        print(
+            f"成功率: {summary.get('performance', {}).get('success_rate_percent', 0):.1f}%"
+        )
+        print(
+            f"キャッシュヒット率: {summary.get('performance', {}).get('cache_hit_rate_percent', 0):.1f}%"
+        )
 
         # エンジン停止
         await engine.stop()

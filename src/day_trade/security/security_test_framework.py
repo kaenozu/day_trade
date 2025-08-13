@@ -1142,15 +1142,15 @@ class SecurityTestFramework:
 
         summary = f"""セキュリティテスト実行結果サマリー
 
-総テスト数: {stats['total_tests']}
+総テスト数: {stats["total_tests"]}
 合格率: {pass_rate:.1f}%
 セキュリティスコア: {security_score:.1f}/100
 
 結果詳細:
-- 合格: {stats['passed']}
-- 失敗: {stats['failed']}
-- スキップ: {stats['skipped']}
-- エラー: {stats['errors']}
+- 合格: {stats["passed"]}
+- 失敗: {stats["failed"]}
+- スキップ: {stats["skipped"]}
+- エラー: {stats["errors"]}
 
 """
 
@@ -1196,7 +1196,7 @@ class SecurityTestFramework:
     <style>
         body {{ font-family: Arial, sans-serif; margin: 40px; }}
         .header {{ text-align: center; margin-bottom: 30px; }}
-        .score {{ font-size: 48px; font-weight: bold; color: {'green' if security_score >= 70 else 'orange' if security_score >= 50 else 'red'}; }}
+        .score {{ font-size: 48px; font-weight: bold; color: {"green" if security_score >= 70 else "orange" if security_score >= 50 else "red"}; }}
         .stats {{ display: flex; justify-content: space-around; margin: 20px 0; }}
         .stat {{ text-align: center; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
         .failed-tests {{ margin-top: 30px; }}
@@ -1207,26 +1207,26 @@ class SecurityTestFramework:
 <body>
     <div class="header">
         <h1>セキュリティテストレポート</h1>
-        <p>生成日時: {report['generated_at']}</p>
+        <p>生成日時: {report["generated_at"]}</p>
         <div class="score">{security_score:.1f}/100</div>
     </div>
 
     <div class="stats">
         <div class="stat">
             <h3>総テスト数</h3>
-            <div>{stats['total_tests']}</div>
+            <div>{stats["total_tests"]}</div>
         </div>
         <div class="stat">
             <h3>合格</h3>
-            <div style="color: green;">{stats['passed']}</div>
+            <div style="color: green;">{stats["passed"]}</div>
         </div>
         <div class="stat">
             <h3>失敗</h3>
-            <div style="color: red;">{stats['failed']}</div>
+            <div style="color: red;">{stats["failed"]}</div>
         </div>
         <div class="stat">
             <h3>スキップ</h3>
-            <div>{stats['skipped']}</div>
+            <div>{stats["skipped"]}</div>
         </div>
     </div>
 
@@ -1247,9 +1247,9 @@ class SecurityTestFramework:
 
         for test in report["failed_tests"]:
             html += f"""        <div class="test-item">
-            <h3>{test['test_name']} ({test['severity'].upper()})</h3>
-            <p><strong>問題:</strong> {test['description']}</p>
-            <p><strong>修正方法:</strong> {test['remediation']}</p>
+            <h3>{test["test_name"]} ({test["severity"].upper()})</h3>
+            <p><strong>問題:</strong> {test["description"]}</p>
+            <p><strong>修正方法:</strong> {test["remediation"]}</p>
         </div>
 """
 

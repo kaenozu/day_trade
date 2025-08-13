@@ -413,11 +413,9 @@ def generate_lightweight_prediction(features: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "prediction": final_score,
             "confidence": confidence,
-            "signal": "BUY"
-            if final_score > 0.3
-            else "SELL"
-            if final_score < -0.3
-            else "HOLD",
+            "signal": (
+                "BUY" if final_score > 0.3 else "SELL" if final_score < -0.3 else "HOLD"
+            ),
         }
 
     except Exception as e:

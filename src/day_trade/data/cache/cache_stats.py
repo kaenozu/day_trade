@@ -73,15 +73,17 @@ class CacheStats:
                 "errors": self.errors,
                 "total_requests": total_requests,
                 "hit_rate": self.hits / total_requests if total_requests > 0 else 0.0,
-                "miss_rate": self.misses / total_requests
-                if total_requests > 0
-                else 0.0,
-                "fallback_rate": self.fallbacks / total_requests
-                if total_requests > 0
-                else 0.0,
-                "error_rate": self.errors / (total_requests + self.errors)
-                if total_requests + self.errors > 0
-                else 0.0,
+                "miss_rate": (
+                    self.misses / total_requests if total_requests > 0 else 0.0
+                ),
+                "fallback_rate": (
+                    self.fallbacks / total_requests if total_requests > 0 else 0.0
+                ),
+                "error_rate": (
+                    self.errors / (total_requests + self.errors)
+                    if total_requests + self.errors > 0
+                    else 0.0
+                ),
                 "requests_per_second": total_requests / uptime if uptime > 0 else 0.0,
                 "uptime_seconds": uptime,
                 "last_reset": self.last_reset_time.isoformat(),
@@ -475,8 +477,7 @@ class CachePerformanceMonitor:
             report_lines.append("【直近のアラート】")
             for alert in recent_alerts[-5:]:  # 最新5件
                 report_lines.append(
-                    f"- {alert['message']} "
-                    f"({alert['timestamp'].strftime('%H:%M:%S')})"
+                    f"- {alert['message']} ({alert['timestamp'].strftime('%H:%M:%S')})"
                 )
 
         report_lines.append("")

@@ -106,7 +106,7 @@ class AlertConfig:
     # 通知チャネル設定
     email_config: Dict[str, str] = field(default_factory=dict)
     slack_config: Dict[str, str] = field(default_factory=dict)
-    sms_config: Dict[str, str] = field(default_factory=dict)
+    webhook_config: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_env(cls) -> "AlertConfig":
@@ -155,9 +155,11 @@ class SecurityConfig:
             jwt_secret=os.getenv("JWT_SECRET", ""),
             jwt_expiry_minutes=int(os.getenv("JWT_EXPIRY_MINUTES", "60")),
             rate_limit_requests_per_minute=int(os.getenv("RATE_LIMIT_RPM", "100")),
-            allowed_origins=os.getenv("ALLOWED_ORIGINS", "").split(",")
-            if os.getenv("ALLOWED_ORIGINS")
-            else [],
+            allowed_origins=(
+                os.getenv("ALLOWED_ORIGINS", "").split(",")
+                if os.getenv("ALLOWED_ORIGINS")
+                else []
+            ),
             audit_logging_enabled=os.getenv("AUDIT_LOGGING", "true").lower() == "true",
         )
 

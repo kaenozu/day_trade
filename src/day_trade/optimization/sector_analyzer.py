@@ -216,9 +216,9 @@ class SectorAnalyzer:
                 "n_sectors": sector_count,
                 "sector_hhi": sector_hhi,
                 "effective_sectors": effective_sectors,
-                "max_sector_weight": max(sector_weights.values())
-                if sector_weights
-                else 0,
+                "max_sector_weight": (
+                    max(sector_weights.values()) if sector_weights else 0
+                ),
             },
             "unmapped_symbols": unmapped_symbols,
             "compliance": {
@@ -374,9 +374,9 @@ class SectorAnalyzer:
                     "annualized_volatility": volatility,
                     "sharpe_ratio": sharpe_ratio,
                     "n_stocks": len(symbol_returns),
-                    "momentum_score": cumulative_return / volatility
-                    if volatility > 0
-                    else 0,
+                    "momentum_score": (
+                        cumulative_return / volatility if volatility > 0 else 0
+                    ),
                 }
 
         # ランキング生成

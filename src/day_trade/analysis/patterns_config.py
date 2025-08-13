@@ -178,6 +178,9 @@ class PatternsConfig:
                 "log_detailed_errors": True,
                 "raise_exceptions": False,
             },
+            "pattern_summary": {
+                "signal_threshold": 70.0,
+            },
         }
 
     def get_config_dict(self) -> Dict[str, Any]:
@@ -333,6 +336,12 @@ class PatternsConfig:
     def get_confidence_normalization(self) -> float:
         """信頼度正規化係数を取得"""
         return 100.0
+
+    def get_pattern_summary_signal_threshold(self) -> float:
+        """パターンサマリのシグナル閾値を取得"""
+        return float(
+            self._config.get("pattern_summary", {}).get("signal_threshold", 70.0)
+        )
 
 
 # グローバル設定インスタンス

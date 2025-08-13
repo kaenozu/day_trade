@@ -867,9 +867,7 @@ class BatchProcessingEngine:
             "data_types": data_types,
             "period": "1mo",
             "interval": "1d",
-            "transform_rules": {
-                "price_scaling": 1.0  # 必要に応じて調整
-            },
+            "transform_rules": {"price_scaling": 1.0},  # 必要に応じて調整
             "output_format": "dict",
             "validation_rules": {
                 "required_fields": ["symbol"],
@@ -931,9 +929,9 @@ class BatchProcessingEngine:
                     "job_name": job.job_name,
                     "status": job.status.value,
                     "started_at": job.started_at,
-                    "elapsed_seconds": time.time() - job.started_at
-                    if job.started_at
-                    else 0,
+                    "elapsed_seconds": (
+                        time.time() - job.started_at if job.started_at else 0
+                    ),
                 }
 
             # 完了ジョブ確認

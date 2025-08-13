@@ -777,14 +777,20 @@ class StagedCacheUpdater:
                     "keys_failed": metrics.keys_failed,
                     "error_rate": metrics.error_rate,
                 },
-                "latest_event": {
-                    "phase": latest_event.phase.value if latest_event else "unknown",
-                    "status": latest_event.status.value if latest_event else "unknown",
-                    "message": latest_event.message if latest_event else "",
-                    "timestamp": latest_event.timestamp if latest_event else 0,
-                }
-                if latest_event
-                else None,
+                "latest_event": (
+                    {
+                        "phase": (
+                            latest_event.phase.value if latest_event else "unknown"
+                        ),
+                        "status": (
+                            latest_event.status.value if latest_event else "unknown"
+                        ),
+                        "message": latest_event.message if latest_event else "",
+                        "timestamp": latest_event.timestamp if latest_event else 0,
+                    }
+                    if latest_event
+                    else None
+                ),
                 "is_active": update_id in self.active_updates,
             }
 

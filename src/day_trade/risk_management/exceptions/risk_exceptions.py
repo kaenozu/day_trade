@@ -91,9 +91,9 @@ class ConfigurationError(RiskManagementError):
                 {
                     "config_key": config_key,
                     "expected_type": expected_type,
-                    "actual_value": str(actual_value)
-                    if actual_value is not None
-                    else None,
+                    "actual_value": (
+                        str(actual_value) if actual_value is not None else None
+                    ),
                 }
             )
 
@@ -122,9 +122,9 @@ class ValidationError(RiskManagementError):
         self.details.update(
             {
                 "field_name": field_name,
-                "invalid_value": str(invalid_value)
-                if invalid_value is not None
-                else None,
+                "invalid_value": (
+                    str(invalid_value) if invalid_value is not None else None
+                ),
                 "validation_rules": validation_rules,
             }
         )
@@ -374,9 +374,9 @@ class ExternalServiceError(RiskManagementError):
                 "service_name": service_name,
                 "endpoint": endpoint,
                 "status_code": status_code,
-                "response_body": response_body[:500]
-                if response_body
-                else None,  # 長いレスポンスは切り詰め
+                "response_body": (
+                    response_body[:500] if response_body else None
+                ),  # 長いレスポンスは切り詰め
             }
         )
 

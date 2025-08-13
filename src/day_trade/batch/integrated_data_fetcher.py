@@ -536,17 +536,23 @@ class IntegratedDataFetcher:
         return {
             "total_requests": self.total_requests,
             "successful_requests": self.successful_requests,
-            "success_rate": self.successful_requests / self.total_requests
-            if self.total_requests > 0
-            else 0.0,
+            "success_rate": (
+                self.successful_requests / self.total_requests
+                if self.total_requests > 0
+                else 0.0
+            ),
             "cache_hits": self.cache_hits,
-            "cache_hit_rate": self.cache_hits / self.total_requests
-            if self.total_requests > 0
-            else 0.0,
+            "cache_hit_rate": (
+                self.cache_hits / self.total_requests
+                if self.total_requests > 0
+                else 0.0
+            ),
             "fallback_uses": self.fallback_uses,
-            "fallback_rate": self.fallback_uses / self.total_requests
-            if self.total_requests > 0
-            else 0.0,
+            "fallback_rate": (
+                self.fallback_uses / self.total_requests
+                if self.total_requests > 0
+                else 0.0
+            ),
             "average_response_time": self.average_response_time,
             "active_requests": len(self.active_requests),
             "consolidator_stats": consolidator_stats.__dict__,

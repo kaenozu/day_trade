@@ -98,11 +98,11 @@ class AdvancedFeatureEngineer:
         vectorized_features = vectorized_technical_indicators(
             optimized_price_data,
             price_col="Close" if "Close" in optimized_price_data.columns else "close",
-            volume_col="Volume"
-            if "Volume" in optimized_price_data.columns
-            else volume_data.name
-            if volume_data is not None
-            else None,
+            volume_col=(
+                "Volume"
+                if "Volume" in optimized_price_data.columns
+                else volume_data.name if volume_data is not None else None
+            ),
         )
 
         features = pd.DataFrame(index=price_data.index)
@@ -288,9 +288,11 @@ class AdvancedFeatureEngineer:
                 price_data["Close"]
                 .rolling(window)
                 .apply(
-                    lambda x: stats.percentileofscore(x[:-1], x.iloc[-1]) / 100
-                    if len(x) > 1
-                    else 0.5
+                    lambda x: (
+                        stats.percentileofscore(x[:-1], x.iloc[-1]) / 100
+                        if len(x) > 1
+                        else 0.5
+                    )
                 )
             )
 
@@ -328,9 +330,11 @@ class AdvancedFeatureEngineer:
             # ボラティリティレジーム
             vol = returns.rolling(window).std()
             vol_percentile = vol.rolling(window * 2).apply(
-                lambda x: stats.percentileofscore(x[:-1], x.iloc[-1]) / 100
-                if len(x) > 1
-                else 0.5
+                lambda x: (
+                    stats.percentileofscore(x[:-1], x.iloc[-1]) / 100
+                    if len(x) > 1
+                    else 0.5
+                )
             )
             features[f"vol_regime_high_{window}d"] = (vol_percentile > 0.75).astype(int)
             features[f"vol_regime_low_{window}d"] = (vol_percentile < 0.25).astype(int)
@@ -387,9 +391,9 @@ class AdvancedFeatureEngineer:
                 # 市場との相関
                 for window in [20, 50]:
                     correlation = returns.rolling(window).corr(market_returns)
-                    features[
-                        f"market_correlation_{market_name}_{window}d"
-                    ] = correlation
+                    features[f"market_correlation_{market_name}_{window}d"] = (
+                        correlation
+                    )
 
                 # 市場に対するベータ
                 for window in [20, 50]:
@@ -402,9 +406,9 @@ class AdvancedFeatureEngineer:
                 # 相対パフォーマンス
                 relative_performance = returns - market_returns
                 features[f"relative_performance_{market_name}"] = relative_performance
-                features[
-                    f"relative_performance_{market_name}_ma_20d"
-                ] = relative_performance.rolling(20).mean()
+                features[f"relative_performance_{market_name}_ma_20d"] = (
+                    relative_performance.rolling(20).mean()
+                )
 
         return features
 

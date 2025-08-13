@@ -254,9 +254,7 @@ class RiskParityOptimizer:
             return np.sum((risk_contrib - target_contrib) ** 2)
 
         # 制約条件
-        constraints = [
-            {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}  # 重み合計=1
-        ]
+        constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]  # 重み合計=1
 
         # 境界条件
         bounds = [
@@ -586,9 +584,9 @@ class RiskParityOptimizer:
                 "actual": actual_contrib,
                 "target": target_budget,
                 "deviation": deviation,
-                "relative_deviation": deviation / target_budget
-                if target_budget > 0
-                else 0,
+                "relative_deviation": (
+                    deviation / target_budget if target_budget > 0 else 0
+                ),
             }
 
         return analysis
@@ -629,9 +627,11 @@ class RiskParityOptimizer:
                 "success_rate": success_rate,
                 "avg_optimization_time": avg_optimization_time,
                 "method": self.config.method.value,
-                "last_optimization": self.last_optimization.isoformat()
-                if self.last_optimization
-                else None,
+                "last_optimization": (
+                    self.last_optimization.isoformat()
+                    if self.last_optimization
+                    else None
+                ),
             },
             "configuration": {
                 "min_weight": self.config.min_weight,

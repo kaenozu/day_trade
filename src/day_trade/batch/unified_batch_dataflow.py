@@ -949,9 +949,9 @@ class UnifiedBatchDataFlow:
             "active_flows": len(self.active_flows),
             "completed_flows": len(self.completed_flows),
             "performance_metrics": self.performance_metrics.__dict__,
-            "recent_performance": list(self.performance_history)[-5:]
-            if self.performance_history
-            else [],
+            "recent_performance": (
+                list(self.performance_history)[-5:] if self.performance_history else []
+            ),
         }
 
 

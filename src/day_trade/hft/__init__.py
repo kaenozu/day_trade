@@ -7,11 +7,24 @@ Issue #366: 高頻度取引最適化エンジン - マイクロ秒レベル執�
 """
 
 # 既存HFTモジュール
+from .ai_market_predictor import (
+    AIMarketPredictor,
+    MarketFeatureSet,
+    MarketPrediction,
+    MarketSignal,
+    PredictionModel,
+    create_ai_market_predictor,
+)
 from .hft_orchestrator import (
     HFTConfig,
     HFTOrchestrator,
     HFTStrategy,
     create_hft_orchestrator,
+)
+from .integrated_hft_test import (
+    HFTTestResult,
+    IntegratedHFTTestSuite,
+    TestScenario,
 )
 from .market_data_processor import (
     MarketUpdate,
@@ -24,6 +37,18 @@ from .microsecond_monitor import (
     MicrosecondMonitor,
     PerformanceReport,
     create_microsecond_monitor,
+)
+
+# 次世代HFTシステム
+from .next_gen_hft_engine import (
+    HFTExecutionMode,
+    HFTMarketData,
+    MarketRegime,
+    NextGenExecutionOrder,
+    NextGenExecutionResult,
+    NextGenHFTConfig,
+    NextGenHFTEngine,
+    create_next_gen_hft_engine,
 )
 from .realtime_decision_engine import (
     DecisionResult,
@@ -38,33 +63,6 @@ from .ultra_fast_executor import (
     OrderEntry,
     UltraFastExecutor,
     create_ultra_fast_executor,
-)
-
-# 次世代HFTシステム
-from .next_gen_hft_engine import (
-    NextGenHFTEngine,
-    NextGenHFTConfig,
-    NextGenExecutionOrder,
-    NextGenExecutionResult,
-    HFTExecutionMode,
-    HFTMarketData,
-    MarketRegime,
-    create_next_gen_hft_engine,
-)
-
-from .ai_market_predictor import (
-    AIMarketPredictor,
-    MarketPrediction,
-    MarketFeatureSet,
-    PredictionModel,
-    MarketSignal,
-    create_ai_market_predictor,
-)
-
-from .integrated_hft_test import (
-    IntegratedHFTTestSuite,
-    HFTTestResult,
-    TestScenario,
 )
 
 __all__ = [
@@ -95,7 +93,6 @@ __all__ = [
     "MarketUpdate",
     "OrderBook",
     "create_market_data_processor",
-
     # Next-Gen HFT Engine
     "NextGenHFTEngine",
     "NextGenHFTConfig",
@@ -105,7 +102,6 @@ __all__ = [
     "HFTMarketData",
     "MarketRegime",
     "create_next_gen_hft_engine",
-
     # AI Market Prediction
     "AIMarketPredictor",
     "MarketPrediction",
@@ -113,7 +109,6 @@ __all__ = [
     "PredictionModel",
     "MarketSignal",
     "create_ai_market_predictor",
-
     # Testing & Validation
     "IntegratedHFTTestSuite",
     "HFTTestResult",
@@ -134,20 +129,17 @@ HFT_NEXT_GEN_CONFIG = {
     "execution_latency_target_us": HFT_TARGET_LATENCY_US,
     "market_data_buffer_size": 128 * 1024 * 1024,  # 128MB (doubled)
     "order_queue_size": 2 * 1024 * 1024,  # 2M orders (doubled)
-
     # Hardware Optimization
     "cpu_affinity_enabled": True,
     "huge_pages_enabled": True,
     "numa_optimization": True,
     "lock_free_structures": True,
     "zero_copy_networking": True,
-
     # Next-Gen Features
     "batch_optimization_enabled": True,
     "ai_prediction_enabled": True,
     "smart_cache_enabled": True,
     "adaptive_execution_mode": True,
-
     # Performance Targets
     "cache_hit_rate_target": 95.0,  # 95%
     "batch_efficiency_target": 85.0,  # 85%

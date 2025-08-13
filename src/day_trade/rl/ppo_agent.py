@@ -135,6 +135,7 @@ if PYTORCH_AVAILABLE:
         def __init__(self, state_dim: int, action_dim: int, config: PPOConfig):
             if not PYTORCH_AVAILABLE:
                 raise ImportError("PyTorch が必要です")
+
 else:
 
     class ActorCriticNetwork:
@@ -668,15 +669,15 @@ class PPOAgent:
             "max_reward": np.max(episode_rewards),
             "min_reward": np.min(episode_rewards),
             "avg_length": np.mean(episode_lengths),
-            "avg_portfolio_return": np.mean(portfolio_returns)
-            if portfolio_returns
-            else 0,
+            "avg_portfolio_return": (
+                np.mean(portfolio_returns) if portfolio_returns else 0
+            ),
             "win_rate": np.mean([r > 0 for r in episode_rewards]),
         }
 
         logger.info(
             f"評価完了: 平均報酬={evaluation_result['avg_reward']:.2f}, "
-            f"勝率={evaluation_result['win_rate']*100:.1f}%"
+            f"勝率={evaluation_result['win_rate'] * 100:.1f}%"
         )
 
         return evaluation_result
@@ -806,9 +807,9 @@ if __name__ == "__main__":
 
     print("評価結果:")
     print(f"  平均報酬: {eval_result['avg_reward']:.2f}")
-    print(f"  勝率: {eval_result['win_rate']*100:.1f}%")
+    print(f"  勝率: {eval_result['win_rate'] * 100:.1f}%")
     print(
-        f"  平均ポートフォリオリターン: {eval_result['avg_portfolio_return']*100:.2f}%"
+        f"  平均ポートフォリオリターン: {eval_result['avg_portfolio_return'] * 100:.2f}%"
     )
 
     print("\n=== テスト完了 ===")

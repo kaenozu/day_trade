@@ -419,13 +419,13 @@ class ConfigManager:
             self.config["reports"] = self.get_report_settings().model_dump()
             self.config["execution"] = self.get_execution_settings().model_dump()
             self.config["database"] = self.get_database_settings().model_dump()
-            self.config[
-                "auto_optimizer"
-            ] = self.get_auto_optimizer_settings().model_dump()
+            self.config["auto_optimizer"] = (
+                self.get_auto_optimizer_settings().model_dump()
+            )
             # エラーハンドリング設定の追加
-            self.config[
-                "error_handling"
-            ] = self.get_error_handler_settings().model_dump()
+            self.config["error_handling"] = (
+                self.get_error_handler_settings().model_dump()
+            )
 
             with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)

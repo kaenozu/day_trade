@@ -483,7 +483,7 @@ class TestDistributedComputingPerformance:
                     logger.info(
                         f"Workers: {workers}, Tasks: {task_count}, "
                         f"Time: {execution_time:.3f}s, "
-                        f"Throughput: {task_count/execution_time:.2f} tasks/s"
+                        f"Throughput: {task_count / execution_time:.2f} tasks/s"
                     )
 
             finally:

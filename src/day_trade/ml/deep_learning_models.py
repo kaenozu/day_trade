@@ -54,38 +54,175 @@ class ModelType(Enum):
 
 
 @dataclass
-class ModelConfig:
-    """モデル設定"""
+class BaseModelConfig:
+    """
+    Issue #528対応: 統合された基本モデル設定
 
-    model_type: ModelType = ModelType.LSTM
+    すべての深層学習モデルの共通設定基盤
+    """
+    # データ設定
     sequence_length: int = 60
     prediction_horizon: int = 1
-    hidden_size: int = 128
-    num_layers: int = 2
-    dropout_rate: float = 0.2
+    validation_split: float = 0.2
+
+    # 学習設定
     learning_rate: float = 0.001
     batch_size: int = 32
     epochs: int = 100
     early_stopping_patience: int = 10
-    validation_split: float = 0.2
+
+    # モデル設定
+    hidden_size: int = 128  # hidden_dim と統一
+    num_layers: int = 2
+    dropout_rate: float = 0.2
+
+    # 実行環境設定
+    use_pytorch: bool = False
+    device: str = "cpu"  # "cpu", "cuda", "mps"
 
 
 @dataclass
-class DeepLearningConfig:
-    """深層学習設定（API用）"""
+class TransformerConfig(BaseModelConfig):
+    """
+    Issue #528対応: Transformer特化設定
+    """
+    # Transformer固有設定
+    num_heads: int = 8
+    d_model: int = 128
+    d_ff: int = 512  # フィードフォワード次元
+    max_position_encoding: int = 1000
 
-    sequence_length: int = 60
-    prediction_horizon: int = 5
-    hidden_dim: int = 128
-    num_layers: int = 2
-    dropout_rate: float = 0.2
-    learning_rate: float = 0.001
-    epochs: int = 100
-    batch_size: int = 32
-    early_stopping_patience: int = 10
-    use_pytorch: bool = False
-    num_heads: int = 8  # Transformer用
-    d_model: int = 128  # Transformer用
+    # デフォルト値の調整
+    hidden_size: int = 128  # d_modelと同期
+
+
+@dataclass
+class LSTMConfig(BaseModelConfig):
+    """
+    Issue #528対応: LSTM特化設定
+    """
+    # LSTM固有設定
+    bidirectional: bool = False
+    layer_norm: bool = True
+
+
+@dataclass
+class CNNConfig(BaseModelConfig):
+    """
+    Issue #528対応: CNN特化設定
+    """
+    # CNN固有設定
+    kernel_size: int = 3
+    num_filters: int = 64
+    pool_size: int = 2
+
+
+# Issue #528対応: 後方互換性のための統合設定クラス
+@dataclass
+class ModelConfig(BaseModelConfig):
+    """
+    Issue #528対応: 後方互換性維持のための統合設定クラス
+
+    既存のModelConfigを継承し、必要な追加フィールドを含む
+    """
+    model_type: ModelType = ModelType.LSTM
+
+    # Transformer用（TransformerConfigから継承）
+    num_heads: int = 8
+    d_model: int = 128
+
+    # CNN用（CNNConfigから継承）
+    kernel_size: int = 3
+    num_filters: int = 64
+
+    def to_specialized_config(self) -> Union[TransformerConfig, LSTMConfig, CNNConfig]:
+        """
+        Issue #528対応: モデルタイプに応じた特化設定への変換
+
+        Returns:
+            モデルタイプに適した特化設定インスタンス
+        """
+        base_kwargs = {
+            'sequence_length': self.sequence_length,
+            'prediction_horizon': self.prediction_horizon,
+            'validation_split': self.validation_split,
+            'learning_rate': self.learning_rate,
+            'batch_size': self.batch_size,
+            'epochs': self.epochs,
+            'early_stopping_patience': self.early_stopping_patience,
+            'hidden_size': self.hidden_size,
+            'num_layers': self.num_layers,
+            'dropout_rate': self.dropout_rate,
+            'use_pytorch': self.use_pytorch,
+        }
+
+        if self.model_type in [ModelType.TRANSFORMER, ModelType.HYBRID_LSTM_TRANSFORMER]:
+            return TransformerConfig(
+                **base_kwargs,
+                num_heads=self.num_heads,
+                d_model=self.d_model,
+            )
+        elif self.model_type in [ModelType.LSTM, ModelType.GRU]:
+            return LSTMConfig(**base_kwargs)
+        elif self.model_type == ModelType.CNN:
+            return CNNConfig(
+                **base_kwargs,
+                kernel_size=self.kernel_size,
+                num_filters=self.num_filters,
+            )
+        else:
+            return self  # デフォルトはBaseModelConfig
+
+
+# Issue #528対応: 後方互換性のためのエイリアス
+DeepLearningConfig = ModelConfig
+
+
+# Issue #528対応: 設定変換ヘルパー関数
+def convert_legacy_config(legacy_config: Dict[str, Any]) -> ModelConfig:
+    """
+    Issue #528対応: レガシー設定辞書からModelConfigへの変換
+
+    Args:
+        legacy_config: 古い形式の設定辞書
+
+    Returns:
+        ModelConfig: 統合された設定オブジェクト
+    """
+    # hidden_dim -> hidden_size の統一
+    if 'hidden_dim' in legacy_config:
+        legacy_config['hidden_size'] = legacy_config.pop('hidden_dim')
+
+    # d_model のデフォルト値設定
+    if 'hidden_size' in legacy_config and 'd_model' not in legacy_config:
+        legacy_config['d_model'] = legacy_config['hidden_size']
+
+    # モデルタイプの処理
+    if 'model_type' in legacy_config and isinstance(legacy_config['model_type'], str):
+        legacy_config['model_type'] = ModelType(legacy_config['model_type'])
+
+    return ModelConfig(**legacy_config)
+
+
+def create_model_config(
+    model_type: ModelType,
+    **kwargs
+) -> Union[ModelConfig, TransformerConfig, LSTMConfig, CNNConfig]:
+    """
+    Issue #528対応: モデルタイプに応じた最適な設定オブジェクト作成
+
+    Args:
+        model_type: 作成するモデルのタイプ
+        **kwargs: 設定パラメータ
+
+    Returns:
+        モデルタイプに最適化された設定オブジェクト
+    """
+    # 基本設定から開始
+    config = ModelConfig(model_type=model_type, **kwargs)
+
+    # 特化設定への変換
+    return config.to_specialized_config()
 
 
 @dataclass
@@ -306,7 +443,8 @@ class BaseDeepLearningModel(ABC):
             if target_column in data.columns:
                 y.append(
                     data[target_column].values[
-                        i + self.config.sequence_length : i
+                        i
+                        + self.config.sequence_length : i
                         + self.config.sequence_length
                         + self.config.prediction_horizon
                     ]
@@ -315,7 +453,8 @@ class BaseDeepLearningModel(ABC):
                 # ターゲット列がない場合は終値を使用
                 y.append(
                     features[
-                        i + self.config.sequence_length : i
+                        i
+                        + self.config.sequence_length : i
                         + self.config.sequence_length
                         + self.config.prediction_horizon,
                         -1,
@@ -1065,11 +1204,12 @@ class DeepLearningModelManager:
         self,
         dl_config: DeepLearningConfig,
         opt_config: Optional[OptimizationConfig] = None,
+        ensemble_weights: Optional[Dict[str, float]] = None, # Issue #545対応: アンサンブル重み
     ):
         self.dl_config = dl_config
         self.opt_config = opt_config or OptimizationConfig()
         self.models = {}
-        self.ensemble_weights = {}
+        self.ensemble_weights = ensemble_weights if ensemble_weights is not None else {} # Issue #545対応: アンサンブル重み
         self.performance_stats = {"total_predictions": 0, "total_time": 0.0}
 
         logger.info("深層学習モデル管理システム初期化完了")
@@ -1135,21 +1275,39 @@ class DeepLearningModelManager:
             model_names.append(model_name)
 
         # アンサンブル統合
-        if len(predictions) == 1:
+        if len(predictions) == 0:
+            raise ValueError("予測可能なモデルがありません")
+        elif len(predictions) == 1:
             ensemble_pred = predictions[0]
             ensemble_conf = confidences[0]
+            ensemble_model_weights = {model_names[0]: 1.0}
         else:
-            # 重み付き平均
-            weights = np.array([0.6, 0.4])[: len(predictions)]  # Transformer重視
-            weights = weights / weights.sum()
+            # Issue #545対応: アンサンブル重みの動的管理
+            calculated_weights = np.ones(len(predictions)) # デフォルトは均等重み
 
-            ensemble_pred = np.average(predictions, axis=0, weights=weights)
-            ensemble_conf = np.average(confidences, axis=0, weights=weights)
+            if self.ensemble_weights: # 外部から重みが指定されている場合
+                for i, model_name in enumerate(model_names):
+                    if model_name in self.ensemble_weights:
+                        calculated_weights[i] = self.ensemble_weights[model_name]
+                    else:
+                        logger.warning(f"指定されたモデル '{model_name}' のアンサンブル重みが見つかりません。均等重みを使用します。")
+
+            # 重みを正規化
+            if np.sum(calculated_weights) > 0:
+                calculated_weights = calculated_weights / np.sum(calculated_weights)
+            else:
+                logger.warning("アンサンブル重みの合計がゼロです。均等重みにフォールバックします。")
+                calculated_weights = np.ones(len(predictions)) / len(predictions)
+
+            ensemble_pred = np.average(predictions, axis=0, weights=calculated_weights)
+            ensemble_conf = np.average(confidences, axis=0, weights=calculated_weights)
+            ensemble_model_weights = dict(zip(model_names, calculated_weights))
 
         return PredictionResult(
             predictions=ensemble_pred,
             confidence=ensemble_conf,
             model_used=f"Ensemble({'+'.join(model_names)})",
+            model_weights=ensemble_model_weights, # Issue #545対応: 使用された重みを記録
         )
 
     def register_model(self, name: str, model: BaseDeepLearningModel):

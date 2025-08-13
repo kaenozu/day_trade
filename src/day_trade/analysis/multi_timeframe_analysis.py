@@ -375,9 +375,9 @@ class MultiTimeframeAnalyzer:
             df["resistance_level"] = np.nan
 
             df.iloc[lookback:, df.columns.get_loc("support_level")] = support_levels
-            df.iloc[
-                lookback:, df.columns.get_loc("resistance_level")
-            ] = resistance_levels
+            df.iloc[lookback:, df.columns.get_loc("resistance_level")] = (
+                resistance_levels
+            )
 
             # サポート・レジスタンス突破の検出
             df["support_break"] = (df["Close"] < df["support_level"]) & (

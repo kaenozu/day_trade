@@ -234,9 +234,11 @@ class BaseFetcher(ABC):
                 "misses": cache_info.misses,
                 "maxsize": cache_info.maxsize,
                 "currsize": cache_info.currsize,
-                "hit_rate": cache_info.hits / (cache_info.hits + cache_info.misses)
-                if (cache_info.hits + cache_info.misses) > 0
-                else 0.0,
+                "hit_rate": (
+                    cache_info.hits / (cache_info.hits + cache_info.misses)
+                    if (cache_info.hits + cache_info.misses) > 0
+                    else 0.0
+                ),
             }
         return {}
 

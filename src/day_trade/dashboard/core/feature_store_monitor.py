@@ -166,9 +166,9 @@ class FeatureStoreMonitor:
             "avg_response_time": round(sum(response_times) / len(response_times), 4),
             "max_speedup": round(max(speedup_ratios), 2),
             "min_response_time": round(min(response_times), 4),
-            "total_requests": recent_metrics[-1]["total_requests"]
-            if recent_metrics
-            else 0,
+            "total_requests": (
+                recent_metrics[-1]["total_requests"] if recent_metrics else 0
+            ),
             "monitoring_period_minutes": 10,
             "samples_count": len(recent_metrics),
         }
@@ -367,7 +367,7 @@ class FeatureStoreMonitor:
 
         if summary.get("avg_response_time", 1) <= 0.005:
             achievements.append(
-                f"⚡ 超高速応答: {summary['avg_response_time']*1000:.1f}ms平均応答時間"
+                f"⚡ 超高速応答: {summary['avg_response_time'] * 1000:.1f}ms平均応答時間"
             )
 
         if current.get("total_requests", 0) >= 10000:

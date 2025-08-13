@@ -305,9 +305,11 @@ class AccessControlAuditor:
                     user_access.email,
                     json.dumps(user_access.roles),
                     json.dumps(user_access.direct_permissions),
-                    user_access.last_login.isoformat()
-                    if user_access.last_login
-                    else None,
+                    (
+                        user_access.last_login.isoformat()
+                        if user_access.last_login
+                        else None
+                    ),
                     user_access.login_count,
                     user_access.failed_login_attempts,
                     user_access.account_locked,
@@ -883,9 +885,11 @@ class AccessControlAuditor:
                     json.dumps(finding.recommendations),
                     finding.status,
                     finding.detected_at.isoformat(),
-                    finding.acknowledged_at.isoformat()
-                    if finding.acknowledged_at
-                    else None,
+                    (
+                        finding.acknowledged_at.isoformat()
+                        if finding.acknowledged_at
+                        else None
+                    ),
                     finding.acknowledged_by,
                     finding.remediation_notes,
                 ),
@@ -931,9 +935,9 @@ class AccessControlAuditor:
                     recommendations=json.loads(row[8]) if row[8] else [],
                     status=row[9],
                     detected_at=datetime.fromisoformat(row[10]),
-                    acknowledged_at=datetime.fromisoformat(row[11])
-                    if row[11]
-                    else None,
+                    acknowledged_at=(
+                        datetime.fromisoformat(row[11]) if row[11] else None
+                    ),
                     acknowledged_by=row[12],
                     remediation_notes=row[13],
                 )

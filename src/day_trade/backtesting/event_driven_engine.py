@@ -622,9 +622,9 @@ class EventDrivenBacktestEngine:
             if prices:  # データがある場合のみイベント生成
                 event = Event(
                     event_type=EventType.MARKET_DATA,
-                    timestamp=date.to_pydatetime()
-                    if hasattr(date, "to_pydatetime")
-                    else date,
+                    timestamp=(
+                        date.to_pydatetime() if hasattr(date, "to_pydatetime") else date
+                    ),
                     data={"prices": prices, "volumes": volumes},
                     priority=0,
                 )

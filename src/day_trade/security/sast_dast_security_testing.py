@@ -401,9 +401,12 @@ class DASTScanner:
                                 ),
                                 title=alert.get("name", "Security Alert"),
                                 description=alert.get("desc", ""),
-                                cwe_id=int(alert.get("cweid", 0))
-                                if alert.get("cweid") and alert.get("cweid").isdigit()
-                                else None,
+                                cwe_id=(
+                                    int(alert.get("cweid", 0))
+                                    if alert.get("cweid")
+                                    and alert.get("cweid").isdigit()
+                                    else None
+                                ),
                                 confidence=alert.get("confidence", "Medium").lower(),
                                 remediation=alert.get("solution", ""),
                                 references=[

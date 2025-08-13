@@ -803,9 +803,11 @@ class DataQualityDashboard:
                     "unit": kpi.unit,
                     "status": kpi.status,
                     "trend": kpi.trend,
-                    "achievement_rate": (kpi.current_value / kpi.target_value) * 100
-                    if kpi.target_value > 0
-                    else 0,
+                    "achievement_rate": (
+                        (kpi.current_value / kpi.target_value) * 100
+                        if kpi.target_value > 0
+                        else 0
+                    ),
                 }
 
             return {"kpis": kpi_data}
@@ -1015,9 +1017,11 @@ class DataQualityDashboard:
 
             return {
                 "overall_quality_score": quality_data.get("overall_quality_score", 0),
-                "quality_trend": "improving"
-                if quality_data.get("overall_quality_score", 0) > 0.85
-                else "stable",
+                "quality_trend": (
+                    "improving"
+                    if quality_data.get("overall_quality_score", 0) > 0.85
+                    else "stable"
+                ),
                 "total_alerts": alert_data.get("active_alerts_count", 0),
                 "critical_issues": alert_data.get("critical_alerts", 0),
                 "system_availability": availability_data.get("system_availability", 0),

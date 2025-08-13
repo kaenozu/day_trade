@@ -259,14 +259,16 @@ class AutoMLSystem:
             result = {
                 "training_results": training_results,
                 "best_model": {
-                    "type": self.best_model_type.value
-                    if self.best_model_type
-                    else None,
-                    "performance": asdict(
-                        self.model_performances.get(self.best_model_type.value, {})
-                    )
-                    if self.best_model_type
-                    else None,
+                    "type": (
+                        self.best_model_type.value if self.best_model_type else None
+                    ),
+                    "performance": (
+                        asdict(
+                            self.model_performances.get(self.best_model_type.value, {})
+                        )
+                        if self.best_model_type
+                        else None
+                    ),
                 },
                 "ensemble_result": ensemble_result,
                 "final_evaluation": final_evaluation,
@@ -737,9 +739,11 @@ class AutoMLSystem:
                 "ensemble_score": ensemble_score,
                 "component_models": [perf.model_type.value for perf in top_models],
                 "weights": ensemble_weights,
-                "improvement_over_best": best_score - ensemble_score
-                if self.config.target_metric in ["rmse", "mae"]
-                else ensemble_score - best_score,
+                "improvement_over_best": (
+                    best_score - ensemble_score
+                    if self.config.target_metric in ["rmse", "mae"]
+                    else ensemble_score - best_score
+                ),
             }
 
             logger.info(f"アンサンブル構築完了: score={ensemble_score:.4f}")
@@ -875,9 +879,9 @@ class AutoMLSystem:
                 k: asdict(v) for k, v in self.model_performances.items()
             },
             "feature_importances": self.feature_importances,
-            "best_model_type": self.best_model_type.value
-            if self.best_model_type
-            else None,
+            "best_model_type": (
+                self.best_model_type.value if self.best_model_type else None
+            ),
             "config": asdict(self.config),
             "is_fitted": self.is_fitted,
         }

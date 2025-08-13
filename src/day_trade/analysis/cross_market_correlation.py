@@ -668,12 +668,16 @@ class CrossMarketCorrelationEngine:
                 asset1_market=market1_type,
                 asset2_symbol=result.asset2,
                 asset2_market=market2_type,
-                correlation_1h=result.rolling_correlation_1h[-1]
-                if result.rolling_correlation_1h
-                else None,
-                correlation_4h=result.rolling_correlation_4h[-1]
-                if result.rolling_correlation_4h
-                else None,
+                correlation_1h=(
+                    result.rolling_correlation_1h[-1]
+                    if result.rolling_correlation_1h
+                    else None
+                ),
+                correlation_4h=(
+                    result.rolling_correlation_4h[-1]
+                    if result.rolling_correlation_4h
+                    else None
+                ),
                 correlation_1d=result.pearson_correlation,
                 sample_size=result.sample_size,
                 p_value=result.p_value,
@@ -696,12 +700,12 @@ class CrossMarketCorrelationEngine:
             for result in self.correlation_cache.values():
                 assets.add(result.asset1)
                 assets.add(result.asset2)
-                correlations[
-                    (result.asset1, result.asset2)
-                ] = result.pearson_correlation
-                correlations[
-                    (result.asset2, result.asset1)
-                ] = result.pearson_correlation  # 対称
+                correlations[(result.asset1, result.asset2)] = (
+                    result.pearson_correlation
+                )
+                correlations[(result.asset2, result.asset1)] = (
+                    result.pearson_correlation
+                )  # 対称
 
             assets = sorted(list(assets))
             matrix = pd.DataFrame(index=assets, columns=assets, dtype=float)

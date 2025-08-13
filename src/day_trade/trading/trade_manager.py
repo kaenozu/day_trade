@@ -508,17 +508,17 @@ class TradeManager:
                     "report_exporter": "active",
                     "db_manager": "active" if self.db_manager else "disabled",
                     "trade_validator": "active" if self.trade_validator else "disabled",
-                    "compliance_checker": "active"
-                    if self.compliance_checker
-                    else "disabled",
+                    "compliance_checker": (
+                        "active" if self.compliance_checker else "disabled"
+                    ),
                 },
             }
 
             # データベース統計（有効な場合）
             if self.enable_persistence and self.db_manager:
-                status[
-                    "database_statistics"
-                ] = self.db_manager.get_database_statistics()
+                status["database_statistics"] = (
+                    self.db_manager.get_database_statistics()
+                )
 
             # ID生成統計
             status["id_generator_statistics"] = self.id_generator.get_id_statistics()

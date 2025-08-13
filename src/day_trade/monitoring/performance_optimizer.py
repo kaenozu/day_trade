@@ -244,9 +244,11 @@ class SLAMonitor:
                     violation_type="response_time_p95",
                     threshold=target.response_time_p95,
                     current_value=metrics.response_time_p95,
-                    severity=SLAStatus.BREACH
-                    if metrics.response_time_p95 > target.response_time_p95 * 1.5
-                    else SLAStatus.WARNING,
+                    severity=(
+                        SLAStatus.BREACH
+                        if metrics.response_time_p95 > target.response_time_p95 * 1.5
+                        else SLAStatus.WARNING
+                    ),
                     timestamp=current_time,
                     duration=timedelta(seconds=0),  # 実際の実装では継続時間を計算
                     description=f"P95レスポンス時間が目標値 {target.response_time_p95}ms を超過: {metrics.response_time_p95:.2f}ms",
@@ -260,9 +262,11 @@ class SLAMonitor:
                     violation_type="response_time_p99",
                     threshold=target.response_time_p99,
                     current_value=metrics.response_time_p99,
-                    severity=SLAStatus.CRITICAL
-                    if metrics.response_time_p99 > target.response_time_p99 * 2
-                    else SLAStatus.BREACH,
+                    severity=(
+                        SLAStatus.CRITICAL
+                        if metrics.response_time_p99 > target.response_time_p99 * 2
+                        else SLAStatus.BREACH
+                    ),
                     timestamp=current_time,
                     duration=timedelta(seconds=0),
                     description=f"P99レスポンス時間が目標値 {target.response_time_p99}ms を超過: {metrics.response_time_p99:.2f}ms",
@@ -277,9 +281,11 @@ class SLAMonitor:
                     violation_type="error_rate",
                     threshold=target.error_rate_threshold,
                     current_value=metrics.error_rate,
-                    severity=SLAStatus.CRITICAL
-                    if metrics.error_rate > target.error_rate_threshold * 2
-                    else SLAStatus.BREACH,
+                    severity=(
+                        SLAStatus.CRITICAL
+                        if metrics.error_rate > target.error_rate_threshold * 2
+                        else SLAStatus.BREACH
+                    ),
                     timestamp=current_time,
                     duration=timedelta(seconds=0),
                     description=f"エラー率が目標値 {target.error_rate_threshold}% を超過: {metrics.error_rate:.2f}%",
@@ -294,9 +300,11 @@ class SLAMonitor:
                     violation_type="throughput",
                     threshold=target.throughput_minimum,
                     current_value=metrics.throughput,
-                    severity=SLAStatus.BREACH
-                    if metrics.throughput < target.throughput_minimum * 0.5
-                    else SLAStatus.WARNING,
+                    severity=(
+                        SLAStatus.BREACH
+                        if metrics.throughput < target.throughput_minimum * 0.5
+                        else SLAStatus.WARNING
+                    ),
                     timestamp=current_time,
                     duration=timedelta(seconds=0),
                     description=f"スループットが最低値 {target.throughput_minimum} req/s を下回る: {metrics.throughput:.2f} req/s",

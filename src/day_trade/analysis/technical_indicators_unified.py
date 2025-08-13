@@ -50,8 +50,7 @@ except ImportError:
     OPTIMIZATION_AVAILABLE = False
     logger.info("最適化システム未利用 - 標準実装のみ")
 
-warnings.filterwarnings("ignore", category=RuntimeWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
+
 
 
 @dataclass
@@ -97,7 +96,10 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
                 if hasattr(self, method_name):
                     calc_start = time.time()
                     method = getattr(self, method_name)
-                    result = method(data, **kwargs)
+
+                    # 各指標に適切なパラメータを渡す
+                    filtered_kwargs = self._filter_kwargs_for_method(indicator, **kwargs)
+                    result = method(data, **filtered_kwargs)
                     calc_time = time.time() - calc_start
 
                     results[indicator] = IndicatorResult(
@@ -120,6 +122,44 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
             self.record_execution(execution_time, False)
             logger.error(f"指標計算エラー: {e}")
             raise
+
+    def _filter_kwargs_for_method(self, indicator: str, **kwargs) -> dict:
+        """Issue #594対応: 各指標メソッドに適切なパラメータのみを抽出（簡略化実装）"""
+
+        # 指標ごとのデフォルトパラメータ定義（拡張容易な辞書形式）
+        indicator_defaults = {
+            'sma': {'period': 20},
+            'ema': {'period': 20},
+            'rsi': {'period': 14},
+            'bollinger_bands': {'period': 20, 'std_dev': 2.0},
+            'macd': {'fast_period': 12, 'slow_period': 26, 'signal_period': 9},
+            'ichimoku': {
+                'conversion_period': 9, 'base_period': 26,
+                'leading_span_b_period': 52, 'lagging_span_period': 26
+            },
+            'fibonacci_retracement': {'period': 100}
+        }
+
+        # 指標名正規化
+        indicator_key = indicator.lower()
+        defaults = indicator_defaults.get(indicator_key, {})
+
+        # Issue #594対応: 簡略化されたマージロジック
+        filtered = {}
+
+        # デフォルト値を設定
+        for key, default_value in defaults.items():
+            filtered[key] = default_value
+
+        # kwargs の値で上書き（既知のパラメータのみ）
+        if defaults:  # 既知の指標の場合
+            for key, value in kwargs.items():
+                if key in defaults:
+                    filtered[key] = value
+        else:  # 未知の指標の場合は全パラメータを通す
+            filtered.update(kwargs)
+
+        return filtered
 
     # 基本指標計算メソッド（共通）
     def calculate_sma(
@@ -422,27 +462,35 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
             lagging_span = close.shift(-lagging_span_period)
 
         return {
-            "conversion_line": conversion_line
-            if isinstance(conversion_line, np.ndarray)
-            else conversion_line.values,
-            "base_line": base_line
-            if isinstance(base_line, np.ndarray)
-            else base_line.values,
-            "leading_span_a": leading_span_a
-            if isinstance(leading_span_a, np.ndarray)
-            else leading_span_a.values,
+            "conversion_line": (
+                conversion_line
+                if isinstance(conversion_line, np.ndarray)
+                else conversion_line.values
+            ),
+            "base_line": (
+                base_line if isinstance(base_line, np.ndarray) else base_line.values
+            ),
+            "leading_span_a": (
+                leading_span_a
+                if isinstance(leading_span_a, np.ndarray)
+                else leading_span_a.values
+            ),
             "leading_span_b": leading_span_b.values,
             "lagging_span": lagging_span.values,
             "cloud_top": np.maximum(
-                leading_span_a
-                if isinstance(leading_span_a, np.ndarray)
-                else leading_span_a.values,
+                (
+                    leading_span_a
+                    if isinstance(leading_span_a, np.ndarray)
+                    else leading_span_a.values
+                ),
                 leading_span_b.values,
             ),
             "cloud_bottom": np.minimum(
-                leading_span_a
-                if isinstance(leading_span_a, np.ndarray)
-                else leading_span_a.values,
+                (
+                    leading_span_a
+                    if isinstance(leading_span_a, np.ndarray)
+                    else leading_span_a.values
+                ),
                 leading_span_b.values,
             ),
         }
@@ -615,16 +663,7 @@ class TechnicalIndicatorsManager:
             self._strategy.reset_metrics()
 
 
-# 便利関数
-def calculate_technical_indicators(
-    data: pd.DataFrame,
-    indicators: List[str],
-    config: Optional[OptimizationConfig] = None,
-    **kwargs,
-) -> Dict[str, IndicatorResult]:
-    """テクニカル指標計算のヘルパー関数"""
-    manager = TechnicalIndicatorsManager(config)
-    return manager.calculate_indicators(data, indicators, **kwargs)
+
 
 
 # 戦略の自動登録（ダミー戦略でテスト用）
@@ -644,16 +683,16 @@ try:
         def get_strategy_name(self) -> str:
             return f"DummyTechnicalIndicators-{self.config.level.value}"
 
-    # 戦略登録
+    # 戦略登録（実際の実装を使用）
     OptimizationStrategyFactory.register_strategy(
         "technical_indicators",
         OptimizationLevel.STANDARD,
-        DummyTechnicalIndicatorsStrategy,
+        StandardTechnicalIndicators,
     )
     OptimizationStrategyFactory.register_strategy(
         "technical_indicators",
         OptimizationLevel.OPTIMIZED,
-        DummyTechnicalIndicatorsStrategy,
+        OptimizedTechnicalIndicators,
     )
 
     logger.info("テクニカル指標戦略の自動登録完了")

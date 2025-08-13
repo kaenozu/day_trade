@@ -214,14 +214,14 @@ class SecurityManager:
         assessment_results["duration_seconds"] = (end_time - start_time).total_seconds()
 
         # 総合セキュリティスコア計算
-        assessment_results[
-            "overall_security_score"
-        ] = self._calculate_overall_security_score(assessment_results)
+        assessment_results["overall_security_score"] = (
+            self._calculate_overall_security_score(assessment_results)
+        )
 
         # 推奨事項生成
-        assessment_results[
-            "recommendations"
-        ] = self._generate_comprehensive_recommendations(assessment_results)
+        assessment_results["recommendations"] = (
+            self._generate_comprehensive_recommendations(assessment_results)
+        )
 
         # エグゼクティブサマリー生成
         assessment_results["executive_summary"] = self._generate_executive_summary(
@@ -461,9 +461,9 @@ class SecurityManager:
 
         summary = f"""Issue #419 セキュリティ強化 - 包括的セキュリティ評価結果
 
-実行日時: {assessment['started_at']}
+実行日時: {assessment["started_at"]}
 評価時間: {duration:.1f}秒
-セキュリティレベル: {assessment['security_level'].upper()}
+セキュリティレベル: {assessment["security_level"].upper()}
 総合セキュリティスコア: {overall_score:.1f}/100
 
 == コンポーネント状況 ==

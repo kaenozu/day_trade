@@ -100,13 +100,13 @@ class TradeBatchProcessor:
                 "total_trades": total_trades,
                 "processed": processed,
                 "failed": failed,
-                "success_rate": (processed / total_trades * 100)
-                if total_trades > 0
-                else 0,
+                "success_rate": (
+                    (processed / total_trades * 100) if total_trades > 0 else 0
+                ),
                 "processing_time_seconds": processing_time,
-                "trades_per_second": processed / processing_time
-                if processing_time > 0
-                else 0,
+                "trades_per_second": (
+                    processed / processing_time if processing_time > 0 else 0
+                ),
                 "batches_count": len(batches),
             }
 

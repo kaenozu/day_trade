@@ -342,7 +342,7 @@ class NextGenBacktestEngine:
                         self.current_capital - self.config.initial_capital
                     ) / self.config.initial_capital
                     logger.info(
-                        f"進捗: {i}/{len(trading_dates)} ({i/len(trading_dates)*100:.1f}%) - リターン: {current_return:.2%}"
+                        f"進捗: {i}/{len(trading_dates)} ({i / len(trading_dates) * 100:.1f}%) - リターン: {current_return:.2%}"
                     )
 
             except Exception as e:

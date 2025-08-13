@@ -596,9 +596,9 @@ class TradingSimulator:
                     "sell_trades": len(sell_trades),
                     "win_rate_pct": win_rate,
                     "profitable_trades": len(profitable_trades),
-                    "average_trade_pnl": np.mean([t.pnl for t in sell_trades])
-                    if sell_trades
-                    else 0,
+                    "average_trade_pnl": (
+                        np.mean([t.pnl for t in sell_trades]) if sell_trades else 0
+                    ),
                 },
                 "performance_metrics": {
                     "avg_processing_time_seconds": avg_processing_time,

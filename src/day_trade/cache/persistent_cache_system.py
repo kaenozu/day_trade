@@ -425,9 +425,9 @@ class SQLiteStorage(PersistentCacheStorage):
                         "file_size_mb": file_size / (1024 * 1024),
                         "avg_access_count": stats[3] or 0,
                         "expired_entries": stats[4] or 0,
-                        "compression_ratio": (stats[2] or 1) / (stats[1] or 1)
-                        if stats[1]
-                        else 1.0,
+                        "compression_ratio": (
+                            (stats[2] or 1) / (stats[1] or 1) if stats[1] else 1.0
+                        ),
                         "storage_path": str(self.db_path),
                     }
 
@@ -475,7 +475,7 @@ class SQLiteStorage(PersistentCacheStorage):
                 )  # 80%まで削減
 
                 logger.info(
-                    f"容量不足: {current_size/1024/1024:.1f}MB, {need_to_free/1024/1024:.1f}MB削除必要"
+                    f"容量不足: {current_size / 1024 / 1024:.1f}MB, {need_to_free / 1024 / 1024:.1f}MB削除必要"
                 )
 
                 # LRU順で削除
@@ -502,7 +502,7 @@ class SQLiteStorage(PersistentCacheStorage):
 
                 if deleted_keys:
                     logger.info(
-                        f"LRU削除完了: {len(deleted_keys)}件, {freed_size/1024/1024:.1f}MB解放"
+                        f"LRU削除完了: {len(deleted_keys)}件, {freed_size / 1024 / 1024:.1f}MB解放"
                     )
 
         except Exception as e:
@@ -1046,6 +1046,6 @@ if __name__ == "__main__":
 
     print(f"初回実行: {result1}, 時間: {first_time:.1f}ms")
     print(f"キャッシュ取得: {result2}, 時間: {cached_time:.1f}ms")
-    print(f"高速化率: {first_time/cached_time:.1f}x")
+    print(f"高速化率: {first_time / cached_time:.1f}x")
 
     print("\n=== 永続化キャッシュシステムテスト完了 ===")

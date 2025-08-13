@@ -564,12 +564,16 @@ class ExternalAPIClient:
             async with self.session.request(
                 method=request.endpoint.method.value,
                 url=url,
-                params=request.params
-                if request.endpoint.method == RequestMethod.GET
-                else None,
-                json=request.data
-                if request.endpoint.method != RequestMethod.GET
-                else None,
+                params=(
+                    request.params
+                    if request.endpoint.method == RequestMethod.GET
+                    else None
+                ),
+                json=(
+                    request.data
+                    if request.endpoint.method != RequestMethod.GET
+                    else None
+                ),
                 headers=headers,
                 timeout=ClientTimeout(total=request.endpoint.timeout_seconds),
             ) as response:
@@ -594,9 +598,9 @@ class ExternalAPIClient:
                     response_time_ms=response_time,
                     timestamp=datetime.now(),
                     success=response.status == 200,
-                    error_message=None
-                    if response.status == 200
-                    else f"HTTP {response.status}",
+                    error_message=(
+                        None if response.status == 200 else f"HTTP {response.status}"
+                    ),
                 )
 
                 # データ正規化
@@ -1256,12 +1260,16 @@ class ExternalAPIClient:
                 "requests_per_second": rate_limit.requests_per_second,
                 "requests_per_minute": rate_limit.requests_per_minute,
                 "requests_per_hour": rate_limit.requests_per_hour,
-                "last_request": rate_limit.last_request_time.isoformat()
-                if rate_limit.last_request_time
-                else None,
-                "blocked_until": rate_limit.blocked_until.isoformat()
-                if rate_limit.blocked_until
-                else None,
+                "last_request": (
+                    rate_limit.last_request_time.isoformat()
+                    if rate_limit.last_request_time
+                    else None
+                ),
+                "blocked_until": (
+                    rate_limit.blocked_until.isoformat()
+                    if rate_limit.blocked_until
+                    else None
+                ),
             }
 
         return status
@@ -1289,9 +1297,9 @@ class ExternalAPIClient:
                     # モックプロバイダーのテスト
                     response = await self.fetch_stock_data("TEST", provider)
                     provider_health[provider.value] = {
-                        "status": "healthy"
-                        if response and response.success
-                        else "unhealthy",
+                        "status": (
+                            "healthy" if response and response.success else "unhealthy"
+                        ),
                         "last_test": datetime.now().isoformat(),
                     }
                 except Exception as e:

@@ -126,9 +126,11 @@ class InferenceResult:
     def to_dict(self) -> Dict[str, Any]:
         """結果を辞書形式に変換"""
         return {
-            "predictions": self.predictions.tolist()
-            if isinstance(self.predictions, np.ndarray)
-            else self.predictions,
+            "predictions": (
+                self.predictions.tolist()
+                if isinstance(self.predictions, np.ndarray)
+                else self.predictions
+            ),
             "execution_time_us": self.execution_time_us,
             "batch_size": self.batch_size,
             "backend_used": self.backend_used.value,
@@ -231,9 +233,11 @@ class ONNXModelOptimizer:
             quantize_dynamic(
                 model_path,
                 output_path,
-                weight_type=QuantType.QUInt8
-                if quantization_mode == "IntegerOps"
-                else QuantType.QInt8,
+                weight_type=(
+                    QuantType.QUInt8
+                    if quantization_mode == "IntegerOps"
+                    else QuantType.QInt8
+                ),
             )
 
             logger.info(f"モデル量子化完了: {output_path}")

@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List
 
+import numpy as np
+
 from ..data.real_market_data import RealMarketDataManager
 from ..utils.logging_config import get_context_logger
 
@@ -326,14 +328,28 @@ class EducationalMarketAnalyzer:
                     except Exception as e:
                         logger.warning(f"モデルチューニングエラー（継続）: {e}")
 
-                # 高度なスコア予測（チューニング済みモデル含む）
-                (
-                    trend_score,
-                    volatility_score,
-                    pattern_score,
-                ) = self.advanced_ml_engine.predict_advanced_scores(
-                    symbol, stock_data, features
-                )
+                # 高度なスコア予測（チューニング済みモデル含む） - Issue #583対応
+                try:
+                    (
+                        trend_score,
+                        volatility_score,
+                        pattern_score,
+                    ) = self.advanced_ml_engine.predict_advanced_scores(
+                        symbol, stock_data, features
+                    )
+
+                    # スコア値の型安全性チェックと正規化
+                    trend_score = self._validate_and_normalize_score(trend_score, "trend")
+                    volatility_score = self._validate_and_normalize_score(volatility_score, "volatility")
+                    pattern_score = self._validate_and_normalize_score(pattern_score, "pattern")
+
+                except Exception as score_error:
+                    logger.error(f"高度スコア予測エラー {symbol}: {score_error}")
+                    # フォールバック値を使用
+                    trend_score = 50.0
+                    volatility_score = 50.0
+                    pattern_score = 50.0
+                    logger.info(f"フォールバックスコア適用: {symbol}")
 
                 # モデル情報取得（信頼度計算用）
                 model_info = self.advanced_ml_engine.get_model_info(symbol)
@@ -396,10 +412,19 @@ class EducationalMarketAnalyzer:
                 # 基本MLエンジン使用（従来通り）
                 logger.info(f"基本MLエンジン使用: {symbol}")
 
-                (
-                    trend_score,
-                    trend_confidence,
-                ) = self.real_data_manager.generate_ml_trend_score(stock_data)
+                # 基本MLスコア生成 - Issue #583対応
+                try:
+                    (
+                        trend_score,
+                        trend_confidence,
+                    ) = self.real_data_manager.generate_ml_trend_score(stock_data)
+
+                    trend_score = self._validate_and_normalize_score(trend_score, "trend")
+                    trend_confidence = self._validate_confidence(trend_confidence)
+
+                except Exception as e:
+                    logger.error(f"基本トレンドスコア生成エラー {symbol}: {e}")
+                    trend_score, trend_confidence = 50.0, 0.5
                 trend_ml = MLTechnicalScore(
                     score_name="MLトレンド強度スコア",
                     score_value=trend_score,
@@ -413,10 +438,18 @@ class EducationalMarketAnalyzer:
                 )
                 scores.append(trend_ml)
 
-                (
-                    volatility_score,
-                    volatility_confidence,
-                ) = self.real_data_manager.generate_ml_volatility_score(stock_data)
+                try:
+                    (
+                        volatility_score,
+                        volatility_confidence,
+                    ) = self.real_data_manager.generate_ml_volatility_score(stock_data)
+
+                    volatility_score = self._validate_and_normalize_score(volatility_score, "volatility")
+                    volatility_confidence = self._validate_confidence(volatility_confidence)
+
+                except Exception as e:
+                    logger.error(f"基本ボラティリティスコア生成エラー {symbol}: {e}")
+                    volatility_score, volatility_confidence = 50.0, 0.5
                 volatility_ml = MLTechnicalScore(
                     score_name="ML価格変動予測スコア",
                     score_value=volatility_score,
@@ -430,10 +463,18 @@ class EducationalMarketAnalyzer:
                 )
                 scores.append(volatility_ml)
 
-                (
-                    pattern_score,
-                    pattern_confidence,
-                ) = self.real_data_manager.generate_ml_pattern_score(stock_data)
+                try:
+                    (
+                        pattern_score,
+                        pattern_confidence,
+                    ) = self.real_data_manager.generate_ml_pattern_score(stock_data)
+
+                    pattern_score = self._validate_and_normalize_score(pattern_score, "pattern")
+                    pattern_confidence = self._validate_confidence(pattern_confidence)
+
+                except Exception as e:
+                    logger.error(f"基本パターンスコア生成エラー {symbol}: {e}")
+                    pattern_score, pattern_confidence = 50.0, 0.5
                 pattern_ml = MLTechnicalScore(
                     score_name="MLパターン認識スコア",
                     score_value=pattern_score,
@@ -537,6 +578,62 @@ class EducationalMarketAnalyzer:
             return "技術的に不明確なパターン状況です（教育用参考情報）"
         else:
             return "技術的に調整・下降パターンの特徴を示しています（教育用参考情報）"
+
+    def _validate_and_normalize_score(self, score, score_type: str) -> float:
+        """MLスコア値の検証と正規化 - Issue #583対応"""
+        try:
+            # None値チェック
+            if score is None:
+                logger.warning(f"{score_type}スコアがNoneです。デフォルト値50.0を使用")
+                return 50.0
+
+            # 数値型変換
+            if isinstance(score, (list, tuple)) and len(score) > 0:
+                score = score[0]  # 配列の場合は最初の値を使用
+
+            score_val = float(score)
+
+            # 値の範囲チェック（0-100で正規化）
+            if not (0 <= score_val <= 100):
+                if score_val < 0:
+                    logger.warning(f"{score_type}スコア {score_val} が負の値です。0に正規化")
+                    return 0.0
+                elif score_val > 100:
+                    logger.warning(f"{score_type}スコア {score_val} が100を超過。100に正規化")
+                    return 100.0
+
+            # NaN/無限値チェック
+            if not np.isfinite(score_val):
+                logger.warning(f"{score_type}スコア {score_val} が無効値です。デフォルト値50.0を使用")
+                return 50.0
+
+            return round(score_val, 1)
+
+        except (ValueError, TypeError, OverflowError) as e:
+            logger.error(f"{score_type}スコア値変換エラー {score}: {e}. デフォルト値50.0を使用")
+            return 50.0
+
+    def _validate_confidence(self, confidence) -> float:
+        """信頼度値の検証と正規化 - Issue #583対応"""
+        try:
+            if confidence is None:
+                return 0.5
+
+            conf_val = float(confidence)
+
+            # 0-1の範囲に正規化
+            if conf_val < 0:
+                return 0.0
+            elif conf_val > 1:
+                return 1.0
+
+            if not np.isfinite(conf_val):
+                return 0.5
+
+            return round(conf_val, 2)
+
+        except (ValueError, TypeError, OverflowError):
+            return 0.5
 
     def _get_rsi_interpretation(self, rsi_value: float) -> str:
         """RSI値の一般的解釈"""
@@ -728,9 +825,7 @@ class EducationalMarketAnalyzer:
                 score_level = (
                     "高スコア"
                     if score.score_value >= 70
-                    else "中スコア"
-                    if score.score_value >= 40
-                    else "低スコア"
+                    else "中スコア" if score.score_value >= 40 else "低スコア"
                 )
                 interpretation = score.educational_interpretation.replace(
                     "技術的に", ""

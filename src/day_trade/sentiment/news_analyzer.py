@@ -809,12 +809,16 @@ class NewsAnalyzer:
                     {
                         "title": article.title,
                         "source": article.source,
-                        "sentiment_label": article.sentiment_result.sentiment_label
-                        if article.sentiment_result
-                        else None,
-                        "sentiment_score": article.sentiment_result.sentiment_score
-                        if article.sentiment_result
-                        else 0,
+                        "sentiment_label": (
+                            article.sentiment_result.sentiment_label
+                            if article.sentiment_result
+                            else None
+                        ),
+                        "sentiment_score": (
+                            article.sentiment_result.sentiment_score
+                            if article.sentiment_result
+                            else 0
+                        ),
                         "importance_score": article.importance_score,
                         "url": article.url,
                     }
@@ -832,18 +836,26 @@ class NewsAnalyzer:
                     {
                         "title": article.title,
                         "source": article.source,
-                        "published_at": article.published_at.isoformat()
-                        if article.published_at
-                        else "",
-                        "sentiment_label": article.sentiment_result.sentiment_label
-                        if article.sentiment_result
-                        else "",
-                        "sentiment_score": article.sentiment_result.sentiment_score
-                        if article.sentiment_result
-                        else 0,
-                        "confidence": article.sentiment_result.confidence
-                        if article.sentiment_result
-                        else 0,
+                        "published_at": (
+                            article.published_at.isoformat()
+                            if article.published_at
+                            else ""
+                        ),
+                        "sentiment_label": (
+                            article.sentiment_result.sentiment_label
+                            if article.sentiment_result
+                            else ""
+                        ),
+                        "sentiment_score": (
+                            article.sentiment_result.sentiment_score
+                            if article.sentiment_result
+                            else 0
+                        ),
+                        "confidence": (
+                            article.sentiment_result.confidence
+                            if article.sentiment_result
+                            else 0
+                        ),
                         "importance_score": article.importance_score,
                         "relevance_score": article.relevance_score,
                         "url": article.url,

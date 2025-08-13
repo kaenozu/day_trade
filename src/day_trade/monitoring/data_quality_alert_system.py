@@ -541,9 +541,9 @@ class DataQualityAlertSystem:
                 "rule_name": rule.rule_name,
                 "check_timestamp": datetime.now().isoformat(),
                 "quality_percentage": quality_score * 100,
-                "impact_percentage": (affected_records / total_records) * 100
-                if total_records > 0
-                else 0,
+                "impact_percentage": (
+                    (affected_records / total_records) * 100 if total_records > 0 else 0
+                ),
             },
         )
 
@@ -931,9 +931,7 @@ class DataQualityAlertSystem:
         trend = (
             "improving"
             if correlation > 0.1
-            else "degrading"
-            if correlation < -0.1
-            else "stable"
+            else "degrading" if correlation < -0.1 else "stable"
         )
 
         return {

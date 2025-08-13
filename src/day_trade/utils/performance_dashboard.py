@@ -275,7 +275,7 @@ class PerformanceDashboard:
                 sizes, labels=labels, colors=colors, autopct="%1.1f%%", startangle=90
             )
 
-            ax.set_title(f'✅ 成功率 ({summary.get("total_operations", 0)}回実行)')
+            ax.set_title(f"✅ 成功率 ({summary.get('total_operations', 0)}回実行)")
 
         except Exception as e:
             logger.debug(f"成功率プロットエラー: {e}")
@@ -440,10 +440,10 @@ class PerformanceDashboard:
             # システム情報テキスト
             overview_text = f"""
 システム状況:
-• 総操作回数: {summary.get('total_operations', 0)}
-• 成功率: {summary.get('success_rate', 0):.1%}
-• 平均実行時間: {summary.get('avg_execution_time', 0):.2f}s
-• 最大実行時間: {summary.get('max_execution_time', 0):.2f}s
+• 総操作回数: {summary.get("total_operations", 0)}
+• 成功率: {summary.get("success_rate", 0):.1%}
+• 平均実行時間: {summary.get("avg_execution_time", 0):.2f}s
+• 最大実行時間: {summary.get("max_execution_time", 0):.2f}s
 
 現在のシステム:
 • メモリ使用率: {latest_system.memory_usage_percent:.1f}%
@@ -451,7 +451,7 @@ class PerformanceDashboard:
 • 利用可能メモリ: {latest_system.available_memory_gb:.1f}GB
 • アクティブプロセス: {latest_system.active_processes}
 
-最終更新: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+最終更新: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
             """.strip()
 
             ax.text(
@@ -536,20 +536,20 @@ class PerformanceDashboard:
 <body>
     <div class="container">
         <h1>📊 パフォーマンス監視レポート</h1>
-        <p class="timestamp">生成日時: {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}</p>
+        <p class="timestamp">生成日時: {datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")}</p>
 
         <h2>システム概要</h2>
-        <div class="metric-card {'success' if summary.get('success_rate', 0) > 0.9 else 'alert' if summary.get('success_rate', 0) > 0.7 else 'error'}">
-            <strong>成功率:</strong> {summary.get('success_rate', 0):.1%} ({summary.get('total_operations', 0)}回実行)
+        <div class="metric-card {"success" if summary.get("success_rate", 0) > 0.9 else "alert" if summary.get("success_rate", 0) > 0.7 else "error"}">
+            <strong>成功率:</strong> {summary.get("success_rate", 0):.1%} ({summary.get("total_operations", 0)}回実行)
         </div>
         <div class="metric-card">
-            <strong>平均実行時間:</strong> {summary.get('avg_execution_time', 0):.3f}秒
+            <strong>平均実行時間:</strong> {summary.get("avg_execution_time", 0):.3f}秒
         </div>
         <div class="metric-card">
-            <strong>最大実行時間:</strong> {summary.get('max_execution_time', 0):.3f}秒
+            <strong>最大実行時間:</strong> {summary.get("max_execution_time", 0):.3f}秒
         </div>
         <div class="metric-card">
-            <strong>平均メモリ使用量:</strong> {summary.get('avg_memory_usage_mb', 0):.1f}MB
+            <strong>平均メモリ使用量:</strong> {summary.get("avg_memory_usage_mb", 0):.1f}MB
         </div>
 
         <h2>基準値比較</h2>
@@ -598,7 +598,7 @@ class PerformanceDashboard:
             <tr>
                 <td>{proc["process"]}</td>
                 <td>{proc["execution_time"]:.3f}秒</td>
-                <td>{proc["timestamp"][:19].replace('T', ' ')}</td>
+                <td>{proc["timestamp"][:19].replace("T", " ")}</td>
             </tr>
                     """
                 html_content += "</table>"
@@ -618,7 +618,7 @@ class PerformanceDashboard:
             <tr>
                 <td>{proc["process"]}</td>
                 <td>{proc["memory_peak_mb"]:.1f}MB</td>
-                <td>{proc["timestamp"][:19].replace('T', ' ')}</td>
+                <td>{proc["timestamp"][:19].replace("T", " ")}</td>
             </tr>
                     """
                 html_content += "</table>"

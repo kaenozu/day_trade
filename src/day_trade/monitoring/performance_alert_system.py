@@ -763,9 +763,7 @@ class PerformanceAlertSystem:
             trend = (
                 "increasing"
                 if correlation > 0.1
-                else "decreasing"
-                if correlation < -0.1
-                else "stable"
+                else "decreasing" if correlation < -0.1 else "stable"
             )
         else:
             trend = "stable"

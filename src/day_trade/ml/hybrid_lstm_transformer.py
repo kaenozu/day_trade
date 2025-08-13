@@ -883,9 +883,11 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         return {
             "lstm_contribution": attention_info["lstm_contribution"],
             "transformer_contribution": attention_info["transformer_contribution"],
-            "attention_balance": "LSTM優位"
-            if attention_info["lstm_contribution"] > 0.5
-            else "Transformer優位",
+            "attention_balance": (
+                "LSTM優位"
+                if attention_info["lstm_contribution"] > 0.5
+                else "Transformer優位"
+            ),
             "predictions": predictions.cpu().numpy(),
             "analysis": "アテンション重みによる特徴量重要度分析完了",
         }

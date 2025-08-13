@@ -1,0 +1,366 @@
+#==============================================================================
+# Prometheus Alert Rules - Issue #442 Phase 3
+# インテリジェントアラート・SLO監視・異常検知
+#==============================================================================
+
+groups:
+  # === HFT クリティカルアラート ===
+  - name: hft-critical
+    interval: 5s  # 高頻度評価
+    rules:
+      # 取引レイテンシ SLO違反
+      - alert: TradeLatencySLOViolation
+        expr: |
+          (
+            histogram_quantile(0.999,
+              rate(day_trade_trade_latency_microseconds_bucket[30s])
+            ) > 50
+          )
+        for: 10s
+        labels:
+          severity: critical
+          service: trading
+          slo: trade_latency
+        annotations:
+          summary: "Trade latency SLO violation detected"
+          description: "99.9th percentile trade latency ({{ $value }}μs) exceeds 50μs threshold for {{ $labels.symbol }}"
+          runbook_url: "https://docs.daytrade.local/runbooks/trade-latency"
+
+      # 取引成功率 SLO違反
+      - alert: TradeSuccessRateSLOViolation
+        expr: |
+          (
+            rate(day_trade_trades_total{status="success"}[5m]) /
+            rate(day_trade_trades_total[5m])
+          ) * 100 < 99.95
+        for: 30s
+        labels:
+          severity: critical
+          service: trading
+          slo: trade_success
+        annotations:
+          summary: "Trade success rate SLO violation"
+          description: "Trade success rate ({{ $value }}%) below 99.95% threshold"
+
+      # メモリ使用量クリティカル
+      - alert: MemoryUsageCritical
+        expr: |
+          (
+            (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) /
+            node_memory_MemTotal_bytes
+          ) * 100 > 90
+        for: 30s
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Critical memory usage detected"
+          description: "Memory usage ({{ $value }}%) exceeds 90% on {{ $labels.instance }}"
+
+      # API レスポンス時間 SLO違反
+      - alert: APILatencySLOViolation
+        expr: |
+          histogram_quantile(0.999,
+            rate(day_trade_request_duration_seconds_bucket[30s])
+          ) * 1000 > 50
+        for: 15s
+        labels:
+          severity: high
+          service: api
+          slo: api_latency
+        annotations:
+          summary: "API latency SLO violation"
+          description: "99.9th percentile API response time ({{ $value }}ms) exceeds 50ms"
+
+  # === システム可用性監視 ===
+  - name: availability
+    interval: 30s
+    rules:
+      # サービス停止検出
+      - alert: ServiceDown
+        expr: up{job!="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} has been down for more than 1 minute"
+
+      # システム稼働率 SLO監視
+      - alert: SystemAvailabilitySLOViolation
+        expr: |
+          (
+            avg_over_time(up{job="day-trade-app"}[1h]) * 100
+          ) < 99.99
+        for: 5m
+        labels:
+          severity: high
+          service: system
+          slo: availability
+        annotations:
+          summary: "System availability SLO violation"
+          description: "System availability ({{ $value }}%) below 99.99% over the last hour"
+
+      # データベース接続エラー
+      - alert: DatabaseConnectionError
+        expr: |
+          rate(day_trade_errors_total{error_type="DatabaseError"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: high
+          service: database
+        annotations:
+          summary: "Database connection errors detected"
+          description: "Database connection error rate ({{ $value }}/sec) exceeds threshold"
+
+  # === パフォーマンス監視 ===
+  - name: performance
+    interval: 15s
+    rules:
+      # CPU使用率高
+      - alert: HighCPUUsage
+        expr: |
+          (
+            100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+          ) > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage ({{ $value }}%) exceeds 80% on {{ $labels.instance }}"
+
+      # ディスク使用率高
+      - alert: HighDiskUsage
+        expr: |
+          (
+            (node_filesystem_size_bytes{fstype!="tmpfs"} - node_filesystem_free_bytes{fstype!="tmpfs"}) /
+            node_filesystem_size_bytes{fstype!="tmpfs"}
+          ) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High disk usage detected"
+          description: "Disk usage ({{ $value }}%) exceeds 85% on {{ $labels.instance }}:{{ $labels.mountpoint }}"
+
+      # エラー率上昇
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(day_trade_errors_total[5m]) /
+            rate(day_trade_requests_total[5m])
+          ) * 100 > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: application
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate ({{ $value }}%) exceeds 5% threshold"
+
+      # スループット異常
+      - alert: LowThroughput
+        expr: |
+          rate(day_trade_trades_total[5m]) < 10
+        for: 5m
+        labels:
+          severity: warning
+          service: trading
+        annotations:
+          summary: "Low trading throughput"
+          description: "Trading throughput ({{ $value }} trades/sec) below expected threshold"
+
+  # === ビジネスメトリクス監視 ===
+  - name: business-metrics
+    interval: 60s
+    rules:
+      # 大きな損失検出
+      - alert: LargeLoss
+        expr: |
+          increase(day_trade_pnl_dollars_sum[15m]) < -5000
+        for: 1m
+        labels:
+          severity: critical
+          service: risk
+        annotations:
+          summary: "Large loss detected"
+          description: "Cumulative P&L loss (${{ $value }}) exceeds $5000 in 15 minutes"
+
+      # 異常なポジション数
+      - alert: AbnormalPositionCount
+        expr: |
+          day_trade_positions_count > 1000 or day_trade_positions_count < 0
+        for: 2m
+        labels:
+          severity: high
+          service: risk
+        annotations:
+          summary: "Abnormal position count"
+          description: "Position count ({{ $value }}) outside normal range"
+
+      # 市場データ遅延
+      - alert: MarketDataDelay
+        expr: |
+          time() - day_trade_market_data_timestamp > 5
+        for: 30s
+        labels:
+          severity: high
+          service: market-data
+        annotations:
+          summary: "Market data delay detected"
+          description: "Market data is delayed by {{ $value }} seconds"
+
+  # === セキュリティ監視 ===
+  - name: security
+    interval: 30s
+    rules:
+      # 認証失敗率上昇
+      - alert: HighAuthFailureRate
+        expr: |
+          rate(day_trade_auth_failures_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: high
+          service: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Authentication failure rate ({{ $value }}/min) exceeds threshold"
+
+      # 異常なAPIアクセスパターン
+      - alert: AbnormalAPIAccess
+        expr: |
+          rate(day_trade_requests_total[1m]) > 1000
+        for: 2m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "Abnormal API access pattern"
+          description: "API request rate ({{ $value }}/min) unusually high from {{ $labels.client_ip }}"
+
+  # === インフラストラクチャ監視 ===
+  - name: infrastructure
+    interval: 60s
+    rules:
+      # Container 재시작
+      - alert: ContainerRestarting
+        expr: |
+          rate(container_start_time_seconds[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "Container {{ $labels.name }} restarting"
+          description: "Container {{ $labels.name }} has restarted {{ $value }} times in 10 minutes"
+
+      # ネットワークレイテンシ上昇
+      - alert: HighNetworkLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(node_network_receive_bytes_total[5m])
+          ) > 100000000  # 100MB/s
+        for: 5m
+        labels:
+          severity: warning
+          service: network
+        annotations:
+          summary: "High network latency detected"
+          description: "Network latency on {{ $labels.instance }} exceeds threshold"
+
+  # === Elasticsearch 監視 ===
+  - name: elasticsearch
+    interval: 30s
+    rules:
+      # クラスター状態
+      - alert: ElasticsearchClusterRed
+        expr: |
+          elasticsearch_cluster_health_status{color="red"} == 1
+        for: 2m
+        labels:
+          severity: critical
+          service: elasticsearch
+        annotations:
+          summary: "Elasticsearch cluster status is RED"
+          description: "Elasticsearch cluster health is RED. Immediate attention required."
+
+      # インデックス作成遅延
+      - alert: ElasticsearchSlowIndexing
+        expr: |
+          rate(elasticsearch_index_indexing_index_time_seconds[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: elasticsearch
+        annotations:
+          summary: "Elasticsearch slow indexing detected"
+          description: "Elasticsearch indexing time ({{ $value }}s) exceeds threshold"
+
+  # === Machine Learning 異常検知 ===
+  - name: anomaly-detection
+    interval: 60s
+    rules:
+      # 取引量異常
+      - alert: TradingVolumeAnomaly
+        expr: |
+          abs(
+            rate(day_trade_trades_total[5m]) -
+            avg_over_time(rate(day_trade_trades_total[5m])[4h:5m])
+          ) / avg_over_time(rate(day_trade_trades_total[5m])[4h:5m]) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: anomaly-detection
+        annotations:
+          summary: "Trading volume anomaly detected"
+          description: "Current trading volume deviates by {{ $value }}% from 4-hour average"
+
+      # レイテンシ異常
+      - alert: LatencyAnomaly
+        expr: |
+          abs(
+            histogram_quantile(0.95, rate(day_trade_trade_latency_microseconds_bucket[5m])) -
+            avg_over_time(histogram_quantile(0.95, rate(day_trade_trade_latency_microseconds_bucket[5m]))[2h:5m])
+          ) / avg_over_time(histogram_quantile(0.95, rate(day_trade_trade_latency_microseconds_bucket[5m]))[2h:5m]) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+          service: anomaly-detection
+        annotations:
+          summary: "Latency anomaly detected"
+          description: "Current 95th percentile latency deviates by {{ $value }}% from 2-hour average"
+
+#==============================================================================
+# Alert Rules 特化機能:
+#
+# 🚨 SLO/SLI監視:
+#   - 取引レイテンシ SLO (<50μs)
+#   - API応答時間 SLO (<50ms)
+#   - システム稼働率 SLO (99.99%)
+#   - 取引成功率 SLO (99.95%)
+#
+# ⚡ HFT対応:
+#   - 高頻度評価 (5秒間隔)
+#   - 低レイテンシ検出
+#   - リアルタイム異常検知
+#
+# 🤖 機械学習統合:
+#   - 統計的異常検知
+#   - 動的閾値調整
+#   - パターン認識
+#
+# 📊 多層監視:
+#   - アプリケーション層
+#   - システム層
+#   - インフラ層
+#   - ビジネス層
+#
+# 🔒 セキュリティ監視:
+#   - 認証失敗監視
+#   - 異常アクセス検出
+#   - 脅威パターン認識
+#==============================================================================

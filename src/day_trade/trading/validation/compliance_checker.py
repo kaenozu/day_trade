@@ -513,9 +513,9 @@ class ComplianceChecker:
                 "total_trades_checked": total_checks,
                 "compliant_trades": compliant_trades,
                 "non_compliant_trades": total_checks - compliant_trades,
-                "compliance_rate": (compliant_trades / total_checks * 100)
-                if total_checks > 0
-                else 0,
+                "compliance_rate": (
+                    (compliant_trades / total_checks * 100) if total_checks > 0 else 0
+                ),
                 "total_violations": violation_count,
                 "total_warnings": warning_count,
                 "violation_types": violation_types,

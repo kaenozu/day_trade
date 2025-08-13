@@ -17,6 +17,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+# 決定論的実行のためのシード設定
+import random
+random.seed(42)
+np.random.seed(42)
+
 # 深層学習フレームワーク（遅延インポート - メモリ効率化）
 PYTORCH_AVAILABLE = False
 try:
@@ -27,6 +32,13 @@ try:
         import torch.nn as nn
         import torch.optim as optim
         from torch.utils.data import DataLoader, Dataset
+
+        # PyTorch決定論的実行設定
+        torch.manual_seed(42)
+        torch.cuda.manual_seed(42)
+        torch.cuda.manual_seed_all(42)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
         PYTORCH_AVAILABLE = True
 except ImportError:
@@ -63,6 +75,7 @@ from ..ml.hybrid_lstm_transformer import (
     create_hybrid_model,
 )
 from ..utils.logging_config import get_context_logger
+from .macro_economic_features import MacroEconomicFeatures
 
 logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -125,61 +138,61 @@ if PYTORCH_AVAILABLE:
             super().__init__()
             self.config = config
 
-        # LSTM分岐
-        self.lstm = nn.LSTM(
-            input_size=config.num_features,
-            hidden_size=config.lstm_hidden_size,
-            num_layers=config.lstm_num_layers,
-            dropout=config.lstm_dropout,
-            batch_first=True,
-            bidirectional=True,
-        )
+            # LSTM分岐
+            self.lstm = nn.LSTM(
+                input_size=config.num_features,
+                hidden_size=config.lstm_hidden_size,
+                num_layers=config.lstm_num_layers,
+                dropout=config.lstm_dropout,
+                batch_first=True,
+                bidirectional=True,
+            )
 
-        # Transformer分岐
-        self.positional_encoding = PositionalEncoding(config.transformer_d_model)
-        self.input_projection = nn.Linear(
-            config.num_features, config.transformer_d_model
-        )
+            # Transformer分岐
+            self.positional_encoding = PositionalEncoding(config.transformer_d_model)
+            self.input_projection = nn.Linear(
+                config.num_features, config.transformer_d_model
+            )
 
-        transformer_layer = nn.TransformerEncoderLayer(
-            d_model=config.transformer_d_model,
-            nhead=config.transformer_nhead,
-            dim_feedforward=config.transformer_dim_feedforward,
-            dropout=config.transformer_dropout,
-            batch_first=True,
-        )
-        self.transformer = nn.TransformerEncoder(
-            transformer_layer, config.transformer_num_layers
-        )
+            transformer_layer = nn.TransformerEncoderLayer(
+                d_model=config.transformer_d_model,
+                nhead=config.transformer_nhead,
+                dim_feedforward=config.transformer_dim_feedforward,
+                dropout=config.transformer_dropout,
+                batch_first=True,
+            )
+            self.transformer = nn.TransformerEncoder(
+                transformer_layer, config.transformer_num_layers
+            )
 
-        # Feature Fusion Layer
-        lstm_output_size = config.lstm_hidden_size * 2  # 双方向
-        fusion_input_size = lstm_output_size + config.transformer_d_model
+            # Feature Fusion Layer
+            lstm_output_size = config.lstm_hidden_size * 2  # 双方向
+            fusion_input_size = lstm_output_size + config.transformer_d_model
 
-        self.fusion_layer = nn.Sequential(
-            nn.Linear(fusion_input_size, 512),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-        )
+            self.fusion_layer = nn.Sequential(
+                nn.Linear(fusion_input_size, 512),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.Linear(512, 256),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+            )
 
-        # 予測ヘッド
-        self.prediction_head = nn.Sequential(
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(128, config.prediction_horizon),
-        )
+            # 予測ヘッド
+            self.prediction_head = nn.Sequential(
+                nn.Linear(256, 128),
+                nn.ReLU(),
+                nn.Dropout(0.1),
+                nn.Linear(128, config.prediction_horizon),
+            )
 
-        # 信頼度推定ヘッド
-        self.confidence_head = nn.Sequential(
-            nn.Linear(256, 64),
-            nn.ReLU(),
-            nn.Linear(64, config.prediction_horizon),
-            nn.Sigmoid(),
-        )
+            # 信頼度推定ヘッド
+            self.confidence_head = nn.Sequential(
+                nn.Linear(256, 64),
+                nn.ReLU(),
+                nn.Linear(64, config.prediction_horizon),
+                nn.Sigmoid(),
+            )
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """順伝播"""
@@ -217,21 +230,21 @@ if PYTORCH_AVAILABLE:
 
             super().__init__()
 
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model)
-        )
+            pe = torch.zeros(max_len, d_model)
+            position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+            div_term = torch.exp(
+                torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model)
+            )
 
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
+            pe[:, 0::2] = torch.sin(position * div_term)
+            pe[:, 1::2] = torch.cos(position * div_term)
+            pe = pe.unsqueeze(0).transpose(0, 1)
 
-        self.register_buffer("pe", pe)
+            self.register_buffer("pe", pe)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """位置エンコーディング追加"""
-        return x + self.pe[: x.size(0), :].transpose(0, 1)
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            """位置エンコーディング追加"""
+            return x + self.pe[: x.size(0), :].transpose(0, 1)
 
 
 class AdvancedMLEngine:
@@ -283,6 +296,9 @@ class AdvancedMLEngine:
         self.scaler = None
         self.feature_selector = None
 
+        # マクロ経済特徴量エンジン
+        self.macro_features = MacroEconomicFeatures()
+
         # パフォーマンス監視
         self.performance_history = []
 
@@ -305,8 +321,16 @@ class AdvancedMLEngine:
             ).columns.tolist()
             feature_columns = [col for col in numeric_columns if col != target_column]
 
-        # 特徴量エンジニアリング
+        # 基本特徴量エンジニアリング
         processed_data = self._engineer_features(market_data, feature_columns)
+
+        # マクロ経済特徴量の追加
+        try:
+            symbol = getattr(market_data, 'symbol', 'UNKNOWN')
+            processed_data = self.macro_features.add_macro_features(processed_data, symbol)
+            logger.info(f"マクロ経済特徴量統合完了: {symbol}")
+        except Exception as e:
+            logger.warning(f"マクロ経済特徴量統合スキップ: {e}")
 
         # 系列データ作成
         sequences, targets = self._create_sequences(
@@ -377,12 +401,78 @@ class AdvancedMLEngine:
                     bb_upper - bb_lower
                 )
 
+        # 高度テクニカル指標の追加
+        if "終値" in result.columns:
+            # Williams %R
+            for period in [14, 21]:
+                high_col = "高値" if "高値" in result.columns else "終値"
+                low_col = "安値" if "安値" in result.columns else "終値"
+                if high_col in result.columns and low_col in result.columns:
+                    highest_high = result[high_col].rolling(period).max()
+                    lowest_low = result[low_col].rolling(period).min()
+                    result[f"Williams_R_{period}"] = -100 * (highest_high - result["終値"]) / (highest_high - lowest_low)
+
+            # Stochastic Oscillator
+            for period in [14, 21]:
+                high_col = "高値" if "高値" in result.columns else "終値"
+                low_col = "安値" if "安値" in result.columns else "終値"
+                if high_col in result.columns and low_col in result.columns:
+                    lowest_low = result[low_col].rolling(period).min()
+                    highest_high = result[high_col].rolling(period).max()
+                    k_percent = 100 * (result["終値"] - lowest_low) / (highest_high - lowest_low)
+                    result[f"Stoch_K_{period}"] = k_percent
+                    result[f"Stoch_D_{period}"] = k_percent.rolling(3).mean()
+
+            # Commodity Channel Index (CCI)
+            for period in [14, 20]:
+                high_col = "高値" if "高値" in result.columns else "終値"
+                low_col = "安値" if "安値" in result.columns else "終値"
+                if high_col in result.columns and low_col in result.columns:
+                    tp = (result[high_col] + result[low_col] + result["終値"]) / 3
+                    sma_tp = tp.rolling(period).mean()
+                    mad = tp.rolling(period).apply(lambda x: np.abs(x - x.mean()).mean())
+                    result[f"CCI_{period}"] = (tp - sma_tp) / (0.015 * mad)
+
+            # Average True Range (ATR)
+            for period in [14, 21]:
+                high_col = "高値" if "高値" in result.columns else "終値"
+                low_col = "安値" if "安値" in result.columns else "終値"
+                if high_col in result.columns and low_col in result.columns:
+                    high_low = result[high_col] - result[low_col]
+                    high_close_prev = np.abs(result[high_col] - result["終値"].shift(1))
+                    low_close_prev = np.abs(result[low_col] - result["終値"].shift(1))
+                    true_range = np.maximum(high_low, np.maximum(high_close_prev, low_close_prev))
+                    result[f"ATR_{period}"] = true_range.rolling(period).mean()
+
+            # VWAP (Volume Weighted Average Price)
+            volume_col = "出来高" if "出来高" in result.columns else None
+            if volume_col and volume_col in result.columns:
+                result["VWAP"] = (result["終値"] * result[volume_col]).cumsum() / result[volume_col].cumsum()
+                result["VWAP_ratio"] = result["終値"] / result["VWAP"]
+
+                # Price-Volume Trend
+                price_change = (result["終値"] - result["終値"].shift(1)) / result["終値"].shift(1)
+                result["PVT"] = (price_change * result[volume_col]).cumsum()
+
         # 時系列分解特徴量
         if "終値" in result.columns:
             # 短期・中期・長期トレンド
             result["trend_short"] = result["終値"].rolling(20).mean()
             result["trend_medium"] = result["終値"].rolling(50).mean()
             result["trend_long"] = result["終値"].rolling(200).mean()
+
+            # 特徴量交差項（相互作用）
+            # RSI × ボラティリティ
+            if "RSI_14" in result.columns and "終値_volatility_20" in result.columns:
+                result["RSI_Vol_interaction"] = result["RSI_14"] * result["終値_volatility_20"]
+
+            # MACD × 出来高比率
+            if "MACD" in result.columns:
+                volume_col = "出来高" if "出来高" in result.columns else None
+                if volume_col and volume_col in result.columns:
+                    vol_sma = result[volume_col].rolling(20).mean()
+                    vol_ratio = result[volume_col] / vol_sma
+                    result["MACD_Vol_interaction"] = result["MACD"] * vol_ratio
 
             # フーリエ変換特徴量（周期性検出）
             if len(result) >= 100:
@@ -559,7 +649,7 @@ class AdvancedMLEngine:
             # ログ出力
             if (epoch + 1) % 10 == 0:
                 logger.info(
-                    f"Epoch {epoch+1}: Train Loss={avg_train_loss:.6f}, Val Loss={avg_val_loss:.6f}"
+                    f"Epoch {epoch + 1}: Train Loss={avg_train_loss:.6f}, Val Loss={avg_val_loss:.6f}"
                 )
 
             # MLflow記録
@@ -570,7 +660,7 @@ class AdvancedMLEngine:
 
             # 早期終了
             if patience_counter >= self.config.patience:
-                logger.info(f"早期終了: Epoch {epoch+1}")
+                logger.info(f"早期終了: Epoch {epoch + 1}")
                 break
 
         # 最終モデル保存
@@ -721,6 +811,159 @@ class AdvancedMLEngine:
 
         return fft_features
 
+    def calculate_advanced_technical_indicators(
+        self, data: pd.DataFrame, symbol: str = "UNKNOWN"
+    ) -> Dict[str, float]:
+        """
+        高度テクニカル指標計算（ML拡張版）
+
+        Args:
+            data: 価格データ
+            symbol: 銘柄コード
+
+        Returns:
+            テクニカル指標スコア辞書
+        """
+        try:
+            if data is None or data.empty:
+                logger.warning(f"データが空です: {symbol}")
+                return self._get_default_ml_scores()
+
+            # 基本的なテクニカル指標計算
+            close_prices = data["終値"] if "終値" in data.columns else data.get("Close", pd.Series())
+
+            if close_prices.empty or len(close_prices) < 20:
+                logger.warning(f"価格データが不足: {symbol} ({len(close_prices)} 件)")
+                return self._get_default_ml_scores()
+
+            # ML強化テクニカル指標
+            ml_scores = {}
+
+            try:
+                # トレンド強度スコア (ML拡張)
+                sma_20 = close_prices.rolling(20).mean()
+                sma_50 = close_prices.rolling(50).mean() if len(close_prices) >= 50 else sma_20
+                trend_strength = self._calculate_ml_trend_strength(close_prices, sma_20, sma_50)
+                ml_scores["trend_strength"] = min(100, max(0, trend_strength))
+
+                # 価格変動予測スコア
+                volatility = close_prices.pct_change().rolling(20).std().iloc[-1] if len(close_prices) > 20 else 0.02
+                volume_data = data.get("出来高", data.get("Volume", pd.Series()))
+                volatility_score = self._calculate_volatility_score(close_prices, volatility, volume_data)
+                ml_scores["volatility_prediction"] = min(100, max(0, volatility_score))
+
+                # パターン認識スコア (簡易版)
+                pattern_score = self._calculate_pattern_recognition_score(close_prices)
+                ml_scores["pattern_recognition"] = min(100, max(0, pattern_score))
+
+                logger.debug(f"ML指標計算完了: {symbol}")
+                return ml_scores
+
+            except Exception as e:
+                logger.warning(f"ML指標計算でエラー {symbol}: {e}")
+                return self._get_default_ml_scores()
+
+        except Exception as e:
+            logger.error(f"高度テクニカル指標計算エラー {symbol}: {e}")
+            return self._get_default_ml_scores()
+
+    def _calculate_ml_trend_strength(
+        self, prices: pd.Series, sma_20: pd.Series, sma_50: pd.Series
+    ) -> float:
+        """ML拡張トレンド強度計算"""
+        try:
+            # 現在価格と移動平均の関係
+            current_price = prices.iloc[-1]
+            current_sma20 = sma_20.iloc[-1] if not pd.isna(sma_20.iloc[-1]) else current_price
+            current_sma50 = sma_50.iloc[-1] if not pd.isna(sma_50.iloc[-1]) else current_price
+
+            # 価格位置スコア
+            price_position = ((current_price - current_sma20) / current_sma20) * 100
+
+            # トレンド方向性
+            ma_trend = ((current_sma20 - current_sma50) / current_sma50) * 100 if current_sma50 != 0 else 0
+
+            # 勢い計算
+            momentum = prices.pct_change(5).iloc[-1] * 100 if len(prices) > 5 else 0
+
+            # 統合スコア
+            trend_score = (price_position * 0.4) + (ma_trend * 0.3) + (momentum * 0.3) + 50
+
+            return trend_score
+
+        except Exception:
+            return 50.0  # 中立値
+
+    def _calculate_volatility_score(
+        self, prices: pd.Series, volatility: float, volume: pd.Series
+    ) -> float:
+        """ボラティリティ予測スコア"""
+        try:
+            # ボラティリティ正規化 (0-100スケール)
+            volatility_normalized = min(100, volatility * 1000)  # 0.1 = 100
+
+            # 出来高影響
+            volume_factor = 1.0
+            if not volume.empty and len(volume) > 20:
+                avg_volume = volume.rolling(20).mean().iloc[-1]
+                current_volume = volume.iloc[-1]
+                if avg_volume > 0:
+                    volume_factor = min(2.0, current_volume / avg_volume)
+
+            # 予測スコア
+            prediction_score = volatility_normalized * volume_factor
+
+            return min(100, prediction_score)
+
+        except Exception:
+            return 50.0
+
+    def _calculate_pattern_recognition_score(self, prices: pd.Series) -> float:
+        """パターン認識スコア (簡易版)"""
+        try:
+            if len(prices) < 10:
+                return 50.0
+
+            # 最近の価格パターン分析
+            recent_prices = prices.tail(10)
+
+            # 連続上昇/下降の検出
+            changes = recent_prices.pct_change().dropna()
+
+            # 上昇連続度
+            up_streak = 0
+            down_streak = 0
+            for change in changes:
+                if change > 0:
+                    up_streak += 1
+                    down_streak = 0
+                elif change < 0:
+                    down_streak += 1
+                    up_streak = 0
+
+            # パターン強度
+            if up_streak >= 3:
+                pattern_score = 60 + min(20, up_streak * 5)
+            elif down_streak >= 3:
+                pattern_score = 40 - min(20, down_streak * 5)
+            else:
+                # 価格変動の安定性
+                stability = 1 / (1 + changes.std()) if changes.std() > 0 else 0.5
+                pattern_score = 50 + (stability - 0.5) * 40
+
+            return min(100, max(0, pattern_score))
+
+        except Exception:
+            return 50.0
+
+    def _get_default_ml_scores(self) -> Dict[str, float]:
+        """デフォルトMLスコア"""
+        return {
+            "trend_strength": 50.0,
+            "volatility_prediction": 50.0,
+            "pattern_recognition": 50.0,
+        }
+
     def get_model_summary(self) -> Dict[str, Any]:
         """モデル概要取得"""
         if self.model is None:
@@ -743,11 +986,11 @@ class AdvancedMLEngine:
                 "num_features": self.config.num_features,
             },
             "performance": self.model_metadata.get("performance", {}),
-            "average_inference_time": np.mean(
-                [p["inference_time"] for p in self.performance_history]
-            )
-            if self.performance_history
-            else None,
+            "average_inference_time": (
+                np.mean([p["inference_time"] for p in self.performance_history])
+                if self.performance_history
+                else None
+            ),
         }
 
 
@@ -947,9 +1190,11 @@ class NextGenAITradingEngine:
                     "predictions": hybrid_result.predictions,
                     "confidence": hybrid_result.confidence,
                     "model_used": hybrid_result.model_used,
-                    "uncertainty": hybrid_result.uncertainty.__dict__
-                    if hybrid_result.uncertainty
-                    else None,
+                    "uncertainty": (
+                        hybrid_result.uncertainty.__dict__
+                        if hybrid_result.uncertainty
+                        else None
+                    ),
                 }
             }
 
@@ -979,11 +1224,11 @@ class NextGenAITradingEngine:
                 "inference_time_ms": inference_time * 1000,
                 "performance_targets": {
                     "inference_time_target_achieved": inference_time * 1000 <= 100,
-                    "avg_inference_time": np.mean(
-                        self.performance_metrics["inference_times"]
-                    )
-                    if self.performance_metrics["inference_times"]
-                    else 0,
+                    "avg_inference_time": (
+                        np.mean(self.performance_metrics["inference_times"])
+                        if self.performance_metrics["inference_times"]
+                        else 0
+                    ),
                 },
                 "metadata": {
                     "timestamp": time.time(),
@@ -994,7 +1239,7 @@ class NextGenAITradingEngine:
                 },
             }
 
-            logger.info(f"次世代予測完了: {inference_time*1000:.2f}ms")
+            logger.info(f"次世代予測完了: {inference_time * 1000:.2f}ms")
 
             return final_result
 
@@ -1103,30 +1348,199 @@ class NextGenAITradingEngine:
             },
             "performance_history": {
                 "total_predictions": len(self.performance_metrics["inference_times"]),
-                "avg_accuracy": np.mean(self.performance_metrics["accuracy_history"])
-                if self.performance_metrics["accuracy_history"]
-                else 0,
-                "avg_mae": np.mean(self.performance_metrics["mae_history"])
-                if self.performance_metrics["mae_history"]
-                else 0,
-                "avg_rmse": np.mean(self.performance_metrics["rmse_history"])
-                if self.performance_metrics["rmse_history"]
-                else 0,
-                "avg_inference_time_ms": np.mean(
-                    self.performance_metrics["inference_times"]
-                )
-                if self.performance_metrics["inference_times"]
-                else 0,
+                "avg_accuracy": (
+                    np.mean(self.performance_metrics["accuracy_history"])
+                    if self.performance_metrics["accuracy_history"]
+                    else 0
+                ),
+                "avg_mae": (
+                    np.mean(self.performance_metrics["mae_history"])
+                    if self.performance_metrics["mae_history"]
+                    else 0
+                ),
+                "avg_rmse": (
+                    np.mean(self.performance_metrics["rmse_history"])
+                    if self.performance_metrics["rmse_history"]
+                    else 0
+                ),
+                "avg_inference_time_ms": (
+                    np.mean(self.performance_metrics["inference_times"])
+                    if self.performance_metrics["inference_times"]
+                    else 0
+                ),
             },
             "system_status": {
                 "hybrid_model_initialized": self.hybrid_model is not None,
-                "model_trained": self.hybrid_model.is_trained
-                if self.hybrid_model
-                else False,
+                "model_trained": (
+                    self.hybrid_model.is_trained if self.hybrid_model else False
+                ),
                 "dl_manager_available": self.dl_manager is not None,
                 "pytorch_available": PYTORCH_AVAILABLE,
                 "metrics_integration": self.metrics_integration,
             },
+        }
+
+
+    def calculate_advanced_technical_indicators(
+        self, data: pd.DataFrame, symbol: str = "UNKNOWN"
+    ) -> Dict[str, float]:
+        """
+        高度テクニカル指標計算（ML拡張版）
+
+        Args:
+            data: 価格データ
+            symbol: 銘柄コード
+
+        Returns:
+            テクニカル指標スコア辞書
+        """
+        try:
+            if data is None or data.empty:
+                logger.warning(f"データが空です: {symbol}")
+                return self._get_default_ml_scores()
+
+            # 基本的なテクニカル指標計算
+            close_prices = data["終値"] if "終値" in data.columns else data.get("Close", pd.Series())
+
+            if close_prices.empty or len(close_prices) < 20:
+                logger.warning(f"価格データが不足: {symbol} ({len(close_prices)} 件)")
+                return self._get_default_ml_scores()
+
+            # ML強化テクニカル指標
+            ml_scores = {}
+
+            try:
+                # トレンド強度スコア (ML拡張)
+                sma_20 = close_prices.rolling(20).mean()
+                sma_50 = close_prices.rolling(50).mean() if len(close_prices) >= 50 else sma_20
+                trend_strength = self._calculate_ml_trend_strength(close_prices, sma_20, sma_50)
+                ml_scores["trend_strength"] = min(100, max(0, trend_strength))
+
+
+                # 価格変動予測スコア
+                volatility = close_prices.pct_change().rolling(20).std().iloc[-1] if len(close_prices) > 20 else 0.02
+                volume_data = data.get("出来高", data.get("Volume", pd.Series()))
+                volatility_score = self._calculate_volatility_score(close_prices, volatility, volume_data)
+                ml_scores["volatility_prediction"] = min(100, max(0, volatility_score))
+
+                # パターン認識スコア (簡易版)
+                pattern_score = self._calculate_pattern_recognition_score(close_prices)
+                ml_scores["pattern_recognition"] = min(100, max(0, pattern_score))
+
+                logger.debug(f"ML指標計算完了: {symbol}")
+                return ml_scores
+
+            except Exception as e:
+                logger.warning(f"ML指標計算でエラー {symbol}: {e}")
+                return self._get_default_ml_scores()
+
+        except Exception as e:
+            logger.error(f"高度テクニカル指標計算エラー {symbol}: {e}")
+            return self._get_default_ml_scores()
+
+    def _calculate_ml_trend_strength(
+        self, prices: pd.Series, sma_20: pd.Series, sma_50: pd.Series
+    ) -> float:
+        """ML拡張トレンド強度計算"""
+        try:
+            # 現在価格と移動平均の関係
+            current_price = prices.iloc[-1]
+            current_sma20 = sma_20.iloc[-1] if not pd.isna(sma_20.iloc[-1]) else current_price
+            current_sma50 = sma_50.iloc[-1] if not pd.isna(sma_50.iloc[-1]) else current_price
+
+            # 価格位置スコア
+            price_position = ((current_price - current_sma20) / current_sma20) * 100
+
+            # トレンド方向性
+            ma_trend = ((current_sma20 - current_sma50) / current_sma50) * 100 if current_sma50 != 0 else 0
+
+            # 勢い計算
+            momentum = prices.pct_change(5).iloc[-1] * 100 if len(prices) > 5 else 0
+
+            # 統合スコア
+            trend_score = (price_position * 0.4) + (ma_trend * 0.3) + (momentum * 0.3) + 50
+
+            return trend_score
+
+
+        self, prices: pd.Series, volatility: float, volume: pd.Series
+    ) -> float:
+        """ボラティリティ予測スコア"""
+        try:
+            # ボラティリティ正規化 (0-100スケール)
+            volatility_normalized = min(100, volatility * 1000)  # 0.1 = 100
+
+
+            # 出来高影響
+            volume_factor = 1.0
+            if not volume.empty and len(volume) > 20:
+                avg_volume = volume.rolling(20).mean().iloc[-1]
+                current_volume = volume.iloc[-1]
+                if avg_volume > 0:
+                    volume_factor = min(2.0, current_volume / avg_volume)
+
+            # 予測スコア
+            prediction_score = volatility_normalized * volume_factor
+
+            return min(100, prediction_score)
+
+        except Exception:
+            return 50.0
+
+
+            # 予測スコア
+            prediction_score = volatility_normalized * volume_factor
+
+            return min(100, prediction_score)
+
+        except Exception:
+            return 50.0
+
+    def _calculate_pattern_recognition_score(self, prices: pd.Series) -> float:
+        """パターン認識スコア (簡易版)"""
+        try:
+            if len(prices) < 10:
+                return 50.0
+
+            # 最近の価格パターン分析
+            recent_prices = prices.tail(10)
+
+            # 連続上昇/下降の検出
+            changes = recent_prices.pct_change().dropna()
+
+            # 上昇連続度
+            up_streak = 0
+            down_streak = 0
+            for change in changes:
+                if change > 0:
+                    up_streak += 1
+                    down_streak = 0
+                elif change < 0:
+                    down_streak += 1
+                    up_streak = 0
+
+
+            # パターン強度
+            if up_streak >= 3:
+                pattern_score = 60 + min(20, up_streak * 5)
+            elif down_streak >= 3:
+                pattern_score = 40 - min(20, down_streak * 5)
+            else:
+                # 価格変動の安定性
+                stability = 1 / (1 + changes.std()) if changes.std() > 0 else 0.5
+                pattern_score = 50 + (stability - 0.5) * 40
+
+            return min(100, max(0, pattern_score))
+
+        except Exception:
+            return 50.0
+
+    def _get_default_ml_scores(self) -> Dict[str, float]:
+        """デフォルトMLスコア"""
+        return {
+            "trend_strength": 50.0,
+            "volatility_prediction": 50.0,
+            "pattern_recognition": 50.0,
         }
 
 

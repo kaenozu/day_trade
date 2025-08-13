@@ -514,11 +514,11 @@ class IntegratedSecurityDashboard:
         return {
             "average_score": round(average_score, 2),
             "framework_scores": compliance_scores,
-            "compliance_level": "COMPLIANT"
-            if average_score >= 80
-            else "PARTIALLY_COMPLIANT"
-            if average_score >= 60
-            else "NON_COMPLIANT",
+            "compliance_level": (
+                "COMPLIANT"
+                if average_score >= 80
+                else "PARTIALLY_COMPLIANT" if average_score >= 60 else "NON_COMPLIANT"
+            ),
         }
 
     def _generate_security_recommendations(
@@ -793,26 +793,26 @@ class IntegratedSecurityDashboard:
         <body>
             <div class="header">
                 <h1>統合セキュリティレポート</h1>
-                <p>生成日時: {report.get('generated_at', '')}</p>
-                <p>レポートID: {report.get('report_id', '')}</p>
+                <p>生成日時: {report.get("generated_at", "")}</p>
+                <p>レポートID: {report.get("report_id", "")}</p>
             </div>
 
             <h2>エグゼクティブサマリー</h2>
             <div class="metric">
                 <h3>総合セキュリティスコア</h3>
-                <p style="font-size: 24px; font-weight: bold;">{executive_summary.get('overall_security_score', 0):.1f}</p>
+                <p style="font-size: 24px; font-weight: bold;">{executive_summary.get("overall_security_score", 0):.1f}</p>
             </div>
             <div class="metric critical">
                 <h3>クリティカル脆弱性</h3>
-                <p style="font-size: 20px;">{executive_summary.get('critical_vulnerabilities', 0)} 件</p>
+                <p style="font-size: 20px;">{executive_summary.get("critical_vulnerabilities", 0)} 件</p>
             </div>
             <div class="metric high">
                 <h3>総脆弱性数</h3>
-                <p style="font-size: 20px;">{executive_summary.get('total_vulnerabilities', 0)} 件</p>
+                <p style="font-size: 20px;">{executive_summary.get("total_vulnerabilities", 0)} 件</p>
             </div>
             <div class="metric medium">
                 <h3>リスクレベル</h3>
-                <p style="font-size: 20px;">{executive_summary.get('risk_level', 'UNKNOWN')}</p>
+                <p style="font-size: 20px;">{executive_summary.get("risk_level", "UNKNOWN")}</p>
             </div>
 
             <h2>推奨事項</h2>
@@ -821,7 +821,7 @@ class IntegratedSecurityDashboard:
 
         for recommendation in report.get("recommendations", [])[:5]:
             html_template += f"""
-                <li><strong>{recommendation.get('title', '')}</strong>: {recommendation.get('description', '')}</li>
+                <li><strong>{recommendation.get("title", "")}</strong>: {recommendation.get("description", "")}</li>
             """
 
         html_template += """
@@ -857,20 +857,28 @@ class IntegratedSecurityDashboard:
 
         dashboard_data = {
             "timestamp": datetime.utcnow().isoformat(),
-            "overall_status": "HEALTHY"
-            if latest_snapshot and latest_snapshot[2] > 80
-            else "ATTENTION_REQUIRED",
+            "overall_status": (
+                "HEALTHY"
+                if latest_snapshot and latest_snapshot[2] > 80
+                else "ATTENTION_REQUIRED"
+            ),
             "active_alerts": active_alerts_count,
-            "latest_snapshot": {
-                "overall_security_score": latest_snapshot[2] if latest_snapshot else 0,
-                "total_vulnerabilities": latest_snapshot[3] if latest_snapshot else 0,
-                "critical_vulnerabilities": latest_snapshot[4]
+            "latest_snapshot": (
+                {
+                    "overall_security_score": (
+                        latest_snapshot[2] if latest_snapshot else 0
+                    ),
+                    "total_vulnerabilities": (
+                        latest_snapshot[3] if latest_snapshot else 0
+                    ),
+                    "critical_vulnerabilities": (
+                        latest_snapshot[4] if latest_snapshot else 0
+                    ),
+                    "compliance_score": latest_snapshot[6] if latest_snapshot else 0,
+                }
                 if latest_snapshot
-                else 0,
-                "compliance_score": latest_snapshot[6] if latest_snapshot else 0,
-            }
-            if latest_snapshot
-            else None,
+                else None
+            ),
         }
 
         return dashboard_data

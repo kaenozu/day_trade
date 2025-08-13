@@ -44,6 +44,7 @@ except ImportError:
     pass
 
 from ..utils.logging_config import get_context_logger
+from ..utils.stock_name_helper import format_stock_display
 from .real_market_data import RealMarketDataManager
 
 logger = get_context_logger(__name__)
@@ -389,17 +390,39 @@ class AdvancedBatchDataFetcher:
             if INDICATORS_AVAILABLE:
                 indicators_manager = TechnicalIndicatorsManager()
 
-                # テクニカル指標を計算
-                indicators_result = indicators_manager.calculate_all_indicators(
-                    data=result,
-                    indicators=["sma", "ema", "rsi", "bollinger_bands", "macd"],
-                    periods={"sma": [5, 20, 50], "ema": [5, 20, 50], "rsi": 14},
-                )
+                # テクニカル指標を計算（簡略化）
+                try:
+                    # SMAのみ計算（他の指標は後で追加可能）
+                    indicators_result = indicators_manager.calculate_indicators(
+                        data=result,
+                        indicators=["sma"],
+                        period=20  # 単一期間
+                    )
 
-                # 指標データを結合
-                result = pd.concat([result, indicators_result], axis=1)
+                    # 戻り値がdictの場合のみ結合処理
+                    if isinstance(indicators_result, dict):
+                        # IndicatorResultオブジェクトからDataFrameを構築
+                        indicators_df = pd.DataFrame()
+                        for indicator_name, indicator_result in indicators_result.items():
+                            if hasattr(indicator_result, 'values') and isinstance(indicator_result.values, dict):
+                                for key, values in indicator_result.values.items():
+                                    col_name = f"{indicator_name}_{key}"
+                                    # valuesがリストまたは配列の場合のみ処理
+                                    if hasattr(values, '__len__') and not isinstance(values, (str, int, float)):
+                                        if len(values) == len(result):
+                                            indicators_df[col_name] = values
 
-                logger.debug(f"統合指標マネージャー使用: {request.symbol}")
+                        # DataFrameが空でない場合のみ結合
+                        if not indicators_df.empty:
+                            result = pd.concat([result, indicators_df], axis=1)
+
+                    stock_display = format_stock_display(request.symbol)
+                    logger.debug(f"統合指標マネージャー使用: {stock_display}")
+
+                except Exception as e:
+                    stock_display = format_stock_display(request.symbol)
+                    logger.warning(f"テクニカル指標計算スキップ {stock_display}: {e}")
+                    # エラーの場合は指標なしで続行
 
             else:
                 # フォールバック: 基本的な特徴量のみ
@@ -412,7 +435,8 @@ class AdvancedBatchDataFetcher:
                     result["SMA_20"] = result["終値"].rolling(20).mean()
                     result["EMA_20"] = result["終値"].ewm(span=20).mean()
 
-                logger.debug(f"フォールバック処理: {request.symbol}")
+                stock_display = format_stock_display(request.symbol)
+                logger.debug(f"フォールバック処理: {stock_display}")
 
             # 出来高特徴量（追加）
             if "出来高" in result.columns:
@@ -423,108 +447,302 @@ class AdvancedBatchDataFetcher:
                     / result["出来高"].rolling(20).mean()
                 )
 
-            # カスタム特徴量（リクエストに基づく）
+            # カスタム特徴量（リクエストに基づく）- Issue #575対応
             if request.features:
                 for feature in request.features:
-                    result = self._add_custom_feature(result, feature)
+                    # 特徴量固有パラメータをメタデータから取得
+                    feature_params = request.metadata.get(f"{feature}_params", {}) if request.metadata else {}
+                    result = self._add_custom_feature(result, feature, **feature_params)
 
             # 欠損値処理
             result = result.fillna(method="ffill").fillna(method="bfill")
 
-            logger.debug(f"前処理完了: {request.symbol} - {len(result.columns)} 特徴量")
+            stock_display = format_stock_display(request.symbol)
+            logger.debug(f"前処理完了: {stock_display} - {len(result.columns)} 特徴量")
 
         except Exception as e:
-            logger.error(f"前処理エラー {request.symbol}: {e}")
+            stock_display = format_stock_display(request.symbol)
+            logger.error(f"前処理エラー {stock_display}: {e}")
             # エラー時は元データを返す
             result = data
 
         return result
 
     def _add_custom_feature(
+        self, data: pd.DataFrame, feature_name: str, **kwargs
+    ) -> pd.DataFrame:
+        """拡張可能なカスタム特徴量追加システム
+
+        Issue #575対応: プラグイン式アーキテクチャによる拡張性とエラーハンドリング改善
+        """
+
+        try:
+            # 拡張可能な特徴量エンジンシステムを使用
+            from .feature_engines import calculate_custom_feature, FeatureEngineError
+
+            original_columns = set(data.columns)
+            result = calculate_custom_feature(data, feature_name, **kwargs)
+
+            # 新しく追加された特徴量をログ出力
+            new_columns = set(result.columns) - original_columns
+            if new_columns:
+                logger.debug(f"カスタム特徴量追加成功: {feature_name} -> {list(new_columns)[:3]}{'...' if len(new_columns) > 3 else ''}")
+            else:
+                logger.warning(f"カスタム特徴量 {feature_name}: 新しい特徴量が追加されませんでした")
+
+            return result
+
+        except FeatureEngineError as e:
+            logger.error(f"特徴量エンジンエラー {feature_name}: {e}")
+            return data  # 元データを返す
+
+        except ImportError:
+            logger.warning("feature_engines モジュールが利用できません。フォールバック処理を実行")
+            return self._add_custom_feature_fallback(data, feature_name)
+
+        except Exception as e:
+            logger.error(f"カスタム特徴量追加で予期しないエラー {feature_name}: {e}", exc_info=True)
+            return data  # エラー時は元データを返す
+
+    def _add_custom_feature_fallback(
         self, data: pd.DataFrame, feature_name: str
     ) -> pd.DataFrame:
-        """カスタム特徴量追加"""
+        """フォールバック特徴量追加（従来方式）"""
 
         try:
             if feature_name == "trend_strength" and "終値" in data.columns:
                 # トレンド強度
                 short_ma = data["終値"].rolling(10).mean()
                 long_ma = data["終値"].rolling(30).mean()
-                data["trend_strength"] = (short_ma - long_ma) / long_ma * 100
+
+                # ゼロ除算対策
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    data["trend_strength"] = ((short_ma - long_ma) / long_ma * 100).replace([np.inf, -np.inf], np.nan)
 
             elif feature_name == "momentum" and "終値" in data.columns:
-                # モメンタム指標
-                data["momentum_10"] = data["終値"].pct_change(10)
-                data["momentum_20"] = data["終値"].pct_change(20)
+                # モメンタム指標（異常値対策追加）
+                data["momentum_10"] = data["終値"].pct_change(10).clip(-0.5, 0.5)
+                data["momentum_20"] = data["終値"].pct_change(20).clip(-0.5, 0.5)
 
             elif feature_name == "price_channel" and all(
-                col in data.columns for col in ["高値", "安値"]
+                col in data.columns for col in ["高値", "安値", "終値"]
             ):
-                # 価格チャネル
+                # 価格チャネル（ゼロ除算対策追加）
                 highest_high = data["高値"].rolling(20).max()
                 lowest_low = data["安値"].rolling(20).min()
-                data["price_channel_position"] = (data["終値"] - lowest_low) / (
-                    highest_high - lowest_low
-                )
+                channel_width = highest_high - lowest_low
+
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    data["price_channel_position"] = (
+                        (data["終値"] - lowest_low) / channel_width
+                    ).replace([np.inf, -np.inf], np.nan)
 
             elif feature_name == "gap_analysis" and all(
                 col in data.columns for col in ["始値", "終値"]
             ):
                 # ギャップ分析
                 prev_close = data["終値"].shift(1)
-                data["gap_up"] = (
-                    (data["始値"] - prev_close) / prev_close > 0.02
-                ).astype(int)
-                data["gap_down"] = (
-                    (prev_close - data["始値"]) / prev_close > 0.02
-                ).astype(int)
+                gap_ratio = (data["始値"] - prev_close) / prev_close
+
+                data["gap_up"] = (gap_ratio > 0.02).astype(int)
+                data["gap_down"] = (gap_ratio < -0.02).astype(int)
+                data["gap_size"] = gap_ratio
+
+            else:
+                logger.warning(f"未知のカスタム特徴量: {feature_name}")
 
         except Exception as e:
-            logger.warning(f"カスタム特徴量 {feature_name} 追加失敗: {e}")
+            logger.error(f"フォールバック特徴量処理エラー {feature_name}: {e}")
 
         return data
 
     def _calculate_data_quality(self, data: pd.DataFrame) -> float:
-        """データ品質スコア計算（0-100）"""
+        """データ品質スコア計算（0-100） - Issue #576対応改善版"""
 
         if data is None or data.empty:
             return 0.0
 
-        quality_score = 100.0
-
         try:
-            # 欠損値チェック
-            missing_ratio = data.isnull().sum().sum() / (len(data) * len(data.columns))
-            quality_score -= missing_ratio * 30
+            quality_metrics = self._calculate_quality_metrics(data)
+            quality_score = self._compute_weighted_quality_score(quality_metrics, data)
 
-            # データ完整性チェック
-            if "終値" in data.columns:
-                # 異常値チェック（極端な価格変動）
-                returns = data["終値"].pct_change().abs()
-                extreme_moves = (returns > 0.2).sum()  # 20%以上の変動
-                quality_score -= min(extreme_moves * 5, 20)
-
-                # ゼロ価格チェック
-                zero_prices = (data["終値"] <= 0).sum()
-                quality_score -= zero_prices * 10
-
-            # データ量チェック
-            if len(data) < 30:  # 30日未満
-                quality_score -= 20
-            elif len(data) < 10:  # 10日未満
-                quality_score -= 40
-
-            # 重複データチェック
-            if data.index.duplicated().any():
-                quality_score -= 15
-
+            # 最終スコアの範囲正規化
             quality_score = max(0.0, min(100.0, quality_score))
+
+            logger.debug(f"データ品質スコア: {quality_score:.1f} (metrics: {quality_metrics})")
+            return quality_score
 
         except Exception as e:
             logger.error(f"データ品質計算エラー: {e}")
-            quality_score = 50.0  # デフォルト
+            return 50.0  # 安全なデフォルト値
 
-        return quality_score
+    def _calculate_quality_metrics(self, data: pd.DataFrame) -> dict:
+        """データ品質メトリクス計算 - Issue #576対応"""
+        metrics = {}
+
+        try:
+            # 1. 欠損値率
+            total_cells = len(data) * len(data.columns)
+            missing_cells = data.isnull().sum().sum()
+            metrics['missing_ratio'] = missing_cells / total_cells if total_cells > 0 else 0.0
+
+            # 2. データ量品質
+            metrics['data_volume'] = len(data)
+            metrics['column_count'] = len(data.columns)
+
+            # 3. 重複データ
+            metrics['duplicate_ratio'] = data.index.duplicated().sum() / len(data) if len(data) > 0 else 0.0
+
+            # 4. 数値データの品質チェック
+            numeric_columns = data.select_dtypes(include=[np.number]).columns
+            if len(numeric_columns) > 0:
+                # 無限値、NaNのチェック
+                invalid_count = 0
+                for col in numeric_columns:
+                    invalid_count += (~np.isfinite(data[col])).sum()
+                metrics['invalid_numeric_ratio'] = invalid_count / (len(data) * len(numeric_columns))
+            else:
+                metrics['invalid_numeric_ratio'] = 0.0
+
+            # 5. 価格データ固有のチェック
+            if '終値' in data.columns:
+                metrics.update(self._calculate_price_quality_metrics(data['終値']))
+            else:
+                # 価格データがない場合のデフォルト値
+                metrics.update({
+                    'extreme_move_ratio': 0.0,
+                    'zero_price_ratio': 0.0,
+                    'price_continuity': 1.0
+                })
+
+            # 6. 出来高データのチェック
+            if '出来高' in data.columns:
+                volume_data = data['出来高']
+                metrics['zero_volume_ratio'] = (volume_data <= 0).sum() / len(volume_data) if len(volume_data) > 0 else 0.0
+            else:
+                metrics['zero_volume_ratio'] = 0.0
+
+            return metrics
+
+        except Exception as e:
+            logger.error(f"品質メトリクス計算エラー: {e}")
+            return self._get_default_quality_metrics()
+
+    def _calculate_price_quality_metrics(self, price_series: pd.Series) -> dict:
+        """価格データ固有の品質メトリクス - Issue #576対応"""
+        metrics = {}
+
+        try:
+            # 異常変動チェック（閾値を設定可能に）
+            returns = price_series.pct_change().abs()
+            extreme_threshold = 0.15  # 15%以上を異常と判定（緊縮）
+            metrics['extreme_move_ratio'] = (returns > extreme_threshold).sum() / len(returns) if len(returns) > 0 else 0.0
+
+            # ゼロ価格チェック
+            metrics['zero_price_ratio'] = (price_series <= 0).sum() / len(price_series) if len(price_series) > 0 else 0.0
+
+            # 価格連続性チェック（急激なギャップの検出）
+            price_gaps = price_series.diff().abs() / price_series.shift(1)
+            gap_threshold = 0.5  # 50%以上のギャップ
+            gap_count = (price_gaps > gap_threshold).sum()
+            metrics['price_continuity'] = 1.0 - (gap_count / len(price_series) if len(price_series) > 0 else 0.0)
+
+            return metrics
+
+        except Exception as e:
+            logger.error(f"価格品質メトリクスエラー: {e}")
+            return {
+                'extreme_move_ratio': 0.0,
+                'zero_price_ratio': 0.0,
+                'price_continuity': 1.0
+            }
+
+    def _compute_weighted_quality_score(self, metrics: dict, data: pd.DataFrame) -> float:
+        """重み付き品質スコア計算 - Issue #576対応"""
+        base_score = 100.0
+
+        try:
+            # 重み付け設定（総計100%）
+            weights = {
+                'missing_penalty': 25.0,      # 欠損値ペナルティ
+                'volume_penalty': 20.0,       # データ量ペナルティ
+                'validity_penalty': 20.0,     # データ有効性ペナルティ
+                'price_quality_penalty': 15.0, # 価格品質ペナルティ
+                'duplicate_penalty': 10.0,    # 重複ペナルティ
+                'continuity_penalty': 10.0    # 連続性ペナルティ
+            }
+
+            # 1. 欠損値ペナルティ (最大-25点)
+            missing_penalty = min(weights['missing_penalty'], metrics['missing_ratio'] * weights['missing_penalty'] * 2)
+            base_score -= missing_penalty
+
+            # 2. データ量ペナルティ (最大-20点) - 段階的ペナルティ
+            volume_penalty = self._calculate_volume_penalty(metrics['data_volume'], weights['volume_penalty'])
+            base_score -= volume_penalty
+
+            # 3. 数値データ有効性ペナルティ (最大-20点)
+            validity_penalty = min(weights['validity_penalty'], metrics['invalid_numeric_ratio'] * weights['validity_penalty'] * 3)
+            base_score -= validity_penalty
+
+            # 4. 価格品質ペナルティ (最大-15点)
+            price_penalty = self._calculate_price_penalty(metrics, weights['price_quality_penalty'])
+            base_score -= price_penalty
+
+            # 5. 重複データペナルティ (最大-10点)
+            duplicate_penalty = min(weights['duplicate_penalty'], metrics['duplicate_ratio'] * weights['duplicate_penalty'] * 2)
+            base_score -= duplicate_penalty
+
+            # 6. 連続性ペナルティ (最大-10点)
+            continuity_penalty = weights['continuity_penalty'] * (1.0 - metrics.get('price_continuity', 1.0))
+            base_score -= continuity_penalty
+
+            return base_score
+
+        except Exception as e:
+            logger.error(f"重み付きスコア計算エラー: {e}")
+            return 50.0
+
+    def _calculate_volume_penalty(self, data_volume: int, max_penalty: float) -> float:
+        """データ量ペナルティ計算 - Issue #576対応"""
+        if data_volume >= 60:  # 60日以上：ペナルティなし
+            return 0.0
+        elif data_volume >= 30:  # 30-59日：軽微ペナルティ
+            return max_penalty * 0.2
+        elif data_volume >= 14:  # 14-29日：中程度ペナルティ
+            return max_penalty * 0.5
+        elif data_volume >= 7:   # 7-13日：高ペナルティ
+            return max_penalty * 0.8
+        else:  # 7日未満：最大ペナルティ
+            return max_penalty
+
+    def _calculate_price_penalty(self, metrics: dict, max_penalty: float) -> float:
+        """価格品質ペナルティ計算 - Issue #576対応"""
+        penalty = 0.0
+
+        # 異常変動ペナルティ
+        penalty += min(max_penalty * 0.4, metrics.get('extreme_move_ratio', 0.0) * max_penalty)
+
+        # ゼロ価格ペナルティ
+        penalty += min(max_penalty * 0.4, metrics.get('zero_price_ratio', 0.0) * max_penalty * 2)
+
+        # ボリュームペナルティ
+        penalty += min(max_penalty * 0.2, metrics.get('zero_volume_ratio', 0.0) * max_penalty)
+
+        return penalty
+
+    def _get_default_quality_metrics(self) -> dict:
+        """デフォルト品質メトリクス - Issue #576対応"""
+        return {
+            'missing_ratio': 0.0,
+            'data_volume': 0,
+            'column_count': 0,
+            'duplicate_ratio': 0.0,
+            'invalid_numeric_ratio': 0.0,
+            'extreme_move_ratio': 0.0,
+            'zero_price_ratio': 0.0,
+            'zero_volume_ratio': 0.0,
+            'price_continuity': 1.0
+        }
 
     def _get_from_redis_cache(self, request: DataRequest) -> Optional[pd.DataFrame]:
         """Redisキャッシュからデータ取得"""
@@ -708,63 +926,9 @@ class AdvancedBatchDataFetcher:
         logger.info("Advanced Batch Data Fetcher リソース解放完了")
 
 
-# 便利関数
-def create_data_request(symbol: str, **kwargs) -> DataRequest:
-    """データリクエスト作成ヘルパー"""
-    return DataRequest(symbol=symbol, **kwargs)
-
-
-def fetch_advanced_batch(
-    symbols: List[str],
-    period: str = "60d",
-    preprocessing: bool = True,
-    priority: int = 1,
-    **kwargs,
-) -> Dict[str, DataResponse]:
-    """高度バッチ取得（簡易インターフェース）"""
-
-    requests = [
-        DataRequest(
-            symbol=symbol, period=period, preprocessing=preprocessing, priority=priority
-        )
-        for symbol in symbols
-    ]
-
-    fetcher = AdvancedBatchDataFetcher(**kwargs)
-    try:
-        return fetcher.fetch_batch(requests)
-    finally:
-        fetcher.close()
-
-
-def preload_advanced_cache(
-    symbols: List[str], periods: List[str] = None, **kwargs
-) -> Dict[str, int]:
-    """高度キャッシュ事前読み込み"""
-
-    if periods is None:
-        periods = ["5d", "60d", "1y"]
-
-    results = {}
-    fetcher = AdvancedBatchDataFetcher(**kwargs)
-
-    try:
-        for period in periods:
-            requests = [
-                DataRequest(symbol=symbol, period=period, preprocessing=True)
-                for symbol in symbols
-            ]
-
-            responses = fetcher.fetch_batch(requests)
-            success_count = len([r for r in responses.values() if r.success])
-            results[period] = success_count
-
-            logger.info(f"期間 {period}: {success_count}/{len(symbols)} 銘柄キャッシュ")
-
-    finally:
-        fetcher.close()
-
-    return results
+# 便利関数は batch_helpers.py モジュールに移動
+# 後方互換性のため、ここからも利用可能
+from .batch_helpers import create_data_request, fetch_advanced_batch, preload_advanced_cache
 
 
 if __name__ == "__main__":
@@ -780,9 +944,9 @@ if __name__ == "__main__":
             period="60d",
             preprocessing=True,
             features=["trend_strength", "momentum", "price_channel"],
-            priority=5
-            if symbol in ["7203", "8306"]
-            else 3,  # トヨタ・三菱UFJは高優先度
+            priority=(
+                5 if symbol in ["7203", "8306"] else 3
+            ),  # トヨタ・三菱UFJは高優先度
             cache_ttl=1800,
         )
         for symbol in test_symbols
@@ -819,8 +983,12 @@ if __name__ == "__main__":
         stats = fetcher.get_pipeline_stats()
         print("\nパフォーマンス統計:")
         print(f"  総リクエスト: {stats.total_requests}")
-        print(f"  成功率: {stats.successful_requests/stats.total_requests*100:.1f}%")
-        print(f"  キャッシュヒット率: {stats.cache_hits/stats.total_requests*100:.1f}%")
+        print(
+            f"  成功率: {stats.successful_requests / stats.total_requests * 100:.1f}%"
+        )
+        print(
+            f"  キャッシュヒット率: {stats.cache_hits / stats.total_requests * 100:.1f}%"
+        )
         print(f"  平均取得時間: {stats.avg_fetch_time:.3f}秒")
         print(f"  平均データ品質: {stats.avg_data_quality:.1f}")
         print(f"  スループット: {stats.throughput_rps:.2f} RPS")

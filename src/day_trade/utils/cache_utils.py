@@ -955,9 +955,11 @@ def _json_serializer(obj: Any) -> Any:
                 return {
                     "__datetime__": iso_string,
                     "__type__": obj.__class__.__name__,
-                    "__timezone__": str(getattr(obj, "tzinfo", None))
-                    if hasattr(obj, "tzinfo")
-                    else None,
+                    "__timezone__": (
+                        str(getattr(obj, "tzinfo", None))
+                        if hasattr(obj, "tzinfo")
+                        else None
+                    ),
                 }
             except Exception:
                 return {"__datetime__": str(obj), "__type__": obj.__class__.__name__}
@@ -1372,12 +1374,12 @@ class CacheStats:
                 "uptime_seconds": uptime,
                 "time_since_reset_seconds": time_since_reset,
                 # 高度な指標
-                "error_rate": self._errors / total_requests
-                if total_requests > 0
-                else 0.0,
-                "eviction_rate": self._evictions / self._sets
-                if self._sets > 0
-                else 0.0,
+                "error_rate": (
+                    self._errors / total_requests if total_requests > 0 else 0.0
+                ),
+                "eviction_rate": (
+                    self._evictions / self._sets if self._sets > 0 else 0.0
+                ),
                 "efficiency_score": self._calculate_efficiency_score(
                     hit_rate,
                     self._errors / total_requests if total_requests > 0 else 0.0,

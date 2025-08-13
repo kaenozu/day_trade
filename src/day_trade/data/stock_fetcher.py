@@ -11,7 +11,12 @@ from functools import lru_cache, wraps
 from typing import Dict, List, Optional, Union
 
 import pandas as pd
-import yfinance as yf
+
+from ..utils.yfinance_import import get_yfinance, is_yfinance_available
+
+# yfinance統一インポート - Issue #614対応
+yf, YFINANCE_AVAILABLE = get_yfinance()
+
 from tenacity import (
     after_log,
     before_sleep_log,
@@ -183,9 +188,9 @@ class DataCache:
             "cache_size": len(self._cache),
             "max_size": self.max_size,
             "eviction_count": self._eviction_count,
-            "cache_utilization": len(self._cache) / self.max_size
-            if self.max_size > 0
-            else 0.0,
+            "cache_utilization": (
+                len(self._cache) / self.max_size if self.max_size > 0 else 0.0
+            ),
         }
 
     def optimize_cache_settings(self) -> dict:
@@ -195,9 +200,9 @@ class DataCache:
 
         # ヒット率が低い場合の提案
         if stats["hit_rate"] < 0.5:
-            recommendations[
-                "ttl_increase"
-            ] = "TTLを延長してキャッシュヒット率を向上させることを検討"
+            recommendations["ttl_increase"] = (
+                "TTLを延長してキャッシュヒット率を向上させることを検討"
+            )
 
         # 退避回数が多い場合の提案
         if stats["eviction_count"] > stats["hit_count"] * 0.1:
@@ -205,15 +210,15 @@ class DataCache:
 
         # キャッシュ使用率が低い場合の提案
         if stats["cache_utilization"] < 0.3:
-            recommendations[
-                "size_decrease"
-            ] = "キャッシュサイズを減少させてメモリ効率を向上"
+            recommendations["size_decrease"] = (
+                "キャッシュサイズを減少させてメモリ効率を向上"
+            )
 
         # stale hitが多い場合の提案
         if stats["stale_hit_rate"] > 0.2:
-            recommendations[
-                "stale_period_adjust"
-            ] = "stale-while-revalidate期間の調整を検討"
+            recommendations["stale_period_adjust"] = (
+                "stale-while-revalidate期間の調整を検討"
+            )
 
         return {"current_stats": stats, "recommendations": recommendations}
 
@@ -543,8 +548,12 @@ class StockFetcher:
             },
         )
 
-    def _create_ticker(self, symbol: str) -> yf.Ticker:
-        """Tickerオブジェクトを作成（内部メソッド）"""
+    def _create_ticker(self, symbol: str):
+        """Tickerオブジェクトを作成（内部メソッド）- Issue #614対応"""
+        if not YFINANCE_AVAILABLE:
+            raise ImportError(
+                "yfinanceが利用できません。pip install yfinanceでインストールしてください。"
+            )
         return yf.Ticker(symbol)
 
     def _record_request_start(self):
@@ -1203,7 +1212,11 @@ class StockFetcher:
             batch_start = time.time()
 
             try:
-                # yfinance.Tickersを使用して一括取得
+                # yfinance.Tickersを使用して一括取得 - Issue #614対応
+                if not YFINANCE_AVAILABLE:
+                    logging.error("yfinanceが利用できません")
+                    continue
+
                 tickers = yf.Tickers(" ".join(f"{code}.T" for code in batch_codes))
 
                 for code in batch_codes:
@@ -1283,9 +1296,9 @@ class StockFetcher:
                 "failure_count": len(codes) - successful_count,
                 "success_rate": successful_count / len(codes) if codes else 0,
                 "total_elapsed_ms": total_elapsed * 1000,
-                "avg_time_per_code": (total_elapsed / len(codes)) * 1000
-                if codes
-                else 0,
+                "avg_time_per_code": (
+                    (total_elapsed / len(codes)) * 1000 if codes else 0
+                ),
             },
         )
 
@@ -1322,7 +1335,11 @@ class StockFetcher:
             batch_start = time.time()
 
             try:
-                # yfinance.Tickersを使用して一括取得
+                # yfinance.Tickersを使用して一括取得 - Issue #614対応
+                if not YFINANCE_AVAILABLE:
+                    logging.error("yfinanceが利用できません")
+                    continue
+
                 symbols = " ".join(f"{code}.T" for code in batch_codes)
                 tickers = yf.Tickers(symbols)
 
@@ -1412,9 +1429,9 @@ class StockFetcher:
                 "failure_count": len(codes) - successful_count,
                 "success_rate": successful_count / len(codes) if codes else 0,
                 "total_elapsed_ms": total_elapsed * 1000,
-                "avg_time_per_code": (total_elapsed / len(codes)) * 1000
-                if codes
-                else 0,
+                "avg_time_per_code": (
+                    (total_elapsed / len(codes)) * 1000 if codes else 0
+                ),
             },
         )
 
@@ -1451,7 +1468,11 @@ class StockFetcher:
             batch_start = time.time()
 
             try:
-                # yfinance.downloadを使用した真の一括取得
+                # yfinance.downloadを使用した真の一括取得 - Issue #614対応
+                if not YFINANCE_AVAILABLE:
+                    logging.error("yfinanceが利用できません")
+                    continue
+
                 symbols = [f"{code}.T" for code in batch_codes]
 
                 # 過去2日分のデータを一括取得（最新価格と前日価格を取得するため）
@@ -1527,9 +1548,11 @@ class StockFetcher:
                                         latest_data.get("Open", current_price)
                                     ),
                                     "previous_close": previous_price,
-                                    "timestamp": latest_data.name.isoformat()
-                                    if hasattr(latest_data.name, "isoformat")
-                                    else None,
+                                    "timestamp": (
+                                        latest_data.name.isoformat()
+                                        if hasattr(latest_data.name, "isoformat")
+                                        else None
+                                    ),
                                 }
                             else:
                                 results[code] = None
@@ -1577,9 +1600,9 @@ class StockFetcher:
                 "failure_count": len(codes) - successful_count,
                 "success_rate": successful_count / len(codes) if codes else 0,
                 "total_elapsed_ms": total_elapsed * 1000,
-                "avg_time_per_code": (total_elapsed / len(codes)) * 1000
-                if codes
-                else 0,
+                "avg_time_per_code": (
+                    (total_elapsed / len(codes)) * 1000 if codes else 0
+                ),
             },
         )
 
@@ -1621,7 +1644,11 @@ class StockFetcher:
             formatted_symbols = [self._format_symbol(code) for code in batch_codes]
 
             try:
-                # yf.downloadを使用した真の一括取得
+                # yf.downloadを使用した真の一括取得 - Issue #614対応
+                if not YFINANCE_AVAILABLE:
+                    logging.error("yfinanceが利用できません")
+                    continue
+
                 data = yf.download(
                     formatted_symbols,
                     period=period,
@@ -1691,9 +1718,9 @@ class StockFetcher:
                 "failure_count": len(codes) - successful_count,
                 "success_rate": successful_count / len(codes) if codes else 0,
                 "total_elapsed_ms": total_elapsed * 1000,
-                "avg_time_per_code": (total_elapsed / len(codes)) * 1000
-                if codes
-                else 0,
+                "avg_time_per_code": (
+                    (total_elapsed / len(codes)) * 1000 if codes else 0
+                ),
             },
         )
 

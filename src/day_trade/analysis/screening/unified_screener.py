@@ -368,12 +368,14 @@ class UnifiedStockScreener:
             "top_conditions": sorted(
                 condition_counts.items(), key=lambda x: x[1], reverse=True
             )[:3],
-            "price_range": {
-                "min": min(r.last_price for r in results if r.last_price),
-                "max": max(r.last_price for r in results if r.last_price),
-            }
-            if any(r.last_price for r in results)
-            else None,
+            "price_range": (
+                {
+                    "min": min(r.last_price for r in results if r.last_price),
+                    "max": max(r.last_price for r in results if r.last_price),
+                }
+                if any(r.last_price for r in results)
+                else None
+            ),
         }
 
     def generate_report(self, report: ScreeningReport) -> str:

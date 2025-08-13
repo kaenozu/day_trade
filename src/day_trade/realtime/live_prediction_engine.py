@@ -122,12 +122,12 @@ class LiveMarketState:
             features.extend(
                 [
                     returns[-1] if len(returns) > 0 else 0,  # 最新リターン
-                    np.mean(returns[-5:])
-                    if len(returns) >= 5
-                    else 0,  # 5期間平均リターン
-                    np.std(returns[-10:])
-                    if len(returns) >= 10
-                    else 0,  # 10期間ボラティリティ
+                    (
+                        np.mean(returns[-5:]) if len(returns) >= 5 else 0
+                    ),  # 5期間平均リターン
+                    (
+                        np.std(returns[-10:]) if len(returns) >= 10 else 0
+                    ),  # 10期間ボラティリティ
                 ]
             )
         else:

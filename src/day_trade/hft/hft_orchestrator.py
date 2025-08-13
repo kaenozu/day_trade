@@ -342,21 +342,27 @@ class HFTPerformanceTracker:
 
             return {
                 # Latency metrics
-                "avg_execution_latency_us": np.mean(self.execution_latencies)
-                if self.execution_latencies
-                else 0,
-                "p95_execution_latency_us": np.percentile(self.execution_latencies, 95)
-                if self.execution_latencies
-                else 0,
-                "p99_execution_latency_us": np.percentile(self.execution_latencies, 99)
-                if self.execution_latencies
-                else 0,
-                "avg_decision_latency_us": np.mean(self.decision_latencies)
-                if self.decision_latencies
-                else 0,
-                "avg_end_to_end_latency_us": np.mean(self.end_to_end_latencies)
-                if self.end_to_end_latencies
-                else 0,
+                "avg_execution_latency_us": (
+                    np.mean(self.execution_latencies) if self.execution_latencies else 0
+                ),
+                "p95_execution_latency_us": (
+                    np.percentile(self.execution_latencies, 95)
+                    if self.execution_latencies
+                    else 0
+                ),
+                "p99_execution_latency_us": (
+                    np.percentile(self.execution_latencies, 99)
+                    if self.execution_latencies
+                    else 0
+                ),
+                "avg_decision_latency_us": (
+                    np.mean(self.decision_latencies) if self.decision_latencies else 0
+                ),
+                "avg_end_to_end_latency_us": (
+                    np.mean(self.end_to_end_latencies)
+                    if self.end_to_end_latencies
+                    else 0
+                ),
                 # Trading metrics
                 "total_trades": self.total_trades,
                 "winning_trades": self.winning_trades,
@@ -814,9 +820,9 @@ class HFTOrchestrator:
             "kill_switch_status": {
                 "enabled": self.kill_switch.enabled if self.kill_switch else False,
                 "triggered": self.kill_switch.triggered if self.kill_switch else False,
-                "trigger_reasons": self.kill_switch.trigger_reasons
-                if self.kill_switch
-                else [],
+                "trigger_reasons": (
+                    self.kill_switch.trigger_reasons if self.kill_switch else []
+                ),
             },
         }
 
@@ -828,19 +834,19 @@ class HFTOrchestrator:
             detailed_stats["executor"] = self.executor.get_performance_stats()
 
         if self.market_data_processor:
-            detailed_stats[
-                "market_data"
-            ] = self.market_data_processor.get_comprehensive_stats()
+            detailed_stats["market_data"] = (
+                self.market_data_processor.get_comprehensive_stats()
+            )
 
         if self.decision_engine:
-            detailed_stats[
-                "decision_engine"
-            ] = self.decision_engine.get_comprehensive_stats()
+            detailed_stats["decision_engine"] = (
+                self.decision_engine.get_comprehensive_stats()
+            )
 
         # Microsecond monitoring stats
-        detailed_stats[
-            "microsecond_monitoring"
-        ] = self.microsecond_monitor.get_current_stats()
+        detailed_stats["microsecond_monitoring"] = (
+            self.microsecond_monitor.get_current_stats()
+        )
 
         detailed_stats["orchestrator"] = self.get_system_status()
 

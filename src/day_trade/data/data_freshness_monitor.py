@@ -237,9 +237,11 @@ class FreshnessCheck(MonitorCheck):
                     alert_id=f"freshness_violation_{int(time.time())}",
                     rule_id="freshness_check",
                     alert_type=AlertType.DATA_STALE,
-                    severity=AlertSeverity.HIGH
-                    if age_minutes > self.threshold_minutes * 2
-                    else AlertSeverity.MEDIUM,
+                    severity=(
+                        AlertSeverity.HIGH
+                        if age_minutes > self.threshold_minutes * 2
+                        else AlertSeverity.MEDIUM
+                    ),
                     title="データ鮮度違反",
                     message=f"データソース {data_source} のデータが古すぎます ({age_minutes:.1f}分前)",
                     data_source=data_source,
@@ -994,12 +996,12 @@ class DataFreshnessMonitor:
                 "message": alert.message,
                 "data_source": alert.data_source,
                 "triggered_at": alert.triggered_at.isoformat(),
-                "resolved_at": alert.resolved_at.isoformat()
-                if alert.resolved_at
-                else None,
-                "acknowledged_at": alert.acknowledged_at.isoformat()
-                if alert.acknowledged_at
-                else None,
+                "resolved_at": (
+                    alert.resolved_at.isoformat() if alert.resolved_at else None
+                ),
+                "acknowledged_at": (
+                    alert.acknowledged_at.isoformat() if alert.acknowledged_at else None
+                ),
                 "acknowledged_by": alert.acknowledged_by,
                 "recovery_actions_taken": alert.recovery_actions_taken,
                 "metadata": alert.metadata,

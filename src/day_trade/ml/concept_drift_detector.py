@@ -122,9 +122,9 @@ class ConceptDriftDetector:
             logger.warning(
                 f"コンセプトドリフト検出: MAEがベースラインから {mae_increase_ratio:.2%} 増加しました。"
             )
-            result[
-                "reason"
-            ] = f"MAEが閾値 ({self.metric_threshold:.2%}) を超えて増加しました。"
+            result["reason"] = (
+                f"MAEが閾値 ({self.metric_threshold:.2%}) を超えて増加しました。"
+            )
         else:
             logger.info(f"コンセプトドリフトなし: MAE増加率 {mae_increase_ratio:.2%}")
             result["reason"] = "性能は安定しています"

@@ -400,9 +400,9 @@ class CalculationOptimizer:
             "final_portfolio_value": portfolio_value,
             "total_trades": len(trades),
             "execution_time": execution_time,
-            "trades_per_second": len(trades) / execution_time
-            if execution_time > 0
-            else 0,
+            "trades_per_second": (
+                len(trades) / execution_time if execution_time > 0 else 0
+            ),
             "return_percentage": (portfolio_value - initial_capital)
             / initial_capital
             * 100,

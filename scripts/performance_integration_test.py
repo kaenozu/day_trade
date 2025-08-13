@@ -146,7 +146,9 @@ class PerformanceIntegrationTest:
                     "2914",
                     "9613",
                     "4324",
-                ][:15]  # 15件でテスト
+                ][
+                    :15
+                ]  # 15件でテスト
 
         except Exception as e:
             print(f"テストデータ取得エラー: {e}")

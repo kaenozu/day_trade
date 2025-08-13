@@ -200,7 +200,7 @@ class GARCHVisualizer(ChartRenderer):
                 color="red",
                 linestyle="--",
                 alpha=0.7,
-                label=f"+2σ: {mean_vol + 2*std_vol:.3f}",
+                label=f"+2σ: {mean_vol + 2 * std_vol:.3f}",
             )
 
             self.apply_common_styling(

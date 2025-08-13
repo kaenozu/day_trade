@@ -54,7 +54,6 @@ class AlertConfig:
     enable_email: bool = True
     enable_console: bool = True
     enable_webhook: bool = False
-    enable_sms: bool = False
 
     # Email設定
     smtp_server: str = "smtp.gmail.com"
@@ -226,15 +225,15 @@ class EmailNotifier:
             <div class="alert-body">
                 <p><strong>Message:</strong> {alert.message}</p>
 
-                {f'<p><strong>Symbol:</strong> {alert.symbol}</p>' if alert.symbol else ''}
+                {f"<p><strong>Symbol:</strong> {alert.symbol}</p>" if alert.symbol else ""}
 
                 <div class="alert-meta">
-                    <p><strong>Timestamp:</strong> {alert.timestamp.strftime('%Y-%m-%d %H:%M:%S')}</p>
+                    <p><strong>Timestamp:</strong> {alert.timestamp.strftime("%Y-%m-%d %H:%M:%S")}</p>
                     <p><strong>Confidence:</strong> {alert.confidence:.2%}</p>
                     <p><strong>Alert ID:</strong> {alert.id}</p>
                 </div>
 
-                {self._create_data_table(alert.data) if alert.data else ''}
+                {self._create_data_table(alert.data) if alert.data else ""}
             </div>
 
             <p style="margin-top: 20px; font-size: 12px; color: #666;">
@@ -686,17 +685,21 @@ class TradingAlertGenerator:
                 "predicted_price": prediction.predicted_price,
                 "predicted_return": prediction.predicted_return,
                 "position_size": prediction.position_size_recommendation,
-                "ml_confidence": prediction.ml_prediction.get("confidence", 0)
-                if prediction.ml_prediction
-                else 0,
-                "rl_confidence": prediction.rl_decision.get("confidence", 0)
-                if prediction.rl_decision
-                else 0,
-                "sentiment_score": prediction.sentiment_analysis.get(
-                    "sentiment_score", 0
-                )
-                if prediction.sentiment_analysis
-                else 0,
+                "ml_confidence": (
+                    prediction.ml_prediction.get("confidence", 0)
+                    if prediction.ml_prediction
+                    else 0
+                ),
+                "rl_confidence": (
+                    prediction.rl_decision.get("confidence", 0)
+                    if prediction.rl_decision
+                    else 0
+                ),
+                "sentiment_score": (
+                    prediction.sentiment_analysis.get("sentiment_score", 0)
+                    if prediction.sentiment_analysis
+                    else 0
+                ),
             },
         )
 

@@ -734,9 +734,9 @@ def create_enhanced_persistent_cache(
     """強化永続化キャッシュ作成"""
 
     config = PersistentCacheConfig(
-        storage_path=Path(storage_path)
-        if storage_path
-        else Path("data/persistent_cache"),
+        storage_path=(
+            Path(storage_path) if storage_path else Path("data/persistent_cache")
+        ),
         max_memory_mb=max_memory_mb,
         max_disk_mb=max_disk_mb,
         compression_enabled=compression_enabled,
@@ -822,11 +822,13 @@ async def test_enhanced_persistent_cache():
         print(
             f"   平均応答時間: {final_stats['operation_stats']['average_response_time_ms']:.2f}ms"
         )
-        total_operations = sum([
-            final_stats['operation_stats']['get_operations'],
-            final_stats['operation_stats']['put_operations'],
-            final_stats['operation_stats']['delete_operations']
-        ])
+        total_operations = sum(
+            [
+                final_stats["operation_stats"]["get_operations"],
+                final_stats["operation_stats"]["put_operations"],
+                final_stats["operation_stats"]["delete_operations"],
+            ]
+        )
         print(f"   総操作数: {total_operations}")
 
         # クリーンアップ

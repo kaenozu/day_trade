@@ -434,9 +434,11 @@ def create_portfolio_risk_response(
     return PortfolioRiskResponse(
         request_id=request_id,
         analysis_result=analysis_result,
-        confidence_score=analysis_result.risk_metrics.confidence_score
-        if analysis_result.risk_metrics
-        else 0.0,
+        confidence_score=(
+            analysis_result.risk_metrics.confidence_score
+            if analysis_result.risk_metrics
+            else 0.0
+        ),
         recommendation_summary="Analysis completed successfully",
         portfolio_metrics=portfolio_metrics,
         position_risks=position_risks,
@@ -453,9 +455,11 @@ def create_fraud_detection_response(
     return FraudDetectionResponse(
         request_id=request_id,
         analysis_result=analysis_result,
-        confidence_score=analysis_result.risk_metrics.confidence_score
-        if analysis_result.risk_metrics
-        else 0.0,
+        confidence_score=(
+            analysis_result.risk_metrics.confidence_score
+            if analysis_result.risk_metrics
+            else 0.0
+        ),
         recommendation_summary="Fraud detection analysis completed",
         fraud_probability=fraud_probability,
         fraud_indicators=fraud_indicators,
@@ -497,9 +501,11 @@ class ResponseConverter:
                 result[field_name] = ResponseConverter.to_dict(value)
             elif isinstance(value, list):
                 result[field_name] = [
-                    ResponseConverter.to_dict(item)
-                    if hasattr(item, "__dataclass_fields__")
-                    else item
+                    (
+                        ResponseConverter.to_dict(item)
+                        if hasattr(item, "__dataclass_fields__")
+                        else item
+                    )
                     for item in value
                 ]
             else:

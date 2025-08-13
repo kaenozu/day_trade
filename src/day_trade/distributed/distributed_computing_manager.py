@@ -379,9 +379,9 @@ class RayBackendManager(DistributedBackendManager):
                 success=True,
                 execution_time_seconds=execution_time,
                 backend_used=ComputingBackend.RAY,
-                worker_id=str(self.ray_context.get_worker_id())
-                if self.ray_context
-                else None,
+                worker_id=(
+                    str(self.ray_context.get_worker_id()) if self.ray_context else None
+                ),
             )
 
         except Exception as e:
@@ -458,9 +458,9 @@ class RayBackendManager(DistributedBackendManager):
                 "ray_cluster_resources": stats,
                 "ray_available_resources": ray.available_resources(),
                 "ray_initialized": ray.is_initialized(),
-                "ray_worker_id": str(self.ray_context.get_worker_id())
-                if self.ray_context
-                else None,
+                "ray_worker_id": (
+                    str(self.ray_context.get_worker_id()) if self.ray_context else None
+                ),
             }
         except Exception as e:
             logger.debug(f"Ray統計取得エラー: {e}")

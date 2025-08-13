@@ -91,9 +91,11 @@ class ProductionSystemManager:
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             handlers=[
                 logging.FileHandler(log_dir / "production.log", encoding="utf-8"),
-                logging.StreamHandler()
-                if log_config.get("log_to_console", False)
-                else logging.NullHandler(),
+                (
+                    logging.StreamHandler()
+                    if log_config.get("log_to_console", False)
+                    else logging.NullHandler()
+                ),
             ],
         )
 

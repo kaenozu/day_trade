@@ -655,30 +655,34 @@ class RiskDashboardManager:
             "recent_analyses": await self._get_recent_analyses(5),
             "ai_models": {
                 "GPT-4": {
-                    "status": "healthy"
-                    if risk_stats.get("models_available", {}).get("gpt4")
-                    else "error",
+                    "status": (
+                        "healthy"
+                        if risk_stats.get("models_available", {}).get("gpt4")
+                        else "error"
+                    ),
                     "calls": risk_stats.get("gpt4_calls", 0),
                     "success_rate": 0.95,
                 },
                 "Claude": {
-                    "status": "healthy"
-                    if risk_stats.get("models_available", {}).get("claude")
-                    else "error",
+                    "status": (
+                        "healthy"
+                        if risk_stats.get("models_available", {}).get("claude")
+                        else "error"
+                    ),
                     "calls": risk_stats.get("claude_calls", 0),
                     "success_rate": 0.93,
                 },
                 "LSTM": {
-                    "status": "healthy"
-                    if fraud_stats.get("models_loaded")
-                    else "warning",
+                    "status": (
+                        "healthy" if fraud_stats.get("models_loaded") else "warning"
+                    ),
                     "calls": fraud_stats.get("total_detections", 0),
                     "success_rate": 0.96,
                 },
                 "Transformer": {
-                    "status": "healthy"
-                    if fraud_stats.get("models_loaded")
-                    else "warning",
+                    "status": (
+                        "healthy" if fraud_stats.get("models_loaded") else "warning"
+                    ),
                     "calls": fraud_stats.get("total_detections", 0),
                     "success_rate": 0.92,
                 },
@@ -721,10 +725,10 @@ class RiskDashboardManager:
 
             sample_analyses.append(
                 {
-                    "id": f"ANALYSIS_{i+1:03d}",
+                    "id": f"ANALYSIS_{i + 1:03d}",
                     "risk_score": risk_score,
                     "risk_level": risk_level,
-                    "explanation": f"リスク分析#{i+1}: {risk_level}レベルのリスクを検出",
+                    "explanation": f"リスク分析#{i + 1}: {risk_level}レベルのリスクを検出",
                     "timestamp": (
                         datetime.now() - timedelta(minutes=i * 2)
                     ).isoformat(),

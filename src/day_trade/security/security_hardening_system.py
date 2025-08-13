@@ -474,9 +474,9 @@ class SecurityHardeningSystem:
                 "blocked_ips_count": len(self.ip_blocklist.blocked_ips)
                 + len(self.ip_blocklist.temporary_blocks),
                 "security_metrics": dict(self.security_metrics),
-                "system_status": "PROTECTED"
-                if len(active_alerts) < 10
-                else "UNDER_ATTACK",
+                "system_status": (
+                    "PROTECTED" if len(active_alerts) < 10 else "UNDER_ATTACK"
+                ),
             }
 
     def generate_security_report(self, hours: int = 24) -> Dict[str, Any]:

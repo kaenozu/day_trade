@@ -430,18 +430,26 @@ class EnhancedUnifiedCacheManager(UnifiedCacheManager):
                 "hit_rate": overall_hit_rate,
                 "total_requests": total_requests,
                 "avg_access_time_ms": avg_access_time,
-                "l1_hit_ratio": self.extended_stats.l1_hits / total_requests
-                if total_requests > 0
-                else 0,
-                "l2_hit_ratio": self.extended_stats.l2_hits / total_requests
-                if total_requests > 0
-                else 0,
-                "l3_hit_ratio": self.extended_stats.l3_hits / total_requests
-                if total_requests > 0
-                else 0,
-                "l4_hit_ratio": self.extended_stats.l4_hits / total_requests
-                if total_requests > 0
-                else 0,
+                "l1_hit_ratio": (
+                    self.extended_stats.l1_hits / total_requests
+                    if total_requests > 0
+                    else 0
+                ),
+                "l2_hit_ratio": (
+                    self.extended_stats.l2_hits / total_requests
+                    if total_requests > 0
+                    else 0
+                ),
+                "l3_hit_ratio": (
+                    self.extended_stats.l3_hits / total_requests
+                    if total_requests > 0
+                    else 0
+                ),
+                "l4_hit_ratio": (
+                    self.extended_stats.l4_hits / total_requests
+                    if total_requests > 0
+                    else 0
+                ),
             },
             "layers": {"L1": l1_stats, "L2": l2_stats, "L3": l3_stats, "L4": l4_stats},
             "memory_usage_total_mb": (
@@ -585,7 +593,7 @@ if __name__ == "__main__":
         recommendations = optimizations.get("recommendations", [])
         print(f"  推奨事項数: {len(recommendations)}")
         for i, rec in enumerate(recommendations[:3]):  # 最初の3件のみ表示
-            print(f"    {i+1}. {rec}")
+            print(f"    {i + 1}. {rec}")
 
         print("\n✅ 拡張統合キャッシュマネージャーテスト完了")
 

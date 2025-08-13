@@ -236,13 +236,13 @@ class BacktestEngine:
                             * 100
                         )
                         logger.info(
-                            f"Day {i+1}/{len(business_days)}: "
+                            f"Day {i + 1}/{len(business_days)}: "
                             f"¥{current_value:,.0f} ({total_return_pct:+.1f}%) "
                             f"ML: {ml_time:.3f}s"
                         )
 
                 except Exception as e:
-                    logger.warning(f"Day {i+1} エラー: {e}")
+                    logger.warning(f"Day {i + 1} エラー: {e}")
                     continue
 
             # 結果分析

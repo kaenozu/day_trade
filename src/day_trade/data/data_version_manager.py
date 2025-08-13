@@ -1468,9 +1468,11 @@ class DataVersionManager:
                             conflict.resolution_strategy.value,
                             1 if conflict.resolved else 0,
                             conflict.resolved_by,
-                            conflict.resolved_at.isoformat()
-                            if conflict.resolved_at
-                            else None,
+                            (
+                                conflict.resolved_at.isoformat()
+                                if conflict.resolved_at
+                                else None
+                            ),
                         ),
                     )
 

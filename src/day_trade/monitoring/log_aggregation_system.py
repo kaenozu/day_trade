@@ -1252,7 +1252,7 @@ if __name__ == "__main__":
                         "timestamp": datetime.utcnow().isoformat(),
                         "level": "ERROR",
                         "logger_name": "test.error",
-                        "message": f"Database connection failed: attempt {i+1}",
+                        "message": f"Database connection failed: attempt {i + 1}",
                         "error": "ConnectionError",
                     }
                 )
@@ -1368,7 +1368,7 @@ if __name__ == "__main__":
                     {
                         "timestamp": datetime.utcnow().isoformat(),
                         "level": "INFO",
-                        "logger_name": f"test.batch.{i%5}",
+                        "logger_name": f"test.batch.{i % 5}",
                         "message": f"Batch test message {i}",
                         "batch_id": i,
                     }
@@ -1377,7 +1377,7 @@ if __name__ == "__main__":
 
             processing_time = time.time() - start_time
             print(f"   100件ログ取り込み時間: {processing_time:.2f}秒")
-            print(f"   スループット: {100/processing_time:.1f}件/秒")
+            print(f"   スループット: {100 / processing_time:.1f}件/秒")
 
             # しばらく処理継続
             await asyncio.sleep(3)

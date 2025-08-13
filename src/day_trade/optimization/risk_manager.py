@@ -44,7 +44,7 @@ class RiskManager:
         self.max_sector_weight = max_sector_weight
 
         logger.info("リスクマネージャー初期化:")
-        logger.info(f"  - VaR信頼水準: {(1-confidence_level)*100:.0f}%")
+        logger.info(f"  - VaR信頼水準: {(1 - confidence_level) * 100:.0f}%")
         logger.info(f"  - 時間軸: {time_horizon}日")
         logger.info(f"  - 最大相関係数: {max_correlation:.1f}")
 
@@ -282,9 +282,9 @@ class RiskManager:
             )
             concentration_metrics = {
                 "herfindahl_index": np.sum(weights_array**2),
-                "effective_positions": 1 / np.sum(weights_array**2)
-                if np.sum(weights_array**2) > 0
-                else 0,
+                "effective_positions": (
+                    1 / np.sum(weights_array**2) if np.sum(weights_array**2) > 0 else 0
+                ),
                 "max_weight": weights_array.max(),
                 "top3_weight": np.sort(weights_array)[-3:].sum(),
             }

@@ -590,9 +590,11 @@ class DashboardManager:
                     "memory_percent": system_summary.get("memory", {}).get(
                         "current", 0
                     ),
-                    "status": "healthy"
-                    if system_summary.get("cpu", {}).get("current", 0) < 70
-                    else "warning",
+                    "status": (
+                        "healthy"
+                        if system_summary.get("cpu", {}).get("current", 0) < 70
+                        else "warning"
+                    ),
                     "active_tasks": comprehensive_status.get(
                         "monitoring_stats", {}
                     ).get("total_monitoring_cycles", 0),
@@ -604,9 +606,11 @@ class DashboardManager:
                     "total_predictions": ai_summary.get("total_predictions", 0),
                     "success_rate": ai_summary.get("success_rate", 0),
                     "average_latency": ai_summary.get("average_latency_ms", 0),
-                    "status": "healthy"
-                    if ai_summary.get("error_rate", 0) < 0.1
-                    else "warning",
+                    "status": (
+                        "healthy"
+                        if ai_summary.get("error_rate", 0) < 0.1
+                        else "warning"
+                    ),
                 }
 
                 # 取引パフォーマンス
@@ -615,9 +619,11 @@ class DashboardManager:
                     "total_signals": trading_summary.get("total_signals", 0),
                     "virtual_return": trading_summary.get("virtual_return", 0),
                     "virtual_drawdown": trading_summary.get("virtual_drawdown", 0),
-                    "status": "healthy"
-                    if trading_summary.get("virtual_drawdown", 0) < 0.05
-                    else "warning",
+                    "status": (
+                        "healthy"
+                        if trading_summary.get("virtual_drawdown", 0) < 0.05
+                        else "warning"
+                    ),
                 }
 
             # アラート情報

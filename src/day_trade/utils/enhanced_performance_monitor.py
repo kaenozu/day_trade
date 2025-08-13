@@ -294,9 +294,11 @@ class EnhancedPerformanceMonitor:
                 PerformanceAlert(
                     timestamp=metrics.timestamp,
                     alert_type="EXECUTION_TIME",
-                    severity="HIGH"
-                    if metrics.execution_time > execution_threshold * 2
-                    else "MEDIUM",
+                    severity=(
+                        "HIGH"
+                        if metrics.execution_time > execution_threshold * 2
+                        else "MEDIUM"
+                    ),
                     process_name=metrics.process_name,
                     message=f"実行時間が閾値を超過: {metrics.execution_time:.2f}秒",
                     metrics=asdict(metrics),
@@ -314,9 +316,9 @@ class EnhancedPerformanceMonitor:
                 PerformanceAlert(
                     timestamp=metrics.timestamp,
                     alert_type="MEMORY_USAGE",
-                    severity="HIGH"
-                    if current_memory > memory_threshold * 2
-                    else "MEDIUM",
+                    severity=(
+                        "HIGH" if current_memory > memory_threshold * 2 else "MEDIUM"
+                    ),
                     process_name=metrics.process_name,
                     message=f"メモリ使用量が閾値を超過: {current_memory:.2f}MB",
                     metrics=asdict(metrics),
