@@ -332,7 +332,7 @@ class GradientBoostingModel(BaseModelInterface):
                 except Exception:
                     # エラー時はフォールバック予測
                     pred = self.model.predict(X)
-                
+
                 staged_preds.append(pred)
 
             return np.array(staged_preds)

@@ -37,21 +37,21 @@ class StockNameHelper:
         # Issue #606対応: 設定パスの堅牢性改善
         self.config_path = self._resolve_config_path(config_path)
         self._load_stock_info()
-    
+
     def _resolve_config_path(self, config_path: Optional[str]) -> Path:
         """
         設定ファイルパスの解決 - Issue #606対応
-        
+
         Args:
             config_path: 指定された設定パス
-            
+
         Returns:
             解決された設定ファイルパス
         """
         if config_path is not None:
             # 明示的に指定されたパスを使用
             return Path(config_path)
-        
+
         # デフォルトパスの探索と選択
         possible_paths = [
             # 1. プロジェクトルートからの相対パス
@@ -61,13 +61,13 @@ class StockNameHelper:
             # 3. 環境変数からのパス
             Path(os.getenv("STOCK_CONFIG_PATH", "")) if os.getenv("STOCK_CONFIG_PATH") else None
         ]
-        
+
         # Noneを除外して最初に存在するファイルを使用
         for path in possible_paths:
             if path is not None and path.exists():
                 logger.debug(f"設定ファイルを検出: {path}")
                 return path
-        
+
         # どれも存在しない場合はデフォルトを返す
         default_path = Path(__file__).parent.parent.parent.parent / "config" / "settings.json"
         logger.debug(f"デフォルト設定パスを使用: {default_path}")
@@ -110,7 +110,7 @@ class StockNameHelper:
                 if isinstance(symbol_info, dict):
                     code = symbol_info.get('code', '')
                     name = symbol_info.get('name', '')
-                    
+
                     # Issue #607対応: 必須フィールド検証
                     if code and name:
                         self._stock_info_cache[code] = {
@@ -145,8 +145,8 @@ class StockNameHelper:
             self._config_loaded = True
 
     def get_stock_name(
-        self, 
-        symbol: Union[str, int], 
+        self,
+        symbol: Union[str, int],
         fallback_format: str = "{symbol}"
     ) -> str:
         """
@@ -168,7 +168,7 @@ class StockNameHelper:
         stock_info = self._stock_info_cache.get(symbol_str)
         if stock_info and stock_info.get('name'):
             return stock_info['name']
-        
+
         # Issue #608対応: 未知銘柄への拡張対応
         # 1. 4桁の数値コードの場合の推測
         if symbol_str.isdigit() and len(symbol_str) == 4:
@@ -179,11 +179,11 @@ class StockNameHelper:
             first_digit = symbol_str[0]
             sector_hint = sector_map.get(first_digit, "その他業種")
             return fallback_format.format(symbol=f"{symbol_str}({sector_hint})")
-        
+
         # 2. アルファベット含みの場合（外国株等）
         if any(c.isalpha() for c in symbol_str):
             return fallback_format.format(symbol=f"{symbol_str}(外国株等)")
-        
+
         # 3. デフォルトフォールバック
         return fallback_format.format(symbol=symbol_str)
 
@@ -248,19 +248,19 @@ class StockNameHelper:
             return {}
 
         return self._stock_info_cache.copy()
-    
+
     # Issue #611対応: シングルトンパターン再検討と改善
     _instance = None
     _lock = threading.Lock()
-    
+
     @classmethod
     def get_instance(cls, config_path: Optional[str] = None) -> 'StockNameHelper':
         """
         Issue #611対応: スレッドセーフなシングルトンインスタンス取得
-        
+
         Args:
             config_path: 設定ファイルパス（初回のみ有効）
-            
+
         Returns:
             StockNameHelperのシングルトンインスタンス
         """
@@ -271,7 +271,7 @@ class StockNameHelper:
                     cls._instance = cls(config_path)
                     logger.debug("StockNameHelper シングルトンインスタンスを作成しました")
         return cls._instance
-    
+
     @classmethod
     def reset_instance(cls):
         """
@@ -286,16 +286,16 @@ class StockNameHelper:
 def format_symbol_display(symbol: Union[str, int], include_sector: bool = False) -> str:
     """
     Issue #612対応: 銘柄表示用のグローバルユーティリティ関数
-    
+
     Args:
         symbol: 銘柄コード
         include_sector: セクター情報を含めるか
-        
+
     Returns:
         フォーマットされた銘柄表示文字列
     """
     helper = StockNameHelper.get_instance()
-    
+
     if include_sector:
         stock_info = helper.get_stock_info(symbol)
         sector = stock_info.get('sector', '')
@@ -311,10 +311,10 @@ def format_symbol_display(symbol: Union[str, int], include_sector: bool = False)
 def get_stock_name_quick(symbol: Union[str, int]) -> str:
     """
     Issue #612対応: 銘柄名取得のクイックアクセス関数
-    
+
     Args:
         symbol: 銘柄コード
-        
+
     Returns:
         銘柄名
     """
@@ -325,21 +325,21 @@ def get_stock_name_quick(symbol: Union[str, int]) -> str:
 def validate_symbol_format(symbol: Union[str, int]) -> bool:
     """
     Issue #612対応: 銘柄コード形式検証ユーティリティ
-    
+
     Args:
         symbol: 銘柄コード
-        
+
     Returns:
         有効な形式かどうか
     """
     symbol_str = str(symbol).strip()
-    
+
     # 4桁の数値（日本株）
     if symbol_str.isdigit() and len(symbol_str) == 4:
         return True
-    
+
     # アルファベット含み（外国株等）
     if any(c.isalpha() for c in symbol_str) and len(symbol_str) <= 10:
         return True
-    
+
     return False

@@ -29,7 +29,7 @@ class RealMarketDataManager:
     実市場データ管理クラス
 
     yfinanceによるデータ取得とSQLiteキャッシュを提供
-    
+
     Issue #615, #616対応: APIレート制限とキャッシュ管理の改善
     """
 
@@ -130,7 +130,7 @@ class RealMarketDataManager:
             try:
                 ticker = yf.Ticker(yf_symbol)
                 data = ticker.history(period=period)
-                
+
                 # Issue #615対応: API呼び出し完了処理
                 with self.rate_limit_lock:
                     self.last_api_call[symbol] = time.time()
@@ -206,16 +206,16 @@ class RealMarketDataManager:
                 except ValueError:
                     # 古い形式のタイムスタンプの場合
                     cached_time = datetime.strptime(result[0], '%Y-%m-%d %H:%M:%S')
-                
+
                 expiry_time = cached_time + timedelta(hours=hours)
                 is_expired = datetime.now() > expiry_time
-                
+
                 # Issue #616対応: キャッシュ統計更新
                 if not is_expired:
                     self._cache_stats['hits'] += 1
                 else:
                     self._cache_stats['misses'] += 1
-                
+
                 return is_expired
         except Exception as e:
             logger.error(f"キャッシュ期限チェックエラー {symbol}: {e}")
@@ -227,14 +227,14 @@ class RealMarketDataManager:
             # Issue #615対応: アクティブリクエスト数制限
             while self._active_requests >= self.max_concurrent_requests:
                 time.sleep(0.01)  # 10ms待機
-            
+
             if symbol in self.last_api_call:
                 elapsed = time.time() - self.last_api_call[symbol]
                 if elapsed < self.min_api_interval:
                     sleep_time = self.min_api_interval - elapsed
                     logger.debug(f"レート制限待機: {symbol} - {sleep_time:.2f}秒")
                     time.sleep(sleep_time)
-            
+
             # Issue #615対応: アクティブリクエスト数増加
             self._active_requests += 1
 
@@ -294,14 +294,14 @@ class RealMarketDataManager:
         except Exception as e:
             logger.error(f"キャッシュデータ取得エラー {symbol}: {e}")
             return None
-    
+
     def clear_cache(self, symbol: str = None) -> bool:
         """
         キャッシュクリア機能 - Issue #616対応: カプセル化改善
-        
+
         Args:
             symbol: 特定銘柄のみクリア（Noneの場合は全キャッシュクリア）
-        
+
         Returns:
             クリア成功の可否
         """
@@ -319,7 +319,7 @@ class RealMarketDataManager:
                     if key in self.cache_expiry:
                         del self.cache_expiry[key]
                 logger.info(f"銘柄{symbol}のメモリキャッシュをクリアしました")
-            
+
             # SQLiteキャッシュクリア
             with sqlite3.connect(self.cache_db_path) as conn:
                 if symbol is None:
@@ -330,17 +330,17 @@ class RealMarketDataManager:
                     conn.execute("DELETE FROM price_cache WHERE symbol = ?", [symbol])
                     conn.execute("DELETE FROM technical_cache WHERE symbol = ?", [symbol])
                     logger.info(f"銘柄{symbol}のSQLiteキャッシュをクリアしました")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"キャッシュクリアエラー: {e}")
             return False
-    
+
     def get_cache_stats(self) -> Dict[str, any]:
         """
         キャッシュ統計情報取得 - Issue #616対応
-        
+
         Returns:
             キャッシュ統計辞書
         """
@@ -348,10 +348,10 @@ class RealMarketDataManager:
             with sqlite3.connect(self.cache_db_path) as conn:
                 cursor = conn.execute("SELECT COUNT(*) FROM price_cache")
                 sqlite_count = cursor.fetchone()[0]
-            
+
             total_requests = self._cache_stats['hits'] + self._cache_stats['misses']
             hit_rate = self._cache_stats['hits'] / total_requests if total_requests > 0 else 0
-            
+
             return {
                 'memory_cache_size': len(self.memory_cache),
                 'sqlite_cache_size': sqlite_count,
@@ -360,7 +360,7 @@ class RealMarketDataManager:
                 'hit_rate': round(hit_rate, 3),
                 'active_requests': self._active_requests
             }
-            
+
         except Exception as e:
             logger.error(f"キャッシュ統計取得エラー: {e}")
             return {}
@@ -476,14 +476,14 @@ class RealMarketDataManager:
             return fallback_price
 
     def calculate_trend_strength_score(
-        self, 
-        data: pd.DataFrame, 
+        self,
+        data: pd.DataFrame,
         params: Optional[Dict[str, any]] = None
     ) -> Tuple[float, float]:
         """
         Issue #618対応: トレンド強度スコア計算（旧generate_statistical_trend_score）
         Issue #620対応: パラメータ化とユーティリティ関数最適化
-        
+
         Args:
             data: 価格データ
             params: 計算パラメータ辞書
@@ -491,14 +491,14 @@ class RealMarketDataManager:
                 - long_window: 長期移動平均期間 (default: 20)
                 - trend_threshold: トレンド判定閾値% (default: 2.0)
                 - score_weights: スコア重み辞書
-            
+
         Returns:
             Tuple[float, float]: (スコア, 信頼度)
         """
         # Issue #620対応: 統一されたデフォルトパラメータ管理
         default_params = {
             "short_window": 5,
-            "long_window": 20, 
+            "long_window": 20,
             "trend_threshold": 2.0,
             "score_weights": {"price_vs_short": 15, "price_vs_long": 15, "ma_cross": 10, "recent_trend": 10}
         }
@@ -559,7 +559,7 @@ class RealMarketDataManager:
             return error_info['score'], error_info['confidence']
 
     def calculate_volatility_risk_score(
-        self, 
+        self,
         data: pd.DataFrame,
         params: Optional[Dict[str, any]] = None
     ) -> Tuple[float, float]:
@@ -603,7 +603,7 @@ class RealMarketDataManager:
             return error_info['score'], error_info['confidence']
 
     def calculate_pattern_recognition_score(
-        self, 
+        self,
         data: pd.DataFrame,
         params: Optional[Dict[str, any]] = None
     ) -> Tuple[float, float]:
@@ -970,28 +970,28 @@ class RealMarketDataManager:
                 return round(estimated_price * variation, 1)
 
         return None
-    
+
     # Issue #618対応: 後方互換性のためのエイリアスメソッド
     def generate_ml_trend_score(self, data: pd.DataFrame) -> Tuple[float, float]:
         """
         機械学習風トレンドスコア生成 (非推奨: generate_statistical_trend_scoreを使用)
-        
+
         ※このメソッドは統計的アルゴリズムを使用しており、実際の機械学習ではありません。
         """
         return self.generate_statistical_trend_score(data)
-    
+
     def generate_ml_volatility_score(self, data: pd.DataFrame) -> Tuple[float, float]:
         """
         ML風ボラティリティスコア生成 (非推奨: generate_statistical_volatility_scoreを使用)
-        
+
         ※このメソッドは統計的アルゴリズムを使用しており、実際の機械学習ではありません。
         """
         return self.generate_statistical_volatility_score(data)
-    
+
     def generate_ml_pattern_score(self, data: pd.DataFrame) -> Tuple[float, float]:
         """
         ML風パターンスコア生成 (非推奨: generate_statistical_pattern_scoreを使用)
-        
+
         ※このメソッドは統計的アルゴリズムを使用しており、実際の機械学習ではありません。
         """
         return self.generate_statistical_pattern_score(data)
@@ -1004,26 +1004,26 @@ _shared_manager_lock = threading.Lock()
 def _get_shared_manager() -> RealMarketDataManager:
     """
     共有RealMarketDataManagerインスタンス取得 - Issue #620対応
-    
+
     Returns:
         共有マネージャーインスタンス
     """
     global _shared_manager_instance
-    
+
     if _shared_manager_instance is None:
         with _shared_manager_lock:
             if _shared_manager_instance is None:
                 _shared_manager_instance = RealMarketDataManager()
-    
+
     return _shared_manager_instance
 
 def get_real_stock_data(symbol: str) -> Optional[pd.DataFrame]:
     """
     株価データ取得（簡易インターフェース） - Issue #620対応: 最適化
-    
+
     Args:
         symbol: 銘柄コード
-        
+
     Returns:
         株価データ（失敗時はNone）
     """
@@ -1034,10 +1034,10 @@ def get_real_stock_data(symbol: str) -> Optional[pd.DataFrame]:
 def calculate_real_technical_indicators(symbol: str) -> Dict[str, float]:
     """
     実技術指標計算 - Issue #620対応: 最適化
-    
+
     Args:
         symbol: 銘柄コード
-        
+
     Returns:
         技術指標辞書
     """
@@ -1067,10 +1067,10 @@ def calculate_real_technical_indicators(symbol: str) -> Dict[str, float]:
 def clear_shared_cache(symbol: str = None) -> bool:
     """
     共有キャッシュクリア - Issue #620対応: グローバル関数拡張
-    
+
     Args:
         symbol: 特定銘柄のみクリア（Noneの場合は全キャッシュクリア）
-        
+
     Returns:
         クリア成功の可否
     """
@@ -1080,7 +1080,7 @@ def clear_shared_cache(symbol: str = None) -> bool:
 def get_shared_cache_stats() -> Dict[str, any]:
     """
     共有キャッシュ統計取得 - Issue #620対応: グローバル関数拡張
-    
+
     Returns:
         キャッシュ統計辞書
     """
@@ -1118,7 +1118,7 @@ if __name__ == "__main__":
         print(f"統計的トレンドスコア: {trend_score} (信頼度: {trend_conf})")
         print(f"統計的ボラティリティスコア: {vol_score} (信頼度: {vol_conf})")
         print(f"統計的パターンスコア: {pattern_score} (信頼度: {pattern_conf})")
-        
+
         # キャッシュ統計表示 - Issue #616対応
         cache_stats = manager.get_cache_stats()
         print(f"\nキャッシュ統計: {cache_stats}")

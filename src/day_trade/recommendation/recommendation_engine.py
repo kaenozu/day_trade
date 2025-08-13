@@ -77,6 +77,51 @@ class RecommendationEngine:
             'volume_spike': 3.0,       # 出来高急増閾値(倍)
         }
 
+        # Issue #587対応: 価格目標・ストップロス計算パラメータ
+        self.price_target_params = {
+            "低": {"target_factor": 0.05, "stop_loss_factor": 0.03},
+            "中": {"target_factor": 0.08, "stop_loss_factor": 0.05},
+            "高": {"target_factor": 0.12, "stop_loss_factor": 0.08}
+        }
+
+        # Issue #586対応: 信頼度計算の重み
+        self.confidence_weights = {
+            'score_consistency': 0.6,
+            'data_adequacy': 0.4,
+        }
+
+        # Issue #587対応: 高度リスク管理戦略設定
+        self.risk_management_config = {
+            'use_atr_based_stops': True,    # ATRベースストップロス使用
+            'atr_multiplier': 2.0,          # ATR乗数
+            'max_position_risk': 0.02,      # 最大ポジションリスク(2%)
+            'portfolio_correlation_limit': 0.7,  # ポートフォリオ相関限界
+        }
+
+        # Issue #585対応: アクション決定ロジック設定
+        self.action_thresholds = {
+            'strong_buy': 80,
+            'buy': 65,
+            'hold_upper': 35,
+            'sell': 20,
+            # strong_sell は sell 未満
+        }
+
+        self.risk_penalties = {
+            '高': 10,
+            '中': 5,
+            '低': 0
+        }
+
+        # Issue #582対応: シグナル閾値設定
+        self.signal_thresholds = {
+            'sma_breakout': 0.02,       # SMA突破閾値(2%)
+            'rsi_oversold': 30,         # RSI売られすぎ閾値
+            'rsi_overbought': 70,       # RSI買われすぎ閾値
+            'volume_spike': 2.0,        # 出来高急増閾値(倍率)
+            'macd_signal_strength': 0.1, # MACDシグナル強度閾値
+        }
+
         logger.info("推奨銘柄選定エンジン初期化完了")
 
     async def analyze_all_stocks(self, symbols: Optional[List[str]] = None) -> List[StockRecommendation]:
@@ -99,7 +144,16 @@ class RecommendationEngine:
 
         try:
             # 1. バッチデータ取得
-            stock_data = await self._fetch_batch_data(symbols)
+            requests = [
+                DataRequest(
+                    symbol=symbol,
+                    period="60d",
+                    preprocessing=True,
+                    priority=3
+                )
+                for symbol in symbols
+            ]
+            stock_data = self.data_fetcher.fetch_batch(requests, use_parallel=True)
 
             # 2. 各銘柄の分析
             recommendations = []
@@ -129,19 +183,6 @@ class RecommendationEngine:
             logger.error(f"推奨銘柄分析エラー: {e}")
             return []
 
-    async def _fetch_batch_data(self, symbols: List[str]) -> Dict[str, any]:
-        """バッチデータ取得"""
-        requests = [
-            DataRequest(
-                symbol=symbol,
-                period="60d",
-                preprocessing=True,
-                priority=3
-            )
-            for symbol in symbols
-        ]
-
-        return self.data_fetcher.fetch_batch(requests, use_parallel=True)
 
     async def _analyze_single_stock(self, symbol: str, data: pd.DataFrame) -> Optional[StockRecommendation]:
         """単一銘柄の分析"""
@@ -305,7 +346,7 @@ class RecommendationEngine:
             return error_info['score'], error_info['reasons']
 
     def _analyze_sma_signal(self, data: pd.DataFrame, sma_result) -> Tuple[float, Optional[str]]:
-        """SMA信号分析"""
+        """Issue #582対応: SMA信号分析（パラメータ化閾値）"""
         try:
             if hasattr(sma_result, 'values') and 'sma' in sma_result.values:
                 sma_values = sma_result.values['sma']
@@ -313,9 +354,12 @@ class RecommendationEngine:
                     close_price = data['終値'].iloc[-1] if '終値' in data.columns else data['Close'].iloc[-1]
                     current_sma = sma_values[-1]
 
-                    if close_price > current_sma * 1.02:  # 2%以上上抜け
+                    # Issue #582対応: 設定可能な閾値を使用
+                    breakout_threshold = self.signal_thresholds['sma_breakout']
+
+                    if close_price > current_sma * (1 + breakout_threshold):  # 設定可能%以上上抜け
                         return 15.0, "SMA上抜けシグナル"
-                    elif close_price < current_sma * 0.98:  # 2%以上下抜け
+                    elif close_price < current_sma * (1 - breakout_threshold):  # 設定可能%以上下抜け
                         return -15.0, "SMA下抜けシグナル"
 
             return 0.0, None
@@ -324,16 +368,20 @@ class RecommendationEngine:
             return 0.0, None
 
     def _analyze_rsi_signal(self, rsi_result) -> Tuple[float, Optional[str]]:
-        """RSI信号分析"""
+        """Issue #582対応: RSI信号分析（パラメータ化閾値）"""
         try:
             if hasattr(rsi_result, 'values') and 'rsi' in rsi_result.values:
                 rsi_values = rsi_result.values['rsi']
                 if len(rsi_values) > 0:
                     current_rsi = rsi_values[-1]
 
-                    if current_rsi < 30:  # 売られすぎ
+                    # Issue #582対応: 設定可能な閾値を使用
+                    oversold_threshold = self.signal_thresholds['rsi_oversold']
+                    overbought_threshold = self.signal_thresholds['rsi_overbought']
+
+                    if current_rsi < oversold_threshold:  # 設定可能な売られすぎ閾値
                         return 10.0, "RSI売られすぎ（反発期待）"
-                    elif current_rsi > 70:  # 買われすぎ
+                    elif current_rsi > overbought_threshold:  # 設定可能な買われすぎ閾値
                         return -10.0, "RSI買われすぎ（調整懸念）"
 
             return 0.0, None
@@ -421,55 +469,76 @@ class RecommendationEngine:
             return "中"
 
     def _determine_action(self, score: float, risk_level: str) -> RecommendationAction:
-        """推奨アクション決定"""
-        # リスク調整
-        risk_penalty = {"高": 10, "中": 5, "低": 0}
-        adjusted_score = score - risk_penalty.get(risk_level, 5)
+        """Issue #585対応: 推奨アクション決定（パラメータ化）"""
+        # リスク調整（設定可能）
+        adjusted_score = score - self.risk_penalties.get(risk_level, 5)
 
-        if adjusted_score >= 80:
+        # 閾値ベースのアクション決定（設定可能）
+        if adjusted_score >= self.action_thresholds['strong_buy']:
             return RecommendationAction.STRONG_BUY
-        elif adjusted_score >= 65:
+        elif adjusted_score >= self.action_thresholds['buy']:
             return RecommendationAction.BUY
-        elif adjusted_score >= 35:
+        elif adjusted_score >= self.action_thresholds['hold_upper']:
             return RecommendationAction.HOLD
-        elif adjusted_score >= 20:
+        elif adjusted_score >= self.action_thresholds['sell']:
             return RecommendationAction.SELL
         else:
             return RecommendationAction.STRONG_SELL
 
     def _calculate_confidence(self, technical_score: float, ml_score: float, data: pd.DataFrame) -> float:
-        """信頼度計算"""
+        """Issue #586対応: 高度信頼度計算（ML信頼度・市場ボラティリティ考慮）"""
         try:
-            # スコア一致度
+            # 1. スコア一致度（基本信頼度）
             score_consistency = 100 - abs(technical_score - ml_score)
 
-            # データ量
+            # 2. データ量・品質
             data_adequacy = min(100, len(data) / 60 * 100)  # 60日分を100%とする
 
-            # 総合信頼度
-            confidence = (score_consistency * 0.6 + data_adequacy * 0.4)
-            return max(0, min(100, confidence))
+            # 3. Issue #586対応: 市場ボラティリティ考慮
+            close_col = '終値' if '終値' in data.columns else 'Close'
+            if close_col in data.columns:
+                # 価格変動率の標準偏差（ボラティリティ）
+                price_volatility = data[close_col].pct_change().std() * 100
+                # ボラティリティが低いほど信頼度が高い（逆相関）
+                volatility_factor = max(20, 100 - (price_volatility * 10))
+            else:
+                volatility_factor = 60.0
 
-        except Exception:
+            # 4. Issue #586対応: ML予測信頼度（簡易実装）
+            # MLスコアの極端さ（0または100に近い）ほど信頼度が高い
+            ml_confidence = min(abs(ml_score - 50) * 2, 100)
+
+            # 5. Issue #586対応: 重み付き総合信頼度計算
+            # 既存の重みに加えて新しい要素を統合
+            base_confidence = (
+                score_consistency * self.confidence_weights['score_consistency'] +
+                data_adequacy * self.confidence_weights['data_adequacy']
+            )
+
+            # 高度要素の統合（20%の重み）
+            advanced_factors = (volatility_factor * 0.4 + ml_confidence * 0.6)
+
+            # 最終信頼度計算
+            final_confidence = base_confidence * 0.8 + advanced_factors * 0.2
+
+            return max(0, min(100, final_confidence))
+
+        except Exception as e:
+            logger.debug(f"信頼度計算エラー: {e}")
             return 50.0
 
     def _calculate_price_targets(self, current_price: float, score: float, risk_level: str) -> Tuple[float, float]:
-        """価格目標・ストップロス計算"""
+        """Issue #587対応: 価格目標・ストップロス計算（パラメータ化）"""
         try:
-            # リスクレベル別の目標・ロス率
-            risk_params = {
-                "低": {"target": 0.05, "stop": 0.03},
-                "中": {"target": 0.08, "stop": 0.05},
-                "高": {"target": 0.12, "stop": 0.08}
-            }
+            # リスクレベル別パラメータ取得
+            params = self.price_target_params.get(risk_level, self.price_target_params["中"])
 
-            params = risk_params.get(risk_level, risk_params["中"])
-
-            # スコア調整
+            # スコア調整による目標価格計算
             score_multiplier = score / 100
-            target_rate = params["target"] * score_multiplier
-            stop_rate = params["stop"]
+            target_rate = params["target_factor"] * score_multiplier
+            stop_rate = params["stop_loss_factor"]
 
+            # 価格目標・ストップロス計算
             price_target = current_price * (1 + target_rate)
             stop_loss = current_price * (1 - stop_rate)
 

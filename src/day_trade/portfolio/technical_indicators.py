@@ -91,7 +91,7 @@ class TechnicalIndicatorEngine:
     def __init__(self, config: IndicatorConfig = None):
         # Issue #619対応: 統合システムへの委譲
         from ..analysis.technical_indicators_consolidated import IndicatorConfig as ConsolidatedConfig
-        
+
         consolidated_config = ConsolidatedConfig(
             enabled_categories=config.enabled_categories if config else None,
             timeframes=config.timeframes if config else None,
@@ -102,10 +102,10 @@ class TechnicalIndicatorEngine:
             parallel_computation=config.parallel_computation if config else True,
             cache_results=config.cache_results if config else True
         )
-        
+
         self._manager = TechnicalIndicatorsManager(consolidated_config)
         self.config = config or IndicatorConfig()
-        
+
         logger.info("100+テクニカル指標エンジン初期化完了 (統合システム使用)")
         logger.warning("TechnicalIndicatorEngineは統合システムに移行しました")
 
@@ -117,10 +117,10 @@ class TechnicalIndicatorEngine:
         timeframe: str = "1D",
     ) -> Dict[str, List[IndicatorResult]]:
         """指標計算実行（統合システム委譲）"""
-        
+
         if indicators is None:
             indicators = self.get_available_indicators()
-        
+
         # 統合システムで計算実行
         results = self._manager.calculate_indicators(
             data=data,
@@ -128,7 +128,7 @@ class TechnicalIndicatorEngine:
             symbols=symbols,
             timeframe=timeframe
         )
-        
+
         # Issue #619対応: 結果を旧形式に変換（後方互換性）
         converted_results = {}
         for symbol, symbol_results in results.items():
@@ -147,7 +147,7 @@ class TechnicalIndicatorEngine:
                     metadata=result.metadata
                 )
                 converted_results[symbol].append(converted_result)
-        
+
         return converted_results
 
     def get_available_indicators(self) -> List[str]:
@@ -208,9 +208,9 @@ def calculate_rsi(data: pd.DataFrame, period: int = 14) -> np.ndarray:
     return calculate_rsi(data, period)
 
 def calculate_macd(
-    data: pd.DataFrame, 
-    fast: int = 12, 
-    slow: int = 26, 
+    data: pd.DataFrame,
+    fast: int = 12,
+    slow: int = 26,
     signal: int = 9
 ) -> Dict[str, np.ndarray]:
     """MACD計算（統合システム委譲）"""
@@ -218,27 +218,27 @@ def calculate_macd(
     return calculate_macd(data, fast, slow, signal)
 
 def calculate_bollinger_bands(
-    data: pd.DataFrame, 
-    period: int = 20, 
+    data: pd.DataFrame,
+    period: int = 20,
     std_dev: float = 2.0
 ) -> Dict[str, np.ndarray]:
     """ボリンジャーバンド計算（統合システム委譲）"""
     manager = TechnicalIndicatorsManager()
     result = manager.calculate_indicators(
-        data, ["bollinger_bands"], 
+        data, ["bollinger_bands"],
         period=period, std_dev=std_dev
     )
     return list(result.values())[0][0].values
 
 def calculate_stochastic(
-    data: pd.DataFrame, 
-    k_period: int = 14, 
+    data: pd.DataFrame,
+    k_period: int = 14,
     d_period: int = 3
 ) -> Dict[str, np.ndarray]:
     """ストキャスティクス計算（統合システム委譲）"""
     manager = TechnicalIndicatorsManager()
     result = manager.calculate_indicators(
-        data, ["stochastic"], 
+        data, ["stochastic"],
         k_period=k_period, d_period=d_period
     )
     return list(result.values())[0][0].values
