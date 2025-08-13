@@ -335,37 +335,95 @@ class OptimizationStrategyFactory:
     ) -> OptimizationLevel:
         """適応的レベル選択"""
         # システムリソース状況を考慮した適応的選択
-        import psutil
-
         try:
-            # メモリ使用率チェック
-            memory_percent = psutil.virtual_memory().percent
-            cpu_percent = psutil.cpu_percent(interval=1)
+            # psutilが利用可能な場合のみシステム監視を実行
+            memory_percent, cpu_percent = cls._get_system_metrics()
 
-            # 高負荷時は標準実装を選択
-            if memory_percent > 80 or cpu_percent > 80:
-                logger.info(
-                    f"高負荷検出、標準実装選択: CPU={cpu_percent}%, MEM={memory_percent}%"
-                )
-                return OptimizationLevel.STANDARD
-
-            # 中負荷時は最適化実装を選択
-            elif memory_percent > 60 or cpu_percent > 60:
-                logger.info(
-                    f"中負荷検出、最適化実装選択: CPU={cpu_percent}%, MEM={memory_percent}%"
-                )
-                return OptimizationLevel.OPTIMIZED
-
-            # 低負荷時は最適化実装を選択（デフォルト）
+            if memory_percent is not None and cpu_percent is not None:
+                # システムメトリクスが取得できた場合の適応的選択
+                return cls._select_level_by_metrics(memory_percent, cpu_percent)
             else:
-                logger.info(
-                    f"低負荷検出、最適化実装選択: CPU={cpu_percent}%, MEM={memory_percent}%"
-                )
-                return OptimizationLevel.OPTIMIZED
+                # システムメトリクスが取得できない場合のフォールバック選択
+                return cls._select_level_fallback(config)
 
         except Exception as e:
-            logger.error(f"適応的レベル選択エラー: {e}, 標準レベル使用")
+            logger.error(f"適応的レベル選択エラー: {e}, フォールバック選択使用")
+            return cls._select_level_fallback(config)
+
+    @classmethod
+    def _get_system_metrics(cls) -> tuple[Optional[float], Optional[float]]:
+        """システムメトリクスを安全に取得（psutilオプショナル対応）
+
+        Returns:
+            tuple: (memory_percent, cpu_percent) または (None, None)
+        """
+        try:
+            import psutil
+            memory_percent = psutil.virtual_memory().percent
+            cpu_percent = psutil.cpu_percent(interval=0.1)  # interval短縮でレスポンス向上
+            return memory_percent, cpu_percent
+        except ImportError:
+            logger.warning("psutilが利用できません。システム監視なしでフォールバック選択を使用")
+            return None, None
+        except Exception as e:
+            logger.warning(f"システムメトリクス取得エラー: {e}")
+            return None, None
+
+    @classmethod
+    def _select_level_by_metrics(cls, memory_percent: float, cpu_percent: float) -> OptimizationLevel:
+        """システムメトリクスに基づく適応的レベル選択
+
+        Args:
+            memory_percent: メモリ使用率（%）
+            cpu_percent: CPU使用率（%）
+
+        Returns:
+            OptimizationLevel: 選択された最適化レベル
+        """
+        # 高負荷時は標準実装を選択（安定性重視）
+        if memory_percent > 80 or cpu_percent > 80:
+            logger.info(
+                f"高負荷検出、標準実装選択: CPU={cpu_percent:.1f}%, MEM={memory_percent:.1f}%"
+            )
             return OptimizationLevel.STANDARD
+
+        # 中負荷時は最適化実装を選択（バランス重視）
+        elif memory_percent > 60 or cpu_percent > 60:
+            logger.info(
+                f"中負荷検出、最適化実装選択: CPU={cpu_percent:.1f}%, MEM={memory_percent:.1f}%"
+            )
+            return OptimizationLevel.OPTIMIZED
+
+        # 低負荷時は最適化実装を選択（パフォーマンス重視）
+        else:
+            logger.info(
+                f"低負荷検出、最適化実装選択: CPU={cpu_percent:.1f}%, MEM={memory_percent:.1f}%"
+            )
+            return OptimizationLevel.OPTIMIZED
+
+    @classmethod
+    def _select_level_fallback(cls, config: OptimizationConfig) -> OptimizationLevel:
+        """システム監視が利用できない場合のフォールバック選択
+
+        Args:
+            config: 最適化設定
+
+        Returns:
+            OptimizationLevel: フォールバック最適化レベル
+        """
+        # CI環境や軽量モードでは標準実装を選択
+        if config.ci_test_mode:
+            logger.info("CI環境検出、標準実装選択")
+            return OptimizationLevel.STANDARD
+
+        # メモリ制限が厳しい場合は標準実装を選択
+        if config.memory_limit_mb < 256:
+            logger.info(f"メモリ制限検出({config.memory_limit_mb}MB)、標準実装選択")
+            return OptimizationLevel.STANDARD
+
+        # その他の場合は最適化実装を選択（デフォルト）
+        logger.info("システム監視なし、最適化実装選択（デフォルト）")
+        return OptimizationLevel.OPTIMIZED
 
     @classmethod
     def set_global_config(cls, config: OptimizationConfig) -> None:
