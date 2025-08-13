@@ -11,11 +11,11 @@ from .batch_data_fetcher import AdvancedBatchDataFetcher, DataRequest, DataRespo
 
 def create_data_request(symbol: str, **kwargs) -> DataRequest:
     """データリクエスト作成ヘルパー
-    
+
     Args:
         symbol: 銘柄コード
         **kwargs: DataRequestの追加パラメータ
-        
+
     Returns:
         DataRequest: 作成されたデータリクエスト
     """
@@ -30,14 +30,14 @@ def fetch_advanced_batch(
     **kwargs,
 ) -> Dict[str, DataResponse]:
     """高度バッチ取得（簡易インターフェース）
-    
+
     Args:
         symbols: 銘柄コードリスト
         period: 取得期間
         preprocessing: 前処理実行フラグ
         priority: 優先度
         **kwargs: AdvancedBatchDataFetcherの追加パラメータ
-        
+
     Returns:
         Dict[str, DataResponse]: 銘柄別データレスポンス
     """
@@ -59,12 +59,12 @@ def preload_advanced_cache(
     symbols: List[str], periods: List[str] = None, **kwargs
 ) -> Dict[str, int]:
     """高度キャッシュ事前読み込み
-    
+
     Args:
         symbols: 銘柄コードリスト
         periods: 取得期間リスト
         **kwargs: AdvancedBatchDataFetcherの追加パラメータ
-        
+
     Returns:
         Dict[str, int]: 期間別成功数
     """

@@ -178,7 +178,7 @@ class IndicatorResult:
 
 ### 3. 柔軟な設定システム
 ```python
-@dataclass 
+@dataclass
 class IndicatorConfig:
     cache_results: bool = True
     use_talib: bool = True

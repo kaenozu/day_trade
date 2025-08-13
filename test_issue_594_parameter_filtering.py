@@ -20,9 +20,9 @@ from day_trade.analysis.technical_indicators_consolidated import (
 def test_issue_594_parameter_filtering():
     """Issue #594: パラメータフィルタリング簡略化テスト"""
     print("=== Issue #594: パラメータフィルタリング簡略化テスト ===")
-    
+
     manager = TechnicalIndicatorsManager()
-    
+
     # テストデータ作成
     np.random.seed(42)
     data = pd.DataFrame({
@@ -30,14 +30,14 @@ def test_issue_594_parameter_filtering():
         'Low': 100 + np.cumsum(np.random.randn(60) * 0.5) - 1,
         'Close': 100 + np.cumsum(np.random.randn(60) * 0.5)
     })
-    
+
     print("\n--- デフォルトパラメータテスト ---")
     # デフォルトパラメータで計算
     results = manager.calculate_indicators(data, ["sma", "ema", "rsi"], ["Close"])
     for symbol_results in results.values():
         for result in symbol_results:
             print(f"指標: {result.name}, メタデータ: {result.metadata}")
-    
+
     print("\n--- カスタムパラメータテスト ---")
     # カスタムパラメータで計算
     results = manager.calculate_indicators(
@@ -47,7 +47,7 @@ def test_issue_594_parameter_filtering():
     for symbol_results in results.values():
         for result in symbol_results:
             print(f"指標: {result.name}, メタデータ: {result.metadata}")
-    
+
     print("\n--- MACD特殊パラメータテスト ---")
     # MACD特殊パラメータ
     results = manager.calculate_indicators(
@@ -57,7 +57,7 @@ def test_issue_594_parameter_filtering():
     for symbol_results in results.values():
         for result in symbol_results:
             print(f"指標: {result.name}, メタデータ: {result.metadata}")
-    
+
     print("\n--- 無効パラメータ除外テスト ---")
     # 無効なパラメータが除外されることを確認
     results = manager.calculate_indicators(
@@ -72,7 +72,7 @@ def test_issue_594_parameter_filtering():
             # invalid_param が含まれていないことを確認
             assert "invalid_param" not in result.metadata
             assert "another_invalid" not in result.metadata
-    
+
     print("\n--- フィボナッチ複合パラメータテスト ---")
     # フィボナッチの複合パラメータ
     results = manager.calculate_indicators(
@@ -84,7 +84,7 @@ def test_issue_594_parameter_filtering():
     for symbol_results in results.values():
         for result in symbol_results:
             print(f"指標: {result.name}, メタデータ: {result.metadata}")
-    
+
     return True
 
 
@@ -92,18 +92,18 @@ def main():
     """メインテスト実行"""
     print("Issue #594対応: パラメータフィルタリング簡略化テスト開始")
     print("=" * 70)
-    
+
     try:
         success = test_issue_594_parameter_filtering()
-        
+
         if success:
             print("\n[成功] Issue #594 パラメータフィルタリング簡略化テスト完了")
             print("パラメータ処理が大幅に簡略化されました")
         else:
             print("\n[失敗] テストが失敗しました")
-            
+
         return success
-        
+
     except Exception as e:
         print(f"\n[エラー] テスト実行中にエラーが発生: {e}")
         import traceback
