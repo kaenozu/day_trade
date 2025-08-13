@@ -366,7 +366,9 @@ class MACDCrossoverRule(SignalRule):
         macd = indicators["MACD"].iloc[-lookback:]
         signal = indicators["MACD_Signal"].iloc[-lookback:]
 
-        if len(macd) < lookback or macd.isna().any() or signal.isna().any():
+        # Issue #650: MACD計算に必要な最小データ期間を検証
+        min_macd_period = 26 + lookback  # MACD計算には26期間が必要
+        if len(indicators) < min_macd_period or len(macd) < lookback or macd.isna().any() or signal.isna().any():
             return False, 0.0
 
         # ゴールデンクロスをチェック
@@ -419,7 +421,9 @@ class MACDDeathCrossRule(SignalRule):
         macd = indicators["MACD"].iloc[-lookback:]
         signal = indicators["MACD_Signal"].iloc[-lookback:]
 
-        if len(macd) < lookback or macd.isna().any() or signal.isna().any():
+        # Issue #650: MACD計算に必要な最小データ期間を検証
+        min_macd_period = 26 + lookback  # MACD計算には26期間が必要
+        if len(indicators) < min_macd_period or len(macd) < lookback or macd.isna().any() or signal.isna().any():
             return False, 0.0
 
         # デスクロスをチェック
@@ -484,10 +488,14 @@ class BollingerBandRule(SignalRule):
                 return False, 0.0
 
             if close_price <= bb_lower:
-                # バンドからの乖離率を信頼度に
-                deviation = (bb_lower - close_price) / close_price * 100
-                confidence = min(deviation * deviation_multiplier, 100)
-                return True, confidence
+                # Issue #651: 乖離率計算の堅牢性を改善
+                if close_price > 0:  # ゼロ除算防止
+                    deviation = (bb_lower - close_price) / close_price * 100
+                    # 異常な乖離率を制限
+                    deviation = min(deviation, 50.0)  # 最大50%に制限
+                    confidence = min(deviation * deviation_multiplier, 100)
+                    return True, max(confidence, 1.0)  # 最小信頼度1%
+                return True, 1.0  # フォールバック信頼度
 
         elif self.position == "upper":
             bb_upper = indicators["BB_Upper"].iloc[-1]
@@ -495,10 +503,14 @@ class BollingerBandRule(SignalRule):
                 return False, 0.0
 
             if close_price >= bb_upper:
-                # バンドからの乖離率を信頼度に
-                deviation = (close_price - bb_upper) / close_price * 100
-                confidence = min(deviation * deviation_multiplier, 100)
-                return True, confidence
+                # Issue #651: 乖離率計算の堅牢性を改善
+                if close_price > 0:  # ゼロ除算防止
+                    deviation = (close_price - bb_upper) / close_price * 100
+                    # 異常な乖離率を制限
+                    deviation = min(deviation, 50.0)  # 最大50%に制限
+                    confidence = min(deviation * deviation_multiplier, 100)
+                    return True, max(confidence, 1.0)  # 最小信頼度1%
+                return True, 1.0  # フォールバック信頼度
 
         return False, 0.0
 
@@ -521,9 +533,18 @@ class PatternBreakoutRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
-        breakouts = patterns.get("breakouts", pd.DataFrame())
-
-        if not isinstance(breakouts, pd.DataFrame) or breakouts.empty:
+        # Issue #653: パターンデータ一貫性の強化
+        breakouts = patterns.get("breakouts")
+        
+        # より厳密なデータ検証
+        if breakouts is None:
+            return False, 0.0
+            
+        if not isinstance(breakouts, pd.DataFrame):
+            logger.warning(f"PatternBreakoutRule: breakouts is not DataFrame, got {type(breakouts)}")
+            return False, 0.0
+            
+        if breakouts.empty:
             return False, 0.0
 
         if self.direction == "upward":
@@ -579,7 +600,10 @@ class GoldenCrossRule(SignalRule):
             recent_signal_lookback = config.get_signal_settings().get(
                 "recent_signal_lookback", 5
             )
-            lookback_window = min(recent_signal_lookback, len(crosses))
+            # Issue #654: lookback_window計算の堅牢性を改善
+            if len(crosses) == 0:
+                return False, 0.0
+            lookback_window = max(1, min(recent_signal_lookback, len(crosses)))
             recent_crosses = crosses["Golden_Cross"].iloc[-lookback_window:]
             recent_confidences = crosses["Golden_Confidence"].iloc[-lookback_window:]
 
@@ -617,7 +641,10 @@ class DeadCrossRule(SignalRule):
             recent_signal_lookback = config.get_signal_settings().get(
                 "recent_signal_lookback", 5
             )
-            lookback_window = min(recent_signal_lookback, len(crosses))
+            # Issue #654: lookback_window計算の堅牢性を改善
+            if len(crosses) == 0:
+                return False, 0.0
+            lookback_window = max(1, min(recent_signal_lookback, len(crosses)))
             recent_crosses = crosses["Dead_Cross"].iloc[-lookback_window:]
             recent_confidences = crosses["Dead_Confidence"].iloc[-lookback_window:]
 
