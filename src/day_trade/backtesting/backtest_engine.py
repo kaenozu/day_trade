@@ -42,7 +42,7 @@ class BacktestEngine:
         self.daily_returns: List[float] = []
         self.portfolio_values: List[float] = []
 
-        
+
 
         print(f"バックテストエンジン初期化: 初期資本 {initial_capital:,.0f}円")
 
