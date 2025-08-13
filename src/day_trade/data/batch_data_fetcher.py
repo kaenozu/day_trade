@@ -44,7 +44,7 @@ except ImportError:
     pass
 
 from ..utils.logging_config import get_context_logger
-from ..utils.stock_name_helper import format_stock_display
+from ..utils.stock_name_helper import get_stock_helper
 from .real_market_data import RealMarketDataManager
 
 logger = get_context_logger(__name__)
@@ -124,6 +124,7 @@ class AdvancedBatchDataFetcher:
         self.ci_mode = os.getenv("CI", "false").lower() == "true"
 
         self.data_manager = RealMarketDataManager()
+        self.stock_helper = get_stock_helper()
         self.max_workers = (
             max_workers if not self.ci_mode else min(max_workers, 2)
         )  # CI時は2並列まで
@@ -416,11 +417,11 @@ class AdvancedBatchDataFetcher:
                         if not indicators_df.empty:
                             result = pd.concat([result, indicators_df], axis=1)
 
-                    stock_display = format_stock_display(request.symbol)
+                    stock_display = self.stock_helper.format_stock_display(request.symbol)
                     logger.debug(f"統合指標マネージャー使用: {stock_display}")
 
                 except Exception as e:
-                    stock_display = format_stock_display(request.symbol)
+                    stock_display = self.stock_helper.format_stock_display(request.symbol)
                     logger.warning(f"テクニカル指標計算スキップ {stock_display}: {e}")
                     # エラーの場合は指標なしで続行
 
@@ -435,7 +436,7 @@ class AdvancedBatchDataFetcher:
                     result["SMA_20"] = result["終値"].rolling(20).mean()
                     result["EMA_20"] = result["終値"].ewm(span=20).mean()
 
-                stock_display = format_stock_display(request.symbol)
+                stock_display = self.stock_helper.format_stock_display(request.symbol)
                 logger.debug(f"フォールバック処理: {stock_display}")
 
             # 出来高特徴量（追加）
@@ -457,11 +458,11 @@ class AdvancedBatchDataFetcher:
             # 欠損値処理
             result = result.fillna(method="ffill").fillna(method="bfill")
 
-            stock_display = format_stock_display(request.symbol)
+            stock_display = self.stock_helper.format_stock_display(request.symbol)
             logger.debug(f"前処理完了: {stock_display} - {len(result.columns)} 特徴量")
 
         except Exception as e:
-            stock_display = format_stock_display(request.symbol)
+            stock_display = self.stock_helper.format_stock_display(request.symbol)
             logger.error(f"前処理エラー {stock_display}: {e}")
             # エラー時は元データを返す
             result = data

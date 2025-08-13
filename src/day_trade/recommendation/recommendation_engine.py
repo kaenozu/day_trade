@@ -23,7 +23,7 @@ np.random.seed(42)
 from ..analysis.technical_indicators_unified import TechnicalIndicatorsManager
 from ..data.advanced_ml_engine import AdvancedMLEngine
 from ..data.batch_data_fetcher import AdvancedBatchDataFetcher, DataRequest
-from ..utils.stock_name_helper import get_stock_helper, format_stock_display
+from ..utils.stock_name_helper import get_stock_helper
 from ..utils.logging_config import get_context_logger
 # Issue #487対応: スマート銘柄選択統合
 from ..automation.smart_symbol_selector import get_smart_selected_symbols
@@ -223,9 +223,9 @@ class RecommendationEngine:
                             recommendations.append(recommendation)
 
                     except Exception as e:
-                        logger.warning(f"銘柄分析エラー {format_stock_display(symbol)}: {e}")
+                        logger.warning(f"銘柄分析エラー {self.stock_helper.format_stock_display(symbol)}: {e}")
                 else:
-                    logger.warning(f"データ取得失敗: {format_stock_display(symbol)}")
+                    logger.warning(f"データ取得失敗: {self.stock_helper.format_stock_display(symbol)}")
 
             # 3. スコア順ソート
             recommendations.sort(key=lambda x: x.composite_score, reverse=True)
@@ -290,7 +290,7 @@ class RecommendationEngine:
             )
 
         except Exception as e:
-            logger.error(f"単一銘柄分析エラー {format_stock_display(symbol)}: {e}")
+            logger.error(f"単一銘柄分析エラー {self.stock_helper.format_stock_display(symbol)}: {e}")
             return None
 
     async def _calculate_technical_score(self, symbol: str, data: pd.DataFrame) -> Tuple[float, List[str]]:
@@ -349,7 +349,7 @@ class RecommendationEngine:
         except Exception as e:
             # Issue #580対応: エラータイプ別の詳細ハンドリング
             error_info = self._analyze_technical_error(e, symbol, data)
-            logger.warning(f"テクニカル指標計算エラー {format_stock_display(symbol)}: {error_info['message']}")
+            logger.warning(f"テクニカル指標計算エラー {self.stock_helper.format_stock_display(symbol)}: {error_info['message']}")
             logger.debug(f"テクニカル指標エラー詳細 {symbol}: {str(e)}", exc_info=True)
             return error_info['score'], error_info['reasons']
 
@@ -401,7 +401,7 @@ class RecommendationEngine:
         except Exception as e:
             # Issue #580対応: エラータイプ別の詳細ハンドリング
             error_info = self._analyze_ml_error(e, symbol, data)
-            logger.warning(f"ML予測計算エラー {format_stock_display(symbol)}: {error_info['message']}")
+            logger.warning(f"ML予測計算エラー {self.stock_helper.format_stock_display(symbol)}: {error_info['message']}")
             logger.debug(f"ML予測エラー詳細 {symbol}: {str(e)}", exc_info=True)
             return error_info['score'], error_info['reasons']
 
@@ -521,7 +521,7 @@ class RecommendationEngine:
                 return 0.0, ["処理エラー"]
 
         except Exception as e:
-            logger.warning(f"アンサンブル予測エラー {format_stock_display(symbol)}: {e}")
+            logger.warning(f"アンサンブル予測エラー {self.stock_helper.format_stock_display(symbol)}: {e}")
             return 0.0, ["システムエラー"]
 
     def _analyze_sma_signal(self, data: pd.DataFrame, sma_result) -> Tuple[float, Optional[str]]:

@@ -26,7 +26,7 @@ from ..models.database import get_default_database_manager
 # FaultTolerantExecutor は利用できないため、基本的なエラーハンドリングを使用
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_monitor import PerformanceMonitor
-from ..utils.stock_name_helper import get_stock_helper, format_stock_display
+from ..utils.stock_name_helper import get_stock_helper
 
 CI_MODE = os.getenv("CI", "false").lower() == "true"
 
@@ -188,6 +188,7 @@ class NextGenAIOrchestrator:
 
         # コアコンポーネント初期化
         self.stock_fetcher = StockFetcher()
+        self.stock_helper = get_stock_helper()
         self.analysis_engines: Dict[str, AnalysisOnlyEngine] = {}
         self.db_manager = get_default_database_manager()  # DatabaseManagerを取得
 
@@ -469,13 +470,13 @@ class NextGenAIOrchestrator:
             for symbol, result in results.items():
                 if result["success"]:
                     successful_symbols += 1
-                    successful_symbol_names.append(format_stock_display(symbol))
+                    successful_symbol_names.append(self.stock_helper.format_stock_display(symbol))
                     ai_analysis_results.append(result["analysis"])
                     generated_signals.extend(result["signals"])
                     triggered_alerts.extend(result["alerts"])
                 else:
                     failed_symbols += 1
-                    failed_symbol_names.append(format_stock_display(symbol))
+                    failed_symbol_names.append(self.stock_helper.format_stock_display(symbol))
                     errors.extend(result["errors"])
 
             # ポートフォリオ分析統合
@@ -543,7 +544,7 @@ class NextGenAIOrchestrator:
         """高度バッチデータ収集"""
 
         # 銘柄名を含む詳細情報を表示
-        symbol_names = [format_stock_display(symbol, include_code=False) for symbol in symbols[:5]]
+        symbol_names = [self.stock_helper.format_stock_display(symbol, include_code=False) for symbol in symbols[:5]]
         if len(symbols) > 5:
             symbol_names.append(f"他{len(symbols)-5}銘柄")
         logger.info(f"バッチデータ収集開始: {len(symbols)} 銘柄 ({', '.join(symbol_names)})")
@@ -661,7 +662,7 @@ class NextGenAIOrchestrator:
         try:
             # データ品質チェック
             if not data_response or not data_response.success:
-                stock_display = format_stock_display(symbol)
+                stock_display = self.stock_helper.format_stock_display(symbol)
                 return {
                     "success": False,
                     "errors": [f"{stock_display}: データ取得失敗"],
@@ -674,7 +675,7 @@ class NextGenAIOrchestrator:
             data_quality = data_response.data_quality_score
 
             # データ品質閾値チェック
-            stock_display = format_stock_display(symbol)
+            stock_display = self.stock_helper.format_stock_display(symbol)
             if data_quality < self.config.data_quality_threshold:
                 logger.warning(f"{stock_display}: データ品質不足 ({data_quality:.1f})")
 
