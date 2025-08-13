@@ -705,6 +705,10 @@ class RecommendationEngine:
         """リソース解放"""
         if hasattr(self.data_fetcher, 'close'):
             self.data_fetcher.close()
+        if hasattr(self.technical_manager, 'close'):
+            self.technical_manager.close()
+        if hasattr(self.ml_engine, 'close'):
+            self.ml_engine.close()
         logger.info("推奨銘柄選定エンジン終了")
 
 
