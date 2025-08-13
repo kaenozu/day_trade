@@ -58,13 +58,18 @@ class SignalRulesConfig:
     """シグナルルール設定管理クラス"""
 
     def __init__(self, config_path: Optional[str] = None):
-        if config_path is None:
-            # プロジェクトルートからの絶対パス設定
-            project_root = Path(__file__).parent.parent.parent.parent
-            config_path = project_root / "config" / "signal_rules.json"
-
-        self.config_path = Path(config_path)
+        self.config_path = self._resolve_config_path(config_path)
         self.config = self._load_config()
+        
+    def _resolve_config_path(self, config_path: Optional[str]) -> Path:
+        """設定ファイルパスを解決"""
+        if config_path is not None:
+            return Path(config_path)
+            
+        # プロジェクトルートからの絶対パス設定
+        current_file = Path(__file__)
+        project_root = current_file.parent.parent.parent.parent
+        return project_root / "config" / "signal_rules.json"
 
     def _load_config(self) -> Dict[str, Any]:
         """設定ファイルを読み込み"""
@@ -80,21 +85,47 @@ class SignalRulesConfig:
 
     def _get_default_config(self) -> Dict[str, Any]:
         """デフォルト設定を返す"""
+        # 統合されたデフォルト設定値
+        return self._create_default_config_structure()
+        
+    def _create_default_config_structure(self) -> Dict[str, Any]:
+        """デフォルト設定構造を作成"""
         return {
             "default_buy_rules": [],
             "default_sell_rules": [],
-            "signal_generation_settings": {
-                "min_data_period": 60,
-                "confidence_multipliers": {
-                    "rsi_oversold": 2.0,
-                    "rsi_overbought": 2.0,
-                    "macd_angle": 20.0,
-                    "bollinger_deviation": 10.0,
-                },
-                "strength_thresholds": {
-                    "strong": {"confidence": 70, "min_active_rules": 3},
-                    "medium": {"confidence": 40, "min_active_rules": 2},
-                },
+            "signal_generation_settings": self._get_default_signal_settings(),
+            "rsi_default_thresholds": {"oversold": 30, "overbought": 70},
+            "macd_default_settings": {"lookback_period": 2, "default_weight": 1.5},
+            "pattern_breakout_settings": {"default_weight": 2.0},
+            "golden_dead_cross_settings": {"default_weight": 2.0},
+            "volume_spike_settings": {
+                "volume_factor": 2.0,
+                "price_change_threshold": 0.02,
+                "confidence_base": 50.0,
+                "confidence_multiplier": 20.0,
+            },
+        }
+        
+    def _get_default_signal_settings(self) -> Dict[str, Any]:
+        """デフォルトシグナル設定を取得"""
+        return {
+            "min_data_period": 60,
+            "min_data_for_generation": 20,
+            "volume_calculation_period": 20,
+            "trend_lookback_period": 20,
+            "confidence_multipliers": {
+                "rsi_oversold": 2.0,
+                "rsi_overbought": 2.0,
+                "macd_angle": 20.0,
+                "bollinger_deviation": 10.0,
+            },
+            "strength_thresholds": {
+                "strong": {"confidence": 70, "min_active_rules": 3},
+                "medium": {"confidence": 40, "min_active_rules": 2},
+            },
+            "signal_freshness": {"warning_hours": 24, "stale_hours": 72},
+            "validation_adjustments": {
+                "high_volatility_threshold": 0.05,
             },
         }
 
@@ -178,6 +209,18 @@ class SignalRulesConfig:
         return self.config.get("golden_dead_cross_settings", {"default_weight": 2.0})
 
 
+# グローバル設定インスタンス（Issue #649対応）
+_shared_config_instance: Optional[SignalRulesConfig] = None
+
+
+def _get_shared_config() -> SignalRulesConfig:
+    """共有設定インスタンスを取得"""
+    global _shared_config_instance
+    if _shared_config_instance is None:
+        _shared_config_instance = SignalRulesConfig()
+    return _shared_config_instance
+
+
 class SignalRule:
     """シグナルルールの基底クラス"""
 
@@ -222,7 +265,7 @@ class RSIOversoldRule(SignalRule):
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
         if config is None:
-            config = SignalRulesConfig()
+            config = _get_shared_config()
 
         threshold = config.get_rsi_thresholds().get("oversold", self.threshold)
         confidence_multiplier = config.get_confidence_multiplier(
@@ -265,7 +308,7 @@ class RSIOverboughtRule(SignalRule):
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
         if config is None:
-            config = SignalRulesConfig()
+            config = _get_shared_config()
 
         threshold = config.get_rsi_thresholds().get("overbought", self.threshold)
         confidence_multiplier = config.get_confidence_multiplier(
@@ -305,7 +348,7 @@ class MACDCrossoverRule(SignalRule):
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
         if config is None:
-            config = SignalRulesConfig()
+            config = _get_shared_config()
 
         lookback = config.get_macd_settings().get("lookback_period", self.lookback)
         angle_multiplier = config.get_confidence_multiplier(
@@ -358,7 +401,7 @@ class MACDDeathCrossRule(SignalRule):
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
         if config is None:
-            config = SignalRulesConfig()
+            config = _get_shared_config()
 
         lookback = config.get_macd_settings().get("lookback_period", self.lookback)
         angle_multiplier = config.get_confidence_multiplier(
@@ -419,7 +462,7 @@ class BollingerBandRule(SignalRule):
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
         if config is None:
-            config = SignalRulesConfig()
+            config = _get_shared_config()
 
         deviation_multiplier = config.get_confidence_multiplier(
             "bollinger_deviation", self.deviation_multiplier
@@ -623,17 +666,7 @@ class TradingSignalGenerator:
         rule_type = rule_config.get("type")
         parameters = rule_config.get("parameters", {})
 
-        rule_map = {
-            "RSIOversoldRule": RSIOversoldRule,
-            "RSIOverboughtRule": RSIOverboughtRule,
-            "MACDCrossoverRule": MACDCrossoverRule,
-            "MACDDeathCrossRule": MACDDeathCrossRule,
-            "BollingerBandRule": BollingerBandRule,
-            "PatternBreakoutRule": PatternBreakoutRule,
-            "GoldenCrossRule": GoldenCrossRule,
-            "DeadCrossRule": DeadCrossRule,
-            "VolumeSpikeBuyRule": VolumeSpikeBuyRule,
-        }
+        rule_map = self._get_rule_mapping()
 
         if rule_type in rule_map:
             try:
@@ -644,6 +677,25 @@ class TradingSignalGenerator:
         else:
             logger.warning(f"未知のルールタイプ: {rule_type}")
             return None
+
+    def _get_rule_mapping(self) -> Dict[str, type]:
+        """
+        ルールタイプとクラスのマッピングを取得（Issue #655対応）
+        
+        Returns:
+            ルール名とクラスのマッピング辞書
+        """
+        return {
+            "RSIOversoldRule": RSIOversoldRule,
+            "RSIOverboughtRule": RSIOverboughtRule,
+            "MACDCrossoverRule": MACDCrossoverRule,
+            "MACDDeathCrossRule": MACDDeathCrossRule,
+            "BollingerBandRule": BollingerBandRule,
+            "PatternBreakoutRule": PatternBreakoutRule,
+            "GoldenCrossRule": GoldenCrossRule,
+            "DeadCrossRule": DeadCrossRule,
+            "VolumeSpikeBuyRule": VolumeSpikeBuyRule,
+        }
 
     def _load_default_buy_rules(self):
         """デフォルト買いルールを読み込み"""
@@ -1458,7 +1510,7 @@ class VolumeSpikeBuyRule(SignalRule):
 
         # 設定ファイルからデフォルト値を取得
         if config is None:
-            config = SignalRulesConfig()
+            config = _get_shared_config()
 
         volume_settings = config.get_volume_spike_settings()
 
@@ -1491,7 +1543,7 @@ class VolumeSpikeBuyRule(SignalRule):
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
         if config is None:
-            config = SignalRulesConfig()
+            config = _get_shared_config()
 
         volume_settings = config.get_volume_spike_settings()
         volume_factor = volume_settings["volume_factor"]
