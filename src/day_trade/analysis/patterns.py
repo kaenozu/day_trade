@@ -3,7 +3,7 @@
 価格データからチャートパターンを認識する
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -198,17 +198,18 @@ class ChartPatternRecognizer:
                     else:
                         break
 
-                # クラスタサイズに基づくフィルタリング
+                # 改善されたクラスタサイズに基づくフィルタリング
                 min_cluster_size = max(1, len(sorted_levels) // (num_clusters * 3))
                 final_centers = []
+                
                 for center in centers:
-                    cluster_size = len(
-                        [
-                            level
-                            for level in sorted_levels
-                            if np.abs(level - center) <= np.abs(centers - center).min()
-                        ]
-                    )
+                    # より効率的な距離計算
+                    distances_to_center = np.abs(sorted_levels - center)
+                    min_distance_to_other_centers = np.min([np.abs(center - other_center) 
+                                                          for other_center in centers if other_center != center] + [float('inf')])
+                    
+                    cluster_size = np.sum(distances_to_center <= min_distance_to_other_centers / 2)
+                    
                     if cluster_size >= min_cluster_size:
                         final_centers.append(center)
 
@@ -396,15 +397,7 @@ class ChartPatternRecognizer:
                     ransac_min_samples = self.config.get_trend_line_ransac_min_samples()
 
                     # min_samplesを整数に変換（比率の場合）
-                    if (
-                        isinstance(ransac_min_samples, float)
-                        and ransac_min_samples < 1.0
-                    ):
-                        min_samples_count = max(
-                            2, int(len(min_idx) * ransac_min_samples)
-                        )
-                    else:
-                        min_samples_count = int(ransac_min_samples)
+                    min_samples_count = self._convert_ransac_min_samples(ransac_min_samples, len(min_idx))
 
                     ransac = RANSACRegressor(
                         estimator=LinearRegression(),
@@ -442,7 +435,7 @@ class ChartPatternRecognizer:
                     "current_value": current_value,
                     "touches": len(min_idx),
                     "inliers": inliers,
-                    "angle": np.degrees(np.arctan(slope / np.mean(prices_low))),
+                    "angle": np.degrees(np.arctan(slope)) if np.mean(prices_low) != 0 else 0.0,
                 }
 
             # 下降トレンドライン（極大値を結ぶ）
@@ -459,15 +452,7 @@ class ChartPatternRecognizer:
                     ransac_min_samples = self.config.get_trend_line_ransac_min_samples()
 
                     # min_samplesを整数に変換（比率の場合）
-                    if (
-                        isinstance(ransac_min_samples, float)
-                        and ransac_min_samples < 1.0
-                    ):
-                        min_samples_count = max(
-                            2, int(len(max_idx) * ransac_min_samples)
-                        )
-                    else:
-                        min_samples_count = int(ransac_min_samples)
+                    min_samples_count = self._convert_ransac_min_samples(ransac_min_samples, len(max_idx))
 
                     ransac = RANSACRegressor(
                         estimator=LinearRegression(),
@@ -505,7 +490,7 @@ class ChartPatternRecognizer:
                     "current_value": current_value,
                     "touches": len(max_idx),
                     "inliers": inliers,
-                    "angle": np.degrees(np.arctan(slope / np.mean(prices_high))),
+                    "angle": np.degrees(np.arctan(slope)) if np.mean(prices_high) != 0 else 0.0,
                 }
 
             return result
@@ -534,32 +519,41 @@ class ChartPatternRecognizer:
         trend_window: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
-        全パターンを検出（リファクタリング版 - メンテナンス性向上）
+        全パターンを検出（簡素化版 - メンテナンス性向上）
 
         Args:
             df: 価格データのDataFrame
             各種パラメータ
 
         Returns:
-            簡素化されたパターン検出結果の辞書
+            パターン検出結果の辞書
         """
-        # パラメータの初期化
-        params = self._initialize_detection_params(
-            golden_cross_fast,
-            golden_cross_slow,
-            support_resistance_window,
-            breakout_lookback,
-            trend_window,
-        )
         try:
-            # パターン検出の実行
-            pattern_results = self._execute_pattern_detection(df, params)
+            # 設定値の初期化
+            golden_cross_fast = golden_cross_fast or self.config.get_all_patterns_golden_cross_fast()
+            golden_cross_slow = golden_cross_slow or self.config.get_all_patterns_golden_cross_slow()
+            support_resistance_window = support_resistance_window or self.config.get_all_patterns_support_resistance_window()
+            breakout_lookback = breakout_lookback or self.config.get_all_patterns_breakout_lookback()
+            trend_window = trend_window or self.config.get_all_patterns_trend_window()
 
-            # 結果の統合と分析
-            analysis_results = self._analyze_pattern_results(pattern_results)
+            # 各パターンの検出を並列実行
+            pattern_results = {
+                "crosses": self.golden_dead_cross(df, golden_cross_fast, golden_cross_slow),
+                "breakouts": self.breakout_detection(df, breakout_lookback),
+                "levels": self.support_resistance_levels(df, support_resistance_window),
+                "trends": self.trend_line_detection(df, trend_window),
+            }
 
-            # 最終結果の組み立て
-            return self._build_final_results(pattern_results, analysis_results)
+            # 分析結果の追加
+            pattern_results.update({
+                "latest_signal": self._get_latest_signal(pattern_results["crosses"], pattern_results["breakouts"]),
+                "overall_confidence": self._calculate_overall_confidence(
+                    pattern_results["crosses"], pattern_results["breakouts"], pattern_results["trends"]
+                ),
+                "pattern_summary": self._generate_pattern_summary(pattern_results),
+            })
+
+            return pattern_results
 
         except Exception as e:
             should_log_detailed = self.config.should_log_detailed_errors()
@@ -657,7 +651,8 @@ class ChartPatternRecognizer:
 
             if golden_crosses > 0:
                 max_golden_conf = pattern_results["crosses"]["Golden_Confidence"].max()
-                if max_golden_conf > 70:
+                signal_threshold = self.config.get_pattern_summary_signal_threshold()
+                if max_golden_conf > signal_threshold:
                     summary["strong_signals"].append(
                         f"Golden Cross ({max_golden_conf:.1f})"
                     )
@@ -910,6 +905,22 @@ class ChartPatternRecognizer:
             "trend": weights.get("trend_r2", 0.2),
         }
         return weight_mapping.get(component, 0.1)
+
+    def _convert_ransac_min_samples(self, ransac_min_samples: Union[int, float], data_size: int) -> int:
+        """
+        RANSAC min_samplesを適切な整数値に変換
+        
+        Args:
+            ransac_min_samples: 設定値（整数または比率）
+            data_size: データサイズ
+            
+        Returns:
+            適切な最小サンプル数
+        """
+        if isinstance(ransac_min_samples, float) and ransac_min_samples < 1.0:
+            return max(2, int(data_size * ransac_min_samples))
+        else:
+            return int(ransac_min_samples)
 
 
 # 使用例
