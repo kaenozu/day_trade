@@ -13,7 +13,7 @@ from .base_model_interface import BaseModelInterface
 
 __all__ = [
     'RandomForestModel',
-    'GradientBoostingModel', 
+    'GradientBoostingModel',
     'SVRModel',
     'BaseModelInterface'
 ]
