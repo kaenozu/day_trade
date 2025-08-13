@@ -19,7 +19,7 @@ import numpy as np
 from ..data.batch_data_fetcher import AdvancedBatchDataFetcher, DataRequest
 from ..data.advanced_ml_engine import AdvancedMLEngine
 from ..recommendation.recommendation_engine import RecommendationEngine
-from ..utils.stock_name_helper import get_stock_helper, format_stock_display
+from ..utils.stock_name_helper import get_stock_helper
 from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
@@ -397,7 +397,7 @@ class AutoPipelineManager:
                             performance_metrics[symbol] = metrics
 
                 except Exception as e:
-                    logger.warning(f"銘柄 {format_stock_display(symbol)} の学習失敗: {e}")
+                    logger.warning(f"銘柄 {self.stock_helper.format_stock_display(symbol)} の学習失敗: {e}")
                     continue
 
             training_time = time.time() - start_time

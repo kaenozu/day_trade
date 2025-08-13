@@ -343,3 +343,13 @@ def validate_symbol_format(symbol: Union[str, int]) -> bool:
         return True
 
     return False
+
+
+def get_stock_helper() -> StockNameHelper:
+    """
+    StockNameHelperインスタンスを取得
+
+    Returns:
+        StockNameHelperインスタンス
+    """
+    return StockNameHelper.get_instance()
