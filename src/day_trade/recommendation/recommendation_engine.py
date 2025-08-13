@@ -446,8 +446,11 @@ class RecommendationEngine:
             # データ量
             data_adequacy = min(100, len(data) / 60 * 100)  # 60日分を100%とする
 
-            # 総合信頼度
-            confidence = (score_consistency * 0.6 + data_adequacy * 0.4)
+            # 総合信頼度 - Issue #586対応: 重み付けをクラス変数から取得
+            confidence = (
+                score_consistency * self.confidence_weights['score_consistency'] +
+                data_adequacy * self.confidence_weights['data_adequacy']
+            )
             return max(0, min(100, confidence))
 
         except Exception:
@@ -457,11 +460,18 @@ class RecommendationEngine:
         """価格目標・ストップロス計算"""
         try:
             # リスクレベル別の目標・ロス率
-            risk_params = {
-                "低": {"target": 0.05, "stop": 0.03},
-                "中": {"target": 0.08, "stop": 0.05},
-                "高": {"target": 0.12, "stop": 0.08}
-            }
+            # 価格目標・ストップロス計算パラメータ - Issue #587対応
+        self.price_target_params = {
+            "低": {"target_factor": 0.05, "stop_loss_factor": 0.03},
+            "中": {"target_factor": 0.08, "stop_loss_factor": 0.05},
+            "高": {"target_factor": 0.12, "stop_loss_factor": 0.08}
+        }
+
+        # 信頼度計算の重み - Issue #586対応
+        self.confidence_weights = {
+            'score_consistency': 0.6,
+            'data_adequacy': 0.4,
+        }
 
             params = risk_params.get(risk_level, risk_params["中"])
 
