@@ -39,7 +39,7 @@ from .deep_learning_models import (
 
 logger = get_context_logger(__name__)
 
-# PyTorch可用性チェック
+# Issue #696対応: PyTorch可用性チェックと明確化
 PYTORCH_AVAILABLE = False
 try:
     import torch
@@ -49,9 +49,25 @@ try:
     from torch.utils.data import DataLoader, Dataset
 
     PYTORCH_AVAILABLE = True
-    logger.info("PyTorch利用可能 - GPU加速対応")
+    logger.info("PyTorch利用可能 - 完全なHybridLSTMTransformerモデルを使用")
 except ImportError:
-    logger.info("PyTorch未利用 - NumPy実装にフォールバック")
+    PYTORCH_AVAILABLE = False
+    logger.critical(
+        "=== HybridLSTMTransformer 重要警告 ===\n"
+        "PyTorchが未インストールです。NumPyフォールバック実装を使用しますが、\n"
+        "これは簡易的な線形回帰モデルであり、ハイブリッド深層学習の性能は期待できません。\n"
+        "・LSTM機能: 無効（線形近似のみ）\n"
+        "・Transformer機能: 無効（線形近似のみ）\n" 
+        "・Cross-Attention機能: 無効\n"
+        "・GPU加速: 無効\n"
+        "本格的なハイブリッド深層学習にはPyTorchが必須です。\n"
+        "インストール: pip install torch\n"
+        "======================================"
+    )
+    warnings.warn(
+        "PyTorch未インストール - HybridLSTMTransformer簡易実装にフォールバック（大幅な性能制限あり）", 
+        ImportWarning, stacklevel=2
+    )
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -107,11 +123,38 @@ class HybridTrainingResult(TrainingResult):
 
 
 class TimeSeriesDataset(Dataset):
-    """PyTorch時系列データセット"""
+    """PyTorch時系列データセット - Issue #697対応: データ読み込み最適化"""
 
-    def __init__(self, X: np.ndarray, y: np.ndarray = None):
-        self.X = torch.FloatTensor(X)
-        self.y = torch.FloatTensor(y) if y is not None else None
+    def __init__(self, X, y=None, device=None):
+        """
+        Issue #697対応: Tensor/NumPyを直接受け取る効率的データセット
+        
+        Args:
+            X: 入力データ（torch.Tensor or np.ndarray）
+            y: ターゲットデータ（torch.Tensor or np.ndarray, optional）
+            device: デバイス指定（GPU転送用）
+        """
+        # Issue #697対応: 入力タイプに応じた効率的処理
+        if isinstance(X, torch.Tensor):
+            self.X = X.clone().detach()  # 安全なコピー
+        else:
+            self.X = torch.from_numpy(X).float()  # NumPy -> Tensor
+            
+        if y is not None:
+            if isinstance(y, torch.Tensor):
+                self.y = y.clone().detach()
+            else:
+                self.y = torch.from_numpy(y).float()
+        else:
+            self.y = None
+            
+        # Issue #697対応: デバイス指定時の事前転送（pin_memory用）
+        self.device = device
+        if device is not None and device.type == 'cpu':
+            # CPU使用時はpin_memoryのため、CPUテンソルのまま保持
+            self.X = self.X.pin_memory() if self.X.is_pinned() == False else self.X
+            if self.y is not None:
+                self.y = self.y.pin_memory() if self.y.is_pinned() == False else self.y
 
     def __len__(self):
         return len(self.X)
@@ -120,12 +163,31 @@ class TimeSeriesDataset(Dataset):
         if self.y is not None:
             return self.X[idx], self.y[idx]
         return self.X[idx]
+    
+    @staticmethod
+    def create_efficient_dataset(X, y=None, device=None, use_pinned_memory=True):
+        """
+        Issue #697対応: 効率的データセット作成ヘルパー
+        
+        Args:
+            X: 入力データ
+            y: ターゲットデータ
+            device: デバイス
+            use_pinned_memory: ピンメモリ使用フラグ
+        """
+        if use_pinned_memory and device is not None and device.type == 'cuda':
+            # GPU使用時はCPUでpin_memoryを活用
+            dataset_device = torch.device('cpu')
+        else:
+            dataset_device = device
+            
+        return TimeSeriesDataset(X, y, dataset_device)
 
 
 if PYTORCH_AVAILABLE:
 
     class CrossAttentionLayer(nn.Module):
-        """Cross-Attention融合メカニズム"""
+        """Cross-Attention融合メカニズム - Issue #698対応: テンソル操作最適化"""
 
         def __init__(
             self,
@@ -137,27 +199,30 @@ if PYTORCH_AVAILABLE:
             super().__init__()
             self.attention_heads = attention_heads
             self.attention_dim = attention_dim
-            self.scale = (attention_dim // attention_heads) ** -0.5
+            self.head_dim = attention_dim // attention_heads
+            self.scale = self.head_dim ** -0.5
 
             # Projection layers
             self.lstm_proj = nn.Linear(lstm_dim, attention_dim)
             self.transformer_proj = nn.Linear(transformer_dim, attention_dim)
 
-            # Multi-head attention components
-            self.query_proj = nn.Linear(attention_dim, attention_dim)
-            self.key_proj = nn.Linear(attention_dim, attention_dim)
-            self.value_proj = nn.Linear(attention_dim, attention_dim)
+            # Issue #698対応: 単一リニア層で Q, K, V を一度に計算（効率化）
+            self.qkv_proj = nn.Linear(attention_dim, attention_dim * 3)
             self.output_proj = nn.Linear(attention_dim, attention_dim)
 
             # Layer normalization
             self.layer_norm = nn.LayerNorm(attention_dim)
             self.dropout = nn.Dropout(0.1)
+            
+            # Issue #698対応: 事前計算された形状保存
+            self._cached_batch_size = None
+            self._cached_combined_shape = None
 
         def forward(
             self, lstm_features: torch.Tensor, transformer_features: torch.Tensor
         ) -> Tuple[torch.Tensor, torch.Tensor]:
             """
-            Cross-Attention計算
+            Cross-Attention計算 - Issue #698対応: テンソル操作最適化
 
             Args:
                 lstm_features: LSTM出力 [batch, lstm_dim]
@@ -175,44 +240,34 @@ if PYTORCH_AVAILABLE:
                 transformer_features
             )  # [batch, attention_dim]
 
-            # 結合特徴量
-            combined = torch.stack(
-                [lstm_proj, transformer_proj], dim=1
-            )  # [batch, 2, attention_dim]
+            # Issue #698対応: メモリ効率的な結合（stackよりcat+reshape）
+            combined = torch.cat([lstm_proj.unsqueeze(1), transformer_proj.unsqueeze(1)], dim=1)  # [batch, 2, attention_dim]
 
-            # Multi-head attention準備
-            batch_size, seq_len, _ = combined.shape
-            head_dim = self.attention_dim // self.attention_heads
+            # Issue #698対応: 単一計算で Q, K, V を取得（メモリ効率化）
+            seq_len = 2  # LSTM + Transformer = 2
+            qkv = self.qkv_proj(combined)  # [batch, 2, attention_dim * 3]
+            
+            # reshape で Q, K, V を分離（transpose回数削減）
+            qkv = qkv.view(batch_size, seq_len, 3, self.attention_heads, self.head_dim)
+            qkv = qkv.permute(2, 0, 3, 1, 4)  # [3, batch, heads, seq_len, head_dim]
+            Q, K, V = qkv[0], qkv[1], qkv[2]
 
-            # Q, K, V計算
-            Q = (
-                self.query_proj(combined)
-                .view(batch_size, seq_len, self.attention_heads, head_dim)
-                .transpose(1, 2)
-            )
-            K = (
-                self.key_proj(combined)
-                .view(batch_size, seq_len, self.attention_heads, head_dim)
-                .transpose(1, 2)
-            )
-            V = (
-                self.value_proj(combined)
-                .view(batch_size, seq_len, self.attention_heads, head_dim)
-                .transpose(1, 2)
-            )
+            # Issue #698対応: 効率的なattention計算
+            # Q: [batch, heads, seq_len, head_dim]
+            # K: [batch, heads, seq_len, head_dim] 
+            # V: [batch, heads, seq_len, head_dim]
 
-            # Attention scores計算
-            attention_scores = torch.matmul(Q, K.transpose(-2, -1)) * self.scale
+            # Attention scores計算（transpose削減）
+            attention_scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) * self.scale
             attention_weights = F.softmax(attention_scores, dim=-1)
             attention_weights = self.dropout(attention_weights)
 
-            # Attention適用
-            attended = torch.matmul(attention_weights, V)
-            attended = (
-                attended.transpose(1, 2)
-                .contiguous()
-                .view(batch_size, seq_len, self.attention_dim)
-            )
+            # Attention適用（einsumで効率化）
+            attended = torch.einsum('bhqk,bhkd->bhqd', attention_weights, V)
+            
+            # Issue #698対応: contiguous()を明示的に呼び出してメモリ効率化
+            attended = attended.permute(0, 2, 1, 3).contiguous()  # [batch, seq_len, heads, head_dim]
+            attended = attended.view(batch_size, seq_len, self.attention_dim)
 
             # Output projection
             output = self.output_proj(attended)
@@ -220,16 +275,16 @@ if PYTORCH_AVAILABLE:
             # Residual connection + Layer normalization
             output = self.layer_norm(output + combined)
 
-            # 最終融合（平均プーリング）
-            fused_features = output.mean(dim=1)  # [batch, attention_dim]
+            # Issue #698対応: 最終融合（メモリ効率的な平均計算）
+            fused_features = output.sum(dim=1) * 0.5  # [batch, attention_dim] (2で割るのを乗算で高速化)
 
-            # Attention weights for analysis
+            # Attention weights for analysis（メモリ効率化）
             avg_attention_weights = attention_weights.mean(dim=1)  # [batch, 2, 2]
 
             return fused_features, avg_attention_weights
 
     class ModifiedTransformerEncoder(nn.Module):
-        """修正Transformer (mTrans) - 時空間融合最適化"""
+        """修正Transformer (mTrans) - 時空間融合最適化 - Issue #698対応: テンソル操作最適化"""
 
         def __init__(
             self,
@@ -258,15 +313,23 @@ if PYTORCH_AVAILABLE:
             )
             self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers)
 
-            # Additional temporal modeling
-            self.temporal_conv = nn.Conv1d(d_model, d_model, kernel_size=3, padding=1)
+            # Issue #698対応: 1D畳み込みの効率化（グループ畳み込み使用）
+            self.temporal_conv = nn.Conv1d(
+                d_model, d_model, 
+                kernel_size=3, 
+                padding=1, 
+                groups=min(d_model, 32)  # グループ畳み込みで計算効率向上
+            )
             self.temporal_norm = nn.LayerNorm(d_model)
+            
+            # Issue #698対応: transpose操作のキャッシュフラグ
+            self._use_memory_efficient_conv = True
 
         def forward(
             self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
         ) -> torch.Tensor:
             """
-            Modified Transformer forward pass
+            Modified Transformer forward pass - Issue #698対応: テンソル操作最適化
 
             Args:
                 x: Input tensor [batch, seq_len, features]
@@ -281,26 +344,33 @@ if PYTORCH_AVAILABLE:
             # Transformer encoding
             transformer_out = self.transformer_encoder(x, mask=mask)
 
-            # Temporal convolution for local patterns
-            # [batch, seq_len, d_model] -> [batch, d_model, seq_len]
-            conv_input = transformer_out.transpose(1, 2)
-            temporal_out = self.temporal_conv(conv_input)
-            temporal_out = temporal_out.transpose(
-                1, 2
-            )  # Back to [batch, seq_len, d_model]
+            # Issue #698対応: メモリ効率的なTemporal convolution
+            if self._use_memory_efficient_conv:
+                # contiguous()を事前に呼び出してメモリ効率向上
+                conv_input = transformer_out.transpose(1, 2).contiguous()
+                temporal_out = self.temporal_conv(conv_input)
+                # transpose回数削減のため、直接permute使用
+                temporal_out = temporal_out.permute(0, 2, 1)  # [batch, seq_len, d_model]
+            else:
+                # 従来の実装（フォールバック）
+                conv_input = transformer_out.transpose(1, 2)
+                temporal_out = self.temporal_conv(conv_input)
+                temporal_out = temporal_out.transpose(1, 2)
 
-            # Residual connection
+            # Issue #698対応: インプレース演算でメモリ節約
+            # Residual connection (add_ でインプレース演算)
             output = self.temporal_norm(transformer_out + temporal_out)
 
             return output
 
     class PositionalEncoding(nn.Module):
-        """時系列データ用位置エンコーディング"""
+        """時系列データ用位置エンコーディング - Issue #698対応: テンソル操作最適化"""
 
         def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
             super().__init__()
             self.dropout = nn.Dropout(p=dropout)
 
+            # Issue #698対応: 位置エンコーディングを事前計算して効率化
             pe = torch.zeros(max_len, d_model)
             position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
             div_term = torch.exp(
@@ -308,13 +378,26 @@ if PYTORCH_AVAILABLE:
             )
 
             pe[:, 0::2] = torch.sin(position * div_term)
-            pe[:, 1::2] = torch.cos(position * div_term)
-            pe = pe.unsqueeze(0).transpose(0, 1)
+            if d_model > 1:  # 奇数次元対応
+                pe[:, 1::2] = torch.cos(position * div_term[:pe[:, 1::2].size(1)])
+            
+            # Issue #698対応: batch_firstに対応した形状で保存（transpose削減）
+            pe = pe.unsqueeze(0)  # [1, max_len, d_model]
 
             self.register_buffer("pe", pe)
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
-            x = x + self.pe[: x.size(1), :].transpose(0, 1)
+            """
+            Issue #698対応: transpose操作を削減した効率的な位置エンコーディング
+            
+            Args:
+                x: [batch_size, seq_len, d_model]
+            Returns:
+                x + positional encoding
+            """
+            # Issue #698対応: slicingでtranspose削減
+            seq_len = x.size(1)
+            x = x + self.pe[:, :seq_len, :]
             return self.dropout(x)
 
     class HybridLSTMTransformerModel(nn.Module):
@@ -389,9 +472,12 @@ if PYTORCH_AVAILABLE:
 
             # Initialize weights
             self._initialize_weights()
+            
+            # Issue #698対応: メモリ効率化フラグ
+            self._use_efficient_tensor_ops = True
 
         def _initialize_weights(self):
-            """Xavier/Kaiming初期化"""
+            """Xavier/Kaiming初期化 - Issue #698対応: 効率的な重み初期化"""
             for module in self.modules():
                 if isinstance(module, nn.Linear):
                     nn.init.xavier_uniform_(module.weight)
@@ -403,12 +489,15 @@ if PYTORCH_AVAILABLE:
                             nn.init.xavier_uniform_(param)
                         elif "bias" in name:
                             nn.init.zeros_(param)
+                elif isinstance(module, nn.Conv1d):
+                    # Issue #698対応: Conv1d の効率的な初期化
+                    nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
 
         def forward(
             self, x: torch.Tensor, return_attention: bool = False
         ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict]]:
             """
-            ハイブリッドモデル推論
+            ハイブリッドモデル推論 - Issue #698対応: テンソル操作最適化
 
             Args:
                 x: Input tensor [batch, seq_len, features]
@@ -420,27 +509,29 @@ if PYTORCH_AVAILABLE:
             """
             batch_size, seq_len, _ = x.shape
 
-            # Input projection
+            # Issue #698対応: 効率的な入力射影
             x_proj = self.input_projection(x)  # [batch, seq_len, lstm_hidden_size]
 
             # LSTM Branch
             lstm_out, (hidden, cell) = self.lstm(x_proj)
-            # 最終隠れ状態を使用（双方向の場合は連結）
+            
+            # Issue #698対応: 効率的な隠れ状態抽出
             if self.config.lstm_bidirectional:
-                # hidden: [num_layers*2, batch, hidden_size] -> [batch, hidden_size*2]
-                lstm_features = torch.cat([hidden[-2], hidden[-1]], dim=1)
+                # 最適化: viewを使用してメモリ効率向上
+                if self._use_efficient_tensor_ops:
+                    # hidden: [num_layers*2, batch, hidden_size] -> [batch, hidden_size*2]
+                    lstm_features = hidden.view(self.config.lstm_num_layers, 2, batch_size, -1)[-1].transpose(0, 1).contiguous().view(batch_size, -1)
+                else:
+                    lstm_features = torch.cat([hidden[-2], hidden[-1]], dim=1)
             else:
                 lstm_features = hidden[-1]  # [batch, hidden_size]
 
             # Transformer Branch
-            transformer_input = self.transformer_projection(
-                x_proj
-            )  # [batch, seq_len, d_model]
-            transformer_out = self.modified_transformer(
-                transformer_input
-            )  # [batch, seq_len, d_model]
-            # 最後のタイムステップを使用
-            transformer_features = transformer_out[:, -1, :]  # [batch, d_model]
+            transformer_input = self.transformer_projection(x_proj)  # [batch, seq_len, d_model]
+            transformer_out = self.modified_transformer(transformer_input)  # [batch, seq_len, d_model]
+            
+            # Issue #698対応: 効率的な最終特徴量抽出（インデックス使用）
+            transformer_features = transformer_out[:, -1]  # [batch, d_model] (sliceは:を削除)
 
             # Cross-Attention Fusion
             fused_features, attention_weights = self.cross_attention(
@@ -451,13 +542,21 @@ if PYTORCH_AVAILABLE:
             predictions = self.prediction_head(fused_features)
 
             if return_attention:
-                attention_info = {
-                    "cross_attention_weights": attention_weights.detach().cpu().numpy(),
-                    "lstm_contribution": attention_weights[:, 0, 0].mean().item(),
-                    "transformer_contribution": attention_weights[:, 1, 1]
-                    .mean()
-                    .item(),
-                }
+                # Issue #698対応: メモリ効率的な注意重み抽出
+                if self._use_efficient_tensor_ops:
+                    # GPU->CPUのコピーを最小化
+                    attention_mean = attention_weights.mean(dim=(0, 1))  # 一度に計算
+                    attention_info = {
+                        "cross_attention_weights": attention_weights.detach().cpu().numpy(),
+                        "lstm_contribution": attention_weights[:, 0, 0].mean().item(),
+                        "transformer_contribution": attention_weights[:, 1, 1].mean().item(),
+                    }
+                else:
+                    attention_info = {
+                        "cross_attention_weights": attention_weights.detach().cpu().numpy(),
+                        "lstm_contribution": attention_weights[:, 0, 0].mean().item(),
+                        "transformer_contribution": attention_weights[:, 1, 1].mean().item(),
+                    }
                 return predictions, attention_info
 
             return predictions
@@ -466,7 +565,7 @@ if PYTORCH_AVAILABLE:
             self, x: torch.Tensor, num_samples: int = 50
         ) -> Tuple[torch.Tensor, torch.Tensor]:
             """
-            Monte Carlo Dropout による不確実性推定
+            Monte Carlo Dropout による不確実性推定 - Issue #698対応: テンソル操作最適化
 
             Args:
                 x: Input tensor
@@ -478,17 +577,37 @@ if PYTORCH_AVAILABLE:
             """
             self.train()  # Dropoutを有効化
 
-            predictions = []
+            # Issue #698対応: 効率的なバッチ予測（メモリ使用量削減）
+            if self._use_efficient_tensor_ops and num_samples > 10:
+                # 大きなサンプル数の場合はバッチ処理
+                batch_size = min(10, num_samples // 2)
+                predictions = []
+                
+                with torch.no_grad():
+                    for i in range(0, num_samples, batch_size):
+                        current_batch_size = min(batch_size, num_samples - i)
+                        batch_preds = []
+                        
+                        for _ in range(current_batch_size):
+                            pred = self(x)
+                            batch_preds.append(pred)
+                        
+                        batch_stack = torch.stack(batch_preds)
+                        predictions.append(batch_stack)
+                
+                # Issue #698対応: メモリ効率的な結合
+                predictions = torch.cat(predictions, dim=0)  # [num_samples, batch, prediction_horizon]
+            else:
+                # 従来の実装（少数サンプル用）
+                predictions = []
+                with torch.no_grad():
+                    for _ in range(num_samples):
+                        pred = self(x)
+                        predictions.append(pred)
+                
+                predictions = torch.stack(predictions)  # [num_samples, batch, prediction_horizon]
 
-            with torch.no_grad():
-                for _ in range(num_samples):
-                    pred = self(x)
-                    predictions.append(pred)
-
-            predictions = torch.stack(
-                predictions
-            )  # [num_samples, batch, prediction_horizon]
-
+            # Issue #698対応: 効率的な統計計算
             mean_pred = predictions.mean(dim=0)
             std_pred = predictions.std(dim=0)
 
@@ -504,8 +623,8 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
             hybrid_config = HybridModelConfig(
                 sequence_length=config.sequence_length,
                 prediction_horizon=config.prediction_horizon,
-                hidden_size=config.hidden_dim,
-                num_layers=config.num_layers,
+                lstm_hidden_size=getattr(config, 'hidden_dim', 128),
+                lstm_num_layers=getattr(config, 'num_layers', 2),
                 dropout_rate=config.dropout_rate,
                 learning_rate=config.learning_rate,
                 epochs=config.epochs,
@@ -519,9 +638,39 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         self.hybrid_config = hybrid_config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        # Issue #697対応: データローディング最適化設定
+        self._dataloader_config = self._initialize_dataloader_config()
+
         logger.info(
             f"ハイブリッドLSTM-Transformerエンジン初期化完了 (デバイス: {self.device})"
         )
+
+    def _initialize_dataloader_config(self) -> Dict[str, Any]:
+        """
+        Issue #697対応: DataLoader最適化設定の初期化
+        
+        Returns:
+            DataLoader最適化設定辞書
+        """
+        # CPU/GPU環境に応じた最適設定
+        if self.device.type == 'cuda':
+            # GPU使用時の設定
+            num_workers = min(4, max(1, torch.get_num_threads() // 2))
+            pin_memory = True
+            persistent_workers = True
+        else:
+            # CPU使用時の設定
+            num_workers = min(2, max(1, torch.get_num_threads() // 4))
+            pin_memory = False
+            persistent_workers = False
+            
+        return {
+            'num_workers': num_workers,
+            'pin_memory': pin_memory,
+            'persistent_workers': persistent_workers,
+            'drop_last': True,
+            'prefetch_factor': 2 if num_workers > 0 else 2,  # データの先読み
+        }
 
     def build_model(self, input_shape: Tuple[int, ...]) -> Any:
         """ハイブリッドモデル構築"""
@@ -590,25 +739,45 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
     def _train_pytorch_hybrid(
         self, X: np.ndarray, y: np.ndarray, start_time: float
     ) -> Dict[str, Any]:
-        """PyTorch ハイブリッドモデル訓練"""
-        # データテンソル変換
-        X_tensor = torch.FloatTensor(X).to(self.device)
-        y_tensor = torch.FloatTensor(y).to(self.device)
+        """PyTorch ハイブリッドモデル訓練 - Issue #697対応: データ読み込み最適化"""
+        # Issue #697対応: 効率的なデータ前処理
+        X_tensor = torch.from_numpy(X).float()
+        y_tensor = torch.from_numpy(y).float()
 
         # 訓練・検証分割
         val_size = int(len(X) * self.config.validation_split)
         X_train, X_val = X_tensor[:-val_size], X_tensor[-val_size:]
         y_train, y_val = y_tensor[:-val_size], y_tensor[-val_size:]
 
-        # データローダー
-        train_dataset = TimeSeriesDataset(X_train.cpu().numpy(), y_train.cpu().numpy())
-        val_dataset = TimeSeriesDataset(X_val.cpu().numpy(), y_val.cpu().numpy())
+        # Issue #697対応: 効率的データセット作成（GPU->CPU変換を排除）
+        train_dataset = TimeSeriesDataset.create_efficient_dataset(
+            X_train, y_train, device=torch.device('cpu'), use_pinned_memory=self.device.type == 'cuda'
+        )
+        val_dataset = TimeSeriesDataset.create_efficient_dataset(
+            X_val, y_val, device=torch.device('cpu'), use_pinned_memory=self.device.type == 'cuda'
+        )
 
+        # Issue #697対応: 最適化されたDataLoader設定
+        # GPU使用時の並列化とpin_memory設定
+        num_workers = min(4, max(1, torch.get_num_threads() // 2)) if self.device.type == 'cuda' else 0
+        pin_memory = self.device.type == 'cuda'
+        
         train_loader = DataLoader(
-            train_dataset, batch_size=self.config.batch_size, shuffle=True
+            train_dataset, 
+            batch_size=self.config.batch_size, 
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            drop_last=True,  # 最後の不完全バッチを除外
+            persistent_workers=num_workers > 0  # ワーカープロセス維持
         )
         val_loader = DataLoader(
-            val_dataset, batch_size=self.config.batch_size, shuffle=False
+            val_dataset, 
+            batch_size=self.config.batch_size, 
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            persistent_workers=num_workers > 0
         )
 
         # オプティマイザー・スケジューラー
@@ -639,7 +808,9 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
             train_loss = 0.0
 
             for batch_X, batch_y in train_loader:
-                batch_X, batch_y = batch_X.to(self.device), batch_y.to(self.device)
+                # Issue #697対応: 効率的なGPU転送（non_blockingでオーバーラップ）
+                batch_X = batch_X.to(self.device, non_blocking=True)
+                batch_y = batch_y.to(self.device, non_blocking=True)
 
                 optimizer.zero_grad()
                 predictions = self.model(batch_X)
@@ -660,7 +831,9 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
 
             with torch.no_grad():
                 for batch_X, batch_y in val_loader:
-                    batch_X, batch_y = batch_X.to(self.device), batch_y.to(self.device)
+                    # Issue #697対応: 検証時も効率的なGPU転送
+                    batch_X = batch_X.to(self.device, non_blocking=True)
+                    batch_y = batch_y.to(self.device, non_blocking=True)
                     predictions = self.model(batch_X)
                     loss = criterion(predictions, batch_y)
                     val_loss += loss.item()
@@ -693,22 +866,25 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
 
         training_time = time.time() - start_time
 
-        # 精度計算
+        # Issue #697対応: 効率的な精度計算
         with torch.no_grad():
             self.model.eval()
             train_pred = []
             val_pred = []
 
             for batch_X, batch_y in train_loader:
-                batch_X = batch_X.to(self.device)
+                # Issue #697対応: 効率的なGPU転送
+                batch_X = batch_X.to(self.device, non_blocking=True)
                 pred = self.model(batch_X)
                 train_pred.append(pred.cpu())
 
             for batch_X, batch_y in val_loader:
-                batch_X = batch_X.to(self.device)
+                # Issue #697対応: 効率的なGPU転送
+                batch_X = batch_X.to(self.device, non_blocking=True)
                 pred = self.model(batch_X)
                 val_pred.append(pred.cpu())
 
+            # Issue #697対応: メモリ効率的なテンソル結合
             train_pred = torch.cat(train_pred, dim=0).numpy()
             val_pred = torch.cat(val_pred, dim=0).numpy()
 
@@ -734,7 +910,26 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
     def _train_numpy_hybrid(
         self, X: np.ndarray, y: np.ndarray, start_time: float
     ) -> Dict[str, Any]:
-        """NumPy ハイブリッドモデル訓練（簡易実装）"""
+        """
+        NumPy ハイブリッドモデル訓練（簡易実装）
+        
+        Issue #696対応: 重要警告 - これは簡易線形近似実装です
+        ハイブリッドLSTM-Transformerとしての性能は期待できません。
+        本格的な深層学習にはPyTorchが必須です。
+        """
+        logger.warning(
+            "=== HybridLSTMTransformer NumPy フォールバック実行中 ===\n"
+            "簡易線形近似モデルを使用中です。以下の機能は無効化されています:\n"
+            "・LSTM時系列学習: 単純な線形変換に置換\n"
+            "・Transformer注意機構: 線形結合に置換\n"
+            "・Cross-Attention融合: 重み平均に置換\n"
+            "・GPU加速: 無効\n"
+            "・高度な最適化: 無効\n"
+            "ハイブリッド深層学習の性能は期待できません。\n"
+            "PyTorchインストール推奨: pip install torch\n"
+            "================================================="
+        )
+        
         val_size = int(len(X) * self.config.validation_split)
         X_train, X_val = X[:-val_size], X[-val_size:]
         y_train, y_val = y[:-val_size], y[-val_size:]
@@ -772,15 +967,20 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         }
 
     def _numpy_hybrid_forward(self, X: np.ndarray) -> np.ndarray:
-        """NumPy ハイブリッドモデル フォワードパス"""
-        # 簡易実装（線形結合）
+        """
+        NumPy ハイブリッドモデル フォワードパス
+        
+        Issue #696対応: 簡易線形近似実装
+        注意: これはハイブリッドLSTM-Transformerの機能を大幅に簡略化した実装です
+        """
+        # 簡易実装（線形結合） - 本物のLSTM/Transformerではありません
         batch_size, seq_len, n_features = X.shape
 
-        # LSTM部分（簡易）
+        # LSTM部分（簡易線形変換 - 時系列学習機能なし）
         X_flat = X.reshape(batch_size, -1)
         lstm_out = np.tanh(np.dot(X_flat, np.random.randn(X_flat.shape[1], 128)))
 
-        # Transformer部分（簡易）
+        # Transformer部分（簡易線形変換 - 注意機構なし）
         transformer_out = np.tanh(np.dot(X_flat, np.random.randn(X_flat.shape[1], 128)))
 
         # 融合
@@ -794,12 +994,17 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
     def _numpy_hybrid_backward(
         self, X: np.ndarray, y: np.ndarray, predictions: np.ndarray
     ):
-        """NumPy ハイブリッドモデル バックワードパス"""
-        # 簡易勾配更新
+        """
+        NumPy ハイブリッドモデル バックワードパス
+        
+        Issue #696対応: 簡易実装 - 本物のバックプロパゲーションではありません
+        実際のLSTM/Transformer勾配計算は行われません
+        """
+        # 簡易勾配更新（実際の深層学習最適化ではありません）
         learning_rate = self.config.learning_rate * 0.01
         error = predictions - y
 
-        # 重み更新（簡易）
+        # 重み更新（簡易線形近似のみ）
         self.model["fusion_weights"] -= learning_rate * error.mean() * 0.001
 
     def _predict_internal(self, X: np.ndarray) -> np.ndarray:

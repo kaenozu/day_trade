@@ -130,57 +130,235 @@ class DataDriftDetector:
                         "min": series.min(),
                         "max": series.max(),
                         "median": series.median(),
-                        "values": series.tolist(),  # 分布比較のために値を保存
+                        "values": series.values,  # Issue #712対応: NumPy配列で直接保存
                     }
         return stats
 
-    def save_baseline(self, file_path: str):
+    def save_baseline(self, file_path: str, format: str = 'auto'):
         """
         ベースライン統計情報をファイルに保存します。
 
         Args:
-            file_path (str): 保存先のファイルパス (例: 'baseline_stats.json')
+            file_path (str): 保存先のファイルパス
+            format (str): 保存形式 ('json', 'pickle', 'joblib', 'auto')
+                        'auto'の場合、データサイズに応じて最適な形式を自動選択
         """
         try:
-            # NumPy配列をPythonのリストに変換
-            serializable_stats = {}
-            for _feature, stat in self.baseline_stats.items():
-                serializable_stat = stat.copy()
-                if "values" in serializable_stat:
-                    serializable_stat["values"] = [
-                        float(v) for v in serializable_stat["values"]
-                    ]
-                serializable_stats[_feature] = serializable_stat
-
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(serializable_stats, f, ensure_ascii=False, indent=4)
-            logger.info(f"ベースライン統計情報を '{file_path}' に保存しました。")
+            # Issue #713対応: データサイズに応じた保存形式の自動選択
+            total_data_size = self._estimate_data_size()
+            
+            if format == 'auto':
+                # 100MB以上の場合はバイナリ形式を使用
+                if total_data_size > 100 * 1024 * 1024:  # 100MB
+                    format = 'joblib'
+                    logger.info(f"大規模データ検出 ({total_data_size / 1024 / 1024:.1f}MB), joblib形式で保存します")
+                else:
+                    format = 'json'
+            
+            if format == 'json':
+                self._save_as_json(file_path)
+            elif format == 'pickle':
+                # pickle形式の場合は.pkl拡張子を確保
+                if not file_path.endswith('.pkl') and not file_path.endswith('.pickle'):
+                    file_path = f"{file_path}.pkl"
+                self._save_as_pickle(file_path)
+            elif format == 'joblib':
+                # joblib形式の場合は.joblib拡張子を確保
+                if not file_path.endswith('.joblib') and not file_path.endswith('.jl'):
+                    file_path = f"{file_path}.joblib"
+                self._save_as_joblib(file_path)
+            else:
+                raise ValueError(f"サポートされていない保存形式: {format}")
+                
+            logger.info(f"ベースライン統計情報を '{file_path}' ({format}形式) に保存しました。")
+            
         except Exception as e:
             logger.error(f"ベースライン統計情報の保存中にエラーが発生しました: {e}")
 
-    def load_baseline(self, file_path: str):
+    def _estimate_data_size(self) -> int:
+        """データサイズを推定"""
+        total_size = 0
+        for stat in self.baseline_stats.values():
+            if "values" in stat and hasattr(stat["values"], 'nbytes'):
+                total_size += stat["values"].nbytes
+            # 他の統計値も含む（概算）
+            total_size += 1024  # 統計値のオーバーヘッド
+        return total_size
+
+    def _save_as_json(self, file_path: str):
+        """JSON形式で保存"""
+        # Issue #712対応: NumPy配列をPythonのリストに変換
+        serializable_stats = {}
+        for _feature, stat in self.baseline_stats.items():
+            serializable_stat = stat.copy()
+            if "values" in serializable_stat:
+                # NumPy配列をtolist()で直接変換
+                serializable_stat["values"] = serializable_stat["values"].tolist()
+            serializable_stats[_feature] = serializable_stat
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(serializable_stats, f, ensure_ascii=False, indent=4)
+
+    def _save_as_pickle(self, file_path: str):
+        """Pickle形式で保存"""
+        import pickle
+        with open(file_path, 'wb') as f:
+            pickle.dump(self.baseline_stats, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def _save_as_joblib(self, file_path: str):
+        """Joblib形式で保存（NumPy配列に最適化）"""
+        try:
+            import joblib
+            joblib.dump(self.baseline_stats, file_path, compress=3)  # 圧縮レベル3
+        except ImportError:
+            logger.warning("joblib未インストール、pickle形式で代替保存")
+            self._save_as_pickle(file_path)
+
+    def load_baseline(self, file_path: str, format: str = 'auto'):
         """
         ファイルからベースライン統計情報を読み込みます。
 
         Args:
             file_path (str): 読み込み元のファイルパス
+            format (str): 読み込み形式 ('json', 'pickle', 'joblib', 'auto')
+                        'auto'の場合、ファイル拡張子から自動判定
         """
         try:
-            with open(file_path, encoding="utf-8") as f:
-                loaded_stats = json.load(f)
-
-            # リストをNumPy配列に戻す（必要であれば）
-            for _feature, stat in loaded_stats.items():
-                if "values" in stat:
-                    stat["values"] = np.array(stat["values"])
-
+            # Issue #713対応: ファイル形式の自動判定
+            if format == 'auto':
+                format = self._detect_file_format(file_path)
+            
+            if format == 'json':
+                loaded_stats = self._load_from_json(file_path)
+            elif format == 'pickle':
+                # pickle形式の場合は.pkl拡張子を確保
+                if not file_path.endswith('.pkl') and not file_path.endswith('.pickle'):
+                    file_path = f"{file_path}.pkl"
+                loaded_stats = self._load_from_pickle(file_path)
+            elif format == 'joblib':
+                # joblib形式の場合は.joblib拡張子を確保
+                if not file_path.endswith('.joblib') and not file_path.endswith('.jl'):
+                    file_path = f"{file_path}.joblib"
+                loaded_stats = self._load_from_joblib(file_path)
+            else:
+                raise ValueError(f"サポートされていない読み込み形式: {format}")
+            
             self.baseline_stats = loaded_stats
-            logger.info(f"ベースライン統計情報を '{file_path}' から読み込みました。")
+            logger.info(f"ベースライン統計情報を '{file_path}' ({format}形式) から読み込みました。")
+            
         except FileNotFoundError:
             logger.warning(f"ベースラインファイル '{file_path}' が見つかりません。")
-        except json.JSONDecodeError as e:
-            logger.error(
-                f"ベースラインファイルの読み込み中にJSONデコードエラーが発生しました: {e}"
-            )
         except Exception as e:
             logger.error(f"ベースライン統計情報の読み込み中にエラーが発生しました: {e}")
+
+    def _detect_file_format(self, file_path: str) -> str:
+        """ファイル拡張子から形式を自動判定"""
+        import os
+        _, ext = os.path.splitext(file_path.lower())
+        
+        if ext == '.json':
+            return 'json'
+        elif ext in ['.pkl', '.pickle']:
+            return 'pickle'
+        elif ext in ['.joblib', '.jl']:
+            return 'joblib'
+        else:
+            # デフォルトはJSON（従来との互換性）
+            return 'json'
+
+    def _load_from_json(self, file_path: str) -> dict:
+        """JSON形式から読み込み"""
+        with open(file_path, encoding="utf-8") as f:
+            loaded_stats = json.load(f)
+
+        # リストをNumPy配列に戻す
+        for _feature, stat in loaded_stats.items():
+            if "values" in stat:
+                stat["values"] = np.array(stat["values"])
+                
+        return loaded_stats
+
+    def _load_from_pickle(self, file_path: str) -> dict:
+        """Pickle形式から読み込み"""
+        import pickle
+        with open(file_path, 'rb') as f:
+            return pickle.load(f)
+
+    def _load_from_joblib(self, file_path: str) -> dict:
+        """Joblib形式から読み込み"""
+        try:
+            import joblib
+            return joblib.load(file_path)
+        except ImportError:
+            logger.warning("joblib未インストール、pickle形式として読み込み試行")
+            return self._load_from_pickle(file_path)
+
+    def get_baseline_info(self) -> dict:
+        """
+        Issue #713対応: ベースライン統計情報のサマリーを取得
+        
+        Returns:
+            dict: ベースライン情報のサマリー
+        """
+        if not self.baseline_stats:
+            return {"status": "no_baseline_data"}
+        
+        total_size = self._estimate_data_size()
+        feature_count = len(self.baseline_stats)
+        
+        # 各特徴量のデータサイズ
+        feature_sizes = {}
+        for feature, stats in self.baseline_stats.items():
+            if "values" in stats and hasattr(stats["values"], 'nbytes'):
+                feature_sizes[feature] = stats["values"].nbytes
+        
+        return {
+            "feature_count": feature_count,
+            "total_data_size_mb": total_size / (1024 * 1024),
+            "feature_sizes": feature_sizes,
+            "recommended_format": "joblib" if total_size > 100 * 1024 * 1024 else "json"
+        }
+
+    def save_baseline_optimized(self, base_path: str) -> dict:
+        """
+        Issue #713対応: 最適化された保存（大規模データ対応）
+        
+        Args:
+            base_path (str): ベースパス（拡張子は自動設定）
+            
+        Returns:
+            dict: 保存結果の情報
+        """
+        if not self.baseline_stats:
+            raise ValueError("保存するベースラインデータがありません")
+            
+        info = self.get_baseline_info()
+        recommended_format = info["recommended_format"]
+        
+        # 拡張子を自動設定
+        if recommended_format == "json":
+            file_path = f"{base_path}.json"
+        elif recommended_format == "joblib":
+            file_path = f"{base_path}.joblib"
+        else:
+            file_path = f"{base_path}.pkl"
+        
+        import time
+        start_time = time.time()
+        
+        self.save_baseline(file_path, format=recommended_format)
+        
+        save_time = time.time() - start_time
+        
+        # ファイルサイズを取得
+        import os
+        file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+        
+        return {
+            "file_path": file_path,
+            "format_used": recommended_format,
+            "save_time_seconds": save_time,
+            "file_size_mb": file_size / (1024 * 1024),
+            "data_size_mb": info["total_data_size_mb"],
+            "compression_ratio": info["total_data_size_mb"] / (file_size / (1024 * 1024)) if file_size > 0 else 1.0
+        }

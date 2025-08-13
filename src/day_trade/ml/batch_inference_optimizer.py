@@ -13,7 +13,6 @@ Issue #379: ML Model Inference Performance Optimization
 
 import asyncio
 import heapq
-import statistics
 import threading
 import time
 from collections import defaultdict, deque
@@ -261,7 +260,8 @@ class AdaptiveBatchSizer:
         best_latency = float("inf")
 
         for batch_size, latencies in latency_by_size.items():
-            avg_latency = statistics.mean(latencies)
+            # Issue #710対応: NumPy最適化によるパフォーマンス向上
+            avg_latency = np.mean(latencies)
             if avg_latency < best_latency:
                 best_latency = avg_latency
                 best_size = batch_size
@@ -291,7 +291,8 @@ class AdaptiveBatchSizer:
         best_throughput = 0.0
 
         for batch_size, throughputs in throughput_by_size.items():
-            avg_throughput = statistics.mean(throughputs)
+            # Issue #710対応: NumPy最適化によるパフォーマンス向上
+            avg_throughput = np.mean(throughputs)
             if avg_throughput > best_throughput:
                 best_throughput = avg_throughput
                 best_size = batch_size
@@ -325,7 +326,8 @@ class AdaptiveBatchSizer:
         best_score = 0.0
 
         for batch_size, scores in scores_by_size.items():
-            avg_score = statistics.mean(scores)
+            # Issue #710対応: NumPy最適化によるパフォーマンス向上
+            avg_score = np.mean(scores)
             if avg_score > best_score:
                 best_score = avg_score
                 best_size = batch_size
@@ -337,11 +339,12 @@ class AdaptiveBatchSizer:
         if not metrics:
             return self.current_batch_size
 
+        # Issue #710対応: NumPy最適化によるパフォーマンス向上
         recent_latency = (
-            statistics.mean(self.latency_trend) if self.latency_trend else 50
+            np.mean(self.latency_trend) if self.latency_trend else 50
         )
         recent_throughput = (
-            statistics.mean(self.throughput_trend) if self.throughput_trend else 100
+            np.mean(self.throughput_trend) if self.throughput_trend else 100
         )
 
         # 現在の性能レベル判定
