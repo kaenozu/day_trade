@@ -1315,8 +1315,121 @@ class DeepLearningModelManager:
         self.models[name] = model
         logger.info(f"モデル登録完了: {name}")
 
-    def train_ensemble(self, data: pd.DataFrame) -> Dict[str, ModelTrainingResult]:
-        """アンサンブル訓練"""
+    def train_ensemble(self, data: pd.DataFrame, parallel: bool = True) -> Dict[str, ModelTrainingResult]:
+        """
+        アンサンブル訓練 - Issue #708対応並列化版
+
+        Args:
+            data: 訓練データ
+            parallel: 並列訓練を有効にするか
+
+        Returns:
+            Dict[str, ModelTrainingResult]: 各モデルの訓練結果
+        """
+        if parallel and len(self.models) > 1:
+            return self._parallel_train_ensemble(data)
+        else:
+            return self._sequential_train_ensemble(data)
+
+    def _parallel_train_ensemble(self, data: pd.DataFrame) -> Dict[str, ModelTrainingResult]:
+        """並列アンサンブル訓練実装"""
+        from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+        import multiprocessing as mp
+
+        def train_single_deep_model(args):
+            """単一深層学習モデルの訓練関数"""
+            model_name, model, data_copy, dl_config = args
+            try:
+                logger.info(f"深層学習モデル並列訓練開始: {model_name}")
+                start_time = time.time()
+
+                # ModelConfigからDeepLearningConfigに変換
+                model_config = ModelConfig(
+                    sequence_length=dl_config.sequence_length,
+                    prediction_horizon=dl_config.prediction_horizon,
+                    hidden_size=dl_config.hidden_dim,
+                    num_layers=dl_config.num_layers,
+                    dropout_rate=dl_config.dropout_rate,
+                    learning_rate=dl_config.learning_rate,
+                    epochs=dl_config.epochs,
+                    batch_size=dl_config.batch_size,
+                    early_stopping_patience=dl_config.early_stopping_patience,
+                )
+                model.config = model_config
+
+                # データ準備と訓練
+                result = model.train(data_copy)
+                training_time = time.time() - start_time
+
+                # ModelTrainingResult形式に変換
+                training_result = ModelTrainingResult(
+                    final_loss=result.final_loss,
+                    best_loss=result.best_loss,
+                    epochs_run=result.epochs_run,
+                    training_time=training_time,
+                    validation_metrics={"mse": result.final_loss},
+                    convergence_achieved=True,
+                )
+
+                logger.info(f"深層学習モデル並列訓練完了: {model_name} ({training_time:.2f}秒)")
+                return model_name, training_result
+
+            except Exception as e:
+                logger.error(f"深層学習モデル並列訓練エラー {model_name}: {e}")
+                return model_name, ModelTrainingResult(
+                    final_loss=float('inf'),
+                    best_loss=float('inf'),
+                    epochs_run=0,
+                    training_time=0.0,
+                    validation_metrics={"error": str(e)},
+                    convergence_achieved=False,
+                )
+
+        results = {}
+
+        # 並列処理設定 (深層学習はCPU集約的でないため、スレッドプールを使用)
+        n_jobs = min(len(self.models), mp.cpu_count())
+        logger.info(f"アンサンブル並列訓練開始: {len(self.models)}モデルを{n_jobs}スレッドで実行")
+
+        # 訓練引数準備
+        training_args = [
+            (model_name, model, data.copy(), self.dl_config)
+            for model_name, model in self.models.items()
+        ]
+
+        try:
+            # ThreadPoolExecutorを使用 (深層学習モデルはI/O待機が多い)
+            with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+                future_to_model = {
+                    executor.submit(train_single_deep_model, args): args[0]
+                    for args in training_args
+                }
+
+                for future in as_completed(future_to_model):
+                    model_name = future_to_model[future]
+                    try:
+                        result_name, result = future.result(timeout=7200)  # 2時間のタイムアウト
+                        results[result_name] = result
+                    except Exception as e:
+                        logger.error(f"深層学習モデル並列訓練例外 {model_name}: {e}")
+                        results[model_name] = ModelTrainingResult(
+                            final_loss=float('inf'),
+                            best_loss=float('inf'),
+                            epochs_run=0,
+                            training_time=0.0,
+                            validation_metrics={"timeout_error": str(e)},
+                            convergence_achieved=False,
+                        )
+
+        except Exception as e:
+            logger.warning(f"並列アンサンブル訓練フォールバック: {e}")
+            # フォールバック: 順次実行
+            return self._sequential_train_ensemble(data)
+
+        return results
+
+    def _sequential_train_ensemble(self, data: pd.DataFrame) -> Dict[str, ModelTrainingResult]:
+        """順次アンサンブル訓練実装（フォールバック）"""
         results = {}
 
         for name, model in self.models.items():

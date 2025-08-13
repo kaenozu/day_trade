@@ -301,15 +301,12 @@ class EnsembleSystem:
             parallel_predictions = self._parallel_model_prediction(X)
             individual_predictions.update(parallel_predictions)
 
-            # 3. アンサンブル統合
-            if method == EnsembleMethod.VOTING:
-                final_predictions = self._voting_ensemble(individual_predictions)
-            elif method == EnsembleMethod.WEIGHTED:
-                final_predictions = self._weighted_ensemble(individual_predictions)
-            elif method == EnsembleMethod.STACKING:
+            # 3. アンサンブル統合 - Issue #470対応統合実装
+            if method == EnsembleMethod.STACKING:
                 final_predictions = self._stacking_ensemble(individual_predictions, X)
             else:
-                final_predictions = self._voting_ensemble(individual_predictions)
+                # 統合アンサンブル手法を使用（VOTING/WEIGHTEDを効率的に統合）
+                final_predictions = self._unified_ensemble(individual_predictions, method)
 
             # 信頼度計算
             ensemble_confidence = self._calculate_ensemble_confidence(individual_predictions)
@@ -333,35 +330,68 @@ class EnsembleSystem:
             logger.error(f"アンサンブル予測エラー: {e}")
             raise
 
-    def _voting_ensemble(self, predictions: Dict[str, np.ndarray]) -> np.ndarray:
-        """投票アンサンブル（単純平均）"""
+    def _unified_ensemble(self, predictions: Dict[str, np.ndarray], method: EnsembleMethod) -> np.ndarray:
+        """
+        統合アンサンブル手法 - Issue #470対応
+
+        voting と weighted ensemble を統合した効率的実装
+
+        Args:
+            predictions: モデル別予測結果
+            method: アンサンブル手法
+
+        Returns:
+            統合予測結果
+        """
         if not predictions:
             raise ValueError("予測結果が空です")
 
-        # 全予測を配列に変換
-        pred_array = np.array(list(predictions.values()))
+        # 予測配列とモデル名の準備
+        model_names = list(predictions.keys())
+        pred_values = list(predictions.values())
 
-        # 単純平均
-        return np.mean(pred_array, axis=0)
+        # 形状チェックと標準化
+        shapes = [pred.shape for pred in pred_values]
+        if len(set(shapes)) > 1:
+            logger.warning(f"予測形状が不統一: {shapes}")
+            # 最小サイズに合わせる
+            min_len = min(pred.shape[0] for pred in pred_values)
+            pred_values = [pred[:min_len] for pred in pred_values]
+
+        pred_array = np.array(pred_values)
+
+        if method == EnsembleMethod.VOTING:
+            # 投票アンサンブル（効率的な単純平均）
+            return np.mean(pred_array, axis=0)
+
+        elif method == EnsembleMethod.WEIGHTED:
+            # 重み付きアンサンブル（ベクトル化実装）
+            weights = np.array([
+                self.model_weights.get(model_name, 1.0)
+                for model_name in model_names
+            ])
+
+            # 重みの正規化
+            if np.sum(weights) > 0:
+                weights = weights / np.sum(weights)
+            else:
+                weights = np.ones(len(model_names)) / len(model_names)
+
+            # ベクトル化重み付き平均
+            return np.average(pred_array, axis=0, weights=weights)
+
+        else:
+            # デフォルト: 単純平均
+            logger.warning(f"未対応のアンサンブル手法: {method}、単純平均を使用")
+            return np.mean(pred_array, axis=0)
+
+    def _voting_ensemble(self, predictions: Dict[str, np.ndarray]) -> np.ndarray:
+        """投票アンサンブル（単純平均）- 後方互換性のため残存"""
+        return self._unified_ensemble(predictions, EnsembleMethod.VOTING)
 
     def _weighted_ensemble(self, predictions: Dict[str, np.ndarray]) -> np.ndarray:
-        """重み付きアンサンブル"""
-        if not predictions:
-            raise ValueError("予測結果が空です")
-
-        weighted_sum = np.zeros_like(list(predictions.values())[0])
-        total_weight = 0.0
-
-        for model_name, pred in predictions.items():
-            if model_name in self.model_weights:
-                weight = self.model_weights[model_name]
-                weighted_sum += weight * pred
-                total_weight += weight
-
-        if total_weight > 0:
-            return weighted_sum / total_weight
-        else:
-            return self._voting_ensemble(predictions)
+        """重み付きアンサンブル - 後方互換性のため残存"""
+        return self._unified_ensemble(predictions, EnsembleMethod.WEIGHTED)
 
     def _stacking_ensemble(self, predictions: Dict[str, np.ndarray], X: np.ndarray) -> np.ndarray:
         """スタッキングアンサンブル（メタ学習）"""

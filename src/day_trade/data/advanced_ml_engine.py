@@ -852,18 +852,196 @@ class AdvancedMLEngine:
     def _extract_fft_features(
         self, prices: pd.Series, n_features: int = 10
     ) -> List[pd.Series]:
-        """FFT特徴量抽出"""
-        fft = np.fft.fft(prices.dropna().values)
-        fft_features = []
+        """
+        FFT特徴量抽出 - Issue #707対応最適化版
 
-        for i in range(1, n_features + 1):
-            # 各周波数成分の振幅
-            amplitude = np.abs(fft[i])
-            # 全データに対して同じ値を繰り返し
-            feature_series = pd.Series([amplitude] * len(prices), index=prices.index)
-            fft_features.append(feature_series)
+        ベクトル化演算でCPU効率を向上
+        """
+        try:
+            prices_clean = prices.dropna()
+            if len(prices_clean) < n_features:
+                logger.warning(f"データ数不足でFFT特徴量作成不可: {len(prices_clean)} < {n_features}")
+                return [pd.Series([0.0] * len(prices), index=prices.index) for _ in range(n_features)]
 
-        return fft_features
+            # FFT計算（ベクトル化）
+            fft = np.fft.fft(prices_clean.values)
+
+            # 一括振幅計算（ループ除去）
+            amplitudes = np.abs(fft[1:n_features + 1])
+
+            # 効率的な特徴量系列作成
+            fft_features = [
+                pd.Series([amplitude] * len(prices), index=prices.index, dtype=np.float32)
+                for amplitude in amplitudes
+            ]
+
+            return fft_features
+
+        except Exception as e:
+            logger.warning(f"FFT特徴量抽出エラー: {e}")
+            # フォールバック: ゼロ特徴量
+            return [pd.Series([0.0] * len(prices), index=prices.index) for _ in range(n_features)]
+
+    async def _extract_fft_features_async(
+        self, prices: pd.Series, n_features: int = 10
+    ) -> List[pd.Series]:
+        """
+        非同期FFT特徴量抽出 - Issue #707対応
+
+        CPU集約的な処理を非同期処理で最適化
+        """
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _compute_fft_chunk(chunk_data):
+            """FFTチャンク計算"""
+            try:
+                fft_chunk = np.fft.fft(chunk_data)
+                return np.abs(fft_chunk[1:n_features + 1])
+            except Exception as e:
+                logger.warning(f"FFTチャンク計算エラー: {e}")
+                return np.zeros(n_features)
+
+        try:
+            prices_clean = prices.dropna()
+            if len(prices_clean) < n_features:
+                return [pd.Series([0.0] * len(prices), index=prices.index) for _ in range(n_features)]
+
+            # チャンクサイズ計算
+            chunk_size = max(256, len(prices_clean) // 4)  # 最小256、最大4分割
+            chunks = [
+                prices_clean.values[i:i + chunk_size]
+                for i in range(0, len(prices_clean), chunk_size)
+            ]
+
+            # 非同期でFFT処理
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                tasks = [
+                    loop.run_in_executor(executor, _compute_fft_chunk, chunk)
+                    for chunk in chunks if len(chunk) >= n_features
+                ]
+
+                if tasks:
+                    results = await asyncio.gather(*tasks)
+                    # 結果をマージ（平均）
+                    amplitudes = np.mean(results, axis=0)
+                else:
+                    # フォールバック: 同期処理
+                    fft = np.fft.fft(prices_clean.values)
+                    amplitudes = np.abs(fft[1:n_features + 1])
+
+            # 効率的な特徴量系列作成
+            fft_features = [
+                pd.Series([amplitude] * len(prices), index=prices.index, dtype=np.float32)
+                for amplitude in amplitudes
+            ]
+
+            return fft_features
+
+        except Exception as e:
+            logger.warning(f"非同期FFT特徴量抽出エラー: {e}")
+            # フォールバック: 同期処理
+            return self._extract_fft_features(prices, n_features)
+
+    def _measure_inference_time_optimized(self, test_data: pd.DataFrame, n_iterations: int = 10) -> Optional[float]:
+        """
+        最適化された推論時間測定 - Issue #707対応
+
+        Args:
+            test_data: テストデータ
+            n_iterations: 測定回数
+
+        Returns:
+            平均推論時間(ms)、エラー時はNone
+        """
+        try:
+            import concurrent.futures
+
+            test_sample = test_data.tail(10)
+
+            def single_inference():
+                """単一推論実行"""
+                start = time.time()
+                try:
+                    _ = self.hybrid_model.predict(test_sample)
+                    return (time.time() - start) * 1000  # ms変換
+                except Exception as e:
+                    logger.warning(f"推論時間測定エラー: {e}")
+                    return None
+
+            # 並列推論時間測定（I/O待機を活用）
+            with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, n_iterations)) as executor:
+                futures = [executor.submit(single_inference) for _ in range(n_iterations)]
+
+                inference_times = []
+                for future in concurrent.futures.as_completed(futures):
+                    result = future.result()
+                    if result is not None:
+                        inference_times.append(result)
+
+            if inference_times:
+                avg_time = np.mean(inference_times)
+                logger.info(f"並列推論時間測定完了: {len(inference_times)}回測定、平均{avg_time:.2f}ms")
+                return avg_time
+            else:
+                return None
+
+        except Exception as e:
+            logger.warning(f"最適化推論時間測定失敗: {e}")
+            return None
+
+    async def _measure_inference_time_async(self, test_data: pd.DataFrame, n_iterations: int = 10) -> Optional[float]:
+        """
+        非同期推論時間測定 - Issue #707対応
+
+        Args:
+            test_data: テストデータ
+            n_iterations: 測定回数
+
+        Returns:
+            平均推論時間(ms)、エラー時はNone
+        """
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        try:
+            test_sample = test_data.tail(10)
+
+            async def async_inference():
+                """非同期推論実行"""
+                loop = asyncio.get_event_loop()
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    start = time.time()
+                    try:
+                        result = await loop.run_in_executor(
+                            executor, self.hybrid_model.predict, test_sample
+                        )
+                        return (time.time() - start) * 1000  # ms変換
+                    except Exception as e:
+                        logger.warning(f"非同期推論時間測定エラー: {e}")
+                        return None
+
+            # 非同期推論時間測定
+            tasks = [async_inference() for _ in range(n_iterations)]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # 有効な結果のみ抽出
+            inference_times = [
+                result for result in results
+                if isinstance(result, (int, float)) and result is not None
+            ]
+
+            if inference_times:
+                avg_time = np.mean(inference_times)
+                logger.info(f"非同期推論時間測定完了: {len(inference_times)}回測定、平均{avg_time:.2f}ms")
+                return avg_time
+            else:
+                return None
+
+        except Exception as e:
+            logger.warning(f"非同期推論時間測定失敗: {e}")
+            return None
 
     def calculate_advanced_technical_indicators(
         self, data: pd.DataFrame, symbol: str = "UNKNOWN"
@@ -1334,14 +1512,16 @@ class NextGenAITradingEngine:
                 )
                 accuracy = max(0, 100 - mape) / 100
 
-                # 推論時間測定
-                inference_times = []
-                for _ in range(10):  # 10回測定
-                    start = time.time()
-                    _ = self.hybrid_model.predict(test_data.tail(10))
-                    inference_times.append((time.time() - start) * 1000)  # ms変換
-
-                avg_inference_time = np.mean(inference_times)
+                # 推論時間測定 - Issue #707対応最適化版
+                avg_inference_time = self._measure_inference_time_optimized(test_data)
+                if avg_inference_time is None:
+                    # フォールバック: 従来方式
+                    inference_times = []
+                    for _ in range(10):  # 10回測定
+                        start = time.time()
+                        _ = self.hybrid_model.predict(test_data.tail(10))
+                        inference_times.append((time.time() - start) * 1000)  # ms変換
+                    avg_inference_time = np.mean(inference_times)
 
                 # メトリクス履歴更新
                 self.performance_metrics["accuracy_history"].append(accuracy)
