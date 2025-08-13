@@ -32,6 +32,19 @@ class MacroEconomicFeatures:
             'gold': 'GC=F',         # 金先物
         }
         self.macro_cache = {}
+        
+        # Issue #555対応: センチメント倍数の外部化
+        self.sentiment_multipliers = {
+            'vix': 5.0,      # VIX倍数（恐怖指数の感度）
+            'equity': 2.0,   # 株式市場倍数（S&P500等の感度）
+            'fx': 1.0,       # 為替倍数（USD/JPY等の感度）
+            'commodity': 1.5 # 商品倍数（金・原油等の感度）
+        }
+
+        # Issue #554対応: センチメント計算期間の外部化
+        self.vix_sentiment_period = "1mo"
+        self.equity_sentiment_period = "3mo"
+        self.fx_sentiment_period = "3mo"
 
         # センチメントスコアの乗数 (Issue #555対応)
         self.vix_sentiment_multiplier = 5
@@ -200,26 +213,23 @@ class MacroEconomicFeatures:
             sentiment_scores = {}
 
             # VIXベースセンチメント
-            vix_data = self.get_macro_data(self.macro_symbols['vix'], period="1mo")
+            vix_data = self.get_macro_data(self.macro_symbols['vix'], period=self.vix_sentiment_period)
             if vix_data is not None:
                 current_vix = vix_data["Close"].iloc[-1]
                 vix_avg = vix_data["Close"].mean()
-                # Issue #555対応: 乗数を外部化
-                sentiment_scores["vix_sentiment"] = max(0, min(100, 100 - (current_vix - vix_avg) * self.vix_sentiment_multiplier))
+                sentiment_scores["vix_sentiment"] = max(0, min(100, 100 - (current_vix - vix_avg) * self.sentiment_multipliers['vix']))
 
             # 株式市場センチメント（S&P500）
-            sp500_data = self.get_macro_data(self.macro_symbols['sp500'], period="3mo")
+            sp500_data = self.get_macro_data(self.macro_symbols['sp500'], period=self.equity_sentiment_period)
             if sp500_data is not None:
                 sp500_returns = sp500_data["Close"].pct_change(20).iloc[-1] * 100
-                # Issue #555対応: 乗数を外部化
-                sentiment_scores["equity_sentiment"] = max(0, min(100, 50 + sp500_returns * self.equity_sentiment_multiplier))
+                sentiment_scores["equity_sentiment"] = max(0, min(100, 50 + sp500_returns * self.sentiment_multipliers['equity']))
 
             # 為替センチメント（ドル強弱）
-            usdjpy_data = self.get_macro_data(self.macro_symbols['usdjpy'], period="3mo")
+            usdjpy_data = self.get_macro_data(self.macro_symbols['usdjpy'], period=self.fx_sentiment_period)
             if usdjpy_data is not None:
                 usdjpy_change = usdjpy_data["Close"].pct_change(20).iloc[-1] * 100
-                # Issue #555対応: 乗数を外部化
-                sentiment_scores["fx_sentiment"] = max(0, min(100, 50 + usdjpy_change * self.fx_sentiment_multiplier))
+                sentiment_scores["fx_sentiment"] = max(0, min(100, 50 + usdjpy_change * self.sentiment_multipliers['fx']))
 
             # 総合センチメント
             if sentiment_scores:
