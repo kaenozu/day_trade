@@ -2,7 +2,7 @@
 
 ## 現状分析
 - **現在の精度**: 89% (LSTM-Transformerハイブリッド)
-- **主要課題**: 
+- **主要課題**:
   - 市場外部要因の不足
   - 特徴量の限定性
   - セクター固有情報の不足
@@ -154,16 +154,16 @@ class EnhancedFeatureEngineering:
     def add_market_microstructure(self, data):
         # VWAP
         data['VWAP'] = (data['終値'] * data['出来高']).cumsum() / data['出来高'].cumsum()
-        
+
         # Price-Volume Trend
         data['PVT'] = ((data['終値'] - data['終値'].shift(1)) / data['終値'].shift(1) * data['出来高']).cumsum()
-        
+
         return data
-    
+
     def add_sentiment_indicators(self, data):
         # VIX proxy (volatility index)
         data['VIX_proxy'] = data['終値'].pct_change().rolling(20).std() * 100
-        
+
         return data
 ```
 
@@ -177,10 +177,10 @@ class EnhancedLSTMTransformer(nn.Module):
         self.lstm_short = nn.LSTM(input_size, hidden_size, batch_first=True)
         self.lstm_medium = nn.LSTM(input_size, hidden_size, batch_first=True)  
         self.lstm_long = nn.LSTM(input_size, hidden_size, batch_first=True)
-        
+
         # Cross-attention between different time scales
         self.cross_attention = nn.MultiheadAttention(hidden_size, num_heads=8)
-        
+
         # Feature attention
         self.feature_attention = nn.Linear(num_features, 1)
 ```

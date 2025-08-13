@@ -91,10 +91,10 @@ def parse_arguments():
 async def run_quick_mode(symbols: Optional[List[str]] = None) -> bool:
     """
     クイックモード実行
-    
+
     Args:
         symbols: 対象銘柄リスト
-        
+
     Returns:
         実行成功かどうか
     """
@@ -103,7 +103,7 @@ async def run_quick_mode(symbols: Optional[List[str]] = None) -> bool:
     try:
         print("\nクイックモード: 最速でTOP3推奨を実行します")
         print("クイックモード実行中...")
-        
+
         if symbols:
             print(f"対象銘柄: {len(symbols)} 銘柄")
         else:
@@ -115,10 +115,10 @@ async def run_quick_mode(symbols: Optional[List[str]] = None) -> bool:
 
         # 推奨銘柄取得
         recommendations = await get_daily_recommendations(limit=3)
-        
+
         # ステップ3: 結果表示
         progress.show_step("結果表示", 3)
-        
+
         if not recommendations:
             print("\n[!] 現在推奨できる銘柄がありません")
             return False
@@ -129,13 +129,13 @@ async def run_quick_mode(symbols: Optional[List[str]] = None) -> bool:
 
         for i, rec in enumerate(recommendations, 1):
             risk_color = {"低": "[L]", "中": "[M]", "高": "[H]"}.get(rec.risk_level, "[?]")
-            
+
             print(f"\n{i}. {rec.symbol} ({rec.name}) - [{rec.action.value}]")
             print(f"   スコア: {rec.composite_score:.1f}点, 信頼度: {rec.confidence:.0f}%, リスク: {risk_color}{rec.risk_level}")
-            
+
             if rec.reasons:
                 print(f"   理由: {', '.join(rec.reasons[:2])}")
-            
+
             if rec.price_target:
                 print(f"   目標価格: {rec.price_target:.0f}円", end="")
             if rec.stop_loss:
@@ -143,11 +143,11 @@ async def run_quick_mode(symbols: Optional[List[str]] = None) -> bool:
             print()
 
         progress.show_completion()
-        
+
         print("\n[TIP] ワンポイントアドバイス:")
         print("   - 必ずリスクレベルを確認してから投資判断してください")
         print("   - ストップロス価格での損切りを徹底しましょう")
-        
+
         return True
 
     except Exception as e:
@@ -158,10 +158,10 @@ async def run_quick_mode(symbols: Optional[List[str]] = None) -> bool:
 async def run_full_mode(symbols: Optional[List[str]] = None) -> bool:
     """
     フルモード実行
-    
+
     Args:
         symbols: 対象銘柄リスト
-        
+
     Returns:
         実行成功かどうか
     """
@@ -173,23 +173,23 @@ async def run_full_mode(symbols: Optional[List[str]] = None) -> bool:
 
         # ステップ1: データ収集
         progress.show_step("全データ収集・品質検証中", 1)
-        
+
         # ステップ2: 分析
         progress.show_step("ML学習・予測分析中", 2)
-        
+
         # フル自動パイプライン実行
         pipeline_result = await run_auto_pipeline(symbols)
-        
+
         if not pipeline_result.success:
             print(f"\n[ERROR] パイプライン実行に失敗しました: {pipeline_result.error_message}")
             return False
 
         # 推奨銘柄取得（TOP5）
         recommendations = await get_daily_recommendations(limit=5)
-        
+
         # ステップ3: 結果表示
         progress.show_step("詳細結果表示", 3)
-        
+
         if not recommendations:
             print("\n[!] 現在推奨できる銘柄がありません")
             return False
@@ -198,7 +198,7 @@ async def run_full_mode(symbols: Optional[List[str]] = None) -> bool:
         print("\n" + "="*60)
         print(f"     詳細分析結果 - TOP {len(recommendations)} 推奨銘柄")
         print("="*60)
-        
+
         print(f"[STATS] パイプライン統計:")
         print(f"   - データ収集: {len(pipeline_result.data_collection.collected_symbols)} 銘柄成功")
         print(f"   - モデル学習: {len(pipeline_result.model_update.models_updated)} モデル更新")
@@ -206,15 +206,15 @@ async def run_full_mode(symbols: Optional[List[str]] = None) -> bool:
 
         for i, rec in enumerate(recommendations, 1):
             risk_color = {"低": "[L]", "中": "[M]", "高": "[H]"}.get(rec.risk_level, "[?]")
-            
+
             print(f"\n{i}. {rec.symbol} ({rec.name}) - [{rec.action.value}]")
             print(f"   [SCORE] 総合スコア: {rec.composite_score:.1f}点")
             print(f"   [DETAIL] 内訳: テクニカル {rec.technical_score:.1f}点, ML予測 {rec.ml_score:.1f}点")
             print(f"   [CONF] 信頼度: {rec.confidence:.0f}%, リスク: {risk_color}{rec.risk_level}")
-            
+
             if rec.reasons:
                 print(f"   [REASON] 推奨理由: {', '.join(rec.reasons[:3])}")
-            
+
             price_info = []
             if rec.price_target:
                 price_info.append(f"目標価格 {rec.price_target:.0f}円")
@@ -224,12 +224,12 @@ async def run_full_mode(symbols: Optional[List[str]] = None) -> bool:
                 print(f"   [PRICE] {', '.join(price_info)}")
 
         progress.show_completion()
-        
+
         print("\n[INFO] 投資判断サポート:")
         print("   [OK] スコア70点以上: 投資検討価値が高い")
         print("   [CAUTION] 信頼度60%未満: 慎重な判断が必要")
         print("   [HIGH-RISK] 高リスク銘柄: 損失許容範囲内での投資を")
-        
+
         return True
 
     except Exception as e:
@@ -261,14 +261,14 @@ async def main():
         else:
             # デフォルトはクイックモード
             success = await run_quick_mode(symbols)
-        
+
         if success:
             print(f"\n[SUCCESS] {datetime.now().strftime('%H:%M:%S')} 分析完了")
             if args.safe:
                 print("   [INFO] 安全モードで高リスク銘柄を除外しています")
         else:
             print(f"\n[WARNING] {datetime.now().strftime('%H:%M:%S')} 分析に問題が発生しました")
-            
+
     except KeyboardInterrupt:
         print(f"\n[STOP] ユーザーによって実行が中止されました")
     except Exception as e:
