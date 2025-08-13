@@ -123,7 +123,7 @@ class CatBoostModel(BaseModelInterface):
             fit_params = {}
             if eval_set is not None:
                 fit_params['eval_set'] = eval_set
-                fit_params['early_stopping_rounds'] = self.config.early_stopping_rounds
+                fit_params['early_stopping_rounds'] = getattr(self.config, 'early_stopping_rounds', 50)
 
             self.model.fit(X, y, **fit_params)
 
@@ -152,7 +152,7 @@ class CatBoostModel(BaseModelInterface):
             self.training_metrics = results
 
             logger.info(f"CatBoost学習完了: {training_time:.2f}秒, "
-                       f"Train R²={train_metrics['r2_score']:.4f}")
+                       f"Train R²={train_metrics.r2_score:.4f}")
 
             return results
 
@@ -195,19 +195,22 @@ class CatBoostModel(BaseModelInterface):
 
     def _get_base_params(self) -> Dict[str, Any]:
         """基本パラメータ取得"""
+        # デフォルト値を設定
+        defaults = CatBoostConfig()
+
         return {
-            'iterations': self.config.iterations,
-            'learning_rate': self.config.learning_rate,
-            'depth': self.config.depth,
-            'l2_leaf_reg': self.config.l2_leaf_reg,
-            'border_count': self.config.border_count,
-            'eval_metric': self.config.eval_metric,
-            'random_state': self.config.random_state,
-            'thread_count': self.config.thread_count,
-            'verbose': self.config.verbose,
-            'boosting_type': self.config.boosting_type,
-            'bootstrap_type': self.config.bootstrap_type,
-            'bagging_temperature': self.config.bagging_temperature
+            'iterations': getattr(self.config, 'iterations', defaults.iterations),
+            'learning_rate': getattr(self.config, 'learning_rate', defaults.learning_rate),
+            'depth': getattr(self.config, 'depth', defaults.depth),
+            'l2_leaf_reg': getattr(self.config, 'l2_leaf_reg', defaults.l2_leaf_reg),
+            'border_count': getattr(self.config, 'border_count', defaults.border_count),
+            'eval_metric': getattr(self.config, 'eval_metric', defaults.eval_metric),
+            'random_state': getattr(self.config, 'random_state', defaults.random_state),
+            'thread_count': getattr(self.config, 'thread_count', defaults.thread_count),
+            'verbose': getattr(self.config, 'verbose', defaults.verbose),
+            'boosting_type': getattr(self.config, 'boosting_type', defaults.boosting_type),
+            'bootstrap_type': getattr(self.config, 'bootstrap_type', defaults.bootstrap_type),
+            'bagging_temperature': getattr(self.config, 'bagging_temperature', defaults.bagging_temperature)
         }
 
     def _optimize_hyperparameters(self, X: np.ndarray, y: np.ndarray,
@@ -250,7 +253,7 @@ class CatBoostModel(BaseModelInterface):
                 test_model.fit(
                     X, y,
                     eval_set=(X_val, y_val),
-                    early_stopping_rounds=self.config.early_stopping_rounds
+                    early_stopping_rounds=getattr(self.config, 'early_stopping_rounds', 50)
                 )
 
                 # 検証スコア
@@ -322,12 +325,20 @@ class CatBoostModel(BaseModelInterface):
         r2 = r2_score(y_true, y_pred)
         rmse = np.sqrt(mse)
 
+        # 方向予測精度計算
+        if len(y_true) > 1:
+            y_true_diff = np.diff(y_true)
+            y_pred_diff = np.diff(y_pred)
+            hit_rate = np.mean(np.sign(y_true_diff) == np.sign(y_pred_diff))
+        else:
+            hit_rate = 0.5
+
         return ModelMetrics(
             mse=mse,
             mae=mae,
             rmse=rmse,
             r2_score=r2,
-            accuracy=max(0.0, r2)  # R²スコアを精度として使用
+            hit_rate=hit_rate
         )
 
     def get_model_info(self) -> Dict[str, Any]:

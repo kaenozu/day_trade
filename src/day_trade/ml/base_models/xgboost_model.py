@@ -120,7 +120,7 @@ class XGBoostModel(BaseModelInterface):
             self.model.fit(
                 X, y,
                 eval_set=eval_set,
-                early_stopping_rounds=self.config.early_stopping_rounds if eval_set else None,
+                early_stopping_rounds=getattr(self.config, 'early_stopping_rounds', 50) if eval_set else None,
                 verbose=False
             )
 
@@ -149,7 +149,7 @@ class XGBoostModel(BaseModelInterface):
             self.training_metrics = results
 
             logger.info(f"XGBoost学習完了: {training_time:.2f}秒, "
-                       f"Train R²={train_metrics['r2_score']:.4f}")
+                       f"Train R²={train_metrics.r2_score:.4f}")
 
             return results
 
@@ -192,17 +192,20 @@ class XGBoostModel(BaseModelInterface):
 
     def _get_base_params(self) -> Dict[str, Any]:
         """基本パラメータ取得"""
+        # デフォルト値を設定
+        defaults = XGBoostConfig()
+
         return {
-            'n_estimators': self.config.n_estimators,
-            'max_depth': self.config.max_depth,
-            'learning_rate': self.config.learning_rate,
-            'subsample': self.config.subsample,
-            'colsample_bytree': self.config.colsample_bytree,
-            'reg_alpha': self.config.reg_alpha,
-            'reg_lambda': self.config.reg_lambda,
-            'random_state': self.config.random_state,
-            'n_jobs': self.config.n_jobs,
-            'eval_metric': self.config.eval_metric
+            'n_estimators': getattr(self.config, 'n_estimators', defaults.n_estimators),
+            'max_depth': getattr(self.config, 'max_depth', defaults.max_depth),
+            'learning_rate': getattr(self.config, 'learning_rate', defaults.learning_rate),
+            'subsample': getattr(self.config, 'subsample', defaults.subsample),
+            'colsample_bytree': getattr(self.config, 'colsample_bytree', defaults.colsample_bytree),
+            'reg_alpha': getattr(self.config, 'reg_alpha', defaults.reg_alpha),
+            'reg_lambda': getattr(self.config, 'reg_lambda', defaults.reg_lambda),
+            'random_state': getattr(self.config, 'random_state', defaults.random_state),
+            'n_jobs': getattr(self.config, 'n_jobs', defaults.n_jobs),
+            'eval_metric': getattr(self.config, 'eval_metric', defaults.eval_metric)
         }
 
     def _optimize_hyperparameters(self, X: np.ndarray, y: np.ndarray,
@@ -259,7 +262,7 @@ class XGBoostModel(BaseModelInterface):
                 test_model.fit(
                     X, y,
                     eval_set=[(X_val, y_val)],
-                    early_stopping_rounds=self.config.early_stopping_rounds,
+                    early_stopping_rounds=getattr(self.config, 'early_stopping_rounds', 50),
                     verbose=False
                 )
 
@@ -332,12 +335,20 @@ class XGBoostModel(BaseModelInterface):
         r2 = r2_score(y_true, y_pred)
         rmse = np.sqrt(mse)
 
+        # 方向予測精度計算
+        if len(y_true) > 1:
+            y_true_diff = np.diff(y_true)
+            y_pred_diff = np.diff(y_pred)
+            hit_rate = np.mean(np.sign(y_true_diff) == np.sign(y_pred_diff))
+        else:
+            hit_rate = 0.5
+
         return ModelMetrics(
             mse=mse,
             mae=mae,
             rmse=rmse,
             r2_score=r2,
-            accuracy=max(0.0, r2)  # R²スコアを精度として使用
+            hit_rate=hit_rate
         )
 
     def get_model_info(self) -> Dict[str, Any]:
