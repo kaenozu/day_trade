@@ -32,7 +32,7 @@ class MacroEconomicFeatures:
             'gold': 'GC=F',         # 金先物
         }
         self.macro_cache = {}
-        
+
         # Issue #555対応: センチメント倍数の外部化
         self.sentiment_multipliers = {
             'vix': 5.0,      # VIX倍数（恐怖指数の感度）
