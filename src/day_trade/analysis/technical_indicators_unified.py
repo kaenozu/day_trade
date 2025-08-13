@@ -50,8 +50,7 @@ except ImportError:
     OPTIMIZATION_AVAILABLE = False
     logger.info("最適化システム未利用 - 標準実装のみ")
 
-warnings.filterwarnings("ignore", category=RuntimeWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
+
 
 
 @dataclass
