@@ -9,35 +9,20 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Deque
+from collections import deque
 
 import numpy as np
 import pandas as pd
 
-from ..utils.logging_config import get_context_logger
+from day_trade.utils.logging_config import get_context_logger
+from day_trade.analysis.events import Event, EventType, MarketDataEvent, SignalEvent, OrderEvent, FillEvent, Order, TradeRecord, OrderType, OrderStatus
 
 warnings.filterwarnings("ignore")
 logger = get_context_logger(__name__)
 
 
-class OrderType(Enum):
-    """注文タイプ"""
-
-    MARKET = "market"
-    LIMIT = "limit"
-    STOP = "stop"
-    STOP_LIMIT = "stop_limit"
-
-
-class OrderStatus(Enum):
-    """注文状態"""
-
-    PENDING = "pending"
-    FILLED = "filled"
-    PARTIALLY_FILLED = "partially_filled"
-    CANCELLED = "cancelled"
-    REJECTED = "rejected"
-
+# OrderType と OrderStatus は events.py に移動しました
 
 @dataclass
 class TradingCosts:
@@ -50,6 +35,8 @@ class TradingCosts:
     slippage_rate: float = 0.0005  # スリッページ率
     market_impact_rate: float = 0.0002  # マーケットインパクト率
 
+
+# Order クラスは events.py に移動しました
 
 @dataclass
 class Order:
@@ -132,20 +119,40 @@ class AdvancedBacktestEngine:
         self.enable_market_impact = enable_market_impact
         self.realistic_execution = realistic_execution
 
+        # イベントキュー
+        self.events: Deque[Event] = deque()
+
         # 取引状態
         self.positions: Dict[str, Position] = {}
-        self.orders: List[Order] = []
-        self.trade_history: List[Dict] = []
+        self.orders: Dict[str, Order] = {} # order_id でアクセスできるよう変更
+        self.trade_history: List[TradeRecord] = []
         self.portfolio_history: List[Dict] = []
+
+        # 未決済の取引を追跡するための辞書
+        self.open_trades: Dict[str, TradeRecord] = {}
 
         # パフォーマンス追跡
         self.daily_returns: List[float] = []
-        self.equity_curve: List[float] = []
+        self.equity_curve: List[float] = [self.initial_capital]
         self.drawdown_series: List[float] = []
 
         # リスク管理
         self.max_daily_loss_limit: Optional[float] = None
         self.max_portfolio_heat: float = 0.02  # 2%
+
+        # イベントハンドラ
+        self._event_handlers: Dict[EventType, List[Callable]] = {
+            EventType.MARKET_DATA: [self._handle_market_data],
+            EventType.SIGNAL: [self._handle_signal],
+            EventType.ORDER: [self._handle_order],
+            EventType.FILL: [self._handle_fill],
+            # 将来的にカスタムイベントハンドラを追加
+        }
+        
+        # 現在の時刻を追跡
+        self._current_sim_time: Optional[datetime] = None
+        # 各シンボルの最新市場データを保存するための辞書
+        self.current_market_data_by_symbol: Dict[str, MarketDataEvent] = {}
 
         logger.info(
             "高度バックテストエンジン初期化",
@@ -191,30 +198,75 @@ class AdvancedBacktestEngine:
         # バックテスト初期化
         self._reset_backtest()
 
-        # 日次処理
-        for current_date, row in data.iterrows():
+        # イベントキューに初期イベントを投入
+        # データフレームのインデックスを時系列イベントとして利用
+        all_timestamps = sorted(data.index.union(strategy_signals.index).unique())
+        
+        for timestamp in all_timestamps:
+            if timestamp in data.index:
+                # MarketDataEvent を生成
+                row = data.loc[timestamp]
+                # pandas.Series.name がシンボルになることを想定
+                symbol = data.columns.levels[0][0] if isinstance(data.columns, pd.MultiIndex) else "UNKNOWN" # マルチインデックス対応
+                market_event = MarketDataEvent(
+                    type=EventType.MARKET_DATA,
+                    timestamp=timestamp,
+                    symbol=symbol,
+                    open=row[(symbol, "Open")] if isinstance(data.columns, pd.MultiIndex) else row["Open"],
+                    high=row[(symbol, "High")] if isinstance(data.columns, pd.MultiIndex) else row["High"],
+                    low=row[(symbol, "Low")] if isinstance(data.columns, pd.MultiIndex) else row["Low"],
+                    close=row[(symbol, "Close")] if isinstance(data.columns, pd.MultiIndex) else row["Close"],
+                    volume=row.get((symbol, "Volume")) if isinstance(data.columns, pd.MultiIndex) else row.get("Volume"),
+                )
+                self.events.append(market_event)
+
+            if timestamp in strategy_signals.index:
+                # SignalEvent を生成
+                signal_row = strategy_signals.loc[timestamp]
+                symbol = strategy_signals.columns.levels[0][0] if isinstance(strategy_signals.columns, pd.MultiIndex) else "UNKNOWN" # マルチインデックス対応
+                signal_event = SignalEvent(
+                    type=EventType.SIGNAL,
+                    timestamp=timestamp,
+                    symbol=symbol,
+                    action=signal_row[(symbol, "signal")] if isinstance(strategy_signals.columns, pd.MultiIndex) else signal_row["signal"],
+                    strength=signal_row.get((symbol, "confidence"), 0.0) if isinstance(strategy_signals.columns, pd.MultiIndex) else signal_row.get("confidence", 0.0),
+                    data={"price_target": signal_row.get((symbol, "price_target"))} if isinstance(strategy_signals.columns, pd.MultiIndex) else {"price_target": signal_row.get("price_target")},
+                )
+                self.events.append(signal_event)
+        
+        # イベントキューを時系列順にソート
+        self.events = deque(sorted(list(self.events), key=lambda event: event.timestamp))
+
+        # イベント駆動型ループ
+        while self.events:
+            event = self.events.popleft()
+            self._current_sim_time = event.timestamp # シミュレーション時間を更新
+
             try:
-                # 1. 既存注文の処理
-                self._process_pending_orders(current_date, row)
+                # イベントタイプに応じたハンドラを呼び出す
+                if isinstance(event, MarketDataEvent):
+                    self._handle_market_data(event)
+                elif isinstance(event, SignalEvent):
+                    self._handle_signal(event)
+                elif isinstance(event, OrderEvent):
+                    self._handle_order(event)
+                elif isinstance(event, FillEvent):
+                    self._handle_fill(event)
+                else:
+                    logger.warning(f"未処理のイベントタイプ: {event.type.value}")
 
-                # 2. ポジション更新
-                self._update_positions(current_date, row)
+                # ポートフォリオ状態の記録 (日次またはイベント毎)
+                # ここでは MarketDataEvent の処理後に記録
+                if isinstance(event, MarketDataEvent):
+                    self._record_portfolio_state(event.timestamp, event.data)
+                    # 日次処理としてリスク管理を適用
+                    self._apply_risk_management(event.timestamp, event.data)
 
-                # 3. 新規シグナル処理
-                if current_date in strategy_signals.index:
-                    signal_row = strategy_signals.loc[current_date]
-                    self._process_strategy_signal(current_date, row, signal_row)
-
-                # 4. リスク管理チェック
-                self._apply_risk_management(current_date, row)
-
-                # 5. ポートフォリオ記録
-                self._record_portfolio_state(current_date, row)
 
             except Exception as e:
                 logger.warning(
-                    f"バックテスト処理エラー: {current_date}",
-                    section="backtest_execution",
+                    f"イベント処理エラー: {event.type.value} at {event.timestamp} - {e}",
+                    section="event_processing",
                     error=str(e),
                 )
 
@@ -242,23 +294,51 @@ class AdvancedBacktestEngine:
         self.daily_returns = []
         self.equity_curve = [self.initial_capital]
         self.drawdown_series = []
+        self.open_trades = {}
 
-    def _process_pending_orders(self, current_date: datetime, market_data: pd.Series):
-        """待機中注文の処理"""
-        filled_orders = []
-
-        for order in self.orders:
-            if order.status != OrderStatus.PENDING:
+    def _process_pending_orders(self, current_time: datetime, market_data_event: MarketDataEvent):
+        """待機中注文の処理（イベントキューへの約定イベントプッシュ）"""
+        orders_to_remove = []
+        for order_id, order in list(self.orders.items()): # 辞書のコピーをイテレート
+            if order.status != Order.OrderStatus.PENDING:
                 continue
 
-            # 注文実行判定
-            if self._should_fill_order(order, market_data):
-                filled_price = self._calculate_fill_price(order, market_data)
-                self._execute_order(order, filled_price, current_date)
-                filled_orders.append(order)
+            # Check if this order's symbol matches the current market data event's symbol
+            if order.symbol != market_data_event.symbol:
+                continue # Only process orders for the current symbol's market data event
 
-        # 約定済み注文を除去
-        self.orders = [o for o in self.orders if o not in filled_orders]
+            # Convert MarketDataEvent to pd.Series for _should_fill_order and _calculate_fill_price
+            # These methods are designed for pd.Series, so we create one from MarketDataEvent.
+            symbol_market_data_series = pd.Series({
+                "Open": market_data_event.open,
+                "High": market_data_event.high,
+                "Low": market_data_event.low,
+                "Close": market_data_event.close,
+                "Volume": market_data_event.volume # Volume might be None
+            })
+            symbol_market_data_series.name = market_data_event.symbol
+
+            if self._should_fill_order(order, symbol_market_data_series):
+                filled_price = self._calculate_fill_price(order, symbol_market_data_series)
+                
+                # 約定イベントを生成し、キューにプッシュ
+                fill_event = FillEvent(
+                    type=EventType.FILL, # ★修正
+                    order_id=order.order_id,
+                    symbol=order.symbol,
+                    action=order.side,
+                    quantity=order.quantity, # 現状は全量約定のみをシミュレート
+                    price=filled_price,
+                    commission=self._calculate_commission_for_order(order, filled_price),
+                    slippage=abs(filled_price - (order.price or filled_price)),
+                    fill_time=current_time,
+                )
+                self.events.append(fill_event) # キューの末尾に追加し、後続のイベントループで処理される
+                orders_to_remove.append(order_id) # 処理済みとしてマーク
+
+        # 処理済みの注文を削除
+        for order_id in orders_to_remove:
+            del self.orders[order_id]
 
     def _should_fill_order(self, order: Order, market_data: pd.Series) -> bool:
         """注文約定判定"""
@@ -319,49 +399,154 @@ class AdvancedBacktestEngine:
 
         return base_price
 
-    def _execute_order(self, order: Order, fill_price: float, execution_time: datetime):
-        """注文執行"""
-        # 手数料計算
-        commission = max(
-            self.trading_costs.min_commission,
-            min(
-                self.trading_costs.max_commission,
-                order.quantity * fill_price * self.trading_costs.commission_rate,
-            ),
+    # ===== イベントハンドラ群 =====
+    def _handle_market_data(self, event: MarketDataEvent):
+        """市場データイベントを処理"""
+        # Store the latest market data for this symbol
+        self.current_market_data_by_symbol[event.symbol] = event # ★追加
+
+        # 既存注文の処理
+        # Pass the full MarketDataEvent object for processing orders
+        self._process_pending_orders(event.timestamp, event) # ★修正
+
+        # ポジション時価の更新
+        # Access attributes directly from event
+        self._update_positions_from_market_data(event.timestamp, event.symbol, event.close) # ★修正
+
+
+    def _handle_signal(self, event: SignalEvent):
+        """シグナルイベントを処理"""
+        symbol = event.symbol
+        signal_action = event.action
+        confidence = event.strength
+
+        # Retrieve current market data for this symbol
+        current_market_data_event = self.current_market_data_by_symbol.get(symbol) # ★修正
+        if current_market_data_event is None:
+            logger.warning(f"シグナル処理に十分な市場データがありません: {symbol} at {event.timestamp}") # ★修正
+            return
+        
+        current_price_for_signal = current_market_data_event.close # ★修正
+
+        if signal_action in ["buy", "sell"] and confidence > 50.0:
+            # ポジションサイズ計算
+            position_size = self._calculate_position_size(
+                symbol, current_price_for_signal, confidence
+            )
+
+            if position_size > 0:
+                # OrderEvent を生成し、キューにプッシュ
+                order_id = f"{symbol}_{self._current_sim_time.strftime('%Y%m%d_%H%M%S')}"
+                order_event = OrderEvent(
+                    type=EventType.ORDER,
+                    order_id=order_id,
+                    symbol=symbol,
+                    action=signal_action,
+                    quantity=position_size,
+                    order_type="market", # シグナルからはマーケット注文を出すと仮定
+                    price=current_price_for_signal,
+                    timestamp=self._current_sim_time,
+                )
+                self.events.append(order_event) # キューの末尾に追加
+                self.orders[order_id] = order_event # 注文を追跡するために保存
+
+                logger.debug(
+                    f"シグナルから注文イベント生成: {signal_action} {position_size} {symbol}",
+                    section="signal_processing",
+                    confidence=confidence,
+                )
+
+    def _handle_order(self, event: OrderEvent):
+        """注文イベントを処理 (主にシミュレーション内部での注文発行)"""
+        # OrderEvent から Order オブジェクトを生成し、self.orders に追加
+        # 注: Order.OrderType は events.py で定義された Enum です。
+        # event.order_type は文字列なので、Enumに変換する必要があります。
+        # または、OrderEvent.order_type を直接 Order.OrderType 型にする必要があります。
+        # ここでは便宜上、文字列からEnumに変換します。
+        order_type_enum = Order.OrderType[event.order_type.upper()] # ★修正
+        order = Order(
+            order_id=event.order_id,
+            symbol=event.symbol,
+            order_type=order_type_enum, # ★修正
+            side=event.action,
+            quantity=event.quantity,
+            price=event.price,
+            stop_price=event.stop_price,
+            timestamp=event.timestamp,
         )
+        self.orders[order.order_id] = order
+        logger.debug(f"新しい注文をキューに追加: {order.order_id}") # ★修正
 
-        # 注文更新
-        order.status = OrderStatus.FILLED
-        order.filled_quantity = order.quantity
-        order.filled_price = fill_price
-        order.commission = commission
+    def _handle_fill(self, event: FillEvent):
+        """約定イベントを処理"""
+        # 注文情報を更新し、ポジションと資本を調整
+        if event.order_id in self.orders:
+            order = self.orders[event.order_id]
+            order.status = Order.OrderStatus.FILLED
+            order.filled_quantity = event.quantity
+            order.filled_price = event.price
+            order.commission = event.commission
+            order.slippage = event.slippage
 
-        # ポジション更新
-        self._update_position_from_order(order)
+            # ポジションを更新し、ポジションからの実現損益を取得
+            realized_pnl_from_position = self._update_position_from_order(order)
 
-        # 取引記録
-        trade_record = {
-            "timestamp": execution_time,
-            "symbol": order.symbol,
-            "side": order.side,
-            "quantity": order.quantity,
-            "price": fill_price,
-            "commission": commission,
-            "slippage": abs(fill_price - (order.price or fill_price)),
-            "order_type": order.order_type.value,
-        }
-        self.trade_history.append(trade_record)
+            # TradeRecordの処理
+            if order.side == "buy":
+                # 新しいエントリーまたは既存ポジションへの追加
+                if order.symbol not in self.open_trades or self.open_trades[order.symbol].is_closed:
+                    # 新規取引
+                    trade_id = f"trade_{order.symbol}_{event.fill_time.strftime('%Y%m%d%H%M%S%f')}"
+                    new_trade = TradeRecord(
+                        trade_id=trade_id,
+                        symbol=order.symbol,
+                        entry_time=event.fill_time,
+                        entry_price=event.price,
+                        entry_quantity=event.quantity,
+                        entry_commission=event.commission,
+                        entry_slippage=event.slippage,
+                    )
+                    self.open_trades[order.symbol] = new_trade
+                else:
+                    # 既存取引への追加（平均コスト計算を伴う）
+                    existing_trade = self.open_trades[order.symbol]
+                    # ここでは簡易的に、平均価格の更新はPositionオブジェクトに任せ、TradeRecordはEntry情報を更新しない
+                    # もしTradeRecordで平均価格を追跡するなら、ここでロジックを追加
+                    existing_trade.entry_quantity += order.quantity # 数量のみ更新
+                    existing_trade.entry_commission += order.commission # コミッション加算
+                    existing_trade.entry_slippage += order.slippage # スリッページ加算
 
-        logger.debug(
-            f"注文執行: {order.side} {order.quantity} {order.symbol}",
-            section="order_execution",
-            fill_price=fill_price,
-            commission=commission,
-        )
+            elif order.side == "sell":
+                # エグジット処理
+                if order.symbol in self.open_trades and not self.open_trades[order.symbol].is_closed:
+                    closed_trade = self.open_trades[order.symbol]
+                    closed_trade.exit_time = event.fill_time
+                    closed_trade.exit_price = event.price
+                    closed_trade.exit_quantity = order.quantity
+                    closed_trade.exit_commission = event.commission
+                    closed_trade.exit_slippage = event.slippage
 
-    def _update_position_from_order(self, order: Order):
+                    # 実現損益、合計手数料、合計スリッページを更新
+                    closed_trade.realized_pnl = realized_pnl_from_position # _update_position_from_orderから取得
+                    closed_trade.total_commission = closed_trade.entry_commission + closed_trade.exit_commission
+                    closed_trade.total_slippage = closed_trade.entry_slippage + closed_trade.exit_slippage
+                    closed_trade.is_closed = True
+
+                    self.trade_history.append(closed_trade) # 確定した取引を履歴に追加
+                    del self.open_trades[order.symbol] # 未決済から削除
+                else:
+                    logger.warning(f"未エントリーのポジションの決済イベント: {order.symbol}")
+                    # ショートポジションの決済の場合なども考慮する必要がある（別途実装）
+                    # 現状はロングポジションのみを前提とする
+
+            logger.debug(f"注文約定を処理: {order.order_id}")
+        else:
+            logger.warning(f"未知の注文IDの約定イベント: {event.order_id}")
+
+    def _update_position_from_order(self, order: Order) -> float:
         """注文からポジション更新"""
         symbol = order.symbol
+        realized_pnl_for_order = 0.0
 
         if symbol not in self.positions:
             self.positions[symbol] = Position(symbol=symbol)
@@ -384,10 +569,10 @@ class AdvancedBacktestEngine:
             # 売り注文
             if position.quantity >= order.quantity:
                 # 実現損益計算
-                realized_pnl = (
+                realized_pnl_for_order = (
                     order.filled_price - position.average_price
                 ) * order.quantity - order.commission
-                position.realized_pnl += realized_pnl
+                position.realized_pnl += realized_pnl_for_order
                 position.quantity -= order.quantity
 
                 if position.quantity == 0:
@@ -409,6 +594,8 @@ class AdvancedBacktestEngine:
             self.current_capital += (
                 order.quantity * order.filled_price - order.commission
             )
+        
+        return realized_pnl_for_order # 計算した実現損益を返す
 
     def _update_positions(self, current_date: datetime, market_data: pd.Series):
         """ポジション時価更新"""
@@ -636,10 +823,9 @@ class AdvancedBacktestEngine:
             profits = []
             losses = []
 
-            for trade in self.trade_history:
-                if trade["side"] == "sell":  # 利益確定取引のみ
-                    # 簡易実装：実際は buy-sell ペアで計算すべき
-                    pnl = 0  # 実装省略
+            for trade in self.trade_history: # TradeRecordを使用
+                if trade.is_closed: # 決済済みの取引のみを対象
+                    pnl = trade.realized_pnl
                     if pnl > 0:
                         profits.append(pnl)
                     else:
@@ -659,8 +845,8 @@ class AdvancedBacktestEngine:
             )
 
             # コスト分析
-            total_commission = sum(trade["commission"] for trade in self.trade_history)
-            total_slippage = sum(trade["slippage"] for trade in self.trade_history)
+            total_commission = sum(trade.total_commission for trade in self.trade_history)
+            total_slippage = sum(trade.total_slippage for trade in self.trade_history)
         else:
             total_trades = winning_trades = losing_trades = 0
             win_rate = avg_win = avg_loss = profit_factor = 0.0
