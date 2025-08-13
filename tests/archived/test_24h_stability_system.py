@@ -146,7 +146,9 @@ class StabilityTestOrchestrator:
                 if int(elapsed) % 3600 == 0 and int(elapsed) > 0:
                     progress_hours = elapsed / 3600
                     progress_percent = (elapsed / total_seconds) * 100
-                    print(f"\n[進捗] {progress_hours:.1f}時間経過 ({progress_percent:.1f}%)")
+                    print(
+                        f"\n[進捗] {progress_hours:.1f}時間経過 ({progress_percent:.1f}%)"
+                    )
                     self._print_current_status()
 
                 time.sleep(60)  # 1分待機
@@ -201,7 +203,9 @@ class StabilityTestOrchestrator:
 
                 # ポートフォリオ最適化操作実行
                 if operation_count % 6 == 0:  # 30分に1回
-                    portfolio_result = self._execute_portfolio_optimization(operation_count)
+                    portfolio_result = self._execute_portfolio_optimization(
+                        operation_count
+                    )
                     self.operation_results.append(portfolio_result)
 
                 # ガベージコレクション実行（メモリ管理）
@@ -234,12 +238,18 @@ class StabilityTestOrchestrator:
         total_collections = sum(stat["collections"] for stat in gc_stats)
 
         # 操作統計
-        successful_ops = sum(1 for r in self.operation_results if r.get("success", False))
+        successful_ops = sum(
+            1 for r in self.operation_results if r.get("success", False)
+        )
         error_count = len(self.error_log)
 
         # 操作時間統計
-        operation_times = [r.get("duration", 0) for r in self.operation_results if "duration" in r]
-        avg_op_time = sum(operation_times) / len(operation_times) if operation_times else 0
+        operation_times = [
+            r.get("duration", 0) for r in self.operation_results if "duration" in r
+        ]
+        avg_op_time = (
+            sum(operation_times) / len(operation_times) if operation_times else 0
+        )
         max_op_time = max(operation_times) if operation_times else 0
 
         return StabilityMetrics(
@@ -274,9 +284,9 @@ class StabilityTestOrchestrator:
         # エラー率チェック
         if len(self.operation_results) > 10:
             recent_results = self.operation_results[-10:]
-            error_rate = sum(1 for r in recent_results if not r.get("success", True)) / len(
-                recent_results
-            )
+            error_rate = sum(
+                1 for r in recent_results if not r.get("success", True)
+            ) / len(recent_results)
             if error_rate > 0.2:  # 20%以上のエラー率
                 warnings.append(f"高エラー率: {error_rate*100:.1f}%")
 
@@ -366,8 +376,12 @@ class StabilityTestOrchestrator:
                 # 等重みポートフォリオ
                 weights = np.ones(len(returns.columns)) / len(returns.columns)
                 portfolio_return = np.dot(weights, returns.mean() * 252)
-                portfolio_risk = np.sqrt(np.dot(weights, np.dot(returns.cov() * 252, weights)))
-                sharpe_ratio = portfolio_return / portfolio_risk if portfolio_risk > 0 else 0
+                portfolio_risk = np.sqrt(
+                    np.dot(weights, np.dot(returns.cov() * 252, weights))
+                )
+                sharpe_ratio = (
+                    portfolio_return / portfolio_risk if portfolio_risk > 0 else 0
+                )
 
                 duration = time.time() - start_time
 
@@ -402,7 +416,9 @@ class StabilityTestOrchestrator:
             return
 
         latest = self.metrics_history[-1]
-        successful_ops = sum(1 for r in self.operation_results if r.get("success", False))
+        successful_ops = sum(
+            1 for r in self.operation_results if r.get("success", False)
+        )
         total_ops = len(self.operation_results)
 
         print(f"  メモリ使用量: {latest.memory_usage_mb:.1f}MB")
@@ -454,11 +470,17 @@ class StabilityTestOrchestrator:
 
         # 操作統計
         total_ops = len(self.operation_results)
-        successful_ops = sum(1 for r in self.operation_results if r.get("success", False))
+        successful_ops = sum(
+            1 for r in self.operation_results if r.get("success", False)
+        )
         error_ops = total_ops - successful_ops
 
         # 操作時間統計
-        op_times = [r.get("duration", 0) * 1000 for r in self.operation_results if "duration" in r]
+        op_times = [
+            r.get("duration", 0) * 1000
+            for r in self.operation_results
+            if "duration" in r
+        ]
         avg_op_time = sum(op_times) / len(op_times) if op_times else 0
         max_op_time = max(op_times) if op_times else 0
 

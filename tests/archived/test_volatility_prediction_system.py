@@ -17,6 +17,7 @@ import pandas as pd
 # プロジェクトルート追加
 sys.path.insert(0, str(Path(__file__).parent))
 
+
 async def test_volatility_system_initialization():
     """Volatility Prediction System初期化テスト"""
     print("\n=== Volatility Prediction System初期化テスト ===")
@@ -33,16 +34,22 @@ async def test_volatility_system_initialization():
             garch_model_type="GARCH",
             forecast_horizon=5,
             var_confidence=0.95,
-            max_concurrent=5
+            max_concurrent=5,
         )
         print("[OK] VolatilityPredictionSystem initialization success")
 
         # 設定確認
         assert volatility_system.enable_cache, "Cache should be enabled"
         assert volatility_system.enable_parallel, "Parallel should be enabled"
-        assert volatility_system.garch_model_type == "GARCH", f"GARCH model should be GARCH, got {volatility_system.garch_model_type}"
-        assert volatility_system.forecast_horizon == 5, f"Forecast horizon should be 5, got {volatility_system.forecast_horizon}"
-        assert volatility_system.var_confidence == 0.95, f"VaR confidence should be 0.95, got {volatility_system.var_confidence}"
+        assert (
+            volatility_system.garch_model_type == "GARCH"
+        ), f"GARCH model should be GARCH, got {volatility_system.garch_model_type}"
+        assert (
+            volatility_system.forecast_horizon == 5
+        ), f"Forecast horizon should be 5, got {volatility_system.forecast_horizon}"
+        assert (
+            volatility_system.var_confidence == 0.95
+        ), f"VaR confidence should be 0.95, got {volatility_system.var_confidence}"
 
         print(f"[OK] Cache enabled: {volatility_system.enable_cache}")
         print(f"[OK] Parallel enabled: {volatility_system.enable_parallel}")
@@ -58,6 +65,7 @@ async def test_volatility_system_initialization():
         traceback.print_exc()
         return False
 
+
 async def test_garch_volatility_prediction():
     """GARCH ボラティリティ予測テスト"""
     print("\n=== GARCH ボラティリティ予測テスト ===")
@@ -68,12 +76,14 @@ async def test_garch_volatility_prediction():
         )
 
         # 長期テストデータ生成（GARCH用に100日以上）
-        dates = pd.date_range(start='2024-01-01', periods=150, freq='D')
+        dates = pd.date_range(start="2024-01-01", periods=150, freq="D")
         np.random.seed(42)
 
         # ボラティリティクラスタリングを持つ時系列生成
         base_price = 2500
-        volatility_regime = np.random.choice([0.01, 0.02, 0.03], size=150, p=[0.4, 0.4, 0.2])
+        volatility_regime = np.random.choice(
+            [0.01, 0.02, 0.03], size=150, p=[0.4, 0.4, 0.2]
+        )
         returns = []
 
         for i in range(150):
@@ -87,42 +97,69 @@ async def test_garch_volatility_prediction():
         for ret in returns[1:]:
             prices.append(prices[-1] * (1 + ret))
 
-        test_data = pd.DataFrame({
-            'Open': [p * np.random.uniform(0.999, 1.001) for p in prices],
-            'High': [p * np.random.uniform(1.002, 1.015) for p in prices],
-            'Low': [p * np.random.uniform(0.985, 0.998) for p in prices],
-            'Close': prices,
-            'Volume': np.random.randint(600000, 2200000, 150),
-        }, index=dates)
+        test_data = pd.DataFrame(
+            {
+                "Open": [p * np.random.uniform(0.999, 1.001) for p in prices],
+                "High": [p * np.random.uniform(1.002, 1.015) for p in prices],
+                "Low": [p * np.random.uniform(0.985, 0.998) for p in prices],
+                "Close": prices,
+                "Volume": np.random.randint(600000, 2200000, 150),
+            },
+            index=dates,
+        )
 
         # システム初期化
         volatility_system = VolatilityPredictionSystem(
             enable_cache=False,  # テスト用にキャッシュ無効
             enable_parallel=False,
-            garch_model_type="GARCH"
+            garch_model_type="GARCH",
         )
         print("[OK] GARCH volatility system initialization success")
 
         # GARCH予測実行
-        garch_result = await volatility_system.predict_garch_volatility(test_data, "TEST_GARCH")
+        garch_result = await volatility_system.predict_garch_volatility(
+            test_data, "TEST_GARCH"
+        )
 
         # 結果検証
-        assert hasattr(garch_result, 'symbol'), "GARCH result missing symbol"
-        assert garch_result.symbol == "TEST_GARCH", f"Symbol mismatch: {garch_result.symbol}"
-        assert hasattr(garch_result, 'current_volatility'), "GARCH result missing current_volatility"
-        assert hasattr(garch_result, 'forecast_volatility'), "GARCH result missing forecast_volatility"
-        assert garch_result.current_volatility > 0, f"Invalid current volatility: {garch_result.current_volatility}"
-        assert garch_result.forecast_volatility > 0, f"Invalid forecast volatility: {garch_result.forecast_volatility}"
-        assert hasattr(garch_result, 'volatility_trend'), "GARCH result missing volatility_trend"
-        assert garch_result.volatility_trend in ['increasing', 'decreasing', 'stable'], f"Invalid trend: {garch_result.volatility_trend}"
-        assert hasattr(garch_result, 'confidence_interval'), "GARCH result missing confidence_interval"
-        assert len(garch_result.confidence_interval) == 2, "Confidence interval should have 2 values"
+        assert hasattr(garch_result, "symbol"), "GARCH result missing symbol"
+        assert (
+            garch_result.symbol == "TEST_GARCH"
+        ), f"Symbol mismatch: {garch_result.symbol}"
+        assert hasattr(
+            garch_result, "current_volatility"
+        ), "GARCH result missing current_volatility"
+        assert hasattr(
+            garch_result, "forecast_volatility"
+        ), "GARCH result missing forecast_volatility"
+        assert (
+            garch_result.current_volatility > 0
+        ), f"Invalid current volatility: {garch_result.current_volatility}"
+        assert (
+            garch_result.forecast_volatility > 0
+        ), f"Invalid forecast volatility: {garch_result.forecast_volatility}"
+        assert hasattr(
+            garch_result, "volatility_trend"
+        ), "GARCH result missing volatility_trend"
+        assert garch_result.volatility_trend in [
+            "increasing",
+            "decreasing",
+            "stable",
+        ], f"Invalid trend: {garch_result.volatility_trend}"
+        assert hasattr(
+            garch_result, "confidence_interval"
+        ), "GARCH result missing confidence_interval"
+        assert (
+            len(garch_result.confidence_interval) == 2
+        ), "Confidence interval should have 2 values"
 
         print(f"[OK] Current volatility: {garch_result.current_volatility:.1%}")
         print(f"[OK] Forecast volatility: {garch_result.forecast_volatility:.1%}")
         print(f"[OK] Volatility trend: {garch_result.volatility_trend}")
         print(f"[OK] Model type: {garch_result.model_type}")
-        print(f"[OK] Confidence interval: ({garch_result.confidence_interval[0]:.1%}, {garch_result.confidence_interval[1]:.1%})")
+        print(
+            f"[OK] Confidence interval: ({garch_result.confidence_interval[0]:.1%}, {garch_result.confidence_interval[1]:.1%})"
+        )
         print(f"[OK] Processing time: {garch_result.processing_time:.3f}s")
 
         # モデルパラメータ確認
@@ -138,6 +175,7 @@ async def test_garch_volatility_prediction():
         traceback.print_exc()
         return False
 
+
 async def test_vix_risk_assessment():
     """VIX リスク評価テスト"""
     print("\n=== VIX リスク評価テスト ===")
@@ -148,7 +186,7 @@ async def test_vix_risk_assessment():
         )
 
         # テストデータ生成
-        dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
+        dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
         np.random.seed(100)
 
         # 高ボラティリティ期間を含むデータ
@@ -165,18 +203,20 @@ async def test_vix_risk_assessment():
             new_price = prices[-1] * (1 + daily_ret)
             prices.append(new_price)
 
-        test_data = pd.DataFrame({
-            'Open': [p * np.random.uniform(0.998, 1.002) for p in prices],
-            'High': [p * np.random.uniform(1.005, 1.025) for p in prices],
-            'Low': [p * np.random.uniform(0.975, 0.995) for p in prices],
-            'Close': prices,
-            'Volume': np.random.randint(400000, 1800000, 100),
-        }, index=dates)
+        test_data = pd.DataFrame(
+            {
+                "Open": [p * np.random.uniform(0.998, 1.002) for p in prices],
+                "High": [p * np.random.uniform(1.005, 1.025) for p in prices],
+                "Low": [p * np.random.uniform(0.975, 0.995) for p in prices],
+                "Close": prices,
+                "Volume": np.random.randint(400000, 1800000, 100),
+            },
+            index=dates,
+        )
 
         # システム初期化
         volatility_system = VolatilityPredictionSystem(
-            enable_cache=False,
-            enable_parallel=False
+            enable_cache=False, enable_parallel=False
         )
         print("[OK] VIX risk system initialization success")
 
@@ -184,20 +224,44 @@ async def test_vix_risk_assessment():
         vix_result = await volatility_system.assess_vix_risk(test_data, "TEST_VIX")
 
         # 結果検証
-        assert hasattr(vix_result, 'symbol'), "VIX result missing symbol"
+        assert hasattr(vix_result, "symbol"), "VIX result missing symbol"
         assert vix_result.symbol == "TEST_VIX", f"Symbol mismatch: {vix_result.symbol}"
-        assert hasattr(vix_result, 'vix_level'), "VIX result missing vix_level"
+        assert hasattr(vix_result, "vix_level"), "VIX result missing vix_level"
         assert vix_result.vix_level > 0, f"Invalid VIX level: {vix_result.vix_level}"
-        assert hasattr(vix_result, 'risk_regime'), "VIX result missing risk_regime"
-        assert vix_result.risk_regime in ['low', 'normal', 'high', 'extreme'], f"Invalid risk regime: {vix_result.risk_regime}"
-        assert hasattr(vix_result, 'market_fear_indicator'), "VIX result missing market_fear_indicator"
-        assert 0 <= vix_result.market_fear_indicator <= 1, f"Invalid market fear: {vix_result.market_fear_indicator}"
-        assert hasattr(vix_result, 'correlation_with_vix'), "VIX result missing correlation"
-        assert -1 <= vix_result.correlation_with_vix <= 1, f"Invalid correlation: {vix_result.correlation_with_vix}"
-        assert hasattr(vix_result, 'risk_adjustment_factor'), "VIX result missing risk_adjustment_factor"
-        assert vix_result.risk_adjustment_factor > 0, f"Invalid risk adjustment: {vix_result.risk_adjustment_factor}"
-        assert hasattr(vix_result, 'recommended_action'), "VIX result missing recommended_action"
-        assert vix_result.recommended_action in ['increase', 'maintain', 'reduce', 'avoid'], f"Invalid action: {vix_result.recommended_action}"
+        assert hasattr(vix_result, "risk_regime"), "VIX result missing risk_regime"
+        assert vix_result.risk_regime in [
+            "low",
+            "normal",
+            "high",
+            "extreme",
+        ], f"Invalid risk regime: {vix_result.risk_regime}"
+        assert hasattr(
+            vix_result, "market_fear_indicator"
+        ), "VIX result missing market_fear_indicator"
+        assert (
+            0 <= vix_result.market_fear_indicator <= 1
+        ), f"Invalid market fear: {vix_result.market_fear_indicator}"
+        assert hasattr(
+            vix_result, "correlation_with_vix"
+        ), "VIX result missing correlation"
+        assert (
+            -1 <= vix_result.correlation_with_vix <= 1
+        ), f"Invalid correlation: {vix_result.correlation_with_vix}"
+        assert hasattr(
+            vix_result, "risk_adjustment_factor"
+        ), "VIX result missing risk_adjustment_factor"
+        assert (
+            vix_result.risk_adjustment_factor > 0
+        ), f"Invalid risk adjustment: {vix_result.risk_adjustment_factor}"
+        assert hasattr(
+            vix_result, "recommended_action"
+        ), "VIX result missing recommended_action"
+        assert vix_result.recommended_action in [
+            "increase",
+            "maintain",
+            "reduce",
+            "avoid",
+        ], f"Invalid action: {vix_result.recommended_action}"
 
         print(f"[OK] VIX level: {vix_result.vix_level:.1f}")
         print(f"[OK] Risk regime: {vix_result.risk_regime}")
@@ -214,6 +278,7 @@ async def test_vix_risk_assessment():
         traceback.print_exc()
         return False
 
+
 async def test_dynamic_risk_metrics():
     """動的リスク指標テスト"""
     print("\n=== 動的リスク指標テスト ===")
@@ -224,7 +289,7 @@ async def test_dynamic_risk_metrics():
         )
 
         # テストデータ生成
-        dates = pd.date_range(start='2024-01-01', periods=120, freq='D')
+        dates = pd.date_range(start="2024-01-01", periods=120, freq="D")
         np.random.seed(200)
 
         # ドローダウン期間を含むデータ
@@ -236,30 +301,38 @@ async def test_dynamic_risk_metrics():
             if 40 <= i <= 60:
                 daily_ret = np.random.normal(-0.005, 0.025)  # 下落トレンド + 高ボラ
             else:
-                daily_ret = np.random.normal(0.001, 0.018)   # 通常期間
+                daily_ret = np.random.normal(0.001, 0.018)  # 通常期間
 
-            new_price = max(prices[-1] * (1 + daily_ret), base_price * 0.7)  # 最低価格制限
+            new_price = max(
+                prices[-1] * (1 + daily_ret), base_price * 0.7
+            )  # 最低価格制限
             prices.append(new_price)
 
-        test_data = pd.DataFrame({
-            'Open': [p * np.random.uniform(0.998, 1.002) for p in prices],
-            'High': [p * np.random.uniform(1.005, 1.020) for p in prices],
-            'Low': [p * np.random.uniform(0.980, 0.998) for p in prices],
-            'Close': prices,
-            'Volume': np.random.randint(500000, 2000000, 120),
-        }, index=dates)
+        test_data = pd.DataFrame(
+            {
+                "Open": [p * np.random.uniform(0.998, 1.002) for p in prices],
+                "High": [p * np.random.uniform(1.005, 1.020) for p in prices],
+                "Low": [p * np.random.uniform(0.980, 0.998) for p in prices],
+                "Close": prices,
+                "Volume": np.random.randint(500000, 2000000, 120),
+            },
+            index=dates,
+        )
 
         # システム初期化
         volatility_system = VolatilityPredictionSystem(
-            enable_cache=False,
-            var_confidence=0.95
+            enable_cache=False, var_confidence=0.95
         )
         print("[OK] Dynamic risk system initialization success")
 
         # 事前にGARCH・VIX結果を取得
-        garch_result = await volatility_system.predict_garch_volatility(test_data, "TEST_RISK")
+        garch_result = await volatility_system.predict_garch_volatility(
+            test_data, "TEST_RISK"
+        )
         vix_result = await volatility_system.assess_vix_risk(test_data, "TEST_RISK")
-        print(f"[OK] Prerequisites obtained: GARCH={garch_result.volatility_trend}, VIX={vix_result.risk_regime}")
+        print(
+            f"[OK] Prerequisites obtained: GARCH={garch_result.volatility_trend}, VIX={vix_result.risk_regime}"
+        )
 
         # 動的リスク指標計算
         risk_metrics = await volatility_system.calculate_dynamic_risk_metrics(
@@ -267,26 +340,52 @@ async def test_dynamic_risk_metrics():
         )
 
         # 結果検証
-        assert hasattr(risk_metrics, 'symbol'), "Risk metrics missing symbol"
-        assert risk_metrics.symbol == "TEST_RISK", f"Symbol mismatch: {risk_metrics.symbol}"
-        assert hasattr(risk_metrics, 'current_var'), "Risk metrics missing current_var"
-        assert 0 < risk_metrics.current_var < 1, f"Invalid VaR: {risk_metrics.current_var}"
-        assert hasattr(risk_metrics, 'expected_shortfall'), "Risk metrics missing expected_shortfall"
-        assert risk_metrics.expected_shortfall >= risk_metrics.current_var, "ES should be >= VaR"
-        assert hasattr(risk_metrics, 'max_drawdown_forecast'), "Risk metrics missing max_drawdown_forecast"
-        assert 0 < risk_metrics.max_drawdown_forecast < 1, f"Invalid drawdown forecast: {risk_metrics.max_drawdown_forecast}"
-        assert hasattr(risk_metrics, 'position_size_multiplier'), "Risk metrics missing position_size_multiplier"
-        assert risk_metrics.position_size_multiplier > 0, f"Invalid position multiplier: {risk_metrics.position_size_multiplier}"
-        assert hasattr(risk_metrics, 'risk_budget_allocation'), "Risk metrics missing risk_budget_allocation"
-        assert 0 < risk_metrics.risk_budget_allocation <= 1, f"Invalid risk budget: {risk_metrics.risk_budget_allocation}"
-        assert hasattr(risk_metrics, 'stop_loss_level'), "Risk metrics missing stop_loss_level"
-        assert hasattr(risk_metrics, 'take_profit_level'), "Risk metrics missing take_profit_level"
+        assert hasattr(risk_metrics, "symbol"), "Risk metrics missing symbol"
+        assert (
+            risk_metrics.symbol == "TEST_RISK"
+        ), f"Symbol mismatch: {risk_metrics.symbol}"
+        assert hasattr(risk_metrics, "current_var"), "Risk metrics missing current_var"
+        assert (
+            0 < risk_metrics.current_var < 1
+        ), f"Invalid VaR: {risk_metrics.current_var}"
+        assert hasattr(
+            risk_metrics, "expected_shortfall"
+        ), "Risk metrics missing expected_shortfall"
+        assert (
+            risk_metrics.expected_shortfall >= risk_metrics.current_var
+        ), "ES should be >= VaR"
+        assert hasattr(
+            risk_metrics, "max_drawdown_forecast"
+        ), "Risk metrics missing max_drawdown_forecast"
+        assert (
+            0 < risk_metrics.max_drawdown_forecast < 1
+        ), f"Invalid drawdown forecast: {risk_metrics.max_drawdown_forecast}"
+        assert hasattr(
+            risk_metrics, "position_size_multiplier"
+        ), "Risk metrics missing position_size_multiplier"
+        assert (
+            risk_metrics.position_size_multiplier > 0
+        ), f"Invalid position multiplier: {risk_metrics.position_size_multiplier}"
+        assert hasattr(
+            risk_metrics, "risk_budget_allocation"
+        ), "Risk metrics missing risk_budget_allocation"
+        assert (
+            0 < risk_metrics.risk_budget_allocation <= 1
+        ), f"Invalid risk budget: {risk_metrics.risk_budget_allocation}"
+        assert hasattr(
+            risk_metrics, "stop_loss_level"
+        ), "Risk metrics missing stop_loss_level"
+        assert hasattr(
+            risk_metrics, "take_profit_level"
+        ), "Risk metrics missing take_profit_level"
 
         print(f"[OK] Current VaR (95%): {risk_metrics.current_var:.1%}")
         print(f"[OK] Expected Shortfall: {risk_metrics.expected_shortfall:.1%}")
         print(f"[OK] Max Drawdown forecast: {risk_metrics.max_drawdown_forecast:.1%}")
         print(f"[OK] Sharpe ratio forecast: {risk_metrics.sharpe_ratio_forecast:.3f}")
-        print(f"[OK] Position size multiplier: {risk_metrics.position_size_multiplier:.3f}x")
+        print(
+            f"[OK] Position size multiplier: {risk_metrics.position_size_multiplier:.3f}x"
+        )
         print(f"[OK] Risk budget allocation: {risk_metrics.risk_budget_allocation:.1%}")
         print(f"[OK] Stop loss level: ¥{risk_metrics.stop_loss_level:.0f}")
         print(f"[OK] Take profit level: ¥{risk_metrics.take_profit_level:.0f}")
@@ -299,6 +398,7 @@ async def test_dynamic_risk_metrics():
         traceback.print_exc()
         return False
 
+
 async def test_integrated_volatility_forecast():
     """統合ボラティリティ予測テスト"""
     print("\n=== 統合ボラティリティ予測テスト ===")
@@ -309,17 +409,17 @@ async def test_integrated_volatility_forecast():
         )
 
         # 総合的なテストデータ（長期間・複雑なパターン）
-        dates = pd.date_range(start='2024-01-01', periods=180, freq='D')
+        dates = pd.date_range(start="2024-01-01", periods=180, freq="D")
         np.random.seed(300)
 
         # 複数レジームを含む時系列
         base_price = 2400
         prices = [base_price]
         regimes = [
-            (0, 40, 0.001, 0.015),    # 通常期間
+            (0, 40, 0.001, 0.015),  # 通常期間
             (40, 80, -0.002, 0.025),  # 下落・高ボラ期間
             (80, 120, 0.002, 0.020),  # 回復期間
-            (120, 180, 0.0005, 0.012) # 安定期間
+            (120, 180, 0.0005, 0.012),  # 安定期間
         ]
 
         for i in range(179):
@@ -337,19 +437,20 @@ async def test_integrated_volatility_forecast():
             new_price = prices[-1] * (1 + daily_ret)
             prices.append(new_price)
 
-        test_data = pd.DataFrame({
-            'Open': [p * np.random.uniform(0.998, 1.002) for p in prices],
-            'High': [p * np.random.uniform(1.005, 1.020) for p in prices],
-            'Low': [p * np.random.uniform(0.980, 0.998) for p in prices],
-            'Close': prices,
-            'Volume': np.random.randint(600000, 2500000, 180),
-        }, index=dates)
+        test_data = pd.DataFrame(
+            {
+                "Open": [p * np.random.uniform(0.998, 1.002) for p in prices],
+                "High": [p * np.random.uniform(1.005, 1.020) for p in prices],
+                "Low": [p * np.random.uniform(0.980, 0.998) for p in prices],
+                "Close": prices,
+                "Volume": np.random.randint(600000, 2500000, 180),
+            },
+            index=dates,
+        )
 
         # システム初期化
         volatility_system = VolatilityPredictionSystem(
-            enable_cache=True,
-            enable_parallel=True,
-            forecast_horizon=5
+            enable_cache=True, enable_parallel=True, forecast_horizon=5
         )
         print("[OK] Integrated volatility system initialization success")
 
@@ -359,24 +460,56 @@ async def test_integrated_volatility_forecast():
         )
 
         # 結果検証
-        assert hasattr(integrated_result, 'symbol'), "Integrated result missing symbol"
-        assert integrated_result.symbol == "TEST_INTEGRATED", f"Symbol mismatch: {integrated_result.symbol}"
-        assert hasattr(integrated_result, 'garch_result'), "Integrated result missing garch_result"
-        assert hasattr(integrated_result, 'vix_assessment'), "Integrated result missing vix_assessment"
-        assert hasattr(integrated_result, 'risk_metrics'), "Integrated result missing risk_metrics"
-        assert hasattr(integrated_result, 'final_volatility_forecast'), "Integrated result missing final_volatility_forecast"
-        assert integrated_result.final_volatility_forecast > 0, f"Invalid volatility forecast: {integrated_result.final_volatility_forecast}"
-        assert hasattr(integrated_result, 'integrated_risk_score'), "Integrated result missing integrated_risk_score"
-        assert 0 <= integrated_result.integrated_risk_score <= 1, f"Invalid risk score: {integrated_result.integrated_risk_score}"
-        assert hasattr(integrated_result, 'recommended_position_size'), "Integrated result missing recommended_position_size"
-        assert 0 < integrated_result.recommended_position_size <= 1, f"Invalid position size: {integrated_result.recommended_position_size}"
-        assert hasattr(integrated_result, 'confidence_level'), "Integrated result missing confidence_level"
-        assert 0 < integrated_result.confidence_level <= 1, f"Invalid confidence: {integrated_result.confidence_level}"
+        assert hasattr(integrated_result, "symbol"), "Integrated result missing symbol"
+        assert (
+            integrated_result.symbol == "TEST_INTEGRATED"
+        ), f"Symbol mismatch: {integrated_result.symbol}"
+        assert hasattr(
+            integrated_result, "garch_result"
+        ), "Integrated result missing garch_result"
+        assert hasattr(
+            integrated_result, "vix_assessment"
+        ), "Integrated result missing vix_assessment"
+        assert hasattr(
+            integrated_result, "risk_metrics"
+        ), "Integrated result missing risk_metrics"
+        assert hasattr(
+            integrated_result, "final_volatility_forecast"
+        ), "Integrated result missing final_volatility_forecast"
+        assert (
+            integrated_result.final_volatility_forecast > 0
+        ), f"Invalid volatility forecast: {integrated_result.final_volatility_forecast}"
+        assert hasattr(
+            integrated_result, "integrated_risk_score"
+        ), "Integrated result missing integrated_risk_score"
+        assert (
+            0 <= integrated_result.integrated_risk_score <= 1
+        ), f"Invalid risk score: {integrated_result.integrated_risk_score}"
+        assert hasattr(
+            integrated_result, "recommended_position_size"
+        ), "Integrated result missing recommended_position_size"
+        assert (
+            0 < integrated_result.recommended_position_size <= 1
+        ), f"Invalid position size: {integrated_result.recommended_position_size}"
+        assert hasattr(
+            integrated_result, "confidence_level"
+        ), "Integrated result missing confidence_level"
+        assert (
+            0 < integrated_result.confidence_level <= 1
+        ), f"Invalid confidence: {integrated_result.confidence_level}"
 
-        print(f"[OK] Final volatility forecast: {integrated_result.final_volatility_forecast:.1%}")
-        print(f"[OK] Integrated risk score: {integrated_result.integrated_risk_score:.3f}")
-        print(f"[OK] Recommended position size: {integrated_result.recommended_position_size:.1%}")
-        print(f"[OK] Risk-adjusted return forecast: {integrated_result.risk_adjusted_return_forecast:.1%}")
+        print(
+            f"[OK] Final volatility forecast: {integrated_result.final_volatility_forecast:.1%}"
+        )
+        print(
+            f"[OK] Integrated risk score: {integrated_result.integrated_risk_score:.3f}"
+        )
+        print(
+            f"[OK] Recommended position size: {integrated_result.recommended_position_size:.1%}"
+        )
+        print(
+            f"[OK] Risk-adjusted return forecast: {integrated_result.risk_adjusted_return_forecast:.1%}"
+        )
         print(f"[OK] Confidence level: {integrated_result.confidence_level:.1%}")
         print(f"[OK] Processing time: {integrated_result.processing_time:.3f}s")
 
@@ -386,9 +519,13 @@ async def test_integrated_volatility_forecast():
         risk = integrated_result.risk_metrics
 
         print("\n[COMPONENTS] Sub-system results:")
-        print(f"  GARCH: {garch.volatility_trend} trend, {garch.forecast_volatility:.1%} vol")
+        print(
+            f"  GARCH: {garch.volatility_trend} trend, {garch.forecast_volatility:.1%} vol"
+        )
         print(f"  VIX: {vix.risk_regime} regime, {vix.recommended_action} action")
-        print(f"  Risk: {risk.current_var:.1%} VaR, {risk.position_size_multiplier:.2f}x position")
+        print(
+            f"  Risk: {risk.current_var:.1%} VaR, {risk.position_size_multiplier:.2f}x position"
+        )
 
         return True
 
@@ -396,6 +533,7 @@ async def test_integrated_volatility_forecast():
         print(f"[ERROR] Integrated volatility forecast test failed: {e}")
         traceback.print_exc()
         return False
+
 
 async def test_batch_volatility_analysis():
     """バッチボラティリティ分析テスト"""
@@ -411,7 +549,7 @@ async def test_batch_volatility_analysis():
         batch_data = {}
 
         for i, symbol in enumerate(symbols):
-            dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
+            dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
             np.random.seed(400 + i * 10)
 
             base_price = 2000 + i * 500
@@ -425,13 +563,16 @@ async def test_batch_volatility_analysis():
                 new_price = prices[-1] * (1 + daily_ret)
                 prices.append(new_price)
 
-            test_data = pd.DataFrame({
-                'Open': [p * np.random.uniform(0.999, 1.001) for p in prices],
-                'High': [p * np.random.uniform(1.005, 1.018) for p in prices],
-                'Low': [p * np.random.uniform(0.982, 0.999) for p in prices],
-                'Close': prices,
-                'Volume': np.random.randint(300000, 1500000, 100),
-            }, index=dates)
+            test_data = pd.DataFrame(
+                {
+                    "Open": [p * np.random.uniform(0.999, 1.001) for p in prices],
+                    "High": [p * np.random.uniform(1.005, 1.018) for p in prices],
+                    "Low": [p * np.random.uniform(0.982, 0.999) for p in prices],
+                    "Close": prices,
+                    "Volume": np.random.randint(300000, 1500000, 100),
+                },
+                index=dates,
+            )
 
             batch_data[symbol] = test_data
 
@@ -439,14 +580,16 @@ async def test_batch_volatility_analysis():
         volatility_system = VolatilityPredictionSystem(
             enable_cache=True,
             enable_parallel=False,  # テスト用に順次実行
-            max_concurrent=3
+            max_concurrent=3,
         )
         print("[OK] Batch volatility system initialization success")
 
         # バッチ分析実行
         batch_results = {}
         for symbol, data in batch_data.items():
-            result = await volatility_system.integrated_volatility_forecast(data, symbol)
+            result = await volatility_system.integrated_volatility_forecast(
+                data, symbol
+            )
             batch_results[symbol] = result
 
             print(f"[OK] {symbol} processed:")
@@ -456,16 +599,24 @@ async def test_batch_volatility_analysis():
             print(f"     Confidence: {result.confidence_level:.1%}")
 
         # バッチ結果検証
-        assert len(batch_results) == len(symbols), f"Results count mismatch: {len(batch_results)} vs {len(symbols)}"
+        assert len(batch_results) == len(
+            symbols
+        ), f"Results count mismatch: {len(batch_results)} vs {len(symbols)}"
 
         for symbol in symbols:
             assert symbol in batch_results, f"Missing results for {symbol}"
             result = batch_results[symbol]
 
             assert result.symbol == symbol, f"Symbol mismatch: {result.symbol}"
-            assert result.final_volatility_forecast > 0, f"Invalid volatility for {symbol}"
-            assert 0 <= result.integrated_risk_score <= 1, f"Invalid risk score for {symbol}"
-            assert 0 < result.recommended_position_size <= 1, f"Invalid position size for {symbol}"
+            assert (
+                result.final_volatility_forecast > 0
+            ), f"Invalid volatility for {symbol}"
+            assert (
+                0 <= result.integrated_risk_score <= 1
+            ), f"Invalid risk score for {symbol}"
+            assert (
+                0 < result.recommended_position_size <= 1
+            ), f"Invalid position size for {symbol}"
 
         print(f"[OK] Batch analysis completed: {len(batch_results)} symbols")
 
@@ -474,11 +625,13 @@ async def test_batch_volatility_analysis():
         sorted_symbols = sorted(
             batch_results.items(),
             key=lambda x: x[1].integrated_risk_score,
-            reverse=True
+            reverse=True,
         )
         for i, (symbol, result) in enumerate(sorted_symbols):
             rank = i + 1
-            print(f"  {rank}. {symbol}: Risk={result.integrated_risk_score:.3f}, Vol={result.final_volatility_forecast:.1%}")
+            print(
+                f"  {rank}. {symbol}: Risk={result.integrated_risk_score:.3f}, Vol={result.final_volatility_forecast:.1%}"
+            )
 
         return True
 
@@ -486,6 +639,7 @@ async def test_batch_volatility_analysis():
         print(f"[ERROR] Batch volatility analysis test failed: {e}")
         traceback.print_exc()
         return False
+
 
 async def test_performance_monitoring():
     """パフォーマンス監視テスト"""
@@ -498,8 +652,7 @@ async def test_performance_monitoring():
 
         # システム初期化
         volatility_system = VolatilityPredictionSystem(
-            enable_cache=True,
-            enable_parallel=True
+            enable_cache=True, enable_parallel=True
         )
 
         # 初期統計取得
@@ -507,8 +660,12 @@ async def test_performance_monitoring():
 
         # 統計項目検証
         required_keys = [
-            'total_forecasts', 'cache_hit_rate', 'garch_forecasts',
-            'vix_assessments', 'avg_processing_time', 'system_status'
+            "total_forecasts",
+            "cache_hit_rate",
+            "garch_forecasts",
+            "vix_assessments",
+            "avg_processing_time",
+            "system_status",
         ]
 
         for key in required_keys:
@@ -521,7 +678,7 @@ async def test_performance_monitoring():
         print(f"[STATS] VIX assessments: {initial_stats['vix_assessments']}")
 
         # システム状態確認
-        system_status = initial_stats['system_status']
+        system_status = initial_stats["system_status"]
         print(f"[SYSTEM] Cache enabled: {system_status['cache_enabled']}")
         print(f"[SYSTEM] Parallel enabled: {system_status['parallel_enabled']}")
         print(f"[SYSTEM] GARCH model: {system_status['garch_model']}")
@@ -529,13 +686,13 @@ async def test_performance_monitoring():
         print(f"[SYSTEM] Scikit-learn available: {system_status['sklearn_available']}")
 
         # リスクパラメータ確認
-        risk_params = initial_stats['risk_parameters']
+        risk_params = initial_stats["risk_parameters"]
         print(f"[RISK] Base position size: {risk_params['base_position_size']:.1%}")
         print(f"[RISK] Max position size: {risk_params['max_position_size']:.1%}")
         print(f"[RISK] Max leverage: {risk_params['max_leverage']:.1f}x")
 
         # 最適化効果確認
-        benefits = initial_stats['optimization_benefits']
+        benefits = initial_stats["optimization_benefits"]
         print("[OPTIMIZATION] Benefits:")
         for benefit, description in benefits.items():
             print(f"  {benefit}: {description}")
@@ -546,6 +703,7 @@ async def test_performance_monitoring():
         print(f"[ERROR] Performance monitoring test failed: {e}")
         traceback.print_exc()
         return False
+
 
 async def test_risk_scenario_analysis():
     """リスクシナリオ分析テスト"""
@@ -559,21 +717,28 @@ async def test_risk_scenario_analysis():
         # 極端なリスクシナリオデータ生成
         scenarios = {
             "low_risk": {"mean": 0.001, "vol": 0.010, "description": "低リスク期間"},
-            "normal_risk": {"mean": 0.001, "vol": 0.020, "description": "通常リスク期間"},
+            "normal_risk": {
+                "mean": 0.001,
+                "vol": 0.020,
+                "description": "通常リスク期間",
+            },
             "high_risk": {"mean": -0.001, "vol": 0.040, "description": "高リスク期間"},
-            "extreme_risk": {"mean": -0.003, "vol": 0.060, "description": "極端リスク期間"}
+            "extreme_risk": {
+                "mean": -0.003,
+                "vol": 0.060,
+                "description": "極端リスク期間",
+            },
         }
 
         volatility_system = VolatilityPredictionSystem(
-            enable_cache=False,
-            forecast_horizon=3
+            enable_cache=False, forecast_horizon=3
         )
 
         scenario_results = {}
 
         for scenario_name, params in scenarios.items():
             # シナリオデータ生成
-            dates = pd.date_range(start='2024-01-01', periods=80, freq='D')
+            dates = pd.date_range(start="2024-01-01", periods=80, freq="D")
             np.random.seed(500)
 
             base_price = 2500
@@ -584,44 +749,57 @@ async def test_risk_scenario_analysis():
                 new_price = max(prices[-1] * (1 + daily_ret), base_price * 0.5)
                 prices.append(new_price)
 
-            scenario_data = pd.DataFrame({
-                'Open': [p * np.random.uniform(0.999, 1.001) for p in prices],
-                'High': [p * np.random.uniform(1.005, 1.015) for p in prices],
-                'Low': [p * np.random.uniform(0.985, 0.999) for p in prices],
-                'Close': prices,
-                'Volume': np.random.randint(400000, 2000000, 80),
-            }, index=dates)
+            scenario_data = pd.DataFrame(
+                {
+                    "Open": [p * np.random.uniform(0.999, 1.001) for p in prices],
+                    "High": [p * np.random.uniform(1.005, 1.015) for p in prices],
+                    "Low": [p * np.random.uniform(0.985, 0.999) for p in prices],
+                    "Close": prices,
+                    "Volume": np.random.randint(400000, 2000000, 80),
+                },
+                index=dates,
+            )
 
             # 統合予測実行
             result = await volatility_system.integrated_volatility_forecast(
                 scenario_data, f"SCENARIO_{scenario_name.upper()}"
             )
 
-            scenario_results[scenario_name] = {
-                'result': result,
-                'params': params
-            }
+            scenario_results[scenario_name] = {"result": result, "params": params}
 
             print(f"[OK] {scenario_name} scenario ({params['description']}):")
             print(f"     Volatility forecast: {result.final_volatility_forecast:.1%}")
             print(f"     Risk score: {result.integrated_risk_score:.3f}")
             print(f"     Position size: {result.recommended_position_size:.1%}")
             print(f"     VIX risk regime: {result.vix_assessment.risk_regime}")
-            print(f"     Max drawdown forecast: {result.risk_metrics.max_drawdown_forecast:.1%}")
+            print(
+                f"     Max drawdown forecast: {result.risk_metrics.max_drawdown_forecast:.1%}"
+            )
 
         # シナリオ間比較検証
-        risk_scores = [data['result'].integrated_risk_score for data in scenario_results.values()]
-        position_sizes = [data['result'].recommended_position_size for data in scenario_results.values()]
+        risk_scores = [
+            data["result"].integrated_risk_score for data in scenario_results.values()
+        ]
+        position_sizes = [
+            data["result"].recommended_position_size
+            for data in scenario_results.values()
+        ]
 
         # リスクスコアが適切に段階的に上昇することを確認
-        assert risk_scores[0] < risk_scores[1] < risk_scores[2], "Risk scores should increase with risk level"
+        assert (
+            risk_scores[0] < risk_scores[1] < risk_scores[2]
+        ), "Risk scores should increase with risk level"
 
         # ポジションサイズが適切に段階的に減少することを確認
-        assert position_sizes[0] >= position_sizes[1] >= position_sizes[2], "Position sizes should decrease with risk level"
+        assert (
+            position_sizes[0] >= position_sizes[1] >= position_sizes[2]
+        ), "Position sizes should decrease with risk level"
 
         print("\n[VALIDATION] Risk ranking verification:")
         for i, (scenario, data) in enumerate(scenario_results.items()):
-            print(f"  {i+1}. {scenario}: Risk={data['result'].integrated_risk_score:.3f}, Pos={data['result'].recommended_position_size:.1%}")
+            print(
+                f"  {i+1}. {scenario}: Risk={data['result'].integrated_risk_score:.3f}, Pos={data['result'].recommended_position_size:.1%}"
+            )
 
         print("[OK] Risk scenario differentiation working correctly")
 
@@ -632,6 +810,7 @@ async def test_risk_scenario_analysis():
         traceback.print_exc()
         return False
 
+
 async def main():
     """メインテスト実行"""
     print("Volatility Prediction System（統合最適化版）テスト開始")
@@ -640,12 +819,20 @@ async def main():
     test_results = []
 
     # 各テスト実行
-    test_results.append(("システム初期化", await test_volatility_system_initialization()))
-    test_results.append(("GARCH ボラティリティ予測", await test_garch_volatility_prediction()))
+    test_results.append(
+        ("システム初期化", await test_volatility_system_initialization())
+    )
+    test_results.append(
+        ("GARCH ボラティリティ予測", await test_garch_volatility_prediction())
+    )
     test_results.append(("VIX リスク評価", await test_vix_risk_assessment()))
     test_results.append(("動的リスク指標", await test_dynamic_risk_metrics()))
-    test_results.append(("統合ボラティリティ予測", await test_integrated_volatility_forecast()))
-    test_results.append(("バッチボラティリティ分析", await test_batch_volatility_analysis()))
+    test_results.append(
+        ("統合ボラティリティ予測", await test_integrated_volatility_forecast())
+    )
+    test_results.append(
+        ("バッチボラティリティ分析", await test_batch_volatility_analysis())
+    )
     test_results.append(("パフォーマンス監視", await test_performance_monitoring()))
     test_results.append(("リスクシナリオ分析", await test_risk_scenario_analysis()))
 
@@ -677,6 +864,7 @@ async def main():
     else:
         print("[WARNING] 一部テスト失敗 - 要修正")
         return False
+
 
 if __name__ == "__main__":
     try:

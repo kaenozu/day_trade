@@ -78,9 +78,7 @@ def integration_config():
     return {
         "database": {"url": "sqlite:///test.db", "echo": False},
         "api": {"timeout": 5, "max_retries": 2},
-        "logging": {
-            "level": "WARNING"  # テスト時はログレベルを上げる
-        },
+        "logging": {"level": "WARNING"},  # テスト時はログレベルを上げる
     }
 
 

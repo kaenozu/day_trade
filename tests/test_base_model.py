@@ -283,18 +283,14 @@ class TestUpdateFromDict:
     def test_validation_errors(self, sample_user):
         """バリデーションエラーのテスト"""
         # 長すぎる文字列
-        update_data = {
-            "username": "a" * 100  # 50文字制限を超える
-        }
+        update_data = {"username": "a" * 100}  # 50文字制限を超える
 
         with pytest.raises(ValueError, match="長さが制限を超えています"):
             sample_user.update_from_dict(update_data, validate=True)
 
     def test_disable_validation(self, sample_user):
         """バリデーション無効化のテスト"""
-        update_data = {
-            "username": "a" * 100  # 制限を超えるが、バリデーション無効
-        }
+        update_data = {"username": "a" * 100}  # 制限を超えるが、バリデーション無効
 
         # エラーが発生しない
         sample_user.update_from_dict(update_data, validate=False)

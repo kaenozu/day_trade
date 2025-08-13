@@ -84,7 +84,9 @@ def register_test_stocks(limit: int = 20) -> Dict[str, Any]:
     stock_master = StockMasterManager()
 
     start_time = time.time()
-    results = stock_master.bulk_fetch_and_update_companies(codes=new_codes, batch_size=5, delay=0.3)
+    results = stock_master.bulk_fetch_and_update_companies(
+        codes=new_codes, batch_size=5, delay=0.3
+    )
 
     total_time = time.time() - start_time
 
@@ -133,7 +135,9 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="銘柄一括登録テスト")
-    parser.add_argument("--limit", type=int, default=10, help="登録する銘柄数（デフォルト: 10）")
+    parser.add_argument(
+        "--limit", type=int, default=10, help="登録する銘柄数（デフォルト: 10）"
+    )
     parser.add_argument("--verify-only", action="store_true", help="検証のみ実行")
 
     args = parser.parse_args()
