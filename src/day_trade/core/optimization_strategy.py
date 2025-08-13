@@ -686,8 +686,15 @@ class OptimizationStrategyFactory:
         return result
 
     @classmethod
-    def create_config_template(cls, output_path: str) -> None:
-        """設定テンプレートファイルの作成"""
+    def create_config_template(cls, output_path: str, include_comments: bool = True) -> None:
+        """
+        設定テンプレートファイルの作成 - Issue #643対応
+
+        Args:
+            output_path: テンプレートファイルの出力パス
+            include_comments: コメント付きテンプレートを作成するかどうか
+        """
+        # 基本設定テンプレート
         template = {
             "level": "standard",
             "auto_fallback": True,
@@ -697,22 +704,114 @@ class OptimizationStrategyFactory:
             "batch_size": 100,
             "timeout_seconds": 30,
             "memory_limit_mb": 512,
-            "_comments": {
-                "level": "standard, optimized, adaptive, debug",
-                "auto_fallback": "失敗時に他の実装に自動的にフォールバック",
-                "performance_monitoring": "パフォーマンス監視の有効化",
-                "cache_enabled": "キャッシュ機能の有効化",
-                "parallel_processing": "並列処理の有効化",
-                "batch_size": "バッチ処理のサイズ",
-                "timeout_seconds": "処理タイムアウト時間",
-                "memory_limit_mb": "メモリ使用量制限",
-            },
         }
 
+        if include_comments:
+            # コメント付きテンプレート（JSONC形式またはドキュメンテーション付き）
+            cls._create_commented_template(output_path, template)
+        else:
+            # 標準JSONテンプレート
+            cls._create_standard_template(output_path, template)
+
+        logger.info(f"設定テンプレート作成: {output_path}")
+
+    @classmethod
+    def _create_standard_template(cls, output_path: str, template: Dict[str, Any]) -> None:
+        """標準JSONテンプレートの作成 - Issue #643対応"""
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(template, f, indent=2, ensure_ascii=False)
 
-        logger.info(f"設定テンプレート作成: {output_path}")
+    @classmethod
+    def _create_commented_template(cls, output_path: str, template: Dict[str, Any]) -> None:
+        """コメント付きテンプレートの作成 - Issue #643対応"""
+        # フィールド説明辞書
+        field_descriptions = {
+            "level": "最適化レベル (standard, optimized, adaptive, debug)",
+            "auto_fallback": "失敗時に他の実装に自動的にフォールバック",
+            "performance_monitoring": "パフォーマンス監視の有効化",
+            "cache_enabled": "キャッシュ機能の有効化",
+            "parallel_processing": "並列処理の有効化",
+            "batch_size": "バッチ処理のサイズ",
+            "timeout_seconds": "処理タイムアウト時間（秒）",
+            "memory_limit_mb": "メモリ使用量制限（MB）",
+        }
+
+        # コメント付きJSON文字列を手動で構築
+        lines = ["{"]
+
+        for i, (key, value) in enumerate(template.items()):
+            description = field_descriptions.get(key, "")
+            comment = f"  // {description}" if description else ""
+
+            # JSON値の文字列化
+            if isinstance(value, str):
+                json_value = f'"{value}"'
+            elif isinstance(value, bool):
+                json_value = "true" if value else "false"
+            else:
+                json_value = str(value)
+
+            # 最後の要素でない場合はカンマを追加
+            comma = "," if i < len(template) - 1 else ""
+
+            if comment:
+                lines.append(f'  "{key}": {json_value}{comma}{comment}')
+            else:
+                lines.append(f'  "{key}": {json_value}{comma}')
+
+        lines.append("}")
+
+        # ファイルへの書き込み
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+            f.write("\n")
+
+    @classmethod
+    def get_template_schema(cls) -> Dict[str, Any]:
+        """設定テンプレートのスキーマ情報を取得 - Issue #643対応"""
+        return {
+            "type": "object",
+            "properties": {
+                "level": {
+                    "type": "string",
+                    "enum": ["standard", "optimized", "adaptive", "debug"],
+                    "description": "最適化レベル"
+                },
+                "auto_fallback": {
+                    "type": "boolean",
+                    "description": "失敗時の自動フォールバック"
+                },
+                "performance_monitoring": {
+                    "type": "boolean",
+                    "description": "パフォーマンス監視の有効化"
+                },
+                "cache_enabled": {
+                    "type": "boolean",
+                    "description": "キャッシュ機能の有効化"
+                },
+                "parallel_processing": {
+                    "type": "boolean",
+                    "description": "並列処理の有効化"
+                },
+                "batch_size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "バッチ処理のサイズ"
+                },
+                "timeout_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "処理タイムアウト時間（秒）"
+                },
+                "memory_limit_mb": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "メモリ使用量制限（MB）"
+                }
+            },
+            "required": ["level"],
+            "additionalProperties": False
+        }
 
 
 # デコレータ関数
