@@ -91,7 +91,9 @@ class OrderType(Enum):
     MARKET = "market"
     LIMIT = "limit"
     STOP = "stop"
-    STOP_LIMIT = "stop_limit"
+    STOP_LIMIT = "stop"
+    BUY = "buy" # backtest_engine から統合
+    SELL = "sell" # backtest_engine から統合
 
 class OrderStatus(Enum):
     """注文状態"""
@@ -100,17 +102,16 @@ class OrderStatus(Enum):
     PARTIALLY_FILLED = "partially_filled"
     CANCELLED = "cancelled"
     REJECTED = "rejected"
+    EXECUTED = "executed" # backtest_engine から統合
 
 @dataclass
 class Order:
     """注文情報"""
-    # デフォルト値を持たないフィールド
     order_id: str
     symbol: str
     order_type: OrderType
     side: str  # "buy" or "sell"
     quantity: int
-    # デフォルト値を持つフィールド
     price: Optional[float] = None
     stop_price: Optional[float] = None
     timestamp: datetime = field(default_factory=datetime.now)
@@ -119,29 +120,48 @@ class Order:
     filled_price: float = 0.0
     commission: float = 0.0
     slippage: float = 0.0
-
+    execution_price: Optional[float] = None # backtest_engine から統合
+    execution_time: Optional[datetime] = None # backtest_engine から統合
 
 @dataclass
-class TradeRecord:
-    """個々の取引記録（エントリーからエグジットまで）"""
+class Position:
+    """ポジション情報"""
 
-    trade_id: str # 取引を一意に識別するID
     symbol: str
-    entry_time: datetime
-    entry_price: float
-    entry_quantity: int
-    entry_commission: float
-    entry_slippage: float
-
-    exit_time: Optional[datetime] = None
-    exit_price: Optional[float] = None
-    exit_quantity: Optional[int] = None
-    exit_commission: Optional[float] = None
-    exit_slippage: Optional[float] = None
-
+    quantity: int = 0
+    average_price: float = 0.0 # backtest_engine の avg_price と統合
+    current_price: float = 0.0 # backtest_engine から統合
+    market_value: float = 0.0
+    unrealized_pnl: float = 0.0
     realized_pnl: float = 0.0
-    total_commission: float = 0.0
-    total_slippage: float = 0.0
-    is_closed: bool = False
+    last_updated: datetime = field(default_factory=datetime.now)
 
-# TODO: 必要に応じて他のイベントタイプを追加 (例: NewsEvent, EconomicEvent)
+@dataclass
+class Portfolio:
+    """ポートフォリオデータ"""
+    cash: float
+    positions: Dict[str, Position]
+    total_value: float
+    daily_return: float
+    cumulative_return: float
+
+@dataclass
+class BacktestResults:
+    """バックテスト結果"""
+    start_date: str
+    end_date: str
+    initial_capital: float
+    final_value: float
+    total_return: float
+    annualized_return: float
+    volatility: float
+    sharpe_ratio: float
+    max_drawdown: float
+    win_rate: float
+    total_trades: int
+    avg_trade_return: float
+    best_trade: float
+    worst_trade: float
+    daily_returns: List[float]
+    portfolio_values: List[float]
+    positions_history: List[Dict[str, Any]]

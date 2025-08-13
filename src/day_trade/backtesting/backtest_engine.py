@@ -9,113 +9,13 @@ Issue #323: 実データバックテスト機能開発
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 import yfinance as yf
 
-try:
-    from ..utils.performance_monitor import get_performance_monitor
-    from ..utils.structured_logging import get_structured_logger
-
-    logger = get_structured_logger()
-    perf_monitor = get_performance_monitor()
-except ImportError:
-    # 簡易ログ機能
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    class SimpleMonitor:
-        def monitor(self, name):
-            class Context:
-                def __enter__(self):
-                    return self
-
-                def __exit__(self, *args):
-                    pass
-
-            return Context()
-
-    perf_monitor = SimpleMonitor()
-
-
-class OrderType(Enum):
-    """注文タイプ"""
-
-    BUY = "buy"
-    SELL = "sell"
-
-
-class OrderStatus(Enum):
-    """注文ステータス"""
-
-    PENDING = "pending"
-    EXECUTED = "executed"
-    CANCELLED = "cancelled"
-
-
-@dataclass
-class Order:
-    """注文データ"""
-
-    symbol: str
-    order_type: OrderType
-    quantity: int
-    price: float
-    timestamp: datetime
-    status: OrderStatus = OrderStatus.PENDING
-    execution_price: Optional[float] = None
-    execution_time: Optional[datetime] = None
-
-
-@dataclass
-class Position:
-    """ポジションデータ"""
-
-    symbol: str
-    quantity: int
-    avg_price: float
-    current_price: float
-    market_value: float
-    unrealized_pnl: float
-    realized_pnl: float = 0.0
-
-
-@dataclass
-class Portfolio:
-    """ポートフォリオデータ"""
-
-    cash: float
-    positions: Dict[str, Position]
-    total_value: float
-    daily_return: float
-    cumulative_return: float
-
-
-@dataclass
-class BacktestResults:
-    """バックテスト結果"""
-
-    start_date: str
-    end_date: str
-    initial_capital: float
-    final_value: float
-    total_return: float
-    annualized_return: float
-    volatility: float
-    sharpe_ratio: float
-    max_drawdown: float
-    win_rate: float
-    total_trades: int
-    avg_trade_return: float
-    best_trade: float
-    worst_trade: float
-    daily_returns: List[float]
-    portfolio_values: List[float]
-    positions_history: List[Dict[str, Any]]
+from day_trade.analysis.events import OrderType, OrderStatus, Order, Position, Portfolio, BacktestResults
 
 
 class BacktestEngine:
@@ -133,18 +33,16 @@ class BacktestEngine:
 
         # ポートフォリオ状態
         self.cash = initial_capital
-        self.positions: Dict[str, Position] = {}
-        self.orders: List[Order] = []
+        self.positions: Dict[str, events.Position] = {}
+        self.orders: List[events.Order] = []
         self.trades: List[Dict[str, Any]] = []
 
         # パフォーマンストラッキング
-        self.portfolio_history: List[Portfolio] = []
+        self.portfolio_history: List[events.Portfolio] = []
         self.daily_returns: List[float] = []
         self.portfolio_values: List[float] = []
 
-        # 取引コスト設定
-        self.commission_rate = 0.001  # 0.1%の手数料
-        self.slippage_rate = 0.0005  # 0.05%のスリッページ
+        
 
         print(f"バックテストエンジン初期化: 初期資本 {initial_capital:,.0f}円")
 
@@ -349,7 +247,7 @@ class BacktestEngine:
 
             # 現在のポジション
             current_quantity = self.positions.get(
-                symbol, Position(symbol, 0, 0, current_price, 0, 0)
+                symbol, events.Position(symbol, 0, 0, current_price, 0, 0)
             ).quantity
 
             # 取引が必要な数量
@@ -502,7 +400,7 @@ class BacktestEngine:
         self.daily_returns.append(daily_return)
 
         # ポートフォリオ状態記録
-        portfolio = Portfolio(
+        portfolio = events.Portfolio(
             cash=self.cash,
             positions=self.positions.copy(),
             total_value=portfolio_value,
@@ -559,7 +457,7 @@ class BacktestEngine:
         best_trade = max(trade_returns) if trade_returns else 0
         worst_trade = min(trade_returns) if trade_returns else 0
 
-        return BacktestResults(
+        return events.BacktestResults(
             start_date=start_date.strftime("%Y-%m-%d"),
             end_date=end_date.strftime("%Y-%m-%d"),
             initial_capital=self.initial_capital,
