@@ -669,16 +669,7 @@ class TechnicalIndicatorsManager:
             self._strategy.reset_metrics()
 
 
-# 便利関数
-def calculate_technical_indicators(
-    data: pd.DataFrame,
-    indicators: List[str],
-    config: Optional[OptimizationConfig] = None,
-    **kwargs,
-) -> Dict[str, IndicatorResult]:
-    """テクニカル指標計算のヘルパー関数"""
-    manager = TechnicalIndicatorsManager(config)
-    return manager.calculate_indicators(data, indicators, **kwargs)
+
 
 
 # 戦略の自動登録（ダミー戦略でテスト用）
