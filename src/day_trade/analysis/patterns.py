@@ -51,11 +51,10 @@ class ChartPatternRecognizer:
             fast_ma = df[column].rolling(window=fast_period).mean()
             slow_ma = df[column].rolling(window=slow_period).mean()
 
-            # クロスポイントを検出
+            # Issue #669対応: クロスポイントを検出（pandas future warning完全対応）
             fast_above = fast_ma > slow_ma
-            # pandasの将来警告を回避するため、明示的にbool型で初期化
-            with pd.option_context("future.no_silent_downcasting", True):
-                fast_above_shifted = fast_above.shift(1).fillna(False)
+            # pandasの将来警告を完全に回避：infer_objectsを使用
+            fast_above_shifted = fast_above.shift(1).fillna(False).infer_objects(copy=False).astype('bool')
             golden_cross = fast_above & (~fast_above_shifted)
             dead_cross = (~fast_above) & fast_above_shifted
 
@@ -218,7 +217,11 @@ class ChartPatternRecognizer:
             resistance_levels = cluster_levels(resistance_candidates, num_levels)
             support_levels = cluster_levels(support_candidates, num_levels)
 
-            return {"resistance": resistance_levels, "support": sorted(support_levels)}
+            # Issue #670対応: 統一された返り値構造
+            return {
+                "resistance_levels": resistance_levels, 
+                "support_levels": sorted(support_levels)
+            }
 
         except Exception as e:
             should_log_detailed = self.config.should_log_detailed_errors()
@@ -235,7 +238,7 @@ class ChartPatternRecognizer:
                 raise
 
             return (
-                {"resistance": [], "support": []}
+                {"resistance_levels": [], "support_levels": []}  # Issue #670対応
                 if self.config.should_return_empty_on_error()
                 else None
             )
@@ -435,7 +438,7 @@ class ChartPatternRecognizer:
                     "current_value": current_value,
                     "touches": len(min_idx),
                     "inliers": inliers,
-                    "angle": np.degrees(np.arctan(slope)) if np.mean(prices_low) != 0 else 0.0,
+                    "angle": np.degrees(np.arctan(slope)),  # Issue #672対応: 価格水準に依存しない角度計算
                 }
 
             # 下降トレンドライン（極大値を結ぶ）
@@ -490,7 +493,7 @@ class ChartPatternRecognizer:
                     "current_value": current_value,
                     "touches": len(max_idx),
                     "inliers": inliers,
-                    "angle": np.degrees(np.arctan(slope)) if np.mean(prices_high) != 0 else 0.0,
+                    "angle": np.degrees(np.arctan(slope)),  # Issue #672対応: 価格水準に依存しない角度計算
                 }
 
             return result
@@ -685,7 +688,7 @@ class ChartPatternRecognizer:
         return {
             "crosses": pd.DataFrame(),
             "breakouts": pd.DataFrame(),
-            "levels": {"resistance": [], "support": []},
+            "levels": {"resistance_levels": [], "support_levels": []},  # Issue #670対応
             "trends": {},
             "latest_signal": None,
             "overall_confidence": 0,
@@ -984,10 +987,10 @@ if __name__ == "__main__":
     levels = recognizer.support_resistance_levels(df)
     logger.info(
         "サポート・レジスタンス検出結果",
-        resistance_levels=[round(level, 2) for level in levels["resistance"]],
-        support_levels=[round(level, 2) for level in levels["support"]],
-        resistance_count=len(levels["resistance"]),
-        support_count=len(levels["support"]),
+        resistance_levels=[round(level, 2) for level in levels["resistance_levels"]],  # Issue #670対応
+        support_levels=[round(level, 2) for level in levels["support_levels"]],  # Issue #670対応
+        resistance_count=len(levels["resistance_levels"]),
+        support_count=len(levels["support_levels"]),
     )
 
     logger.info("全パターン検出分析")
