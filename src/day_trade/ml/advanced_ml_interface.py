@@ -56,10 +56,10 @@ class AdvancedModelMetrics:
 class AdvancedMLEngineInterface(ABC):
     """
     Issue #473対応: AdvancedMLEngine インターフェース
-    
+
     高度なML手法（LSTM-Transformer等）を提供するエンジンの
     統一インターフェース定義
-    
+
     責任範囲:
     1. 時系列データの深層学習ベース予測
     2. 不確実性定量化付き予測
@@ -89,17 +89,17 @@ class AdvancedMLEngineInterface(ABC):
         pass
 
     @abstractmethod
-    def train(self, 
-              X: np.ndarray, 
-              y: np.ndarray, 
+    def train(self,
+              X: np.ndarray,
+              y: np.ndarray,
               validation_data: Optional[Tuple[np.ndarray, np.ndarray]] = None,
               **kwargs) -> AdvancedModelMetrics:
         """モデル訓練"""
         pass
 
     @abstractmethod
-    def predict(self, 
-                X: np.ndarray, 
+    def predict(self,
+                X: np.ndarray,
                 return_confidence: bool = True,
                 return_attention: bool = False) -> PredictionResult:
         """予測実行"""
@@ -144,7 +144,7 @@ class AdvancedMLEngineInterface(ABC):
 class LSTMTransformerEngine(AdvancedMLEngineInterface):
     """
     Issue #473対応: LSTM-Transformer 専用エンジンクラス
-    
+
     AdvancedMLEngineを LSTM-Transformer に特化した実装として
     役割を明確化する
     """
@@ -156,7 +156,7 @@ class LSTMTransformerEngine(AdvancedMLEngineInterface):
         """
         # 遅延インポートで AdvancedMLEngine をラップ
         from ..data.advanced_ml_engine import AdvancedMLEngine, ModelConfig
-        
+
         self._engine = AdvancedMLEngine(config)
         self._capabilities = AdvancedModelCapabilities(
             supports_sequence_prediction=True,
@@ -184,20 +184,20 @@ class LSTMTransformerEngine(AdvancedMLEngineInterface):
         """データ前処理の委譲"""
         return self._engine.prepare_data(data, **kwargs)
 
-    def train(self, 
-              X: np.ndarray, 
-              y: np.ndarray, 
+    def train(self,
+              X: np.ndarray,
+              y: np.ndarray,
               validation_data: Optional[Tuple[np.ndarray, np.ndarray]] = None,
               **kwargs) -> AdvancedModelMetrics:
         """訓練の実行と性能指標の統一"""
         # 実際の訓練を実行
         result = self._engine.train(X, y, validation_data, **kwargs)
-        
+
         # メトリクスを統一形式に変換
         return self._convert_metrics(result)
 
-    def predict(self, 
-                X: np.ndarray, 
+    def predict(self,
+                X: np.ndarray,
                 return_confidence: bool = True,
                 return_attention: bool = False) -> PredictionResult:
         """予測実行"""
@@ -207,7 +207,7 @@ class LSTMTransformerEngine(AdvancedMLEngineInterface):
         """現在のモデル性能指標"""
         if not self.is_trained():
             return AdvancedModelMetrics()
-        
+
         # エンジンからメトリクスを取得して変換
         engine_metrics = getattr(self._engine, 'model_metadata', {}).get('performance', {})
         return self._convert_dict_to_metrics(engine_metrics)
@@ -238,9 +238,9 @@ class LSTMTransformerEngine(AdvancedMLEngineInterface):
         """入力形状検証"""
         if X.ndim != 3:
             return False
-        
+
         seq_len = X.shape[1]
-        return (self._capabilities.min_sequence_length <= seq_len <= 
+        return (self._capabilities.min_sequence_length <= seq_len <=
                 self._capabilities.max_sequence_length)
 
     def optimize_for_inference(self) -> bool:
@@ -255,7 +255,7 @@ class LSTMTransformerEngine(AdvancedMLEngineInterface):
         """メモリ使用量推定"""
         if not self.is_trained():
             return 0.0
-        
+
         # 概算計算（実装依存）
         try:
             import psutil
@@ -293,11 +293,11 @@ def create_advanced_ml_engine(model_type: AdvancedModelType = AdvancedModelType.
                             config: Optional[Any] = None) -> AdvancedMLEngineInterface:
     """
     Issue #473対応: Advanced MLエンジンファクトリー
-    
+
     Args:
         model_type: 作成するモデルタイプ
         config: モデル設定
-        
+
     Returns:
         統一インターフェースを実装したエンジン
     """
@@ -319,11 +319,11 @@ def compare_model_capabilities(models: List[AdvancedMLEngineInterface]) -> Dict[
         'capabilities_matrix': {},
         'recommended_use_cases': {}
     }
-    
+
     for model in models:
         model_type = model.get_model_type()
         capabilities = model.get_capabilities()
-        
+
         comparison['models'].append(model_type.value)
         comparison['capabilities_matrix'][model_type.value] = {
             'sequence_prediction': capabilities.supports_sequence_prediction,
@@ -336,7 +336,7 @@ def compare_model_capabilities(models: List[AdvancedMLEngineInterface]) -> Dict[
             'max_seq_len': capabilities.max_sequence_length,
             'inference_target_ms': capabilities.inference_time_target_ms
         }
-        
+
         # 推奨用途の判定
         use_cases = []
         if capabilities.supports_sequence_prediction and capabilities.supports_uncertainty_quantification:
@@ -345,7 +345,7 @@ def compare_model_capabilities(models: List[AdvancedMLEngineInterface]) -> Dict[
             use_cases.append("解釈可能予測")
         if capabilities.inference_time_target_ms <= 100:
             use_cases.append("リアルタイム予測")
-            
+
         comparison['recommended_use_cases'][model_type.value] = use_cases
-    
+
     return comparison

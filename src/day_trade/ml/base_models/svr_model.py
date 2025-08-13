@@ -183,7 +183,7 @@ class SVRModel(BaseModelInterface):
     def get_feature_importance(self) -> Dict[str, float]:
         """
         特徴量重要度取得
-        
+
         Issue #495対応: BaseModelInterfaceヘルパーメソッド使用
 
         SVRでは特徴量重要度が直接取得できないため、
@@ -207,18 +207,18 @@ class SVRModel(BaseModelInterface):
         except Exception as e:
             logger.warning(f"特徴量重要度取得エラー: {e}")
             return {}
-    
+
     def has_feature_importance(self) -> bool:
         """
         Issue #495対応: SVRは線形カーネルの場合のみ特徴量重要度を提供可能
-        
+
         Returns:
             線形カーネル且つ学習済みの場合True、それ以外False
         """
         if not self.is_trained:
             return False
-        
-        return (self.config.get('kernel', 'rbf') == 'linear' and 
+
+        return (self.config.get('kernel', 'rbf') == 'linear' and
                 hasattr(self.model, 'coef_'))
 
     def _hyperparameter_optimization(self, X: np.ndarray, y: np.ndarray) -> Pipeline:
@@ -283,7 +283,7 @@ class SVRModel(BaseModelInterface):
             if self._optimal_cache_size is None:
                 self._optimal_cache_size = self._calculate_optimal_cache_size(X)
             cache_size = self._optimal_cache_size
-        
+
         # その他のSVRパラメータ設定
         base_params = {
             'svr__kernel': self.config['kernel'],
@@ -298,7 +298,7 @@ class SVRModel(BaseModelInterface):
 
         # Issue #699対応: GridSearchCV並列化の動的調整
         gridsearch_n_jobs = self._optimize_gridsearch_parallel_jobs()
-        
+
         # Grid Search with optimized parallel processing
         grid_search = GridSearchCV(
             pipeline,
@@ -308,7 +308,7 @@ class SVRModel(BaseModelInterface):
             n_jobs=gridsearch_n_jobs,
             verbose=1 if self.config['verbose'] else 0
         )
-        
+
         if self.config['verbose']:
             logger.info(f"SVR GridSearchCV並列設定: n_jobs={gridsearch_n_jobs}")
 
@@ -323,12 +323,12 @@ class SVRModel(BaseModelInterface):
     def _optimize_gridsearch_parallel_jobs(self) -> int:
         """
         Issue #699対応: SVR GridSearchCV並列処理の最適化
-        
+
         SVRは単一モデルのため、GridSearchCVレベルでの並列化に最適化
-        
+
         Returns:
             最適なGridSearchCV n_jobs値
-            
+
         Note:
             - SVRは単一モデルなので、CV並列化が主要な並列化ポイント
             - システムリソースとメモリを考慮した動的調整
@@ -336,11 +336,11 @@ class SVRModel(BaseModelInterface):
         """
         import os
         import multiprocessing as mp
-        
+
         try:
             # システムリソース情報取得
             cpu_count = mp.cpu_count()
-            
+
             # 環境変数からの設定チェック
             env_n_jobs = os.environ.get('SVR_GRIDSEARCH_N_JOBS')
             if env_n_jobs:
@@ -348,30 +348,30 @@ class SVRModel(BaseModelInterface):
                     return int(env_n_jobs)
                 except ValueError:
                     logger.warning(f"無効なSVR_GRIDSEARCH_N_JOBS環境変数: {env_n_jobs}")
-            
+
             # SVRに最適化された並列化戦略
             # SVRは単一モデルのため、GridSearchCVを積極的に並列化
-            
+
             if cpu_count >= 16:
                 # 高性能マシン: 大部分のCPUを使用（75%）
                 optimal_jobs = max(4, int(cpu_count * 0.75))
                 logger.debug(f"高性能マシン検出: SVR GridSearchCV {optimal_jobs}並列")
-                
+
             elif cpu_count >= 8:
                 # 標準高性能マシン: CPUの60%を使用
                 optimal_jobs = max(2, int(cpu_count * 0.6))
                 logger.debug(f"標準高性能マシン: SVR GridSearchCV {optimal_jobs}並列")
-                
+
             elif cpu_count >= 4:
                 # 標準マシン: CPUの50%を使用
                 optimal_jobs = max(2, cpu_count // 2)
                 logger.debug(f"標準マシン: SVR GridSearchCV {optimal_jobs}並列")
-                
+
             else:
                 # 低性能マシン: 全CPU使用
                 optimal_jobs = -1
                 logger.debug("低性能マシン: SVR GridSearchCV全CPU使用")
-            
+
             # メモリ制約とキャッシュサイズを考慮した調整
             if hasattr(self, '_optimal_cache_size') and self._optimal_cache_size:
                 cache_mb = self._optimal_cache_size
@@ -379,7 +379,7 @@ class SVRModel(BaseModelInterface):
                 if cache_mb > 1000:  # 1GB以上
                     optimal_jobs = min(optimal_jobs, max(2, cpu_count // 3))
                     logger.debug(f"大キャッシュサイズ({cache_mb:.0f}MB)により並列度調整: {optimal_jobs}")
-            
+
             # 最終調整とバリデーション
             if optimal_jobs == -1:
                 logger.info("SVR GridSearchCV: 全CPU使用")
@@ -387,9 +387,9 @@ class SVRModel(BaseModelInterface):
                 logger.info(f"SVR GridSearchCV: {optimal_jobs}並列実行")
             else:
                 logger.info("SVR GridSearchCV: 直列実行")
-            
+
             return optimal_jobs
-            
+
         except Exception as e:
             logger.warning(f"SVR GridSearchCV並列化設定エラー: {e}, デフォルトを使用")
             # エラー時は控えめなデフォルト（2）
@@ -398,13 +398,13 @@ class SVRModel(BaseModelInterface):
     def _calculate_optimal_cache_size(self, X: np.ndarray) -> float:
         """
         Issue #700対応: データサイズとメモリに基づく最適キャッシュサイズ計算
-        
+
         Args:
             X: 学習データ（キャッシュサイズ計算用）
-            
+
         Returns:
             最適なキャッシュサイズ（MB）
-            
+
         Note:
             - データサイズ、使用可能メモリ、カーネル種類を考慮
             - RBFカーネルは高次元で大きなキャッシュが必要
@@ -414,11 +414,11 @@ class SVRModel(BaseModelInterface):
             # 自動調整が無効の場合はデフォルト値を使用
             if not self.config.get('auto_cache_size', True):
                 return self.config.get('cache_size', 200)
-            
+
             # データサイズ情報
             n_samples, n_features = X.shape
             data_size_mb = X.nbytes / (1024 * 1024)  # MB
-            
+
             # システムメモリ情報取得
             try:
                 import psutil
@@ -427,7 +427,7 @@ class SVRModel(BaseModelInterface):
                 # psutil未使用環境ではデフォルト値を仮定
                 available_memory_mb = 4096  # 4GB仮定
                 logger.warning("psutil未使用のため、利用可能メモリを4GB仮定")
-            
+
             # カーネル種類に基づく基本キャッシュサイズ
             kernel_type = self.config.get('kernel', 'rbf')
             if kernel_type == 'linear':
@@ -438,7 +438,7 @@ class SVRModel(BaseModelInterface):
                 base_cache = min(800, data_size_mb * 0.5)
             else:
                 base_cache = 400  # デフォルト
-            
+
             # データサイズベースの調整
             if n_samples > 10000:
                 # 大規模データセット: キャッシュサイズを増加
@@ -447,31 +447,31 @@ class SVRModel(BaseModelInterface):
             elif n_samples < 1000:
                 # 小規模データセット: キャッシュサイズを削減
                 base_cache *= 0.5
-            
+
             # メモリ制約の適用
             memory_based_cache = available_memory_mb * self.config.get('cache_memory_ratio', 0.1)
-            
+
             # 最適値を計算（複数の要因を統合）
             optimal_cache = min(
                 base_cache,
                 memory_based_cache,
                 self.config.get('max_cache_size', 2000)
             )
-            
+
             optimal_cache = max(
-                optimal_cache, 
+                optimal_cache,
                 self.config.get('min_cache_size', 100)
             )
-            
+
             # 詳細ログ
             logger.info(f"SVR動的キャッシュサイズ計算:")
             logger.info(f"  データ: {n_samples}サンプル x {n_features}特徴量 ({data_size_mb:.1f}MB)")
             logger.info(f"  カーネル: {kernel_type}")
             logger.info(f"  使用可能メモリ: {available_memory_mb:.0f}MB")
             logger.info(f"  最適キャッシュサイズ: {optimal_cache:.0f}MB")
-            
+
             return float(optimal_cache)
-            
+
         except Exception as e:
             logger.warning(f"動的キャッシュサイズ計算エラー: {e}, デフォルト値使用")
             return self.config.get('min_cache_size', 200)
@@ -479,10 +479,10 @@ class SVRModel(BaseModelInterface):
     def _get_svr_params(self, X: Optional[np.ndarray] = None) -> Dict[str, Any]:
         """
         Issue #700対応: SVRパラメータ取得（動的cache_size含む）
-        
+
         Args:
             X: 学習データ（キャッシュサイズ計算用、オプション）
-            
+
         Returns:
             SVRパラメータ辞書
         """
@@ -495,7 +495,7 @@ class SVRModel(BaseModelInterface):
         else:
             # キャッシュサイズが設定済みの場合はそれを使用
             cache_size = self.config.get('cache_size', 200)
-        
+
         return {
             'kernel': self.config['kernel'],
             'C': self.config['C'],

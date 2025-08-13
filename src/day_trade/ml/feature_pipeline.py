@@ -20,7 +20,7 @@ try:
     JOBLIB_AVAILABLE = True
 except ImportError:
     JOBLIB_AVAILABLE = False
-    
+
 import multiprocessing as mp
 
 from ..analysis.feature_engineering_unified import FeatureConfig, FeatureResult
@@ -263,7 +263,7 @@ class FeaturePipeline:
             logger.info(
                 f"バッチ {batch_idx + 1}/{len(symbol_batches)} 処理開始",
                 extra={
-                    "batch_symbols": len(symbol_batch), 
+                    "batch_symbols": len(symbol_batch),
                     "symbols": symbol_batch,
                     "parallel_enabled": self.config.enable_parallel_generation and self.config.enable_batch_parallel
                 },
@@ -294,7 +294,7 @@ class FeaturePipeline:
 
             batch_time = time.time() - batch_start_time
             symbols_per_second = len(batch_results) / max(batch_time, 0.001)  # ゼロ除算回避
-            
+
             logger.info(
                 f"バッチ {batch_idx + 1} 完了",
                 extra={
@@ -475,22 +475,22 @@ class FeaturePipeline:
                 return batch_results
         except Exception as e:
             logger.warning(f"最適化バッチ処理失敗、個別並列処理にフォールバック: {e}")
-        
+
         # フォールバック: 従来の個別シンボル並列処理
         results = {}
-        
+
         if self.config.parallel_backend == 'joblib' and JOBLIB_AVAILABLE:
             try:
                 results_list = Parallel(n_jobs=self.config.max_parallel_symbols)(
                     delayed(self._compute_single_symbol_features)(symbol, data)
                     for symbol, data in symbols_data.items()
                 )
-                
+
                 # 結果を辞書に変換（Noneでないもの）
                 for i, (symbol, data) in enumerate(symbols_data.items()):
                     if i < len(results_list) and results_list[i] is not None:
                         results[symbol] = results_list[i]
-                        
+
             except Exception as e:
                 logger.error(f"CPU並列特徴量生成エラー: {e}")
                 return self._cpu_batch_features_sequential(symbols_data)
@@ -501,7 +501,7 @@ class FeaturePipeline:
                     executor.submit(self._compute_single_symbol_features, symbol, data): symbol
                     for symbol, data in symbols_data.items()
                 }
-                
+
                 for future in as_completed(future_to_symbol):
                     symbol = future_to_symbol[future]
                     try:
@@ -525,9 +525,9 @@ class FeaturePipeline:
 
             if len(prices) >= 20 and len(volumes) >= 20:
                 return self._compute_features_vectorized(prices, volumes)
-                
+
             return None
-            
+
         except Exception as e:
             logger.error(f"単一シンボル特徴量計算エラー ({symbol}): {e}")
             return None
@@ -535,74 +535,74 @@ class FeaturePipeline:
     def _compute_features_vectorized(self, prices: np.ndarray, volumes: np.ndarray) -> np.ndarray:
         """
         Issue #716対応: ベクトル化された特徴量計算
-        
+
         Args:
             prices: 価格配列
             volumes: 出来高配列
-            
+
         Returns:
             特徴量配列 (n_samples, n_features)
         """
         n = len(prices)
         features = np.zeros((n, 5))
-        
+
         # Issue #716対応: Pythonループを排除し、NumPyベクトル化操作で置換
-        
+
         # MA5 (5日移動平均) - ベクトル化計算
         # pandas.rolling風の実装をnumpyで実現
         ma5 = np.zeros(n)
         ma5[4:] = np.convolve(prices, np.ones(5)/5, mode='valid')
         features[:, 0] = ma5
-        
+
         # MA20 (20日移動平均) - ベクトル化計算
         ma20 = np.zeros(n)
         ma20[19:] = np.convolve(prices, np.ones(20)/20, mode='valid')
         features[:, 1] = ma20
-        
+
         # 現在価格 - そのまま代入
         features[:, 2] = prices
-        
+
         # 現在ボリューム - そのまま代入
         features[:, 3] = volumes
-        
+
         # 変化率 - ベクトル化計算
         price_changes = np.zeros(n)
         price_changes[1:] = (prices[1:] - prices[:-1]) / prices[:-1]
         features[:, 4] = price_changes
-        
+
         return features
 
     def _compute_features_optimized_batch(self, symbols_data: Dict[str, Dict[str, np.ndarray]]) -> Dict[str, np.ndarray]:
         """
         Issue #716対応: バッチ最適化された特徴量計算
-        
+
         複数シンボルのデータを一度に処理し、メモリアクセスパターンを最適化
-        
+
         Args:
             symbols_data: シンボル別データ辞書
-            
+
         Returns:
             シンボル別特徴量辞書
         """
         results = {}
-        
+
         # データの前処理とバリデーション
         valid_symbols = []
         valid_prices = []
         valid_volumes = []
-        
+
         for symbol, data in symbols_data.items():
             prices = data.get("prices", np.array([]))
             volumes = data.get("volumes", np.array([]))
-            
+
             if len(prices) >= 20 and len(volumes) >= 20:
                 valid_symbols.append(symbol)
                 valid_prices.append(prices)
                 valid_volumes.append(volumes)
-        
+
         if not valid_symbols:
             return results
-        
+
         # バッチ処理: 同じ長さのデータをグループ化
         length_groups = {}
         for i, (symbol, prices, volumes) in enumerate(zip(valid_symbols, valid_prices, valid_volumes)):
@@ -610,7 +610,7 @@ class FeaturePipeline:
             if length not in length_groups:
                 length_groups[length] = []
             length_groups[length].append((i, symbol, prices, volumes))
-        
+
         # 長さごとにバッチ処理
         for length, group_data in length_groups.items():
             if len(group_data) == 1:
@@ -621,33 +621,33 @@ class FeaturePipeline:
                 # 複数シンボル: バッチベクトル化処理
                 batch_results = self._compute_features_batch_vectorized(group_data)
                 results.update(batch_results)
-        
+
         return results
 
     def _compute_features_batch_vectorized(self, group_data: List[Tuple[int, str, np.ndarray, np.ndarray]]) -> Dict[str, np.ndarray]:
         """
         Issue #716対応: 同じ長さのデータに対するバッチベクトル化処理
-        
+
         Args:
             group_data: (index, symbol, prices, volumes) のリスト
-            
+
         Returns:
             シンボル別特徴量辞書
         """
         if not group_data:
             return {}
-        
+
         # データを3次元配列に変換 (n_symbols, n_timepoints, n_features)
         n_symbols = len(group_data)
         n_timepoints = len(group_data[0][2])  # すべて同じ長さ
-        
+
         # 価格と出来高データを2次元配列に変換
         prices_batch = np.array([data[2] for data in group_data])  # (n_symbols, n_timepoints)
         volumes_batch = np.array([data[3] for data in group_data])  # (n_symbols, n_timepoints)
-        
+
         # バッチ特徴量配列を初期化
         features_batch = np.zeros((n_symbols, n_timepoints, 5))
-        
+
         # Issue #716対応: MA5とMA20をより効率的に計算（ループを最小化）
         # MA5: より効率的な実装（先頭ゼロ埋め + 有効部分のみconvolve）
         for i in range(n_symbols):
@@ -656,7 +656,7 @@ class FeaturePipeline:
                 ma5_valid = np.convolve(prices_batch[i], np.ones(5)/5, mode='valid')
                 features_batch[i, 4:, 0] = ma5_valid
             # features_batch[i, :4, 0] は初期化時に既に0
-        
+
         # MA20: より効率的な実装
         for i in range(n_symbols):
             if n_timepoints >= 20:
@@ -664,36 +664,36 @@ class FeaturePipeline:
                 ma20_valid = np.convolve(prices_batch[i], np.ones(20)/20, mode='valid')
                 features_batch[i, 19:, 1] = ma20_valid
             # features_batch[i, :19, 1] は初期化時に既に0
-        
+
         # 現在価格とボリューム: 直接代入
         features_batch[:, :, 2] = prices_batch
         features_batch[:, :, 3] = volumes_batch
-        
+
         # 変化率: バッチ計算
         price_changes_batch = np.zeros_like(prices_batch)
         price_changes_batch[:, 1:] = (prices_batch[:, 1:] - prices_batch[:, :-1]) / prices_batch[:, :-1]
         features_batch[:, :, 4] = price_changes_batch
-        
+
         # 結果を辞書に変換
         results = {}
         for i, (_, symbol, _, _) in enumerate(group_data):
             results[symbol] = features_batch[i]
-        
+
         return results
 
     def _process_single_symbol_in_batch(
-        self, symbol: str, data: pd.DataFrame, feature_config: FeatureConfig, 
+        self, symbol: str, data: pd.DataFrame, feature_config: FeatureConfig,
         force_regenerate: bool
     ) -> Tuple[str, Optional[FeatureResult]]:
         """
         Issue #715対応: バッチ内単一シンボル処理（並列化用）
-        
+
         Args:
             symbol: シンボル名
             data: データ
             feature_config: 特徴量設定
             force_regenerate: 強制再生成フラグ
-            
+
         Returns:
             (シンボル, 特徴量結果) のタプル
         """
@@ -702,7 +702,7 @@ class FeaturePipeline:
                 # キャッシュから取得を試行
                 start_date = data.index.min().strftime("%Y-%m-%d") if hasattr(data.index, "min") else "1900-01-01"
                 end_date = data.index.max().strftime("%Y-%m-%d") if hasattr(data.index, "max") else "2100-01-01"
-                
+
                 cached_result = self.feature_store.load_feature(
                     symbol, start_date, end_date, feature_config
                 )
@@ -719,7 +719,7 @@ class FeaturePipeline:
                 optimization_config=self.config.optimization_config,
             )
             return symbol, result
-            
+
         except Exception as e:
             logger.error(f"バッチ内シンボル処理エラー: {symbol} - {e}")
             return symbol, None
@@ -730,18 +730,18 @@ class FeaturePipeline:
     ) -> Dict[str, FeatureResult]:
         """
         Issue #715対応: シンボル並列処理
-        
+
         Args:
             symbols_data: シンボル別データ辞書
             feature_config: 特徴量設定
             force_regenerate: 強制再生成フラグ
-            
+
         Returns:
             シンボル別特徴量結果辞書
         """
         results = {}
         symbols = list(symbols_data.keys())
-        
+
         if not self.config.enable_parallel_generation or len(symbols) <= 1:
             # 並列処理無効または単一シンボルの場合は順次処理
             for symbol in symbols:
@@ -751,7 +751,7 @@ class FeaturePipeline:
                 if feature_result:
                     results[symbol_result] = feature_result
             return results
-        
+
         # 並列処理実行
         if self.config.parallel_backend == 'joblib' and JOBLIB_AVAILABLE:
             return self._parallel_process_joblib(symbols_data, feature_config, force_regenerate)
@@ -772,15 +772,15 @@ class FeaturePipeline:
                 )
                 for symbol, data in symbols_data.items()
             )
-            
+
             results = {}
             for symbol, result in results_list:
                 if result:
                     results[symbol] = result
-                    
+
             logger.info(f"Joblib並列処理完了: {len(results)}/{len(symbols_data)} シンボル成功")
             return results
-            
+
         except Exception as e:
             logger.error(f"Joblib並列処理エラー: {e}")
             # フォールバック: 順次処理
@@ -792,7 +792,7 @@ class FeaturePipeline:
     ) -> Dict[str, FeatureResult]:
         """Threading並列処理"""
         results = {}
-        
+
         with ThreadPoolExecutor(max_workers=self.config.max_parallel_symbols) as executor:
             # 全タスクをサブミット
             future_to_symbol = {
@@ -802,7 +802,7 @@ class FeaturePipeline:
                 ): symbol
                 for symbol, data in symbols_data.items()
             }
-            
+
             # 結果収集
             for future in as_completed(future_to_symbol):
                 symbol = future_to_symbol[future]
@@ -812,7 +812,7 @@ class FeaturePipeline:
                         results[result_symbol] = result
                 except Exception as e:
                     logger.error(f"Threading並列処理エラー ({symbol}): {e}")
-        
+
         logger.info(f"Threading並列処理完了: {len(results)}/{len(symbols_data)} シンボル成功")
         return results
 
@@ -933,7 +933,7 @@ class FeaturePipeline:
             feature_config = FeatureConfig.default()
 
         logger.info(
-            "特徴量事前計算開始", 
+            "特徴量事前計算開始",
             extra={
                 "symbols_count": len(symbols),
                 "parallel_enabled": self.config.enable_parallel_generation and self.config.enable_symbol_parallel,
@@ -987,7 +987,7 @@ class FeaturePipeline:
     ) -> Dict[str, str]:
         """並列事前計算"""
         feature_ids = {}
-        
+
         # 並列処理バックエンドの選択
         if self.config.parallel_backend == 'joblib' and JOBLIB_AVAILABLE:
             return self._precompute_parallel_joblib(symbols, data_provider_func, feature_config)
@@ -1023,14 +1023,14 @@ class FeaturePipeline:
                 delayed(self._precompute_single_symbol)(symbol, data_provider_func, feature_config)
                 for symbol in symbols
             )
-            
+
             feature_ids = {}
             success_count = 0
             for symbol, feature_id in results_list:
                 if feature_id:
                     feature_ids[symbol] = feature_id
                     success_count += 1
-            
+
             logger.info(
                 "Joblib並列事前計算完了",
                 extra={
@@ -1040,9 +1040,9 @@ class FeaturePipeline:
                     "backend": "joblib"
                 },
             )
-            
+
             return feature_ids
-            
+
         except Exception as e:
             logger.error(f"Joblib並列事前計算エラー: {e}")
             # フォールバック: threading
@@ -1054,14 +1054,14 @@ class FeaturePipeline:
         """Threading並列事前計算"""
         feature_ids = {}
         success_count = 0
-        
+
         with ThreadPoolExecutor(max_workers=self.config.max_parallel_symbols) as executor:
             # 全タスクをサブミット
             future_to_symbol = {
                 executor.submit(self._precompute_single_symbol, symbol, data_provider_func, feature_config): symbol
                 for symbol in symbols
             }
-            
+
             # 結果収集
             for future in as_completed(future_to_symbol):
                 original_symbol = future_to_symbol[future]
@@ -1072,7 +1072,7 @@ class FeaturePipeline:
                         success_count += 1
                 except Exception as e:
                     logger.error(f"Threading並列事前計算エラー ({original_symbol}): {e}")
-        
+
         logger.info(
             "Threading並列事前計算完了",
             extra={
@@ -1082,7 +1082,7 @@ class FeaturePipeline:
                 "backend": "threading"
             },
         )
-        
+
         return feature_ids
 
     def get_pipeline_stats(self) -> Dict[str, Any]:

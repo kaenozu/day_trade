@@ -73,7 +73,7 @@ class FeatureDeduplicationManager:
         """初期化"""
         self.max_concurrent_tasks = max_concurrent_tasks
         self.cache_ttl_seconds = cache_ttl_seconds
-        
+
         # Issue #714対応: ハッシュモード設定
         self.hash_mode = hash_mode
 
@@ -132,7 +132,7 @@ class FeatureDeduplicationManager:
     def _generate_data_hash(self, data: pd.DataFrame, hash_mode: str = 'auto') -> str:
         """
         データハッシュの生成
-        
+
         Args:
             data: データフレーム
             hash_mode: ハッシュモード ('fast', 'balanced', 'strict', 'auto')
@@ -150,7 +150,7 @@ class FeatureDeduplicationManager:
                 hash_mode = 'balanced'
             else:  # 50MB以上は高速モード（パフォーマンス重視）
                 hash_mode = 'fast'
-        
+
         if hash_mode == 'fast':
             return self._generate_fast_hash(data)
         elif hash_mode == 'balanced':
@@ -198,16 +198,16 @@ class FeatureDeduplicationManager:
         """バランス重視ハッシュ生成（衝突確率とパフォーマンスのバランス）"""
         # Issue #714対応: より多くの統計情報を含む
         shape_str = f"{data.shape[0]}x{data.shape[1]}"
-        
+
         # インデックス情報
         if hasattr(data.index, "min") and hasattr(data.index, "max"):
             index_info = f"{data.index.min()}_{data.index.max()}"
         else:
             index_info = "no_datetime_index"
-        
+
         # 列名情報
         columns_info = ",".join(sorted(data.columns.astype(str)))
-        
+
         try:
             numeric_cols = data.select_dtypes(include=[np.number]).columns
             if len(numeric_cols) > 0:
@@ -219,48 +219,48 @@ class FeatureDeduplicationManager:
                                     n_rows-3, n_rows-2, n_rows-1]  # 末尾
                 else:
                     sample_indices = list(range(min(n_rows, 10)))
-                
+
                 sample_data = data.iloc[sample_indices]
                 sample_values = sample_data[numeric_cols].values.flatten()[:100]  # 最大100値
-                
+
                 # 基本統計値も含む
                 stats_values = []
                 for col in numeric_cols[:5]:  # 最大5列
                     col_data = data[col].dropna()
                     if len(col_data) > 0:
                         stats_values.extend([
-                            col_data.mean(), col_data.std(), 
+                            col_data.mean(), col_data.std(),
                             col_data.min(), col_data.max()
                         ])
-                
+
                 values_str = ",".join(
-                    [f"{v:.6f}" for v in np.concatenate([sample_values, stats_values]) 
+                    [f"{v:.6f}" for v in np.concatenate([sample_values, stats_values])
                      if not np.isnan(v)]
                 )
             else:
                 values_str = "no_numeric_data"
         except:
             values_str = "hash_error"
-        
+
         hash_input = f"{shape_str}_{index_info}_{columns_info}_{values_str}"
         data_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:16]  # SHA256、16桁
-        
+
         return data_hash
 
     def _generate_strict_hash(self, data: pd.DataFrame) -> str:
         """厳密ハッシュ生成（衝突確率最小、計算コスト高）"""
         # Issue #714対応: 最も厳密なハッシュ
         shape_str = f"{data.shape[0]}x{data.shape[1]}"
-        
+
         # インデックス情報（より詳細）
         if hasattr(data.index, "min") and hasattr(data.index, "max"):
             index_info = f"{data.index.min()}_{data.index.max()}_{len(data.index.unique())}"
         else:
             index_info = "no_datetime_index"
-        
+
         # 列名情報（型も含む）
         columns_info = ",".join([f"{col}:{str(dtype)}" for col, dtype in zip(data.columns, data.dtypes)])
-        
+
         try:
             numeric_cols = data.select_dtypes(include=[np.number]).columns
             if len(numeric_cols) > 0:
@@ -278,7 +278,7 @@ class FeatureDeduplicationManager:
                             col_data.sum(), len(col_data)
                         ]
                         all_stats.extend(stats)
-                
+
                 # より多くのサンプル値（戦略的サンプリング）
                 n_rows = len(data)
                 if n_rows > 100:
@@ -292,69 +292,69 @@ class FeatureDeduplicationManager:
                     sample_indices = sorted(list(set(sample_indices)))
                 else:
                     sample_indices = list(range(n_rows))
-                
+
                 sample_data = data.iloc[sample_indices]
                 sample_values = sample_data[numeric_cols].values.flatten()[:200]  # 最大200値
-                
+
                 values_str = ",".join(
-                    [f"{v:.8f}" for v in np.concatenate([all_stats, sample_values]) 
+                    [f"{v:.8f}" for v in np.concatenate([all_stats, sample_values])
                      if not np.isnan(v)]
                 )
             else:
                 values_str = "no_numeric_data"
         except:
             values_str = "hash_error"
-        
+
         hash_input = f"{shape_str}_{index_info}_{columns_info}_{values_str}"
         data_hash = hashlib.sha256(hash_input.encode()).hexdigest()  # 完全なSHA256
-        
+
         return data_hash
 
     def set_hash_mode(self, mode: str):
         """
         Issue #714対応: ハッシュモードの設定
-        
+
         Args:
             mode: ハッシュモード ('fast', 'balanced', 'strict', 'auto')
         """
         if mode not in ['fast', 'balanced', 'strict', 'auto']:
             raise ValueError(f"無効なハッシュモード: {mode}")
-        
+
         self.hash_mode = mode
         logger.info(f"ハッシュモードを設定: {mode}")
 
     def analyze_hash_performance(self, data: pd.DataFrame) -> Dict[str, Any]:
         """
         Issue #714対応: ハッシュ性能分析
-        
+
         Args:
             data: 分析対象データ
-            
+
         Returns:
             各ハッシュモードの性能比較結果
         """
         import time
-        
+
         results = {}
         modes = ['fast', 'balanced', 'strict']
-        
+
         for mode in modes:
             # 複数回実行して平均計算時間を測定
             times = []
             hashes = []
-            
+
             for _ in range(5):  # 5回測定
                 start_time = time.perf_counter()
                 hash_value = self._generate_data_hash(data, mode)
                 end_time = time.perf_counter()
-                
+
                 times.append(end_time - start_time)
                 hashes.append(hash_value)
-            
+
             # 一意性チェック（同じデータから同じハッシュが生成されるか）
             unique_hashes = len(set(hashes))
             consistency = unique_hashes == 1
-            
+
             results[mode] = {
                 'avg_time_ms': np.mean(times) * 1000,
                 'std_time_ms': np.std(times) * 1000,
@@ -365,7 +365,7 @@ class FeatureDeduplicationManager:
                 'sample_hash': hashes[0] if hashes else None,
                 'algorithm': 'MD5' if mode == 'fast' else 'SHA256'
             }
-        
+
         # データサイズ情報
         data_info = {
             'shape': data.shape,
@@ -373,7 +373,7 @@ class FeatureDeduplicationManager:
             'numeric_columns': len(data.select_dtypes(include=[np.number]).columns),
             'total_columns': len(data.columns)
         }
-        
+
         # 推奨モード決定
         data_size_mb = data_info['memory_usage_mb']
         if data_size_mb < 1:
@@ -382,7 +382,7 @@ class FeatureDeduplicationManager:
             recommended_mode = 'balanced'  # 中規模データはバランス重視
         else:
             recommended_mode = 'fast'      # 大規模データは速度重視
-        
+
         return {
             'data_info': data_info,
             'hash_performance': results,
@@ -393,19 +393,19 @@ class FeatureDeduplicationManager:
     def evaluate_hash_collision_risk(self, sample_data_list: List[pd.DataFrame]) -> Dict[str, Any]:
         """
         Issue #714対応: ハッシュ衝突リスク評価
-        
+
         Args:
             sample_data_list: サンプルデータのリスト
-            
+
         Returns:
             衝突リスク評価結果
         """
         if len(sample_data_list) < 2:
             return {"error": "衝突評価には最低2つのサンプルデータが必要"}
-        
+
         collision_results = {}
         modes = ['fast', 'balanced', 'strict']
-        
+
         for mode in modes:
             hashes = []
             for data in sample_data_list:
@@ -415,14 +415,14 @@ class FeatureDeduplicationManager:
                 except Exception as e:
                     logger.warning(f"ハッシュ生成エラー ({mode}): {e}")
                     hashes.append(None)
-            
+
             # 有効なハッシュの統計
             valid_hashes = [h for h in hashes if h is not None]
             unique_hashes = len(set(valid_hashes))
             total_valid = len(valid_hashes)
-            
+
             collision_rate = (total_valid - unique_hashes) / max(1, total_valid)
-            
+
             collision_results[mode] = {
                 'total_samples': len(sample_data_list),
                 'valid_hashes': total_valid,
@@ -431,11 +431,11 @@ class FeatureDeduplicationManager:
                 'collision_rate_percent': collision_rate * 100,
                 'sample_hashes': valid_hashes[:5]  # 最初の5つのハッシュ例
             }
-        
+
         # 最も衝突リスクが低いモード
-        best_mode = min(collision_results.keys(), 
+        best_mode = min(collision_results.keys(),
                        key=lambda x: collision_results[x]['collision_rate_percent'])
-        
+
         return {
             'collision_analysis': collision_results,
             'best_mode_for_collision_avoidance': best_mode,

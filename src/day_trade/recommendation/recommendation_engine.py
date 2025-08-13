@@ -27,6 +27,8 @@ from ..utils.stock_name_helper import get_stock_helper, format_stock_display
 from ..utils.logging_config import get_context_logger
 # Issue #487対応: スマート銘柄選択統合
 from ..automation.smart_symbol_selector import get_smart_selected_symbols
+# Issue #464対応: アンサンブルシステム統合
+from ..ml.ensemble_system import EnsembleSystem, EnsembleConfig
 
 logger = get_context_logger(__name__)
 
@@ -66,10 +68,15 @@ class RecommendationEngine:
         self.data_fetcher = AdvancedBatchDataFetcher(max_workers=4)
         self.stock_helper = get_stock_helper()
 
-        # スコア重み付け設定
+        # Issue #464対応: アンサンブルシステム統合
+        self.ensemble_system = None
+        self._initialize_ensemble_system()
+
+        # Issue #464対応: アンサンブル統合によるスコア重み付け最適化
         self.weights = {
-            'technical': 0.6,  # テクニカル指標の重み
-            'ml': 0.4,         # ML予測の重み
+            'technical': 0.4,   # テクニカル指標の重み（アンサンブル導入により調整）
+            'ml': 0.3,          # 既存ML予測の重み（アンサンブル導入により調整）
+            'ensemble': 0.3,    # アンサンブル予測の重み（新規追加）
         }
 
         # リスク評価閾値
@@ -125,6 +132,53 @@ class RecommendationEngine:
         }
 
         logger.info("推奨銘柄選定エンジン初期化完了")
+
+    def _initialize_ensemble_system(self):
+        """
+        Issue #464対応: アンサンブルシステム初期化
+
+        最高精度を目指すためのアンサンブル学習システムを構築
+        """
+        try:
+            # アンサンブル設定（最適化された設定）
+            ensemble_config = EnsembleConfig(
+                use_random_forest=True,
+                use_gradient_boosting=True,
+                use_svr=True,
+                use_lstm_transformer=False,  # AdvancedMLEngineと重複回避
+                enable_stacking=True,
+                enable_dynamic_weighting=True,
+                random_forest_params={
+                    'n_estimators': 200,
+                    'max_depth': 15,
+                    'enable_hyperopt': True
+                },
+                gradient_boosting_params={
+                    'n_estimators': 200,
+                    'learning_rate': 0.1,
+                    'enable_hyperopt': True,
+                    'early_stopping': True
+                },
+                svr_params={
+                    'kernel': 'rbf',
+                    'enable_hyperopt': True
+                }
+            )
+
+            self.ensemble_system = EnsembleSystem(ensemble_config)
+            self._ensemble_trained = False
+
+            logger.info("アンサンブルシステム初期化完了（3モデル統合）")
+
+        except Exception as e:
+            logger.warning(f"アンサンブルシステム初期化失敗: {e}")
+            self.ensemble_system = None
+            # フォールバック：従来の重み付けに戻す
+            self.weights = {
+                'technical': 0.6,
+                'ml': 0.4,
+                'ensemble': 0.0,
+            }
 
     async def analyze_all_stocks(self, symbols: Optional[List[str]] = None) -> List[StockRecommendation]:
         """
@@ -195,10 +249,14 @@ class RecommendationEngine:
             # 2. ML予測分析
             ml_score, ml_reasons = await self._calculate_ml_score(symbol, data)
 
-            # 3. 総合スコア計算
+            # Issue #464対応: 3. アンサンブル予測分析
+            ensemble_score, ensemble_reasons = await self._calculate_ensemble_score(symbol, data)
+
+            # 4. 総合スコア計算（アンサンブル統合版）
             composite_score = (
                 technical_score * self.weights['technical'] +
-                ml_score * self.weights['ml']
+                ml_score * self.weights['ml'] +
+                ensemble_score * self.weights['ensemble']
             )
 
             # 4. リスク評価
@@ -210,8 +268,8 @@ class RecommendationEngine:
             # 6. 信頼度計算
             confidence = self._calculate_confidence(technical_score, ml_score, data)
 
-            # 7. 推奨理由統合
-            all_reasons = technical_reasons + ml_reasons
+            # 7. 推奨理由統合（アンサンブル統合版）
+            all_reasons = technical_reasons + ml_reasons + ensemble_reasons
 
             # 8. 価格目標・ストップロス設定
             current_price = data['終値'].iloc[-1] if '終値' in data.columns else data['Close'].iloc[-1]
@@ -346,6 +404,125 @@ class RecommendationEngine:
             logger.warning(f"ML予測計算エラー {format_stock_display(symbol)}: {error_info['message']}")
             logger.debug(f"ML予測エラー詳細 {symbol}: {str(e)}", exc_info=True)
             return error_info['score'], error_info['reasons']
+
+    async def _calculate_ensemble_score(self, symbol: str, data: pd.DataFrame) -> Tuple[float, List[str]]:
+        """
+        Issue #464対応: アンサンブル予測スコア計算
+
+        多様なMLモデルによる統合予測で最高精度を実現
+        """
+        try:
+            if not self.ensemble_system:
+                # アンサンブルシステムが利用できない場合はスキップ
+                return 0.0, []
+
+            reasons = []
+
+            # データ形式の確認と変換
+            if data.empty or len(data) < 30:
+                logger.warning(f"アンサンブル予測: データ不足 {symbol}")
+                return 0.0, ["データ不足"]
+
+            # 特徴量データ準備
+            try:
+                # OHLCVデータの準備
+                feature_columns = []
+                for col_pattern in ['Open', '始値', 'High', '高値', 'Low', '安値', 'Close', '終値', 'Volume', '出来高']:
+                    matching_cols = [col for col in data.columns if col_pattern in col]
+                    if matching_cols:
+                        feature_columns.extend(matching_cols[:1])  # 最初の一致のみ
+
+                if len(feature_columns) < 4:  # 最低限OHLC必要
+                    logger.warning(f"アンサンブル予測: 特徴量不足 {symbol}")
+                    return 0.0, ["特徴量不足"]
+
+                X = data[feature_columns].fillna(method='ffill').fillna(method='bfill').values
+                if len(X) < 30:
+                    return 0.0, ["履歴データ不足"]
+
+                X = X[-30:]  # 最新30日分
+
+                # ターゲット変数（価格変化率）
+                price_col = next((col for col in data.columns if any(pattern in col for pattern in ['終値', 'Close'])), None)
+                if not price_col:
+                    return 0.0, ["価格データなし"]
+
+                prices = data[price_col].fillna(method='ffill').values
+                if len(prices) < 31:
+                    return 0.0, ["価格履歴不足"]
+
+                # 次期価格変化率をターゲットとして設定
+                price_changes = np.diff(prices[-31:]) / prices[-31:-1]  # 30個の価格変化率
+                y = price_changes
+
+                # アンサンブル学習の実行（初回のみ）
+                if not self._ensemble_trained:
+                    logger.info(f"アンサンブルモデル学習開始: {symbol}")
+
+                    # データ形状確認
+                    if X.shape[0] != len(y):
+                        min_len = min(X.shape[0], len(y))
+                        X = X[-min_len:]
+                        y = y[-min_len:]
+
+                    X_reshaped = X.reshape(X.shape[0], -1) if len(X.shape) > 2 else X
+
+                    training_results = self.ensemble_system.fit(
+                        X_reshaped, y,
+                        feature_names=[f"feature_{i}" for i in range(X_reshaped.shape[1])]
+                    )
+
+                    self._ensemble_trained = True
+                    logger.info(f"アンサンブル学習完了: {len(training_results)}モデル")
+                    reasons.append("アンサンブル学習完了")
+
+                # 予測実行
+                X_pred = X[-1:].reshape(1, -1) if len(X.shape) > 1 else X[-1:].reshape(1, -1)
+                ensemble_prediction = self.ensemble_system.predict(X_pred)
+
+                # 予測結果をスコアに変換（0-100スケール）
+                if hasattr(ensemble_prediction, 'final_predictions') and len(ensemble_prediction.final_predictions) > 0:
+                    price_change_pred = ensemble_prediction.final_predictions[0]
+                    confidence = ensemble_prediction.ensemble_confidence[0] if hasattr(ensemble_prediction, 'ensemble_confidence') else 0.5
+
+                    # 価格変化率を0-100スケールのスコアに変換
+                    # 正の変化率：50+変化率*500（最大100）
+                    # 負の変化率：50+変化率*500（最小0）
+                    ensemble_score = max(0, min(100, 50 + price_change_pred * 500))
+
+                    # 信頼度による調整
+                    ensemble_score = ensemble_score * confidence + 50 * (1 - confidence)
+
+                    # スコア別の理由追加
+                    if ensemble_score > 70:
+                        reasons.append("アンサンブル予測: 強い上昇期待")
+                        if confidence > 0.8:
+                            reasons.append("アンサンブル予測: 高信頼度")
+                    elif ensemble_score > 60:
+                        reasons.append("アンサンブル予測: 上昇期待")
+                    elif ensemble_score < 40:
+                        reasons.append("アンサンブル予測: 下降懸念")
+                        if confidence > 0.8:
+                            reasons.append("アンサンブル予測: 高確度下降")
+                    elif ensemble_score < 30:
+                        reasons.append("アンサンブル予測: 強い下降懸念")
+
+                    # 使用モデル情報
+                    if hasattr(ensemble_prediction, 'individual_predictions'):
+                        model_count = len(ensemble_prediction.individual_predictions)
+                        reasons.append(f"統合予測({model_count}モデル)")
+
+                    return float(ensemble_score), reasons
+                else:
+                    return 0.0, ["予測失敗"]
+
+            except Exception as e:
+                logger.warning(f"アンサンブル予測処理エラー {symbol}: {e}")
+                return 0.0, ["処理エラー"]
+
+        except Exception as e:
+            logger.warning(f"アンサンブル予測エラー {format_stock_display(symbol)}: {e}")
+            return 0.0, ["システムエラー"]
 
     def _analyze_sma_signal(self, data: pd.DataFrame, sma_result) -> Tuple[float, Optional[str]]:
         """Issue #582対応: SMA信号分析（パラメータ化閾値）"""
@@ -552,7 +729,7 @@ class RecommendationEngine:
     def _get_all_symbols(self) -> List[str]:
         """
         全銘柄リスト取得
-        
+
         Issue #487対応: スマート銘柄自動選択の統合
         """
         try:
@@ -571,33 +748,33 @@ class RecommendationEngine:
         default_symbols = ["7203", "8306", "9984", "6758", "4689"]
         logger.info(f"デフォルト銘柄を使用: {len(default_symbols)} 銘柄")
         return default_symbols
-    
+
     async def _get_smart_selected_symbols(self, target_count: int = 10) -> List[str]:
         """
         Issue #487対応: スマート銘柄自動選択
-        
+
         市場流動性・出来高・ボラティリティに基づく最適銘柄選択
-        
+
         Args:
             target_count: 目標銘柄数
-            
+
         Returns:
             自動選択された最適銘柄リスト
         """
         try:
             logger.info("🤖 スマート銘柄自動選択を開始")
             smart_symbols = await get_smart_selected_symbols(target_count)
-            
+
             if smart_symbols:
                 logger.info(f"✅ スマート選択完了: {len(smart_symbols)}銘柄")
                 return smart_symbols
             else:
                 logger.warning("スマート選択が失敗、フォールバックシンボルを使用")
-                
+
         except Exception as e:
             logger.error(f"スマート銘柄選択エラー: {e}")
             logger.info("フォールバックシンボルを使用")
-        
+
         # フォールバック
         return self._get_all_symbols()[:target_count]
 
@@ -806,31 +983,31 @@ async def get_daily_recommendations(limit: int = 10) -> List[StockRecommendation
 async def get_smart_daily_recommendations(limit: int = 10) -> List[StockRecommendation]:
     """
     Issue #487対応: スマート銘柄選択による日次推奨取得
-    
+
     市場流動性・出来高・ボラティリティに基づく最適銘柄から推奨を生成
-    
+
     Args:
         limit: 推奨銘柄数上限
-        
+
     Returns:
         スマート選択されたベスト推奨銘柄リスト
     """
     engine = RecommendationEngine()
     try:
         logger.info("🚀 スマート銘柄選択による推奨分析を開始")
-        
+
         # Step 1: スマート銘柄自動選択
         smart_symbols = await engine._get_smart_selected_symbols(target_count=limit * 2)
-        
+
         # Step 2: 選択された銘柄の詳細分析
         smart_recommendations = await engine.analyze_all_stocks(smart_symbols)
-        
+
         # Step 3: 最終推奨選定
         final_recommendations = engine.get_top_recommendations(smart_recommendations, limit)
-        
+
         logger.info(f"✅ スマート推奨完了: {len(final_recommendations)}銘柄")
         return final_recommendations
-        
+
     finally:
         engine.close()
 

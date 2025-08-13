@@ -201,7 +201,7 @@ class FeatureStore:
                 self._load_metadata_index_joblib()
             else:
                 self._load_metadata_index_json()
-                
+
             logger.info(
                 f"メタデータインデックス読み込み完了: {len(self.metadata_index)}件 (形式: {format_to_use})"
             )
@@ -230,7 +230,7 @@ class FeatureStore:
                 self._save_metadata_index_joblib()
             else:
                 self._save_metadata_index_json()
-                
+
             logger.debug(
                 f"メタデータインデックス保存完了: {len(self.metadata_index)}件 (形式: {format_to_use})"
             )
@@ -370,13 +370,13 @@ class FeatureStore:
                 timeout=30,  # 30秒タイムアウト
                 check_same_thread=False
             )
-            
+
             # Issue #717対応: SQLiteキャッシュサイズ設定
             conn.execute(f"PRAGMA cache_size = {self.config.metadata_sqlite_cache_size}")
             conn.execute("PRAGMA synchronous = NORMAL")  # パフォーマンス向上
             conn.execute("PRAGMA journal_mode = WAL")     # 並行アクセス改善
             conn.execute("PRAGMA temp_store = MEMORY")    # 一時データメモリ格納
-            
+
             yield conn
         finally:
             if conn:
@@ -401,13 +401,13 @@ class FeatureStore:
                 strategy_used TEXT NOT NULL
             )
         """)
-        
+
         # インデックス作成（クエリパフォーマンス向上）
         conn.execute("CREATE INDEX IF NOT EXISTS idx_symbol ON metadata(symbol)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_date_range ON metadata(start_date, end_date)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_config_hash ON metadata(config_hash)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_created_at ON metadata(created_at)")
-        
+
         conn.commit()
 
     def _load_metadata_index_json(self):
@@ -436,18 +436,18 @@ class FeatureStore:
         try:
             with self._get_sqlite_connection() as conn:
                 self._create_metadata_table(conn)
-                
+
                 cursor = conn.execute("""
                     SELECT feature_id, symbol, start_date, end_date, config_hash,
                            feature_names, created_at, file_path, file_size_bytes,
                            row_count, column_count, generation_time_seconds, strategy_used
                     FROM metadata
                 """)
-                
+
                 for row in cursor:
                     feature_id = row[0]
                     feature_names = json.loads(row[5])  # JSON文字列をリストに変換
-                    
+
                     metadata = FeatureMetadata(
                         feature_id=feature_id,
                         symbol=row[1],
@@ -463,7 +463,7 @@ class FeatureStore:
                         generation_time_seconds=row[11],
                         strategy_used=row[12]
                     )
-                    
+
                     self.metadata_index[feature_id] = metadata
 
         except Exception as e:
@@ -525,10 +525,10 @@ class FeatureStore:
         try:
             with self._get_sqlite_connection() as conn:
                 self._create_metadata_table(conn)
-                
+
                 # 全データをクリアして再挿入（簡易実装）
                 conn.execute("DELETE FROM metadata")
-                
+
                 # バッチ挿入でパフォーマンス向上
                 batch_data = []
                 for feature_id, metadata in self.metadata_index.items():
@@ -547,19 +547,19 @@ class FeatureStore:
                         metadata.generation_time_seconds,
                         metadata.strategy_used
                     ))
-                
+
                 # バッチサイズに分けて挿入
                 batch_size = self.config.metadata_batch_size
                 for i in range(0, len(batch_data), batch_size):
                     batch = batch_data[i:i + batch_size]
                     conn.executemany("""
-                        INSERT OR REPLACE INTO metadata 
+                        INSERT OR REPLACE INTO metadata
                         (feature_id, symbol, start_date, end_date, config_hash,
                          feature_names, created_at, file_path, file_size_bytes,
                          row_count, column_count, generation_time_seconds, strategy_used)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, batch)
-                
+
                 conn.commit()
 
         except Exception as e:
@@ -714,7 +714,7 @@ class FeatureStore:
 
             # Issue #718対応: 保存形式の決定
             storage_format = self._determine_storage_format(feature_data)
-            
+
             # ファイルパス取得（形式に応じた拡張子）
             file_path = self._get_feature_file_path(feature_id, storage_format)
 
@@ -964,7 +964,7 @@ class FeatureStore:
     ) -> Tuple[str, Optional[FeatureResult], bool, str]:
         """
         Issue #719対応: 単一シンボル処理（並列実行用）
-        
+
         Returns:
             (symbol, result, is_cache_hit, error_message)
         """
@@ -1007,7 +1007,7 @@ class FeatureStore:
     ) -> Tuple[Dict[str, FeatureResult], int, int]:
         """
         Issue #719対応: Threading並列処理
-        
+
         Returns:
             (results, cache_hits, cache_misses)
         """
@@ -1028,7 +1028,7 @@ class FeatureStore:
             for future in as_completed(future_to_symbol):
                 try:
                     symbol, result, is_cache_hit, error_msg = future.result()
-                    
+
                     if result is not None:
                         results[symbol] = result
                         if is_cache_hit:
@@ -1037,7 +1037,7 @@ class FeatureStore:
                             cache_misses += 1
                     elif error_msg:
                         logger.error(error_msg)
-                        
+
                 except Exception as e:
                     symbol = future_to_symbol[future]
                     logger.error(f"Threading並列処理エラー ({symbol}): {e}")
@@ -1055,7 +1055,7 @@ class FeatureStore:
     ) -> Tuple[Dict[str, FeatureResult], int, int]:
         """
         Issue #719対応: Joblib並列処理
-        
+
         Returns:
             (results, cache_hits, cache_misses)
         """
@@ -1096,18 +1096,18 @@ class FeatureStore:
     def _determine_storage_format(self, feature_data: Dict[str, Any]) -> str:
         """
         Issue #718対応: データ特性に基づく保存形式の決定
-        
+
         Args:
             feature_data: 保存するデータ
-            
+
         Returns:
             保存形式 ('pickle', 'joblib', 'numpy', 'parquet')
         """
         if self.config.storage_format != "auto":
             return self.config.storage_format
-            
+
         features = feature_data.get("features")
-        
+
         # データサイズの推定
         data_size_mb = 0
         if hasattr(features, 'nbytes'):
@@ -1115,19 +1115,19 @@ class FeatureStore:
         elif hasattr(features, '__len__'):
             # 概算
             data_size_mb = len(str(feature_data)) / (1024 * 1024)
-        
+
         # NumPy配列の場合
         if NUMPY_AVAILABLE and hasattr(features, 'dtype') and hasattr(features, 'shape'):
             if data_size_mb > self.config.auto_format_threshold_mb:
                 return 'numpy'
             else:
                 return 'joblib' if JOBLIB_SAVE_AVAILABLE else 'pickle'
-        
+
         # DataFrame の場合
         if hasattr(features, 'to_parquet') and PARQUET_AVAILABLE and self.config.enable_parquet:
             if data_size_mb > self.config.auto_format_threshold_mb:
                 return 'parquet'
-        
+
         # デフォルト
         if data_size_mb > self.config.auto_format_threshold_mb and JOBLIB_SAVE_AVAILABLE:
             return 'joblib'
@@ -1137,11 +1137,11 @@ class FeatureStore:
     def _get_feature_file_path(self, feature_id: str, storage_format: str = "pickle") -> Path:
         """
         Issue #718対応: 保存形式に応じたファイルパス取得
-        
+
         Args:
             feature_id: 特徴ID
             storage_format: 保存形式
-            
+
         Returns:
             ファイルパス
         """
@@ -1152,18 +1152,18 @@ class FeatureStore:
             'numpy': '.npy',
             'parquet': '.parquet'
         }
-        
+
         extension = extension_map.get(storage_format, '.pkl')
         if self.config.enable_compression and storage_format in ['pickle', 'joblib']:
             extension += '.gz'
-            
+
         filename = f"{feature_id}{extension}"
         return self.base_path / filename
 
     def _save_feature_data(self, feature_data: Dict[str, Any], file_path: Path, storage_format: str):
         """
         Issue #718対応: 保存形式に応じたデータ保存
-        
+
         Args:
             feature_data: 保存するデータ
             file_path: 保存先ファイルパス
@@ -1182,11 +1182,11 @@ class FeatureStore:
     def _load_feature_data(self, file_path: Path, storage_format: str) -> Dict[str, Any]:
         """
         Issue #718対応: 保存形式に応じたデータ読み込み
-        
+
         Args:
             file_path: 読み込み元ファイルパス
             storage_format: 保存形式
-            
+
         Returns:
             読み込まれたデータ
         """
@@ -1203,10 +1203,10 @@ class FeatureStore:
     def _detect_storage_format(self, file_path: Path) -> str:
         """
         Issue #718対応: ファイル拡張子からの保存形式判定
-        
+
         Args:
             file_path: ファイルパス
-            
+
         Returns:
             保存形式
         """
@@ -1214,15 +1214,15 @@ class FeatureStore:
         # 圧縮ファイルの場合は二重拡張子をチェック
         if suffix == '.gz':
             suffix = file_path.suffixes[-2].lower() if len(file_path.suffixes) >= 2 else '.gz'
-        
+
         format_map = {
             '.pkl': 'pickle',
-            '.pickle': 'pickle', 
+            '.pickle': 'pickle',
             '.joblib': 'joblib',
             '.npy': 'numpy',
             '.parquet': 'parquet'
         }
-        
+
         return format_map.get(suffix, 'pickle')
 
     def _save_as_pickle(self, feature_data: Dict[str, Any], file_path: Path):
@@ -1260,14 +1260,14 @@ class FeatureStore:
         """NumPy形式で保存（特徴量がNumPy配列の場合）"""
         features = feature_data["features"]
         metadata = feature_data["metadata"]
-        
+
         # ファイル名から.npyを除去してベースパスを作成
         base_path = str(file_path).rstrip('.npy')
-        
+
         # NumPy配列を保存
         features_path = f"{base_path}_features.npy"
         np.save(features_path, features)
-        
+
         # メタデータはPickleで保存
         metadata_path = f"{base_path}_metadata.pkl"
         with open(metadata_path, 'wb') as f:
@@ -1277,27 +1277,27 @@ class FeatureStore:
         """NumPy形式から読み込み"""
         # ファイル名から.npyを除去してベースパスを作成
         base_path = str(file_path).rstrip('.npy')
-        
+
         # NumPy配列を読み込み
         features_path = f"{base_path}_features.npy"
         features = np.load(features_path)
-        
+
         # メタデータを読み込み
         metadata_path = f"{base_path}_metadata.pkl"
         with open(metadata_path, 'rb') as f:
             metadata = pickle.load(f)
-        
+
         return {"features": features, "metadata": metadata}
 
     def _save_as_parquet(self, feature_data: Dict[str, Any], file_path: Path):
         """Parquet形式で保存（DataFrameの場合）"""
         features = feature_data["features"]
         metadata = feature_data["metadata"]
-        
+
         if hasattr(features, 'to_parquet'):
             # DataFrameの場合
             features.to_parquet(file_path, compression=self.config.parquet_compression)
-            
+
             # メタデータは別ファイルで保存
             metadata_path = str(file_path).replace('.parquet', '_metadata.pkl')
             with open(metadata_path, 'wb') as f:
@@ -1309,10 +1309,10 @@ class FeatureStore:
     def _load_from_parquet(self, file_path: Path) -> Dict[str, Any]:
         """Parquet形式から読み込み"""
         import pandas as pd
-        
+
         # Parquetファイルを読み込み
         features = pd.read_parquet(file_path)
-        
+
         # メタデータを読み込み
         metadata_path = str(file_path).replace('.parquet', '_metadata.pkl')
         try:
@@ -1320,7 +1320,7 @@ class FeatureStore:
                 metadata = pickle.load(f)
         except FileNotFoundError:
             metadata = {}
-        
+
         return {"features": features, "metadata": metadata}
 
     def get_stats(self) -> Dict[str, Any]:
