@@ -257,6 +257,66 @@ class EnhancedPerformanceMonitor:
             # ログ出力
             self._log_performance_metrics(metrics, category)
 
+    def record_performance(
+        self,
+        process_name: str,
+        execution_time: float,
+        success: bool = True,
+        category: Optional[str] = None,
+        error_message: Optional[str] = None
+    ):
+        """パフォーマンスメトリクスを記録
+
+        Args:
+            process_name: プロセス名
+            execution_time: 実行時間（秒）
+            success: 成功フラグ
+            category: カテゴリー（オプション）
+            error_message: エラーメッセージ（オプション）
+        """
+        try:
+            # 現在のシステム状態を取得
+            current_memory = self._get_memory_usage()
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            thread_count = threading.active_count()
+
+            # GCカウント取得（安全な方法）
+            try:
+                gc_count = sum(
+                    gc.get_stats()[i]["collections"] for i in range(len(gc.get_stats()))
+                )
+            except Exception:
+                gc_count = 0
+
+            # パフォーマンスメトリクス作成
+            metrics = PerformanceMetrics(
+                timestamp=datetime.now(),
+                process_name=process_name,
+                execution_time=execution_time,
+                success=success,
+                memory_usage=current_memory,
+                cpu_usage=cpu_percent,
+                thread_count=thread_count,
+                gc_collections=gc_count,
+                error_message=error_message
+            )
+
+            # 履歴に追加
+            self.metrics_history.append(metrics)
+
+            # 統計情報更新
+            self._update_process_stats(process_name, execution_time, success)
+
+            # アラートチェック
+            self._check_performance_alerts(metrics, category)
+
+            # ログ出力
+            self._log_performance_metrics(metrics, category)
+
+        except Exception as e:
+            logger.error(f"パフォーマンスメトリクス記録エラー: {e}")
+            # エラーでも処理を継続
+
     def _get_memory_usage(self) -> float:
         """現在のメモリ使用量を取得（MB単位）"""
         process = psutil.Process()
@@ -499,6 +559,84 @@ class EnhancedPerformanceMonitor:
             "heaviest_by_total_time": heaviest_by_total,
             "analysis_timestamp": datetime.now(),
         }
+
+    @contextmanager
+    def measure_performance(self, operation_name: str, category: Optional[str] = None):
+        """パフォーマンス測定コンテキストマネージャー
+
+        Args:
+            operation_name: 操作名
+            category: カテゴリー（オプション）
+
+        Yields:
+            測定中のコンテキスト
+
+        Example:
+            with monitor.measure_performance("data_processing"):
+                # 処理を実行
+                process_data()
+        """
+        start_time = time.time()
+        start_memory = self._get_memory_usage()
+        error_message = None
+        success = True
+
+        try:
+            yield
+        except Exception as e:
+            success = False
+            error_message = str(e)
+            logger.error(f"パフォーマンス測定中にエラーが発生しました: {e}")
+            raise
+        finally:
+            end_time = time.time()
+            execution_time = end_time - start_time
+
+            # パフォーマンスメトリクスを記録
+            self.record_performance(
+                process_name=operation_name,
+                execution_time=execution_time,
+                success=success,
+                category=category,
+                error_message=error_message
+            )
+
+            # 詳細ログ出力
+            if success:
+                logger.debug(f"パフォーマンス測定完了: {operation_name} ({execution_time:.3f}秒)")
+            else:
+                logger.error(f"パフォーマンス測定エラー: {operation_name} ({execution_time:.3f}秒) - {error_message}")
+
+    def get_current_system_status(self) -> Dict[str, Any]:
+        """現在のシステム状態を取得"""
+        try:
+            # CPU使用率
+            cpu_percent = psutil.cpu_percent(interval=1)
+
+            # メモリ情報
+            memory = psutil.virtual_memory()
+
+            # ディスク使用率
+            disk = psutil.disk_usage('/')
+
+            # プロセス情報
+            process = psutil.Process()
+            process_memory = process.memory_info().rss / 1024 / 1024  # MB
+
+            return {
+                'timestamp': datetime.now(),
+                'cpu_percent': cpu_percent,
+                'memory_total_gb': memory.total / (1024**3),
+                'memory_available_gb': memory.available / (1024**3),
+                'memory_percent': memory.percent,
+                'disk_percent': disk.percent,
+                'process_memory_mb': process_memory,
+                'thread_count': threading.active_count(),
+                'gc_count': len(gc.get_objects())
+            }
+        except Exception as e:
+            logger.error(f"システム状態取得エラー: {e}")
+            return {'error': str(e), 'timestamp': datetime.now()}
 
 
 # グローバルインスタンス
