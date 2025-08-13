@@ -113,11 +113,9 @@ class StockNameHelper:
             return default_info
 
         stock_info = self._stock_info_cache.get(symbol_str, {})
-        result = default_info.copy()
-        result.update(stock_info)
-        result['code'] = symbol_str  # コードは常に設定
+        default_info.update(stock_info)
 
-        return result
+        return default_info
 
     def format_stock_display(self, symbol: Union[str, int], include_code: bool = True) -> str:
         """
