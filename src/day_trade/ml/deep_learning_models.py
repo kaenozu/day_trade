@@ -57,25 +57,25 @@ class ModelType(Enum):
 class BaseModelConfig:
     """
     Issue #528対応: 統合された基本モデル設定
-    
+
     すべての深層学習モデルの共通設定基盤
     """
     # データ設定
     sequence_length: int = 60
     prediction_horizon: int = 1
     validation_split: float = 0.2
-    
+
     # 学習設定
     learning_rate: float = 0.001
     batch_size: int = 32
     epochs: int = 100
     early_stopping_patience: int = 10
-    
+
     # モデル設定
     hidden_size: int = 128  # hidden_dim と統一
     num_layers: int = 2
     dropout_rate: float = 0.2
-    
+
     # 実行環境設定
     use_pytorch: bool = False
     device: str = "cpu"  # "cpu", "cuda", "mps"
@@ -91,12 +91,12 @@ class TransformerConfig(BaseModelConfig):
     d_model: int = 128
     d_ff: int = 512  # フィードフォワード次元
     max_position_encoding: int = 1000
-    
+
     # デフォルト値の調整
     hidden_size: int = 128  # d_modelと同期
-    
 
-@dataclass  
+
+@dataclass
 class LSTMConfig(BaseModelConfig):
     """
     Issue #528対応: LSTM特化設定
@@ -104,7 +104,7 @@ class LSTMConfig(BaseModelConfig):
     # LSTM固有設定
     bidirectional: bool = False
     layer_norm: bool = True
-    
+
 
 @dataclass
 class CNNConfig(BaseModelConfig):
@@ -122,23 +122,23 @@ class CNNConfig(BaseModelConfig):
 class ModelConfig(BaseModelConfig):
     """
     Issue #528対応: 後方互換性維持のための統合設定クラス
-    
+
     既存のModelConfigを継承し、必要な追加フィールドを含む
     """
     model_type: ModelType = ModelType.LSTM
-    
+
     # Transformer用（TransformerConfigから継承）
     num_heads: int = 8
     d_model: int = 128
-    
+
     # CNN用（CNNConfigから継承）
     kernel_size: int = 3
     num_filters: int = 64
-    
+
     def to_specialized_config(self) -> Union[TransformerConfig, LSTMConfig, CNNConfig]:
         """
         Issue #528対応: モデルタイプに応じた特化設定への変換
-        
+
         Returns:
             モデルタイプに適した特化設定インスタンス
         """
@@ -155,7 +155,7 @@ class ModelConfig(BaseModelConfig):
             'dropout_rate': self.dropout_rate,
             'use_pytorch': self.use_pytorch,
         }
-        
+
         if self.model_type in [ModelType.TRANSFORMER, ModelType.HYBRID_LSTM_TRANSFORMER]:
             return TransformerConfig(
                 **base_kwargs,
@@ -182,25 +182,25 @@ DeepLearningConfig = ModelConfig
 def convert_legacy_config(legacy_config: Dict[str, Any]) -> ModelConfig:
     """
     Issue #528対応: レガシー設定辞書からModelConfigへの変換
-    
+
     Args:
         legacy_config: 古い形式の設定辞書
-        
+
     Returns:
         ModelConfig: 統合された設定オブジェクト
     """
     # hidden_dim -> hidden_size の統一
     if 'hidden_dim' in legacy_config:
         legacy_config['hidden_size'] = legacy_config.pop('hidden_dim')
-    
+
     # d_model のデフォルト値設定
     if 'hidden_size' in legacy_config and 'd_model' not in legacy_config:
         legacy_config['d_model'] = legacy_config['hidden_size']
-    
+
     # モデルタイプの処理
     if 'model_type' in legacy_config and isinstance(legacy_config['model_type'], str):
         legacy_config['model_type'] = ModelType(legacy_config['model_type'])
-    
+
     return ModelConfig(**legacy_config)
 
 
@@ -210,17 +210,17 @@ def create_model_config(
 ) -> Union[ModelConfig, TransformerConfig, LSTMConfig, CNNConfig]:
     """
     Issue #528対応: モデルタイプに応じた最適な設定オブジェクト作成
-    
+
     Args:
         model_type: 作成するモデルのタイプ
         **kwargs: 設定パラメータ
-        
+
     Returns:
         モデルタイプに最適化された設定オブジェクト
     """
     # 基本設定から開始
     config = ModelConfig(model_type=model_type, **kwargs)
-    
+
     # 特化設定への変換
     return config.to_specialized_config()
 
@@ -1284,14 +1284,14 @@ class DeepLearningModelManager:
         else:
             # Issue #545対応: アンサンブル重みの動的管理
             calculated_weights = np.ones(len(predictions)) # デフォルトは均等重み
-            
+
             if self.ensemble_weights: # 外部から重みが指定されている場合
                 for i, model_name in enumerate(model_names):
                     if model_name in self.ensemble_weights:
                         calculated_weights[i] = self.ensemble_weights[model_name]
                     else:
                         logger.warning(f"指定されたモデル '{model_name}' のアンサンブル重みが見つかりません。均等重みを使用します。")
-            
+
             # 重みを正規化
             if np.sum(calculated_weights) > 0:
                 calculated_weights = calculated_weights / np.sum(calculated_weights)

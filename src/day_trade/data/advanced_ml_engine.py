@@ -1462,7 +1462,7 @@ class NextGenAITradingEngine:
 
             return trend_score
 
-        
+
         self, prices: pd.Series, volatility: float, volume: pd.Series
     ) -> float:
         """ボラティリティ予測スコア"""
