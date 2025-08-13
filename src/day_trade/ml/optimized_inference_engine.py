@@ -95,6 +95,10 @@ class InferenceConfig:
     cache_ttl_seconds: int = 300
     gpu_memory_limit_mb: Optional[int] = 2048
     thread_pool_size: int = 4
+    # Issue #729対応: タイムアウト処理強化
+    batch_timeout_ms: int = 50  # バッチ処理タイムアウト（ミリ秒）
+    max_wait_time_ms: int = 100  # 最大待機時間（ミリ秒）
+    priority_threshold_ms: int = 80  # 優先処理閾値（ミリ秒）
 
     def to_dict(self) -> Dict[str, Any]:
         """設定を辞書形式に変換"""
@@ -420,7 +424,7 @@ class OptimizedInferenceSession:
 
 
 class DynamicBatchProcessor:
-    """動的バッチ処理エンジン"""
+    """動的バッチ処理エンジン - Issue #729対応: タイムアウト処理強化"""
 
     def __init__(self, config: InferenceConfig):
         self.config = config
@@ -431,12 +435,19 @@ class DynamicBatchProcessor:
             "batches_processed": 0,
             "avg_batch_size": 0.0,
             "total_requests": 0,
+            # Issue #729対応: タイムアウト統計
+            "timeout_forced_batches": 0,
+            "priority_processed_requests": 0,
+            "avg_wait_time_ms": 0.0,
         }
+        # Issue #729対応: タイムアウト監視タスク
+        self._timeout_task = None
+        self._shutdown_event = asyncio.Event()
 
     async def add_request(
         self, input_data: np.ndarray, callback: Optional[callable] = None
     ) -> InferenceResult:
-        """推論リクエスト追加"""
+        """推論リクエスト追加 - Issue #729対応: タイムアウト処理強化"""
         if not self.config.enable_dynamic_batching:
             # 動的バッチング無効時は即座処理
             session = self._get_default_session()
@@ -448,14 +459,22 @@ class DynamicBatchProcessor:
             "callback": callback,
             "timestamp": MicrosecondTimer.now_ns(),
             "future": asyncio.Future(),
+            "priority": False,  # Issue #729対応: 優先フラグ
         }
 
         with self.processing_lock:
             self.pending_requests.append(request)
+            
+            # Issue #729対応: タイムアウト監視開始
+            if self._timeout_task is None:
+                self._timeout_task = asyncio.create_task(self._timeout_monitor())
 
             # バッチサイズチェック
             if len(self.pending_requests) >= self.config.batch_size:
                 await self._process_batch()
+            
+            # Issue #729対応: 優先処理チェック
+            await self._check_priority_processing()
 
         return await request["future"]
 
@@ -496,13 +515,41 @@ class DynamicBatchProcessor:
 
                 request["future"].set_result(individual_result)
 
-            # 統計更新
+            # 統計更新 - Issue #729対応: 待機時間統計追加
             self.batch_stats["batches_processed"] += 1
             self.batch_stats["total_requests"] += batch_size
             self.batch_stats["avg_batch_size"] = (
                 self.batch_stats["total_requests"]
                 / self.batch_stats["batches_processed"]
             )
+            
+            # Issue #729対応: 待機時間統計計算
+            current_time = MicrosecondTimer.now_ns()
+            total_wait_time_ms = 0
+            priority_count = 0
+            
+            for request in current_batch:
+                wait_time_ns = current_time - request["timestamp"]
+                wait_time_ms = wait_time_ns / 1_000_000  # ナノ秒→ミリ秒
+                total_wait_time_ms += wait_time_ms
+                
+                if request.get("priority", False):
+                    priority_count += 1
+            
+            # 平均待機時間更新
+            if batch_size > 0:
+                batch_avg_wait = total_wait_time_ms / batch_size
+                total_requests = self.batch_stats["total_requests"]
+                current_avg = self.batch_stats["avg_wait_time_ms"]
+                
+                # 累積平均更新
+                self.batch_stats["avg_wait_time_ms"] = (
+                    (current_avg * (total_requests - batch_size) + total_wait_time_ms) 
+                    / total_requests
+                )
+                
+                # 優先処理統計更新
+                self.batch_stats["priority_processed_requests"] += priority_count
 
         except Exception as e:
             logger.error(f"バッチ処理エラー: {e}")
@@ -511,6 +558,111 @@ class DynamicBatchProcessor:
             for request in current_batch:
                 if not request["future"].done():
                     request["future"].set_exception(e)
+
+    async def _timeout_monitor(self):
+        """Issue #729対応: タイムアウト監視タスク"""
+        try:
+            while not self._shutdown_event.is_set():
+                await asyncio.sleep(self.config.batch_timeout_ms / 1000.0)  # ミリ秒→秒
+                
+                with self.processing_lock:
+                    if self.pending_requests:
+                        # タイムアウトチェック
+                        current_time = MicrosecondTimer.now_ns()
+                        timeout_triggered = False
+                        
+                        for request in self.pending_requests:
+                            wait_time_ns = current_time - request["timestamp"]
+                            wait_time_ms = wait_time_ns / 1_000_000  # ナノ秒→ミリ秒
+                            
+                            if wait_time_ms >= self.config.batch_timeout_ms:
+                                timeout_triggered = True
+                                break
+                        
+                        if timeout_triggered:
+                            logger.debug(f"バッチタイムアウト発生、強制処理開始")
+                            self.batch_stats["timeout_forced_batches"] += 1
+                            await self._process_batch()
+                            
+        except asyncio.CancelledError:
+            logger.debug("タイムアウト監視タスク終了")
+        except Exception as e:
+            logger.error(f"タイムアウト監視エラー: {e}")
+
+    async def _check_priority_processing(self):
+        """Issue #729対応: 優先処理チェック"""
+        if not self.pending_requests:
+            return
+            
+        current_time = MicrosecondTimer.now_ns()
+        priority_requests = []
+        
+        # 優先処理対象リクエスト検出
+        for request in self.pending_requests:
+            wait_time_ns = current_time - request["timestamp"]
+            wait_time_ms = wait_time_ns / 1_000_000  # ナノ秒→ミリ秒
+            
+            if wait_time_ms >= self.config.priority_threshold_ms:
+                request["priority"] = True
+                priority_requests.append(request)
+                
+        # 優先処理実行判定
+        if priority_requests:
+            logger.debug(f"優先処理対象: {len(priority_requests)}件")
+            
+            # max_wait_time_msを超えたリクエストがあれば即座処理
+            urgent_requests = [
+                req for req in priority_requests 
+                if (current_time - req["timestamp"]) / 1_000_000 >= self.config.max_wait_time_ms
+            ]
+            
+            if urgent_requests:
+                logger.info(f"緊急処理実行: {len(urgent_requests)}件のmax_wait_time_ms超過")
+                await self._process_batch()
+
+    async def shutdown(self):
+        """Issue #729対応: DynamicBatchProcessor終了処理"""
+        logger.info("DynamicBatchProcessor終了処理開始")
+        
+        # 終了フラグ設定
+        self._shutdown_event.set()
+        
+        # タイムアウト監視タスク終了
+        if self._timeout_task and not self._timeout_task.done():
+            self._timeout_task.cancel()
+            try:
+                await self._timeout_task
+            except asyncio.CancelledError:
+                pass
+        
+        # 残存リクエスト処理
+        with self.processing_lock:
+            if self.pending_requests:
+                logger.info(f"残存リクエスト処理: {len(self.pending_requests)}件")
+                await self._process_batch()
+        
+        logger.info("DynamicBatchProcessor終了完了")
+
+    def get_enhanced_stats(self) -> Dict[str, Any]:
+        """Issue #729対応: 強化されたバッチ処理統計取得"""
+        base_stats = self.batch_stats.copy()
+        
+        # 追加統計計算
+        if base_stats["batches_processed"] > 0:
+            timeout_ratio = base_stats["timeout_forced_batches"] / base_stats["batches_processed"]
+            priority_ratio = (
+                base_stats["priority_processed_requests"] / base_stats["total_requests"]
+                if base_stats["total_requests"] > 0 else 0
+            )
+            
+            base_stats.update({
+                "timeout_forced_ratio": timeout_ratio,
+                "priority_processed_ratio": priority_ratio,
+                "pending_requests_count": len(self.pending_requests),
+                "timeout_monitor_active": self._timeout_task is not None and not self._timeout_task.done(),
+            })
+        
+        return base_stats
 
     def _get_default_session(self) -> OptimizedInferenceSession:
         """デフォルト推論セッション取得（フォールバック）"""
@@ -576,9 +728,12 @@ class OptimizedInferenceEngine:
                         onnx_path = model_path  # 元のパスを使用
 
                 elif model_path.endswith(".pth"):
-                    # PyTorchモデル変換（実装簡略化）
-                    logger.warning("PyTorch ONNX変換は手動実装が必要")
-                    onnx_path = model_path
+                    # PyTorchモデル自動ONNX変換 - Issue #726対応
+                    onnx_path = model_path.replace(".pth", ".onnx")
+                    success = self._convert_pytorch_model_to_onnx(model_path, onnx_path)
+                    if not success:
+                        logger.warning(f"PyTorch ONNX変換失敗: {model_path}")
+                        onnx_path = model_path  # 元のパスを使用
 
             # 量子化（設定に応じて）
             if self.config.optimization_level in [
@@ -768,6 +923,186 @@ class OptimizedInferenceEngine:
         )
 
         return benchmark_results
+
+    def _convert_pytorch_model_to_onnx(self, pytorch_model_path: str, onnx_output_path: str) -> bool:
+        """Issue #726対応: PyTorchモデルファイル(.pth)を自動的にONNXに変換"""
+        if not TORCH_ONNX_AVAILABLE:
+            logger.warning("PyTorch not available - PyTorch to ONNX conversion skipped")
+            return False
+        
+        try:
+            import torch
+            from pathlib import Path
+            
+            logger.info(f"PyTorchモデル自動ONNX変換開始: {pytorch_model_path} -> {onnx_output_path}")
+            
+            # PyTorchモデル読み込み
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            
+            try:
+                # state_dictとして読み込み（一般的なケース） - weights_only=False for compatibility
+                state_dict = torch.load(pytorch_model_path, map_location=device, weights_only=False)
+                
+                # モデル推定（一般的なMLモデル構造を想定）
+                if isinstance(state_dict, dict) and any("fc" in key or "linear" in key for key in state_dict.keys()):
+                    # 線形レイヤーベースのモデル（日取引予測モデル想定）
+                    model = self._create_trading_model_from_state_dict(state_dict, device)
+                elif isinstance(state_dict, dict) and any("conv" in key for key in state_dict.keys()):
+                    # 畳み込みベースのモデル
+                    model = self._create_cnn_model_from_state_dict(state_dict, device)
+                else:
+                    # 完全なモデルとして読み込み
+                    model = torch.load(pytorch_model_path, map_location=device)
+                    
+            except Exception as e:
+                logger.warning(f"state_dict読み込み失敗、完全モデル読み込みを試行: {e}")
+                model = torch.load(pytorch_model_path, map_location=device, weights_only=False)
+            
+            # モデルを評価モードに設定
+            model.eval()
+            
+            # ダミー入力データ作成（日取引データ形式を想定）
+            dummy_input = self._create_dummy_input_for_model(model, device)
+            
+            # ONNX変換実行
+            success = self.model_optimizer.convert_pytorch_to_onnx(
+                model, 
+                dummy_input, 
+                onnx_output_path,
+                dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}}
+            )
+            
+            if success and Path(onnx_output_path).exists():
+                logger.info(f"PyTorch自動ONNX変換成功: {onnx_output_path}")
+                
+                # 変換結果検証
+                original_size = Path(pytorch_model_path).stat().st_size / 1024 / 1024
+                onnx_size = Path(onnx_output_path).stat().st_size / 1024 / 1024
+                logger.info(f"  元サイズ: {original_size:.2f}MB, ONNX: {onnx_size:.2f}MB")
+                
+                return True
+            else:
+                logger.error(f"PyTorch自動ONNX変換失敗")
+                return False
+                
+        except Exception as e:
+            logger.error(f"PyTorchモデル自動ONNX変換エラー: {e}")
+            return False
+
+    def _create_trading_model_from_state_dict(self, state_dict: dict, device) -> torch.nn.Module:
+        """日取引用線形モデル推定・再構築"""
+        import torch.nn as nn
+        
+        # レイヤー名から構造推定
+        layer_names = list(state_dict.keys())
+        
+        # 入力・出力次元推定
+        first_weight = None
+        last_weight = None
+        
+        for name, param in state_dict.items():
+            if "weight" in name and len(param.shape) == 2:
+                if first_weight is None:
+                    first_weight = param
+                last_weight = param
+        
+        if first_weight is None:
+            raise ValueError("適切な重み行列が見つかりません")
+        
+        input_dim = first_weight.shape[1]
+        output_dim = last_weight.shape[0]
+        
+        # 隠れ層次元推定（中間レイヤーから）
+        hidden_dims = []
+        for name, param in state_dict.items():
+            if "weight" in name and len(param.shape) == 2:
+                hidden_dims.append(param.shape[0])
+        
+        # シンプルなMLPモデル作成
+        layers = []
+        prev_dim = input_dim
+        
+        for i, hidden_dim in enumerate(hidden_dims[:-1]):
+            layers.append(nn.Linear(prev_dim, hidden_dim))
+            layers.append(nn.ReLU())
+            prev_dim = hidden_dim
+        
+        # 出力層
+        layers.append(nn.Linear(prev_dim, output_dim))
+        
+        model = nn.Sequential(*layers).to(device)
+        
+        # state_dict読み込み（命名規則マッピング対応）
+        try:
+            model.load_state_dict(state_dict)
+        except RuntimeError as e:
+            logger.warning(f"state_dict完全一致失敗、マッピング読み込み: {e}")
+            # 命名規則マッピング（fc1->0, fc2->2等）
+            model_dict = model.state_dict()
+            mapped_dict = {}
+            
+            # 手動マッピング（fcN -> 2*N）
+            name_mapping = {
+                'fc1.weight': '0.weight', 'fc1.bias': '0.bias',
+                'fc2.weight': '2.weight', 'fc2.bias': '2.bias', 
+                'fc3.weight': '4.weight', 'fc3.bias': '4.bias',
+            }
+            
+            for old_name, param in state_dict.items():
+                new_name = name_mapping.get(old_name, old_name)
+                if new_name in model_dict:
+                    mapped_dict[new_name] = param
+                    
+            # マッピング済み辞書で更新
+            model_dict.update(mapped_dict)
+            model.load_state_dict(model_dict)
+        
+        return model
+
+    def _create_cnn_model_from_state_dict(self, state_dict: dict, device) -> torch.nn.Module:
+        """CNN系モデル推定・再構築（将来拡張用）"""
+        import torch.nn as nn
+        
+        # 簡易CNN構造（時系列データ用）
+        model = nn.Sequential(
+            nn.Conv1d(1, 32, kernel_size=3),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool1d(1),
+            nn.Flatten(),
+            nn.Linear(32, 1)
+        ).to(device)
+        
+        try:
+            model.load_state_dict(state_dict)
+        except:
+            logger.warning("CNN state_dict読み込み失敗、デフォルト構造使用")
+        
+        return model
+
+    def _create_dummy_input_for_model(self, model, device) -> torch.Tensor:
+        """モデル用ダミー入力データ作成"""
+        import torch
+        
+        try:
+            # モデルの最初のレイヤーから入力次元推定
+            first_param = next(iter(model.parameters()))
+            
+            if len(first_param.shape) >= 2:
+                input_dim = first_param.shape[1] if len(first_param.shape) == 2 else first_param.shape[-1]
+                
+                # バッチサイズ1の日取引データサンプル（feature数に合わせる）
+                dummy_input = torch.randn(1, input_dim).to(device)
+                logger.info(f"ダミー入力作成: shape={dummy_input.shape}")
+                return dummy_input
+            else:
+                # 1次元の場合
+                dummy_input = torch.randn(1, 10).to(device)  # デフォルト10特徴
+                return dummy_input
+                
+        except Exception as e:
+            logger.warning(f"ダミー入力推定失敗、デフォルト使用: {e}")
+            # デフォルト日取引特徴数（例：価格、ボリューム、テクニカル指標等）
+            return torch.randn(1, 20).to(device)
 
 
 # エクスポート用ファクトリ関数

@@ -21,7 +21,12 @@ from .base_models import RandomForestModel, GradientBoostingModel, SVRModel, Bas
 from .base_models.base_model_interface import ModelPrediction, ModelMetrics
 from .stacking_ensemble import StackingEnsemble, StackingConfig
 from .dynamic_weighting_system import DynamicWeightingSystem, DynamicWeightingConfig
-from ..data.advanced_ml_engine import AdvancedMLEngine
+from .advanced_ml_interface import (
+    AdvancedMLEngineInterface,
+    LSTMTransformerEngine,
+    AdvancedModelType,
+    create_advanced_ml_engine
+)
 from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
@@ -105,13 +110,22 @@ class EnsembleSystem:
         self.stacking_ensemble = None
         self.dynamic_weighting = None
 
-        # LSTMトランスフォーマー（既存システム）
-        self.lstm_transformer = None
+        # Issue #473対応: Advanced ML Engine（明確なインターフェース）
+        self.advanced_ml_engine: "Optional[AdvancedMLEngineInterface]" = None
         if self.config.use_lstm_transformer:
             try:
-                self.lstm_transformer = AdvancedMLEngine()
+                self.advanced_ml_engine = create_advanced_ml_engine(
+                    AdvancedModelType.LSTM_TRANSFORMER
+                )
+                logger.info(f"Advanced ML Engine初期化完了: {self.advanced_ml_engine.get_model_type().value}")
+                
+                # 能力情報をログ出力
+                capabilities = self.advanced_ml_engine.get_capabilities()
+                logger.info(f"Engine能力: シーケンス予測={capabilities.supports_sequence_prediction}, "
+                          f"不確実性定量化={capabilities.supports_uncertainty_quantification}, "
+                          f"推論目標時間={capabilities.inference_time_target_ms}ms")
             except Exception as e:
-                logger.warning(f"LSTM-Transformer初期化失敗: {e}")
+                logger.warning(f"Advanced ML Engine初期化失敗: {e}")
 
         # ベースモデル初期化
         self._initialize_base_models()
@@ -153,7 +167,8 @@ class EnsembleSystem:
 
             # 均等重みで初期化
             n_models = len(self.base_models)
-            if self.lstm_transformer:
+            # Issue #473対応: Advanced ML Engine の統合
+            if self.advanced_ml_engine and self.advanced_ml_engine.is_trained():
                 n_models += 1
                 self.model_weights["lstm_transformer"] = 1.0 / n_models
 
@@ -178,7 +193,8 @@ class EnsembleSystem:
             # 動的重み調整システム初期化
             if self.config.enable_dynamic_weighting:
                 model_names = list(self.base_models.keys())
-                if self.lstm_transformer:
+                # Issue #473対応: Advanced ML Engine の統合
+                if self.advanced_ml_engine:
                     model_names.append("lstm_transformer")
 
                 dw_config = self.config.dynamic_weighting_config or DynamicWeightingConfig()
@@ -215,14 +231,27 @@ class EnsembleSystem:
             # 各ベースモデルの学習
             model_results = {}
 
-            # 1. LSTM-Transformer学習（既存システム）
-            if self.lstm_transformer:
+            # 1. Advanced ML Engine学習（Issue #473対応）
+            if self.advanced_ml_engine:
                 try:
-                    logger.info("LSTM-Transformer学習開始")
-                    # TODO: LSTM-Transformerの学習実装
-                    model_results["lstm_transformer"] = {"status": "学習完了"}
+                    logger.info(f"Advanced ML Engine学習開始: {self.advanced_ml_engine.get_model_type().value}")
+                    
+                    # データ形状の検証
+                    if not self.advanced_ml_engine.validate_input_shape(X):
+                        logger.warning("Advanced ML Engine: 入力データ形状が不適切です")
+                    
+                    # 学習実行
+                    training_metrics = self.advanced_ml_engine.train(X, y, validation_data)
+                    model_results["lstm_transformer"] = {
+                        "status": "学習完了",
+                        "metrics": training_metrics,
+                        "model_type": self.advanced_ml_engine.get_model_type().value
+                    }
+                    logger.info(f"Advanced ML Engine学習完了: 精度={training_metrics.accuracy:.4f}")
+                    
                 except Exception as e:
-                    logger.warning(f"LSTM-Transformer学習失敗: {e}")
+                    logger.warning(f"Advanced ML Engine学習失敗: {e}")
+                    model_results["lstm_transformer"] = {"status": "学習失敗", "error": str(e)}
 
             # 2. 従来MLモデル学習
             for model_name, model in self.base_models.items():
@@ -296,11 +325,28 @@ class EnsembleSystem:
             # 各モデルからの予測収集
             individual_predictions = {}
 
-            # 1. LSTM-Transformer予測
-            if self.lstm_transformer and "lstm_transformer" in self.model_weights:
+            # 1. Advanced ML Engine予測（Issue #473対応）
+            if self.advanced_ml_engine and self.advanced_ml_engine.is_trained() and "lstm_transformer" in self.model_weights:
                 try:
-                    # TODO: LSTM-Transformer予測実装
-                    lstm_pred = np.random.randn(len(X))  # プレースホルダー
+                    # Issue #473対応: 統一インターフェースによる予測
+                    if not self.advanced_ml_engine.validate_input_shape(X):
+                        logger.warning("Advanced ML Engine: 入力形状が無効")
+                        lstm_pred = np.zeros(len(X))  # フォールバック
+                    else:
+                        transformed_X = self.advanced_ml_engine.prepare_data(X)
+                        prediction_result = self.advanced_ml_engine.predict(
+                            transformed_X, 
+                            return_confidence=True,
+                            return_attention=False
+                        )
+                        
+                        if hasattr(prediction_result, 'predictions') and prediction_result.predictions is not None:
+                            lstm_pred = prediction_result.predictions.flatten()
+                            logger.debug(f"Advanced ML Engine予測: 形状{prediction_result.predictions.shape}, "
+                                      f"信頼度平均={getattr(prediction_result, 'confidence', 'N/A')}")
+                        else:
+                            lstm_pred = np.zeros(len(X))
+                            
                     individual_predictions["lstm_transformer"] = lstm_pred
                 except Exception as e:
                     logger.warning(f"LSTM-Transformer予測失敗: {e}")
@@ -567,7 +613,9 @@ class EnsembleSystem:
     def update_dynamic_weights(self, predictions: Dict[str, np.ndarray],
                               actuals: np.ndarray, timestamp: int = None):
         """
-        動的重み調整システムに予測結果をフィードバック
+        Issue #472対応: 簡素化された動的重み更新
+        
+        DynamicWeightingSystemが内部で完結した重み更新・同期を実行
 
         Args:
             predictions: モデル別予測値
@@ -576,18 +624,47 @@ class EnsembleSystem:
         """
         if self.dynamic_weighting:
             try:
-                self.dynamic_weighting.update_performance(predictions, actuals, timestamp)
-
-                # 更新された重みを取得
-                updated_weights = self.dynamic_weighting.get_current_weights()
-
-                # アンサンブル重みを更新
-                for model_name, weight in updated_weights.items():
-                    if model_name in self.model_weights:
-                        self.model_weights[model_name] = weight
+                # Issue #472対応: 一括更新・同期処理
+                updated_weights = self.dynamic_weighting.sync_and_update_performance(
+                    predictions, actuals, self.model_weights, timestamp
+                )
+                
+                logger.debug(f"動的重み更新完了: {len(updated_weights)}モデル")
 
             except Exception as e:
                 logger.warning(f"動的重み更新エラー: {e}")
+
+    def create_simplified_weight_updater(self):
+        """
+        Issue #472対応: 簡潔な重み更新関数の生成
+        
+        Returns:
+            簡潔な重み更新関数
+        """
+        if not self.dynamic_weighting:
+            return lambda *args, **kwargs: False
+            
+        return self.dynamic_weighting.create_weight_updater()
+
+    def get_dynamic_weight_update_strategy(self) -> str:
+        """
+        Issue #472対応: 動的重み更新戦略の取得
+        
+        Returns:
+            現在の重み更新戦略の説明
+        """
+        if not self.dynamic_weighting:
+            return "動的重み調整は無効です"
+            
+        strategy_info = [
+            "統合重み更新戦略:",
+            "1. パフォーマンス蓄積",
+            "2. 重み再計算（閾値達成時）", 
+            "3. EnsembleSystem重み直接同期",
+            "4. 手動マージ処理の排除"
+        ]
+        
+        return " → ".join(strategy_info)
 
     def get_ensemble_info(self) -> Dict[str, Any]:
         """アンサンブル情報取得"""

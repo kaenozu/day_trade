@@ -26,7 +26,7 @@ sys.path.insert(0, str(project_root))
 
 # モジュールインポート
 from src.day_trade.automation.auto_pipeline_manager import run_auto_pipeline
-from src.day_trade.recommendation.recommendation_engine import get_daily_recommendations
+from src.day_trade.recommendation.recommendation_engine import get_daily_recommendations, get_smart_daily_recommendations
 
 
 class SimpleProgress:
@@ -69,6 +69,7 @@ def parse_arguments():
   python daytrade.py                    # クイックモード（TOP3推奨）
   python daytrade.py --full             # フルモード（全銘柄分析）
   python daytrade.py --quick            # クイックモード明示
+  python daytrade.py --smart            # スマートモード（AI選択銘柄のみ）
   python daytrade.py --symbols 7203,8306  # 指定銘柄のみ
   python daytrade.py --safe             # 安全モード（低リスク銘柄のみ）"""
     )
@@ -78,6 +79,8 @@ def parse_arguments():
                       help='クイックモード: 最速でTOP3推奨のみ（デフォルト）')
     group.add_argument('--full', action='store_true',
                       help='フルモード: 全銘柄分析でTOP5推奨（時間がかかります）')
+    group.add_argument('--smart', action='store_true',
+                      help='スマートモード: AI銘柄自動選択によるTOP5推奨（Issue #487）')
 
     parser.add_argument('--symbols', type=str,
                        help='分析対象銘柄（カンマ区切り）例: 7203,8306,9984')
@@ -237,6 +240,76 @@ async def run_full_mode(symbols: Optional[List[str]] = None) -> bool:
         return False
 
 
+async def run_smart_mode() -> bool:
+    """
+    スマートモード実行（Issue #487対応）
+    
+    AI銘柄自動選択によるTOP5推奨
+    
+    Returns:
+        実行成功かどうか
+    """
+    progress = SimpleProgress()
+    
+    try:
+        print("\n🤖 スマートモード: AI銘柄自動選択によるTOP5推奨を実行します")
+        print("市場流動性・出来高・ボラティリティに基づく最適銘柄から推奨を生成中...")
+        
+        # ステップ1: スマート銘柄選択
+        progress.show_step("AI銘柄自動選択中", 1)
+        
+        # ステップ2: 選択銘柄の詳細分析
+        progress.show_step("選択銘柄のML予測分析中", 2)
+        
+        # スマート推奨銘柄取得（TOP5）
+        recommendations = await get_smart_daily_recommendations(limit=5)
+        
+        # ステップ3: 結果表示
+        progress.show_step("スマート分析結果表示", 3)
+        
+        if not recommendations:
+            print("\n[!] スマート選択で推奨できる銘柄が見つかりませんでした")
+            return False
+        
+        # スマート結果表示
+        print("\n" + "="*60)
+        print(f"     🤖 スマート分析結果 - TOP {len(recommendations)} 推奨銘柄")
+        print("="*60)
+        print("※ 流動性・ボラティリティ・出来高を総合評価して自動選択された銘柄です")
+        
+        for i, rec in enumerate(recommendations, 1):
+            risk_color = {"低": "[L]", "中": "[M]", "高": "[H]"}.get(rec.risk_level, "[?]")
+            
+            print(f"\n{i}. 🎯 {rec.symbol} ({rec.name}) - [{rec.action.value}]")
+            print(f"   [SCORE] 総合スコア: {rec.composite_score:.1f}点 (テクニカル {rec.technical_score:.1f} + ML {rec.ml_score:.1f})")
+            print(f"   [CONF] 信頼度: {rec.confidence:.0f}%, リスク: {risk_color}{rec.risk_level}")
+            
+            if rec.reasons:
+                print(f"   [REASON] 推奨理由: {', '.join(rec.reasons[:3])}")
+            
+            price_info = []
+            if rec.price_target:
+                price_info.append(f"目標価格 {rec.price_target:.0f}円")
+            if rec.stop_loss:
+                price_info.append(f"ストップロス {rec.stop_loss:.0f}円")
+            if price_info:
+                print(f"   [PRICE] {', '.join(price_info)}")
+        
+        progress.show_completion()
+        
+        print("\n🤖 [SMART-INFO] AI自動選択による投資サポート:")
+        print("   ✅ 市場流動性の高い銘柄を優先選択")
+        print("   ✅ 適切なボラティリティレベルで選別") 
+        print("   ✅ 出来高安定性を考慮した銘柄推奨")
+        print("   ⚠️  最終投資判断は必ずご自身でお願いします")
+        
+        return True
+        
+    except Exception as e:
+        print(f"\n[ERROR] スマートモード実行エラー: {e}")
+        return False
+
+
 def filter_safe_recommendations(recommendations):
     """安全モード: 高リスク銘柄を除外"""
     return [rec for rec in recommendations if rec.risk_level != "高"]
@@ -258,6 +331,9 @@ async def main():
     try:
         if args.full:
             success = await run_full_mode(symbols)
+        elif args.smart:
+            # Issue #487対応: スマートモード
+            success = await run_smart_mode()
         else:
             # デフォルトはクイックモード
             success = await run_quick_mode(symbols)
