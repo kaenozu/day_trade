@@ -149,7 +149,7 @@ class XGBoostModel(BaseModelInterface):
             self.training_metrics = results
 
             logger.info(f"XGBoost学習完了: {training_time:.2f}秒, "
-                       f"Train R²={train_metrics.r2_score:.4f}")
+                       f"Train R2={train_metrics.r2_score:.4f}")
 
             return results
 
