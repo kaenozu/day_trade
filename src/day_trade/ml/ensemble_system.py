@@ -17,7 +17,15 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import warnings
 warnings.filterwarnings("ignore")
 
-from .base_models import RandomForestModel, GradientBoostingModel, SVRModel, BaseModelInterface
+from .base_models import (
+    RandomForestModel, GradientBoostingModel, SVRModel, BaseModelInterface,
+    XGBOOST_AVAILABLE, CATBOOST_AVAILABLE
+)
+# Issue #462: 高精度モデルのインポート
+if XGBOOST_AVAILABLE:
+    from .base_models import XGBoostModel, create_xgboost_model
+if CATBOOST_AVAILABLE:
+    from .base_models import CatBoostModel, create_catboost_model
 from .base_models.base_model_interface import ModelPrediction, ModelMetrics
 from .stacking_ensemble import StackingEnsemble, StackingConfig
 from .dynamic_weighting_system import DynamicWeightingSystem, DynamicWeightingConfig
@@ -48,6 +56,9 @@ class EnsembleConfig:
     use_random_forest: bool = True
     use_gradient_boosting: bool = True
     use_svr: bool = True
+    # Issue #462: 高精度ベースモデル追加
+    use_xgboost: bool = True
+    use_catboost: bool = True
 
     # アンサンブル手法
     ensemble_methods: List[EnsembleMethod] = field(
@@ -88,6 +99,19 @@ class EnsembleConfig:
     })
     svr_params: Dict[str, Any] = field(default_factory=lambda: {
         'kernel': 'rbf',
+        'enable_hyperopt': True
+    })
+    # Issue #462: 高精度モデルパラメータ
+    xgboost_params: Dict[str, Any] = field(default_factory=lambda: {
+        'n_estimators': 300,
+        'max_depth': 8,
+        'learning_rate': 0.08,
+        'enable_hyperopt': True
+    })
+    catboost_params: Dict[str, Any] = field(default_factory=lambda: {
+        'iterations': 500,
+        'learning_rate': 0.1,
+        'depth': 8,
         'enable_hyperopt': True
     })
 
@@ -169,6 +193,20 @@ class EnsembleSystem:
             # SVR
             if self.config.use_svr:
                 self.base_models["svr"] = SVRModel(self.config.svr_params)
+
+            # Issue #462: XGBoost追加
+            if self.config.use_xgboost and XGBOOST_AVAILABLE:
+                self.base_models["xgboost"] = create_xgboost_model(self.config.xgboost_params)
+                logger.info("XGBoostモデル追加完了")
+            elif self.config.use_xgboost and not XGBOOST_AVAILABLE:
+                logger.warning("XGBoostが利用できません。pip install xgboost を実行してください。")
+
+            # Issue #462: CatBoost追加
+            if self.config.use_catboost and CATBOOST_AVAILABLE:
+                self.base_models["catboost"] = create_catboost_model(self.config.catboost_params)
+                logger.info("CatBoostモデル追加完了")
+            elif self.config.use_catboost and not CATBOOST_AVAILABLE:
+                logger.warning("CatBoostが利用できません。pip install catboost を実行してください。")
 
             # 均等重みで初期化
             n_models = len(self.base_models)
