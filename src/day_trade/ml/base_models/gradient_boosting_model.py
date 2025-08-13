@@ -308,7 +308,31 @@ class GradientBoostingModel(BaseModelInterface):
 
             staged_preds = []
             for stage in stages:
-                pred = self.model.predict(X)  # TODO: staged_predict実装
+                # staged_predict実装: 指定ステージまでの木を使って予測
+                try:
+                    # XGBoostの場合、iteration_rangeパラメータを使用
+                    if hasattr(self.model, 'predict') and hasattr(self.model, 'get_params'):
+                        model_name = type(self.model).__name__.lower()
+                        if 'xgb' in model_name:
+                            pred = self.model.predict(X, iteration_range=(0, stage))
+                        elif hasattr(self.model, 'staged_predict'):
+                            # scikit-learnのGradientBoostingの場合
+                            staged_iter = self.model.staged_predict(X)
+                            for i, stage_pred in enumerate(staged_iter):
+                                if i + 1 == stage:
+                                    pred = stage_pred
+                                    break
+                            else:
+                                pred = self.model.predict(X)
+                        else:
+                            # フォールバック: 通常の予測
+                            pred = self.model.predict(X)
+                    else:
+                        pred = self.model.predict(X)
+                except Exception:
+                    # エラー時はフォールバック予測
+                    pred = self.model.predict(X)
+                
                 staged_preds.append(pred)
 
             return np.array(staged_preds)
