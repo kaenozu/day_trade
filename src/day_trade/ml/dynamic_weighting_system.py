@@ -117,7 +117,7 @@ class DynamicWeightingSystem:
         self.weight_history = []
 
         # パフォーマンス履歴
-        self.performance_windows = {name: deque(maxlen=10) for name in model_names}
+        self.performance_windows = {name: deque(maxlen=self.config.window_size) for name in model_names}
         self.recent_predictions = {name: deque(maxlen=self.config.window_size)
                                  for name in model_names}
         self.recent_actuals = deque(maxlen=self.config.window_size)
@@ -551,5 +551,5 @@ if __name__ == "__main__":
     # パフォーマンス履歴
     regime_history = dws.get_regime_history()
     print(f"\n市場状態変更回数: {len(regime_history)}")
-    for change in regime_history[-3:]:  # 最新3回
+    for change in regime_history[-3:]:
         print(f"  {change['old_regime'].value} -> {change['new_regime'].value}")
