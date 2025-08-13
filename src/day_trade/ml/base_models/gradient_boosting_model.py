@@ -89,11 +89,11 @@ class GradientBoostingModel(BaseModelInterface):
         logger.info(f"Gradient Boosting学習開始: データ形状 {X.shape}")
 
         try:
-            # 特徴量正規化
+            # 特徴量正規化 - Issue #703対応: 不要なコピー除去
             if self.scaler is not None:
                 X_scaled = self.scaler.fit_transform(X)
             else:
-                X_scaled = X.copy()
+                X_scaled = X  # 不要なコピー除去
 
             # ハイパーパラメータ最適化
             if self.config['enable_hyperopt']:
@@ -118,7 +118,7 @@ class GradientBoostingModel(BaseModelInterface):
                 if self.scaler is not None:
                     X_val_scaled = self.scaler.transform(X_val)
                 else:
-                    X_val_scaled = X_val.copy()
+                    X_val_scaled = X_val  # 不要なコピー除去
 
                 val_metrics = self.evaluate(X_val_scaled, y_val)
                 training_results['validation_metrics'] = val_metrics
@@ -164,11 +164,11 @@ class GradientBoostingModel(BaseModelInterface):
         start_time = time.time()
 
         try:
-            # 特徴量正規化
+            # 特徴量正規化 - Issue #703対応: 不要なコピー除去
             if self.scaler is not None:
                 X_scaled = self.scaler.transform(X)
             else:
-                X_scaled = X.copy()
+                X_scaled = X  # 不要なコピー除去
 
             # 予測実行
             predictions = self.model.predict(X_scaled)
@@ -297,7 +297,7 @@ class GradientBoostingModel(BaseModelInterface):
 
     def _get_staged_predictions(self, X: np.ndarray, n_stages: int = 10) -> np.ndarray:
         """
-        段階別予測取得（学習の進行状況別）
+        段階別予測取得（学習の進行状況別）- Issue #704対応最適化版
 
         Args:
             X: 入力特徴量
@@ -307,8 +307,75 @@ class GradientBoostingModel(BaseModelInterface):
             各段階での予測結果 (n_stages, n_samples)
         """
         try:
-            # 等間隔で段階を設定
+            # 効率的なstaged_predict使用
+            if hasattr(self.model, 'staged_predict'):
+                return self._get_optimized_staged_predictions_sklearn(X, n_stages)
+            elif hasattr(self.model, 'predict') and 'xgb' in type(self.model).__name__.lower():
+                return self._get_optimized_staged_predictions_xgb(X, n_stages)
+            else:
+                # フォールバック: 単一予測を複製
+                single_pred = self.model.predict(X)
+                return np.tile(single_pred, (n_stages, 1))
+
+        except Exception as e:
+            logger.warning(f"段階別予測取得エラー: {e}")
+            # フォールバック: 単一予測を複製
+            single_pred = self.model.predict(X)
+            return np.tile(single_pred, (n_stages, 1))
+
+    def _get_optimized_staged_predictions_sklearn(self, X: np.ndarray, n_stages: int) -> np.ndarray:
+        """
+        scikit-learn GradientBoosting用最適化実装
+
+        Args:
+            X: 入力特徴量
+            n_stages: 段階数
+
+        Returns:
+            各段階での予測結果 (n_stages, n_samples)
+        """
+        n_estimators = self.model.n_estimators_
+
+        # 等間隔で段階インデックスを計算（1回のみ）
+        stage_indices = np.linspace(
+            max(0, n_estimators // n_stages - 1),
+            n_estimators - 1,
+            n_stages,
+            dtype=int
+        )
+
+        # staged_predictを1回だけ呼び出して全ステージを一度に取得 - Issue #703対応
+        staged_preds = []
+        for i, pred in enumerate(self.model.staged_predict(X)):
+            if i in stage_indices:
+                # 不要なコピー除去: 最終的にnp.arrayで変換されるため参照で十分
+                staged_preds.append(pred)
+
+            # 必要なステージがすべて集まったら早期終了
+            if len(staged_preds) >= n_stages:
+                break
+
+        # 不足している場合は最終予測で埋める
+        while len(staged_preds) < n_stages:
+            staged_preds.append(staged_preds[-1] if staged_preds else self.model.predict(X))
+
+        return np.array(staged_preds)
+
+    def _get_optimized_staged_predictions_xgb(self, X: np.ndarray, n_stages: int) -> np.ndarray:
+        """
+        XGBoost用最適化実装
+
+        Args:
+            X: 入力特徴量
+            n_stages: 段階数
+
+        Returns:
+            各段階での予測結果 (n_stages, n_samples)
+        """
+        try:
             n_estimators = self.model.n_estimators_
+
+            # 等間隔で段階を設定
             stages = np.linspace(
                 max(1, n_estimators // n_stages),
                 n_estimators,
@@ -316,40 +383,17 @@ class GradientBoostingModel(BaseModelInterface):
                 dtype=int
             )
 
-            staged_preds = []
-            for stage in stages:
-                # staged_predict実装: 指定ステージまでの木を使って予測
-                try:
-                    # XGBoostの場合、iteration_rangeパラメータを使用
-                    if hasattr(self.model, 'predict') and hasattr(self.model, 'get_params'):
-                        model_name = type(self.model).__name__.lower()
-                        if 'xgb' in model_name:
-                            pred = self.model.predict(X, iteration_range=(0, stage))
-                        elif hasattr(self.model, 'staged_predict'):
-                            # scikit-learnのGradientBoostingの場合
-                            staged_iter = self.model.staged_predict(X)
-                            for i, stage_pred in enumerate(staged_iter):
-                                if i + 1 == stage:
-                                    pred = stage_pred
-                                    break
-                            else:
-                                pred = self.model.predict(X)
-                        else:
-                            # フォールバック: 通常の予測
-                            pred = self.model.predict(X)
-                    else:
-                        pred = self.model.predict(X)
-                except Exception:
-                    # エラー時はフォールバック予測
-                    pred = self.model.predict(X)
+            # 効率的なバッチ予測（事前にメモリ確保）
+            n_samples = X.shape[0]
+            staged_preds = np.empty((n_stages, n_samples), dtype=np.float64)
 
-                staged_preds.append(pred)
+            for i, stage in enumerate(stages):
+                staged_preds[i] = self.model.predict(X, iteration_range=(0, stage))
 
-            return np.array(staged_preds)
+            return staged_preds
 
-        except Exception as e:
-            logger.warning(f"段階別予測取得エラー: {e}")
-            # フォールバック: 単一予測を複製
+        except Exception:
+            # フォールバック
             single_pred = self.model.predict(X)
             return np.tile(single_pred, (n_stages, 1))
 

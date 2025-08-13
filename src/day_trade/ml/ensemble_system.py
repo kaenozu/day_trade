@@ -581,38 +581,154 @@ class EnsembleSystem:
 
         return pd.DataFrame(results).sort_values('rmse')
 
-    def save_ensemble(self, filepath: str) -> bool:
-        """アンサンブルシステム保存"""
+    def save_ensemble(self, filepath: str, compress: bool = True) -> bool:
+        """
+        アンサンブルシステム保存 - Issue #706対応最適化版
+
+        Args:
+            filepath: 保存先ファイルパス
+            compress: 圧縮を有効にするか
+
+        Returns:
+            bool: 保存成功フラグ
+        """
         try:
             import pickle
+            import gzip
+            from pathlib import Path
 
+            # ファイル存在確認とディレクトリ作成
+            save_path = Path(filepath)
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # メタデータのみ保存（軽量化）
             ensemble_data = {
                 'config': self.config,
                 'model_weights': self.model_weights,
                 'performance_history': self.performance_history,
                 'is_trained': self.is_trained,
-                'ensemble_metrics': self.ensemble_metrics
+                'ensemble_metrics': self.ensemble_metrics,
+                'version': '2.0',  # バージョン管理
+                'save_timestamp': time.time()
             }
 
-            # 各モデルも保存
+            # 各モデルは軽量な状態情報のみ保存
             model_data = {}
             for model_name, model in self.base_models.items():
-                model_data[model_name] = {
-                    'model': model,
+                # 大きなモデルオブジェクトではなく、再構築可能な情報のみ
+                model_info = {
+                    'model_type': type(model).__name__,
                     'config': model.config,
-                    'is_trained': model.is_trained
+                    'is_trained': model.is_trained,
+                    'feature_names': getattr(model, 'feature_names', []),
+                    'training_metrics': getattr(model, 'training_metrics', {}),
                 }
+
+                # scikit-learn モデルの場合、学習済みパラメータを抽出
+                if hasattr(model, 'model') and hasattr(model.model, 'get_params'):
+                    model_info['sklearn_params'] = model.model.get_params()
+
+                model_data[model_name] = model_info
 
             ensemble_data['models'] = model_data
 
-            with open(filepath, 'wb') as f:
-                pickle.dump(ensemble_data, f)
+            # 圧縮保存または通常保存
+            if compress:
+                with gzip.open(f"{filepath}.gz", 'wb') as f:
+                    pickle.dump(ensemble_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+                saved_path = f"{filepath}.gz"
+            else:
+                with open(filepath, 'wb') as f:
+                    pickle.dump(ensemble_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+                saved_path = filepath
 
-            logger.info(f"アンサンブルシステム保存完了: {filepath}")
+            logger.info(f"アンサンブルシステム保存完了: {saved_path}")
             return True
 
         except Exception as e:
             logger.error(f"アンサンブルシステム保存エラー: {e}")
+            return False
+
+    def load_ensemble(self, filepath: str) -> bool:
+        """
+        アンサンブルシステム読み込み - Issue #706対応新機能
+
+        Args:
+            filepath: 読み込みファイルパス
+
+        Returns:
+            bool: 読み込み成功フラグ
+        """
+        try:
+            import pickle
+            import gzip
+            from pathlib import Path
+
+            # ファイル存在確認
+            load_path = Path(filepath)
+            gz_path = Path(f"{filepath}.gz")
+
+            if gz_path.exists():
+                # 圧縮ファイルを読み込み
+                with gzip.open(gz_path, 'rb') as f:
+                    ensemble_data = pickle.load(f)
+                loaded_from = gz_path
+            elif load_path.exists():
+                # 非圧縮ファイルを読み込み
+                with open(load_path, 'rb') as f:
+                    ensemble_data = pickle.load(f)
+                loaded_from = load_path
+            else:
+                raise FileNotFoundError(f"アンサンブルファイルが見つかりません: {filepath}")
+
+            # バージョン確認
+            version = ensemble_data.get('version', '1.0')
+            if version != '2.0':
+                logger.warning(f"古いバージョンのアンサンブルファイル: {version}")
+
+            # 基本情報の復元
+            self.config = ensemble_data['config']
+            self.model_weights = ensemble_data['model_weights']
+            self.performance_history = ensemble_data['performance_history']
+            self.is_trained = ensemble_data['is_trained']
+            self.ensemble_metrics = ensemble_data.get('ensemble_metrics', {})
+
+            # モデルの再構築（軽量版）
+            self.base_models = {}
+            model_data = ensemble_data['models']
+
+            for model_name, model_info in model_data.items():
+                # モデルタイプに基づいて再構築
+                model_type = model_info['model_type']
+                model_config = model_info['config']
+
+                if model_type == 'RandomForestModel':
+                    model = RandomForestModel(model_config)
+                elif model_type == 'GradientBoostingModel':
+                    model = GradientBoostingModel(model_config)
+                elif model_type == 'SVRModel':
+                    model = SVRModel(model_config)
+                else:
+                    logger.warning(f"未対応のモデルタイプ: {model_type}")
+                    continue
+
+                # 基本情報の復元
+                model.is_trained = model_info['is_trained']
+                if 'feature_names' in model_info:
+                    model.set_feature_names(model_info['feature_names'])
+                model.training_metrics = model_info.get('training_metrics', {})
+
+                self.base_models[model_name] = model
+
+            # サブシステムの初期化（設定のみ）
+            self._initialize_subsystems()
+
+            logger.info(f"アンサンブルシステム読み込み完了: {loaded_from}")
+            logger.info(f"読み込まれたモデル数: {len(self.base_models)}")
+            return True
+
+        except Exception as e:
+            logger.error(f"アンサンブルシステム読み込みエラー: {e}")
             return False
 
     def update_dynamic_weights(self, predictions: Dict[str, np.ndarray],
