@@ -4,6 +4,7 @@
 """
 
 import json
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -62,14 +63,39 @@ class SignalRulesConfig:
         self.config = self._load_config()
 
     def _resolve_config_path(self, config_path: Optional[str]) -> Path:
-        """設定ファイルパスを解決"""
+        """
+        Issue #647対応: 設定ファイルパスの堅牢性改善
+        環境変数、相対パス、複数の候補パスを考慮
+        """
         if config_path is not None:
-            return Path(config_path)
+            resolved_path = Path(config_path)
+            if resolved_path.is_absolute():
+                return resolved_path
+            # 相対パスの場合は現在の作業ディレクトリから解決
+            return Path.cwd() / resolved_path
 
-        # プロジェクトルートからの絶対パス設定
+        # 環境変数から設定パスを取得
+        env_config_path = os.getenv("SIGNAL_RULES_CONFIG_PATH")
+        if env_config_path:
+            return Path(env_config_path)
+
+        # 複数の候補パスを試行
         current_file = Path(__file__)
         project_root = current_file.parent.parent.parent.parent
-        return project_root / "config" / "signal_rules.json"
+        
+        candidate_paths = [
+            project_root / "config" / "signal_rules.json",
+            Path.cwd() / "config" / "signal_rules.json",
+            current_file.parent / "config" / "signal_rules.json",
+            Path.home() / ".day_trade" / "signal_rules.json"
+        ]
+        
+        # 存在する最初のパスを返す、存在しない場合は最初の候補
+        for path in candidate_paths:
+            if path.exists():
+                return path
+                
+        return candidate_paths[0]  # デフォルトとして最初の候補を使用
 
     def _load_config(self) -> Dict[str, Any]:
         """設定ファイルを読み込み"""
@@ -84,26 +110,43 @@ class SignalRulesConfig:
             return self._get_default_config()
 
     def _get_default_config(self) -> Dict[str, Any]:
-        """デフォルト設定を返す"""
-        # 統合されたデフォルト設定値
-        return self._create_default_config_structure()
+        """
+        Issue #648対応: デフォルト設定値の統合
+        全ての設定項目を一箇所に集約してメンテナンス性を向上
+        """
+        return self._create_consolidated_default_config()
 
-    def _create_default_config_structure(self) -> Dict[str, Any]:
-        """デフォルト設定構造を作成"""
-        return {
+    def _create_consolidated_default_config(self) -> Dict[str, Any]:
+        """統合されたデフォルト設定を作成"""
+        # 基本設定
+        base_config = {
             "default_buy_rules": [],
             "default_sell_rules": [],
-            "signal_generation_settings": self._get_default_signal_settings(),
+        }
+        
+        # シグナル生成設定
+        signal_settings = self._get_default_signal_settings()
+        
+        # ルール別設定
+        rule_settings = {
             "rsi_default_thresholds": {"oversold": 30, "overbought": 70},
             "macd_default_settings": {"lookback_period": 2, "default_weight": 1.5},
             "pattern_breakout_settings": {"default_weight": 2.0},
             "golden_dead_cross_settings": {"default_weight": 2.0},
+            "bollinger_band_settings": {"deviation_multiplier": 10.0},
             "volume_spike_settings": {
                 "volume_factor": 2.0,
                 "price_change_threshold": 0.02,
                 "confidence_base": 50.0,
                 "confidence_multiplier": 20.0,
             },
+        }
+        
+        # 統合して返す
+        return {
+            **base_config,
+            "signal_generation_settings": signal_settings,
+            **rule_settings
         }
 
     def _get_default_signal_settings(self) -> Dict[str, Any]:
