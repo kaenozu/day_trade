@@ -149,11 +149,9 @@ class StockNameHelper:
             return default_info
 
         stock_info = self._stock_info_cache.get(symbol_str, {})
-        result = default_info.copy()
-        result.update(stock_info)
-        result['code'] = symbol_str  # コードは常に設定
+        default_info.update(stock_info)
 
-        return result
+        return default_info
 
     def format_stock_display(self, symbol: Union[str, int], include_code: bool = True) -> str:
         """
@@ -220,43 +218,7 @@ class StockNameHelper:
         self._load_stock_info()
 
 
-# グローバルインスタンス（シングルトンパターン）
-_global_stock_helper = None
 
-
-def get_stock_helper() -> StockNameHelper:
-    """グローバル銘柄名ヘルパーを取得"""
-    global _global_stock_helper
-    if _global_stock_helper is None:
-        _global_stock_helper = StockNameHelper()
-    return _global_stock_helper
-
-
-def get_stock_name(symbol: Union[str, int]) -> str:
-    """
-    銘柄コードから日本語会社名を取得（便利関数）
-
-    Args:
-        symbol: 銘柄コード
-
-    Returns:
-        日本語会社名
-    """
-    return get_stock_helper().get_stock_name(symbol)
-
-
-def format_stock_display(symbol: Union[str, int], include_code: bool = True) -> str:
-    """
-    銘柄表示用文字列をフォーマット（便利関数）
-
-    Args:
-        symbol: 銘柄コード
-        include_code: コードを含めるかどうか
-
-    Returns:
-        フォーマットされた表示文字列
-    """
-    return get_stock_helper().format_stock_display(symbol, include_code)
 
 
 if __name__ == "__main__":
