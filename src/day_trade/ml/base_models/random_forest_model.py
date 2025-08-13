@@ -83,11 +83,11 @@ class RandomForestModel(BaseModelInterface):
         logger.info(f"Random Forest学習開始: データ形状 {X.shape}")
 
         try:
-            # 特徴量正規化
+            # 特徴量正規化 - Issue #702対応: 不要なコピー除去
             if self.scaler is not None:
                 X_scaled = self.scaler.fit_transform(X)
             else:
-                X_scaled = X.copy()
+                X_scaled = X  # 不要なコピー除去
 
             # ハイパーパラメータ最適化
             if self.config['enable_hyperopt']:
@@ -106,7 +106,7 @@ class RandomForestModel(BaseModelInterface):
                 if self.scaler is not None:
                     X_val_scaled = self.scaler.transform(X_val)
                 else:
-                    X_val_scaled = X_val.copy()
+                    X_val_scaled = X_val  # 不要なコピー除去
 
                 val_metrics = self.evaluate(X_val_scaled, y_val)
                 training_results['validation_metrics'] = val_metrics
@@ -145,11 +145,11 @@ class RandomForestModel(BaseModelInterface):
         start_time = time.time()
 
         try:
-            # 特徴量正規化
+            # 特徴量正規化 - Issue #702対応: 不要なコピー除去
             if self.scaler is not None:
                 X_scaled = self.scaler.transform(X)
             else:
-                X_scaled = X.copy()
+                X_scaled = X  # 不要なコピー除去
 
             # 予測実行
             predictions = self.model.predict(X_scaled)
