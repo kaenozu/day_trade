@@ -82,19 +82,19 @@ class SignalRulesConfig:
         # 複数の候補パスを試行
         current_file = Path(__file__)
         project_root = current_file.parent.parent.parent.parent
-        
+
         candidate_paths = [
             project_root / "config" / "signal_rules.json",
             Path.cwd() / "config" / "signal_rules.json",
             current_file.parent / "config" / "signal_rules.json",
             Path.home() / ".day_trade" / "signal_rules.json"
         ]
-        
+
         # 存在する最初のパスを返す、存在しない場合は最初の候補
         for path in candidate_paths:
             if path.exists():
                 return path
-                
+
         return candidate_paths[0]  # デフォルトとして最初の候補を使用
 
     def _load_config(self) -> Dict[str, Any]:
@@ -123,10 +123,10 @@ class SignalRulesConfig:
             "default_buy_rules": [],
             "default_sell_rules": [],
         }
-        
+
         # シグナル生成設定
         signal_settings = self._get_default_signal_settings()
-        
+
         # ルール別設定
         rule_settings = {
             "rsi_default_thresholds": {"oversold": 30, "overbought": 70},
@@ -141,7 +141,7 @@ class SignalRulesConfig:
                 "confidence_multiplier": 20.0,
             },
         }
-        
+
         # 統合して返す
         return {
             **base_config,
@@ -561,7 +561,7 @@ class BollingerBandRule(SignalRule):
             return False, 0.0
 
         close_price = df["Close"].iloc[-1]
-        
+
         # NaN値チェック
         if pd.isna(close_price):
             logger.debug("BollingerBandRule: Close price is NaN")
@@ -812,7 +812,7 @@ class TradingSignalGenerator:
     def _load_default_rules(self, rule_type: str):
         """
         Issue #656対応: デフォルトルール読み込みの統合
-        
+
         Args:
             rule_type: "buy" または "sell"
         """
@@ -849,7 +849,7 @@ class TradingSignalGenerator:
             ),
             GoldenCrossRule(weight=cross_settings["default_weight"]),
         ]
-        
+
         elif rule_type == "sell":
             multiplier = self.config.get_confidence_multiplier("rsi_overbought", 2.0)
             self.sell_rules = [
@@ -1069,13 +1069,13 @@ class TradingSignalGenerator:
             if lookback_window < 1:
                 logger.warning(f"Invalid lookback_window: {lookback_window}. Using default value 50.")
                 lookback_window = 50
-                
+
             # 最低限必要なデータ数を設定から取得
             config_min_period = self.config.get_signal_settings().get(
                 "min_data_period", 60
             )
             min_required = max(lookback_window, config_min_period)
-            
+
             # データ長に対するlookback_windowの調整
             if len(df) < min_required:
                 if len(df) < config_min_period:
@@ -1169,7 +1169,7 @@ class TradingSignalGenerator:
             # デフォルト設定を取得し、validation_paramsでオーバーライド可能
             default_config = self.config.get_signal_settings()
             validation_config = default_config.get("validation_adjustments", {})
-            
+
             if validation_params:
                 # validation_paramsが提供された場合は設定をオーバーライド
                 validation_config.update(validation_params)
@@ -1325,14 +1325,14 @@ class TradingSignalGenerator:
         プレフィックス付きで明確に分離することで衝突を回避
         """
         merged = {}
-        
+
         # プレフィックス付きで明確に分離
         for key, value in buy_conditions.items():
             merged[f"buy_{key}"] = value
-            
+
         for key, value in sell_conditions.items():
             merged[f"sell_{key}"] = value
-            
+
         return merged
 
     def _slice_patterns(

@@ -926,63 +926,9 @@ class AdvancedBatchDataFetcher:
         logger.info("Advanced Batch Data Fetcher リソース解放完了")
 
 
-# 便利関数
-def create_data_request(symbol: str, **kwargs) -> DataRequest:
-    """データリクエスト作成ヘルパー"""
-    return DataRequest(symbol=symbol, **kwargs)
-
-
-def fetch_advanced_batch(
-    symbols: List[str],
-    period: str = "60d",
-    preprocessing: bool = True,
-    priority: int = 1,
-    **kwargs,
-) -> Dict[str, DataResponse]:
-    """高度バッチ取得（簡易インターフェース）"""
-
-    requests = [
-        DataRequest(
-            symbol=symbol, period=period, preprocessing=preprocessing, priority=priority
-        )
-        for symbol in symbols
-    ]
-
-    fetcher = AdvancedBatchDataFetcher(**kwargs)
-    try:
-        return fetcher.fetch_batch(requests)
-    finally:
-        fetcher.close()
-
-
-def preload_advanced_cache(
-    symbols: List[str], periods: List[str] = None, **kwargs
-) -> Dict[str, int]:
-    """高度キャッシュ事前読み込み"""
-
-    if periods is None:
-        periods = ["5d", "60d", "1y"]
-
-    results = {}
-    fetcher = AdvancedBatchDataFetcher(**kwargs)
-
-    try:
-        for period in periods:
-            requests = [
-                DataRequest(symbol=symbol, period=period, preprocessing=True)
-                for symbol in symbols
-            ]
-
-            responses = fetcher.fetch_batch(requests)
-            success_count = len([r for r in responses.values() if r.success])
-            results[period] = success_count
-
-            logger.info(f"期間 {period}: {success_count}/{len(symbols)} 銘柄キャッシュ")
-
-    finally:
-        fetcher.close()
-
-    return results
+# 便利関数は batch_helpers.py モジュールに移動
+# 後方互換性のため、ここからも利用可能
+from .batch_helpers import create_data_request, fetch_advanced_batch, preload_advanced_cache
 
 
 if __name__ == "__main__":

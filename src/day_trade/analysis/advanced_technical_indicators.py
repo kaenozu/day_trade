@@ -34,7 +34,7 @@ class AdvancedTechnicalIndicators:
 
     移動平均線、RSI、MACD、ボリンジャーバンドなど、
     様々なテクニカル指標を計算・提供し、市場分析を支援
-    
+
     注意: このクラスは後方互換性のために保持されています。
     新しいコードでは technical_indicators_consolidated.TechnicalIndicatorsManager を使用してください。
     """
@@ -59,37 +59,37 @@ class AdvancedTechnicalIndicators:
         return calculate_rsi(data, period)
 
     def calculate_macd(
-        self, 
-        data: pd.DataFrame, 
-        fast: int = 12, 
-        slow: int = 26, 
+        self,
+        data: pd.DataFrame,
+        fast: int = 12,
+        slow: int = 26,
         signal: int = 9
     ) -> Dict[str, np.ndarray]:
         """MACD計算（統合システム委譲）"""
         return calculate_macd(data, fast, slow, signal)
 
     def calculate_bollinger_bands(
-        self, 
-        data: pd.DataFrame, 
-        period: int = 20, 
+        self,
+        data: pd.DataFrame,
+        period: int = 20,
         std_dev: float = 2.0
     ) -> Dict[str, np.ndarray]:
         """ボリンジャーバンド計算（統合システム委譲）"""
         result = self._manager.calculate_indicators(
-            data, ["bollinger_bands"], 
+            data, ["bollinger_bands"],
             period=period, std_dev=std_dev
         )
         return list(result.values())[0][0].values
 
     def calculate_stochastic(
-        self, 
-        data: pd.DataFrame, 
-        k_period: int = 14, 
+        self,
+        data: pd.DataFrame,
+        k_period: int = 14,
         d_period: int = 3
     ) -> Dict[str, np.ndarray]:
         """ストキャスティクス計算（統合システム委譲）"""
         result = self._manager.calculate_indicators(
-            data, ["stochastic"], 
+            data, ["stochastic"],
             k_period=k_period, d_period=d_period
         )
         return list(result.values())[0][0].values
@@ -124,13 +124,13 @@ def calculate_advanced_sma(data: pd.DataFrame, period: int = 20) -> np.ndarray:
     return calculate_sma(data, period)
 
 def calculate_advanced_rsi(data: pd.DataFrame, period: int = 14) -> np.ndarray:
-    """高度RSI計算（統合システム使用）"""  
+    """高度RSI計算（統合システム使用）"""
     return calculate_rsi(data, period)
 
 def calculate_advanced_macd(
-    data: pd.DataFrame, 
-    fast: int = 12, 
-    slow: int = 26, 
+    data: pd.DataFrame,
+    fast: int = 12,
+    slow: int = 26,
     signal: int = 9
 ) -> Dict[str, np.ndarray]:
     """高度MACD計算（統合システム使用）"""

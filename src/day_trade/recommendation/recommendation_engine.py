@@ -77,6 +77,19 @@ class RecommendationEngine:
             'volume_spike': 3.0,       # 出来高急増閾値(倍)
         }
 
+        # Issue #587対応: 価格目標・ストップロス計算パラメータ
+        self.price_target_params = {
+            "低": {"target_factor": 0.05, "stop_loss_factor": 0.03},
+            "中": {"target_factor": 0.08, "stop_loss_factor": 0.05},
+            "高": {"target_factor": 0.12, "stop_loss_factor": 0.08}
+        }
+
+        # Issue #586対応: 信頼度計算の重み
+        self.confidence_weights = {
+            'score_consistency': 0.6,
+            'data_adequacy': 0.4,
+        }
+
         logger.info("推奨銘柄選定エンジン初期化完了")
 
     async def analyze_all_stocks(self, symbols: Optional[List[str]] = None) -> List[StockRecommendation]:
@@ -99,7 +112,16 @@ class RecommendationEngine:
 
         try:
             # 1. バッチデータ取得
-            stock_data = await self._fetch_batch_data(symbols)
+            requests = [
+                DataRequest(
+                    symbol=symbol,
+                    period="60d",
+                    preprocessing=True,
+                    priority=3
+                )
+                for symbol in symbols
+            ]
+            stock_data = self.data_fetcher.fetch_batch(requests, use_parallel=True)
 
             # 2. 各銘柄の分析
             recommendations = []
@@ -129,19 +151,6 @@ class RecommendationEngine:
             logger.error(f"推奨銘柄分析エラー: {e}")
             return []
 
-    async def _fetch_batch_data(self, symbols: List[str]) -> Dict[str, any]:
-        """バッチデータ取得"""
-        requests = [
-            DataRequest(
-                symbol=symbol,
-                period="60d",
-                preprocessing=True,
-                priority=3
-            )
-            for symbol in symbols
-        ]
-
-        return self.data_fetcher.fetch_batch(requests, use_parallel=True)
 
     async def _analyze_single_stock(self, symbol: str, data: pd.DataFrame) -> Optional[StockRecommendation]:
         """単一銘柄の分析"""
@@ -457,29 +466,17 @@ class RecommendationEngine:
             return 50.0
 
     def _calculate_price_targets(self, current_price: float, score: float, risk_level: str) -> Tuple[float, float]:
-        """価格目標・ストップロス計算"""
+        """Issue #587対応: 価格目標・ストップロス計算（パラメータ化）"""
         try:
-            # リスクレベル別の目標・ロス率
-            # 価格目標・ストップロス計算パラメータ - Issue #587対応
-        self.price_target_params = {
-            "低": {"target_factor": 0.05, "stop_loss_factor": 0.03},
-            "中": {"target_factor": 0.08, "stop_loss_factor": 0.05},
-            "高": {"target_factor": 0.12, "stop_loss_factor": 0.08}
-        }
+            # リスクレベル別パラメータ取得
+            params = self.price_target_params.get(risk_level, self.price_target_params["中"])
 
-        # 信頼度計算の重み - Issue #586対応
-        self.confidence_weights = {
-            'score_consistency': 0.6,
-            'data_adequacy': 0.4,
-        }
-
-            params = risk_params.get(risk_level, risk_params["中"])
-
-            # スコア調整
+            # スコア調整による目標価格計算
             score_multiplier = score / 100
-            target_rate = params["target"] * score_multiplier
-            stop_rate = params["stop"]
+            target_rate = params["target_factor"] * score_multiplier
+            stop_rate = params["stop_loss_factor"]
 
+            # 価格目標・ストップロス計算
             price_target = current_price * (1 + target_rate)
             stop_loss = current_price * (1 - stop_rate)
 
