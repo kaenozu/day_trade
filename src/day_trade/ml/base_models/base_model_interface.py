@@ -28,14 +28,27 @@ class ModelPrediction:
 
 @dataclass
 class ModelMetrics:
-    """モデル評価指標"""
+    """
+    モデル評価指標
+
+    Issue #493対応: 金融系指標の実装とドキュメント化
+
+    Attributes:
+        mse: 平均二乗誤差
+        rmse: 平均二乗平方根誤差
+        mae: 平均絶対誤差
+        r2_score: 決定係数（予測精度）
+        hit_rate: 方向性予測精度（0.0-1.0）
+        sharpe_ratio: シャープレシオ（リスク調整後リターン、計算不可時はNone）
+        max_drawdown: 最大ドローダウン（最大下落率、負の値、計算不可時はNone）
+    """
     mse: float
     rmse: float
     mae: float
     r2_score: float
     hit_rate: float  # 方向性予測精度
-    sharpe_ratio: Optional[float] = None
-    max_drawdown: Optional[float] = None
+    sharpe_ratio: Optional[float] = None  # リスク調整後リターン指標
+    max_drawdown: Optional[float] = None  # 最大下落率（負の値）
 
 
 class BaseModelInterface(ABC):
@@ -44,6 +57,27 @@ class BaseModelInterface(ABC):
 
     アンサンブル学習での一貫性を保つため、すべてのモデルが
     この基底クラスを継承し、共通のメソッドを実装する必要がある
+
+    Issue #494対応: 統一ロギングポリシー
+    ==========================================
+
+    ロギングレベル使用ガイドライン:
+
+    - INFO: システムの主要イベント・状態変化
+      * モデル初期化、学習完了、保存/読み込み成功
+      * 重要な計算結果・メトリクス
+
+    - WARNING: 期待される動作からの逸脱（処理は継続）
+      * データ不足によるフォールバック
+      * 設定不備による代替処理
+
+    - ERROR: システムエラー・処理失敗
+      * 例外発生・処理中断
+      * 必須データの欠損
+
+    - DEBUG: 内部状態・詳細処理情報
+      * パラメータ設定、中間計算結果
+      * デバッグ用の詳細情報
     """
 
     def __init__(self, model_name: str, config: Optional[Dict[str, Any]] = None):
@@ -131,12 +165,18 @@ class BaseModelInterface(ABC):
             # Hit Rate（方向性予測精度）- Issue #492対応
             hit_rate = self._calculate_hit_rate(y, y_pred)
 
+            # Issue #493対応: 金融系評価指標の計算
+            sharpe_ratio = self._calculate_sharpe_ratio(y, y_pred)
+            max_drawdown = self._calculate_max_drawdown(y_pred)
+
             return ModelMetrics(
                 mse=mse,
                 rmse=rmse,
                 mae=mae,
                 r2_score=r2_score,
-                hit_rate=hit_rate
+                hit_rate=hit_rate,
+                sharpe_ratio=sharpe_ratio,
+                max_drawdown=max_drawdown
             )
 
         except Exception as e:
@@ -154,7 +194,9 @@ class BaseModelInterface(ABC):
                 rmse=float('inf'),
                 mae=float('inf'),
                 r2_score=-1.0,
-                hit_rate=0.5
+                hit_rate=0.5,
+                sharpe_ratio=None,  # Issue #493対応: エラー時も明示的に設定
+                max_drawdown=None   # Issue #493対応: エラー時も明示的に設定
             )
 
     def save_model(self, filepath: str) -> bool:
@@ -212,11 +254,13 @@ class BaseModelInterface(ABC):
             self.training_metrics = model_data.get('training_metrics', {})
             self.feature_names = model_data.get('feature_names', [])
 
-            logger.info(f"{self.model_name}モデル読み込み完了: {filepath}")
+            # Issue #494対応: システムの重要操作成功 = INFO
+            logger.info(f"{self.model_name}: モデル読み込みが完了しました - {filepath}")
             return True
 
         except Exception as e:
-            logger.error(f"{self.model_name}モデル読み込みエラー: {e}")
+            # Issue #494対応: システムエラー = ERROR
+            logger.error(f"{self.model_name}: モデル読み込みでエラーが発生しました: {e}")
             return False
 
     def _calculate_hit_rate(self, y_true: np.ndarray, y_pred: np.ndarray,
@@ -241,9 +285,11 @@ class BaseModelInterface(ABC):
         try:
             # データが不十分な場合
             if len(y_true) < min_samples or len(y_pred) < min_samples:
+                # Issue #494対応: 期待される動作からの逸脱 = WARNING
                 logger.warning(
-                    f"Hit rate計算: データ不足 (実際: {len(y_true)}, 予測: {len(y_pred)}, "
-                    f"必要: {min_samples}) - デフォルト値0.5を返す"
+                    f"{self.model_name}: Hit rate計算データ不足 "
+                    f"(実際: {len(y_true)}, 予測: {len(y_pred)}, 必要: {min_samples}) "
+                    f"- デフォルト値0.5を返します"
                 )
                 return 0.5
 
@@ -253,7 +299,8 @@ class BaseModelInterface(ABC):
 
             # 変化量データが不十分な場合
             if len(y_diff) == 0 or len(pred_diff) == 0:
-                logger.warning("Hit rate計算: 変化量データなし - デフォルト値0.5を返す")
+                # Issue #494対応: 期待される動作からの逸脱 = WARNING
+                logger.warning(f"{self.model_name}: Hit rate計算で変化量データなし - デフォルト値0.5を返します")
                 return 0.5
 
             # 方向性を判定（0値の適切な処理）
@@ -264,7 +311,8 @@ class BaseModelInterface(ABC):
             valid_mask = ~((actual_direction == 0) & (predicted_direction == 0))
 
             if not np.any(valid_mask):
-                logger.warning("Hit rate計算: 有効な方向性データなし - デフォルト値0.5を返す")
+                # Issue #494対応: 期待される動作からの逸脱 = WARNING
+                logger.warning(f"{self.model_name}: Hit rate計算で有効な方向性データなし - デフォルト値0.5を返します")
                 return 0.5
 
             # 有効なサンプルでの方向性一致率
@@ -275,15 +323,17 @@ class BaseModelInterface(ABC):
             direction_match = valid_actual == valid_predicted
             hit_rate = np.mean(direction_match)
 
+            # Issue #494対応: 内部計算結果・詳細処理状況 = DEBUG
             logger.debug(
-                f"Hit rate計算完了: {hit_rate:.3f} "
-                f"(有効サンプル: {np.sum(valid_mask)}/{len(y_diff)})"
+                f"{self.model_name}: Hit rate計算完了 - "
+                f"hit_rate={hit_rate:.3f}, 有効サンプル={np.sum(valid_mask)}/{len(y_diff)}"
             )
 
             return float(hit_rate)
 
         except Exception as e:
-            logger.error(f"Hit rate計算エラー: {e}", exc_info=True)
+            # Issue #494対応: システムエラー = ERROR（例外詳細付き）
+            logger.error(f"{self.model_name}: Hit rate計算でエラーが発生しました: {e}", exc_info=True)
             return 0.5
 
     def _get_direction(self, values: np.ndarray, zero_threshold: float) -> np.ndarray:
@@ -308,6 +358,132 @@ class BaseModelInterface(ABC):
 
         return direction
 
+    def _calculate_sharpe_ratio(self, y_true: np.ndarray, y_pred: np.ndarray,
+                               risk_free_rate: float = 0.0, min_samples: int = 30) -> Optional[float]:
+        """
+        Issue #493対応: Sharpe Ratio計算
+
+        金融分析でのリスク調整後リターンを測定する指標
+
+        Args:
+            y_true: 実際のリターン/価格変動
+            y_pred: 予測リターン/価格変動
+            risk_free_rate: リスクフリーレート（デフォルト0%）
+            min_samples: 計算に必要な最小サンプル数
+
+        Returns:
+            Sharpe Ratio（リスク調整後リターン）、計算不可能な場合はNone
+
+        Note:
+            - リターンの平均を期待リターンとして使用
+            - リターンの標準偏差をリスクとして使用
+            - Sharpe = (期待リターン - リスクフリーレート) / リスクの標準偏差
+        """
+        try:
+            # データ数が不十分な場合
+            if len(y_true) < min_samples or len(y_pred) < min_samples:
+                logger.debug(
+                    f"{self.model_name}: Sharpe Ratio計算データ不足 "
+                    f"(サンプル数: {min(len(y_true), len(y_pred))}, 必要: {min_samples})"
+                )
+                return None
+
+            # リターン系列から変化率を計算（価格→リターン変換）
+            if np.all(y_pred == y_pred[0]):
+                # 全予測が同一の場合（リターン=0）
+                logger.debug(f"{self.model_name}: 予測値が一定のためSharpe Ratio計算不可")
+                return None
+
+            # 予測リターンの統計量計算
+            pred_returns = np.diff(y_pred) / np.abs(y_pred[:-1] + 1e-8)  # 相対変化率
+            pred_returns = pred_returns[np.isfinite(pred_returns)]  # 無限値除去
+
+            if len(pred_returns) == 0:
+                logger.debug(f"{self.model_name}: 有効な予測リターンなし")
+                return None
+
+            mean_return = np.mean(pred_returns)
+            return_std = np.std(pred_returns)
+
+            # 標準偏差が0の場合（リスクなし）
+            if return_std == 0 or np.isclose(return_std, 0):
+                logger.debug(f"{self.model_name}: 予測リターンの標準偏差が0のためSharpe Ratio計算不可")
+                return None
+
+            # Sharpe Ratio計算
+            excess_return = mean_return - risk_free_rate
+            sharpe_ratio = excess_return / return_std
+
+            # 数値の有効性チェック
+            if np.isfinite(sharpe_ratio):
+                logger.debug(f"{self.model_name}: Sharpe Ratio計算完了 - {sharpe_ratio:.4f}")
+                return float(sharpe_ratio)
+            else:
+                logger.debug(f"{self.model_name}: Sharpe Ratio計算結果が無効値")
+                return None
+
+        except Exception as e:
+            logger.debug(f"{self.model_name}: Sharpe Ratio計算エラー: {e}")
+            return None
+
+    def _calculate_max_drawdown(self, predictions: np.ndarray, min_samples: int = 10) -> Optional[float]:
+        """
+        Issue #493対応: Maximum Drawdown計算
+
+        予測による投資パフォーマンスの最大下落幅を計算
+
+        Args:
+            predictions: 予測値系列
+            min_samples: 計算に必要な最小サンプル数
+
+        Returns:
+            Max Drawdown（最大下落率、負の値）、計算不可能な場合はNone
+
+        Note:
+            - 予測値を累積リターンとして扱い、ピークからの最大下落を計算
+            - Max Drawdown = (谷値 - 直前ピーク値) / 直前ピーク値
+            - 通常は負の値で表現される
+        """
+        try:
+            # データ数が不十分な場合
+            if len(predictions) < min_samples:
+                logger.debug(
+                    f"{self.model_name}: Max Drawdown計算データ不足 "
+                    f"(サンプル数: {len(predictions)}, 必要: {min_samples})"
+                )
+                return None
+
+            # 予測値を累積リターンに変換
+            cumulative_returns = np.cumsum(predictions)
+
+            # ランニング最大値（ピーク値）を計算
+            running_max = np.maximum.accumulate(cumulative_returns)
+
+            # ドローダウン計算: (現在値 - ピーク値) / ピーク値
+            drawdown = (cumulative_returns - running_max) / (running_max + 1e-8)  # ゼロ除算回避
+
+            # 無限値・NaN値の除去
+            valid_drawdown = drawdown[np.isfinite(drawdown)]
+
+            if len(valid_drawdown) == 0:
+                logger.debug(f"{self.model_name}: 有効なドローダウンなし")
+                return None
+
+            # 最大ドローダウン（最も負の値）
+            max_drawdown = np.min(valid_drawdown)
+
+            # 数値の有効性チェック
+            if np.isfinite(max_drawdown):
+                logger.debug(f"{self.model_name}: Max Drawdown計算完了 - {max_drawdown:.4f}")
+                return float(max_drawdown)
+            else:
+                logger.debug(f"{self.model_name}: Max Drawdown計算結果が無効値")
+                return None
+
+        except Exception as e:
+            logger.debug(f"{self.model_name}: Max Drawdown計算エラー: {e}")
+            return None
+
     def get_model_info(self) -> Dict[str, Any]:
         """
         モデル情報取得
@@ -325,9 +501,15 @@ class BaseModelInterface(ABC):
         }
 
     def set_feature_names(self, feature_names: List[str]):
-        """特徴量名設定"""
+        """
+        Issue #494対応: 特徴量名設定
+
+        Args:
+            feature_names: 設定する特徴量名のリスト
+        """
         self.feature_names = feature_names
-        logger.debug(f"{self.model_name}特徴量名設定: {len(feature_names)}個")
+        # Issue #494対応: 内部状態変更 = DEBUG
+        logger.debug(f"{self.model_name}: 特徴量名を設定しました - {len(feature_names)}個")
 
     def __str__(self) -> str:
         """文字列表現"""

@@ -1462,28 +1462,7 @@ class NextGenAITradingEngine:
 
             return trend_score
 
-        except Exception:
-            return 50.0  # 中立値
 
-
-            # 価格位置スコア
-            price_position = ((current_price - current_sma20) / current_sma20) * 100
-
-            # トレンド方向性
-            ma_trend = ((current_sma20 - current_sma50) / current_sma50) * 100 if current_sma50 != 0 else 0
-
-            # 勢い計算
-            momentum = prices.pct_change(5).iloc[-1] * 100 if len(prices) > 5 else 0
-
-            # 統合スコア
-            trend_score = (price_position * 0.4) + (ma_trend * 0.3) + (momentum * 0.3) + 50
-
-            return trend_score
-
-        except Exception:
-            return 50.0  # 中立値
-
-    def _calculate_volatility_score(
         self, prices: pd.Series, volatility: float, volume: pd.Series
     ) -> float:
         """ボラティリティ予測スコア"""
