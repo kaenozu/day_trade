@@ -21,6 +21,7 @@ import pickle
 import sqlite3
 import warnings
 warnings.filterwarnings('ignore')
+import joblib # Added for model saving/loading
 
 # Windows環境での文字化け対策
 import sys
@@ -436,7 +437,7 @@ class MLPredictionModels:
 
         return targets
 
-    async def train_models(self, symbol: str, period: str = "1y") -> Dict[ModelType, Dict[PredictionTask, ModelPerformance]]:
+    async def train_models(self, symbol: str, period: str = "1y", hyperparameters: Optional[Dict[ModelType, Dict[str, Any]]] = None) -> Dict[ModelType, Dict[PredictionTask, ModelPerformance]]:
         """モデル訓練"""
 
         self.logger.info(f"Training models for {symbol}")
@@ -448,13 +449,15 @@ class MLPredictionModels:
         valid_idx = features.index[:-1]
         X = features.loc[valid_idx]
 
+        if hyperparameters is None:
+            hyperparameters = {}
         performances = {}
 
         # Random Forest
         if ModelType.RANDOM_FOREST not in performances:
             performances[ModelType.RANDOM_FOREST] = {}
 
-        rf_perf = await self._train_random_forest(X, targets, symbol, valid_idx)
+        rf_perf = await self._train_random_forest(X, targets, symbol, valid_idx, hyperparameters.get(ModelType.RANDOM_FOREST))
         performances[ModelType.RANDOM_FOREST] = rf_perf
 
         # XGBoost
@@ -462,7 +465,7 @@ class MLPredictionModels:
             if ModelType.XGBOOST not in performances:
                 performances[ModelType.XGBOOST] = {}
 
-            xgb_perf = await self._train_xgboost(X, targets, symbol, valid_idx)
+            xgb_perf = await self._train_xgboost(X, targets, symbol, valid_idx, hyperparameters.get(ModelType.XGBOOST))
             performances[ModelType.XGBOOST] = xgb_perf
 
         # LightGBM
@@ -470,7 +473,7 @@ class MLPredictionModels:
             if ModelType.LIGHTGBM not in performances:
                 performances[ModelType.LIGHTGBM] = {}
 
-            lgb_perf = await self._train_lightgbm(X, targets, symbol, valid_idx)
+            lgb_perf = await self._train_lightgbm(X, targets, symbol, valid_idx, hyperparameters.get(ModelType.LIGHTGBM))
             performances[ModelType.LIGHTGBM] = lgb_perf
 
         # 性能結果保存
@@ -482,7 +485,7 @@ class MLPredictionModels:
         return performances
 
     async def _train_random_forest(self, X: pd.DataFrame, targets: Dict[PredictionTask, pd.Series],
-                                 symbol: str, valid_idx: pd.Index) -> Dict[PredictionTask, ModelPerformance]:
+                                 symbol: str, valid_idx: pd.Index, hyperparameters: Optional[Dict[str, Any]] = None) -> Dict[PredictionTask, ModelPerformance]:
         """Random Forest訓練"""
 
         performances = {}
@@ -514,7 +517,10 @@ class MLPredictionModels:
             try:
                 if task == PredictionTask.PRICE_DIRECTION:
                     # 分類モデル
-                    model = RandomForestClassifier(**self.model_configs[ModelType.RANDOM_FOREST]['classifier_params'])
+                    params = self.model_configs[ModelType.RANDOM_FOREST]['classifier_params']
+                    if hyperparameters:
+                        params.update(hyperparameters)
+                    model = RandomForestClassifier(**params)
 
                     # ラベルエンコーダー
                     le = LabelEncoder()
@@ -540,6 +546,7 @@ class MLPredictionModels:
                     model_key = f"{symbol}_{task.value}_{ModelType.RANDOM_FOREST.value}"
                     self.trained_models[model_key] = model
                     self.label_encoders[model_key] = le
+                    self.save_model(model, model_key) # Save the model
 
                     performance = ModelPerformance(
                         model_name=f"RandomForest_{task.value}",
@@ -560,7 +567,10 @@ class MLPredictionModels:
 
                 else:  # PredictionTask.PRICE_REGRESSION
                     # 回帰モデル
-                    model = RandomForestRegressor(**self.model_configs[ModelType.RANDOM_FOREST]['regressor_params'])
+                    params = self.model_configs[ModelType.RANDOM_FOREST]['regressor_params']
+                    if hyperparameters:
+                        params.update(hyperparameters)
+                    model = RandomForestRegressor(**params)
 
                     model.fit(X_train, y_train)
                     y_pred = model.predict(X_test)
@@ -580,6 +590,7 @@ class MLPredictionModels:
                     # モデル保存
                     model_key = f"{symbol}_{task.value}_{ModelType.RANDOM_FOREST.value}"
                     self.trained_models[model_key] = model
+                    self.save_model(model, model_key) # Save the model
 
                     performance = ModelPerformance(
                         model_name=f"RandomForest_{task.value}",
@@ -604,7 +615,7 @@ class MLPredictionModels:
         return performances
 
     async def _train_xgboost(self, X: pd.DataFrame, targets: Dict[PredictionTask, pd.Series],
-                           symbol: str, valid_idx: pd.Index) -> Dict[PredictionTask, ModelPerformance]:
+                           symbol: str, valid_idx: pd.Index, hyperparameters: Optional[Dict[str, Any]] = None) -> Dict[PredictionTask, ModelPerformance]:
         """XGBoost訓練"""
 
         performances = {}
@@ -641,7 +652,10 @@ class MLPredictionModels:
                     y_train_encoded = le.fit_transform(y_train)
                     y_test_encoded = le.transform(y_test)
 
-                    model = xgb.XGBClassifier(**self.model_configs[ModelType.XGBOOST]['classifier_params'])
+                    params = self.model_configs[ModelType.XGBOOST]['classifier_params']
+                    if hyperparameters:
+                        params.update(hyperparameters)
+                    model = xgb.XGBClassifier(**params)
 
                     model.fit(X_train, y_train_encoded)
                     y_pred = model.predict(X_test)
@@ -662,6 +676,7 @@ class MLPredictionModels:
                     model_key = f"{symbol}_{task.value}_{ModelType.XGBOOST.value}"
                     self.trained_models[model_key] = model
                     self.label_encoders[model_key] = le
+                    self.save_model(model, model_key) # Save the model
 
                     performance = ModelPerformance(
                         model_name=f"XGBoost_{task.value}",
@@ -682,7 +697,10 @@ class MLPredictionModels:
 
                 else:  # PredictionTask.PRICE_REGRESSION
                     # 回帰モデル
-                    model = xgb.XGBRegressor(**self.model_configs[ModelType.XGBOOST]['regressor_params'])
+                    params = self.model_configs[ModelType.XGBOOST]['regressor_params']
+                    if hyperparameters:
+                        params.update(hyperparameters)
+                    model = xgb.XGBRegressor(**params)
 
                     model.fit(X_train, y_train)
                     y_pred = model.predict(X_test)
@@ -702,6 +720,7 @@ class MLPredictionModels:
                     # モデル保存
                     model_key = f"{symbol}_{task.value}_{ModelType.XGBOOST.value}"
                     self.trained_models[model_key] = model
+                    self.save_model(model, model_key) # Save the model
 
                     performance = ModelPerformance(
                         model_name=f"XGBoost_{task.value}",
@@ -726,7 +745,7 @@ class MLPredictionModels:
         return performances
 
     async def _train_lightgbm(self, X: pd.DataFrame, targets: Dict[PredictionTask, pd.Series],
-                            symbol: str, valid_idx: pd.Index) -> Dict[PredictionTask, ModelPerformance]:
+                            symbol: str, valid_idx: pd.Index, hyperparameters: Optional[Dict[str, Any]] = None) -> Dict[PredictionTask, ModelPerformance]:
         """LightGBM訓練"""
 
         performances = {}
@@ -759,14 +778,17 @@ class MLPredictionModels:
                     y_train_encoded = le.fit_transform(y_train)
                     y_test_encoded = le.transform(y_test)
 
-                    model = lgb.LGBMClassifier(
-                        n_estimators=200,
-                        max_depth=10,
-                        learning_rate=0.1,
-                        random_state=42,
-                        n_jobs=-1,
-                        verbose=-1
-                    )
+                    params = {
+                        'n_estimators': 200,
+                        'max_depth': 10,
+                        'learning_rate': 0.1,
+                        'random_state': 42,
+                        'n_jobs': -1,
+                        'verbose': -1
+                    }
+                    if hyperparameters:
+                        params.update(hyperparameters)
+                    model = lgb.LGBMClassifier(**params)
 
                     model.fit(X_train, y_train_encoded)
                     y_pred = model.predict(X_test)
@@ -787,6 +809,7 @@ class MLPredictionModels:
                     model_key = f"{symbol}_{task.value}_{ModelType.LIGHTGBM.value}"
                     self.trained_models[model_key] = model
                     self.label_encoders[model_key] = le
+                    self.save_model(model, model_key) # Save the model
 
                     performance = ModelPerformance(
                         model_name=f"LightGBM_{task.value}",
@@ -1005,6 +1028,27 @@ class MLPredictionModels:
 
         except Exception as e:
             self.logger.error(f"Failed to save prediction result: {e}")
+
+    def save_model(self, model, model_key: str):
+        """モデルをファイルに保存する"""
+        model_path = self.models_dir / f"{model_key}.joblib"
+        try:
+            joblib.dump(model, model_path)
+            self.logger.info(f"モデルを保存しました: {model_path}")
+        except Exception as e:
+            self.logger.error(f"モデルの保存に失敗しました {model_key}: {e}")
+
+    def load_model(self, model_key: str):
+        """ファイルからモデルをロードする"""
+        model_path = self.models_dir / f"{model_key}.joblib"
+        if model_path.exists():
+            try:
+                model = joblib.load(model_path)
+                self.logger.info(f"モデルをロードしました: {model_path}")
+                return model
+            except Exception as e:
+                self.logger.error(f"モデルのロードに失敗しました {model_key}: {e}")
+        return None
 
     async def get_model_summary(self) -> Dict[str, Any]:
         """モデルサマリー取得"""

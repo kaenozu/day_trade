@@ -39,6 +39,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
+from model_performance_monitor import ModelPerformanceMonitor
+
 # 個人版システム設定
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
@@ -1351,6 +1353,10 @@ async def run_daytrading_mode() -> bool:
 
         # デイトレードエンジン初期化
         engine = PersonalDayTradingEngine()
+
+        # モデル性能監視を開始
+        monitor = ModelPerformanceMonitor()
+        await monitor.check_and_trigger_retraining()
 
         # ステップ1: 現在の市場セッション確認
         progress.show_step("市場セッション確認", 1)

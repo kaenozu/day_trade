@@ -11,8 +11,8 @@ from datetime import datetime, time, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
-from src.day_trade.ml.base_models.random_forest_model import RandomForestModel
 from src.day_trade.data.fetchers.yfinance_fetcher import YFinanceFetcher
+from integrated_model_loader import IntegratedModelLoader # New import
 
 # 実データプロバイダー統合
 try:
@@ -98,12 +98,12 @@ class PersonalDayTradingEngine:
             self.real_data_engine = None
             self.data_mode = "DEMO"
 
-        # MLモデルの初期化とロード (仮実装)
+        # MLモデルの初期化とロード
         try:
-            self.ml_model = RandomForestModel() # configは後で追加
+            self.model_loader = IntegratedModelLoader() # Use IntegratedModelLoader
             self.data_fetcher = YFinanceFetcher() # YFinanceFetcherの初期化
         except ImportError:
-            self.ml_model = None
+            self.model_loader = None
             self.data_fetcher = None
 
     def _get_current_trading_session(self) -> TradingSession:
@@ -289,7 +289,7 @@ class PersonalDayTradingEngine:
         # この部分のインデックスと意味は、実際のMLモデルの実装に依存
         # 例: predictions[0] = overnight_gap, predictions[1] = premarket_momentum など
         # 今回は暫定的に、予測結果の最初のいくつかの要素を割り当てる
-        prediction_results = self.ml_model.predict(features)
+        prediction_results, system_used = await self.model_loader.predict(symbol, features)
 
         # predictionsとconfidenceの形状を確認し、適切に割り当てる
         # ここでは単一の予測値を想定
@@ -500,7 +500,7 @@ class PersonalDayTradingEngine:
 
         # 3. AIモデルで予測
         # predictions配列の各要素が、日中ボラティリティ、出来高比率、価格モメンタムなどの予測値に対応すると仮定
-        prediction_results = self.ml_model.predict(features)
+        prediction_results, system_used = await self.model_loader.predict(symbol, features)
 
         predicted_values = prediction_results.predictions.flatten()
         confidence_values = prediction_results.confidence.flatten() if prediction_results.confidence is not None else np.array([0.0])

@@ -226,7 +226,7 @@ def run_basic_tests():
     if result.errors:
         print(f"\nエラーが発生したテスト:")
         for test, traceback in result.errors:
-            print(f"- {test}: {traceback.split('\\n')[-2] if '\\n' in traceback else traceback}")
+            print("- " + str(test) + ": " + (traceback.split('\n')[-2] if '\n' in traceback else traceback))
 
     print("="*60)
 
