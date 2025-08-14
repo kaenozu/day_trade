@@ -12,6 +12,20 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
+# 実データプロバイダー統合
+try:
+    from real_data_provider import RealDataProvider, RealDataAnalysisEngine
+    REAL_DATA_AVAILABLE = True
+except ImportError:
+    REAL_DATA_AVAILABLE = False
+
+# 市場時間管理システム統合
+try:
+    from market_time_manager import MarketTimeManager, MarketSession
+    MARKET_TIME_AVAILABLE = True
+except ImportError:
+    MARKET_TIME_AVAILABLE = False
+
 class DayTradingSignal(Enum):
     """デイトレードシグナル"""
     STRONG_BUY = "強い買い"      # 即座に買い
@@ -64,10 +78,43 @@ class PersonalDayTradingEngine:
             "4568": "第一三共",        # 製薬・材料株
         }
 
+        # 市場時間管理システム初期化
+        if MARKET_TIME_AVAILABLE:
+            self.market_manager = MarketTimeManager()
+            self.time_mode = "ACCURATE"
+        else:
+            self.market_manager = None
+            self.time_mode = "SIMPLE"
+
         self.current_session = self._get_current_trading_session()
 
+        # 実データプロバイダー初期化
+        if REAL_DATA_AVAILABLE:
+            self.real_data_engine = RealDataAnalysisEngine()
+            self.data_mode = "REAL"
+        else:
+            self.real_data_engine = None
+            self.data_mode = "DEMO"
+
     def _get_current_trading_session(self) -> TradingSession:
-        """現在の取引時間帯を取得"""
+        """現在の取引時間帯を取得（正確な市場時間管理）"""
+        # 正確な市場時間管理システム使用
+        if self.market_manager:
+            market_session = self.market_manager.get_current_session()
+
+            # MarketSessionをTradingSessionに変換
+            session_map = {
+                MarketSession.PRE_MARKET: TradingSession.PRE_MARKET,
+                MarketSession.MORNING_SESSION: TradingSession.MORNING_SESSION,
+                MarketSession.LUNCH_BREAK: TradingSession.LUNCH_BREAK,
+                MarketSession.AFTERNOON_SESSION: TradingSession.AFTERNOON_SESSION,
+                MarketSession.AFTER_MARKET: TradingSession.AFTER_MARKET,
+                MarketSession.MARKET_CLOSED: TradingSession.AFTER_MARKET  # 休場日は大引け後として扱う
+            }
+
+            return session_map.get(market_session, TradingSession.AFTER_MARKET)
+
+        # フォールバック: 従来の簡易判定
         now = datetime.now()
         current_time = now.time()
 
@@ -83,15 +130,21 @@ class PersonalDayTradingEngine:
             return TradingSession.AFTER_MARKET
 
     async def get_today_daytrading_recommendations(self, limit: int = 5) -> List[DayTradingRecommendation]:
-        """今日のデイトレード推奨取得"""
-        recommendations = []
-        symbols = list(self.daytrading_symbols.keys())[:limit]
-
+        """今日のデイトレード推奨取得（実データ対応）"""
         current_session = self._get_current_trading_session()
 
         # 大引け後は翌日前場予想モードに切り替え
         if current_session == TradingSession.AFTER_MARKET:
             return await self.get_tomorrow_premarket_forecast(limit)
+
+        # 実データエンジン使用可能な場合
+        if self.real_data_engine:
+            real_recommendations = await self.real_data_engine.analyze_daytrading_opportunities(limit)
+            return [self._convert_to_daytrading_recommendation(rec, current_session) for rec in real_recommendations]
+
+        # フォールバック: ダミーデータ使用
+        recommendations = []
+        symbols = list(self.daytrading_symbols.keys())[:limit]
 
         for symbol in symbols:
             rec = await self._analyze_daytrading_opportunity(symbol, current_session)
@@ -99,7 +152,99 @@ class PersonalDayTradingEngine:
 
         # 市場タイミングスコア順でソート
         recommendations.sort(key=lambda x: x.market_timing_score, reverse=True)
+
         return recommendations
+
+    def _convert_to_daytrading_recommendation(self, real_rec: Dict[str, any], session: TradingSession) -> DayTradingRecommendation:
+        """実データ推奨をDayTradingRecommendationに変換"""
+
+        # シグナル変換
+        signal_map = {
+            "★強い買い★": DayTradingSignal.STRONG_BUY,
+            "●買い●": DayTradingSignal.BUY,
+            "△やや買い△": DayTradingSignal.BUY,
+            "…待機…": DayTradingSignal.WAIT,
+            "▽売り▽": DayTradingSignal.SELL,
+            "▼強い売り▼": DayTradingSignal.STRONG_SELL,
+        }
+
+        signal = signal_map.get(real_rec.get("signal", "…待機…"), DayTradingSignal.WAIT)
+
+        # エントリータイミング生成
+        entry_timing = self._generate_entry_timing(real_rec, session)
+
+        # 保有時間推奨
+        holding_time = self._generate_holding_time(real_rec, session)
+
+        return DayTradingRecommendation(
+            symbol=real_rec["symbol"],
+            name=real_rec["name"],
+            signal=signal,
+            entry_timing=entry_timing,
+            target_profit=real_rec.get("target_profit", 2.0),
+            stop_loss=real_rec.get("stop_loss", 1.5),
+            holding_time=holding_time,
+            confidence=real_rec.get("confidence", 80),
+            risk_level=self._calculate_risk_level(real_rec),
+            volume_trend="実データベース",
+            price_momentum=self._calculate_momentum(real_rec),
+            intraday_volatility=real_rec.get("volatility", 3.0),
+            market_timing_score=real_rec.get("trading_score", 70)
+        )
+
+    def _generate_entry_timing(self, real_rec: Dict[str, any], session: TradingSession) -> str:
+        """エントリータイミング生成"""
+        signal = real_rec.get("signal", "")
+        change_pct = real_rec.get("change_percent", 0)
+
+        if "強い買い" in signal:
+            return "即座に成り行きで積極エントリー（実データ推奨）"
+        elif "買い" in signal:
+            if change_pct > 0:
+                return "押し目5-10分待ってからエントリー（実ギャップ）"
+            else:
+                return "現在値近辺でエントリー（実下値）"
+        elif "待機" in signal:
+            return "待機期間中エントリーチャンス探し"
+        else:
+            return "利確・損切りタイミング判定（実データ）"
+
+    def _generate_holding_time(self, real_rec: Dict[str, any], session: TradingSession) -> str:
+        """保有時間推奨"""
+        volatility = real_rec.get("volatility", 3.0)
+
+        if volatility > 5.0:
+            return "短時間1〜2時間程度"
+        elif volatility > 3.0:
+            return "30分〜1時間での決済"
+        else:
+            return "当日中決済完了推奨"
+
+    def _calculate_risk_level(self, real_rec: Dict[str, any]) -> str:
+        """リスクレベル計算"""
+        volatility = real_rec.get("volatility", 3.0)
+        trading_score = real_rec.get("trading_score", 70)
+
+        if volatility > 6.0:
+            return "[高リスク]"
+        elif volatility > 3.0 and trading_score > 80:
+            return "[中リスク]"
+        else:
+            return "[低リスク]"
+
+    def _calculate_momentum(self, real_rec: Dict[str, any]) -> str:
+        """価格モメンタム計算"""
+        change_pct = real_rec.get("change_percent", 0)
+        rsi = real_rec.get("rsi", 50)
+
+        if change_pct > 2.0 and rsi < 70:
+            return "強い上昇モメンタム"
+        elif change_pct > 0 and rsi < 60:
+            return "上昇基調"
+        elif change_pct < -2.0 and rsi > 30:
+            return "下落からの反転期待"
+        else:
+            return "モメンタム中立"
 
     async def get_tomorrow_premarket_forecast(self, limit: int = 5) -> List[DayTradingRecommendation]:
         """翌日前場予想取得（大引け後専用）"""
@@ -610,7 +755,12 @@ class PersonalDayTradingEngine:
         return max(0, min(100, score))
 
     def get_session_advice(self) -> str:
-        """現在の時間帯に応じたアドバイス"""
+        """現在の時間帯に応じたアドバイス（正確な市場時間管理）"""
+        # 正確な市場時間管理システム使用
+        if self.market_manager:
+            return self.market_manager.get_session_advice()
+
+        # フォールバック: 従来のアドバイス
         session = self._get_current_trading_session()
         current_time = datetime.now().strftime("%H:%M")
         tomorrow = datetime.now() + timedelta(days=1)

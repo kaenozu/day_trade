@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Day Trade Personal - 個人利用専用版
 
@@ -11,8 +12,27 @@ Day Trade Personal - 個人利用専用版
   python daytrade.py --help    # 詳細オプション
 """
 
-import asyncio
+# Windows環境での文字化け対策
+import os
 import sys
+import locale
+
+# 環境変数設定
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+# Windows Console API対応
+if sys.platform == 'win32':
+    try:
+        # Windows用設定
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except:
+        # フォールバック
+        import codecs
+        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+
+import asyncio
 import time
 import argparse
 from datetime import datetime
@@ -44,6 +64,22 @@ try:
     DAYTRADING_AVAILABLE = True
 except ImportError:
     DAYTRADING_AVAILABLE = False
+
+try:
+    from real_data_provider import RealDataProvider, RealDataAnalysisEngine
+    REAL_DATA_AVAILABLE = True
+    print("[OK] 実戦投入モード: リアルデータ対応")
+except ImportError:
+    REAL_DATA_AVAILABLE = False
+    print("[DEMO] デモモード: ダミーデータ使用")
+
+try:
+    from risk_manager import PersonalRiskManager, RiskSettings
+    RISK_MANAGER_AVAILABLE = True
+    print("[OK] 実戦リスク管理システム: 損切り自動化対応")
+except ImportError:
+    RISK_MANAGER_AVAILABLE = False
+    print("[WARNING] リスク管理システム未対応")
 
 import numpy as np
 
