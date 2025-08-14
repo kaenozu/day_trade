@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+import sys
 
 import numpy as np
 import pandas as pd
@@ -94,6 +95,102 @@ class TestMLModelManager(unittest.TestCase):
         mock_save_model.assert_called_once()
         mock_load_model.assert_called_once()
         mock_predict.assert_called_once()
+
+
+class TestMLScoreRobustness(unittest.TestCase):
+    """Issue #583: MLスコア計算の堅牢性テスト"""
+
+    def test_safe_score_extraction(self):
+        """安全なスコア値抽出のテスト"""
+        try:
+            from daytrade import _safe_get_score_value
+
+            # Mock score object for testing
+            class MockScore:
+                def __init__(self, value):
+                    self.score_value = value
+
+            # Normal case
+            normal_score = MockScore(75.5)
+            result = _safe_get_score_value(normal_score, "test")
+            self.assertEqual(result, 75.5)
+
+            # None case
+            result = _safe_get_score_value(None, "test")
+            self.assertIsNone(result)
+
+            # Invalid value case
+            invalid_score = MockScore(float('inf'))
+            result = _safe_get_score_value(invalid_score, "test")
+            self.assertIsNone(result)
+
+            # Out of range case (negative)
+            negative_score = MockScore(-10.5)
+            result = _safe_get_score_value(negative_score, "test")
+            self.assertEqual(result, 0.0)
+
+            # Out of range case (too high)
+            high_score = MockScore(150.0)
+            result = _safe_get_score_value(high_score, "test")
+            self.assertEqual(result, 100.0)
+
+        except ImportError:
+            self.skipTest("_safe_get_score_value function not available")
+
+    def test_educational_analysis_robustness(self):
+        """教育的分析システムの堅牢性テスト"""
+        try:
+            from src.day_trade.analysis.educational_analysis import EducationalMarketAnalyzer
+
+            # 初期化テスト
+            analyzer = EducationalMarketAnalyzer()
+
+            # スコア検証メソッドのテスト
+            # 正常値
+            normal_score = analyzer._validate_and_normalize_score(75.3, "test")
+            self.assertEqual(normal_score, 75.3)
+
+            # None値
+            none_score = analyzer._validate_and_normalize_score(None, "test")
+            self.assertEqual(none_score, 50.0)
+
+            # 文字列値
+            str_score = analyzer._validate_and_normalize_score("invalid", "test")
+            self.assertEqual(str_score, 50.0)
+
+            # 信頼度検証
+            conf_normal = analyzer._validate_confidence(0.75)
+            self.assertEqual(conf_normal, 0.75)
+
+            conf_none = analyzer._validate_confidence(None)
+            self.assertEqual(conf_none, 0.5)
+
+        except ImportError:
+            self.skipTest("EducationalMarketAnalyzer not available")
+
+    def test_ml_score_generation_safety(self):
+        """MLスコア生成の安全性テスト"""
+        try:
+            from src.day_trade.analysis.educational_analysis import EducationalMarketAnalyzer
+
+            analyzer = EducationalMarketAnalyzer()
+
+            # フォールバックMLスコア生成テスト
+            fallback_scores = analyzer._generate_ml_technical_scores_fallback("TEST")
+
+            self.assertGreater(len(fallback_scores), 0)
+
+            # 各スコアの検証
+            for score in fallback_scores:
+                # スコア値の範囲チェック
+                self.assertGreaterEqual(score.score_value, 0)
+                self.assertLessEqual(score.score_value, 100)
+                # 信頼度の範囲チェック
+                self.assertGreaterEqual(score.confidence_level, 0)
+                self.assertLessEqual(score.confidence_level, 1)
+
+        except ImportError:
+            self.skipTest("EducationalMarketAnalyzer not available")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,487 @@
+name: Nightly Performance Testing
+
+on:
+  schedule:
+    # 毎日午前3時に実行
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      benchmark_suite:
+        description: 'Benchmark Suite'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - inference
+        - memory
+        - concurrency
+        - throughput
+      comparison_baseline:
+        description: 'Comparison Baseline'
+        required: false
+        default: 'previous'
+        type: choice
+        options:
+        - previous
+        - release
+        - custom
+
+env:
+  PYTHON_VERSION: '3.9'
+  BENCHMARK_TIMEOUT: 7200  # 2 hours
+  PERFORMANCE_BASELINE_DIR: tests/baselines
+
+jobs:
+  # 夜間パフォーマンステスト
+  nightly-benchmarks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        benchmark_type: [inference, memory, concurrency, throughput, system]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 履歴を取得してベースライン比較
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pip install pytest-benchmark pytest-xdist
+
+    - name: Setup performance testing environment
+      run: |
+        # システムパフォーマンス設定
+        echo "Setting up performance testing environment"
+
+        # CPU governor設定
+        echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor || true
+
+        # スワップ無効化
+        sudo swapoff -a || true
+
+        # メモリ設定
+        echo 3 | sudo tee /proc/sys/vm/drop_caches
+
+    - name: Download previous baseline
+      run: |
+        # 前回のベースライン取得
+        mkdir -p ${{ env.PERFORMANCE_BASELINE_DIR }}
+
+        # 最新のベースラインファイルをダウンロード
+        gh run list --workflow="Nightly Performance Testing" --status=success --limit=1 --json=databaseId \
+          | jq -r '.[0].databaseId' \
+          | xargs -I {} gh run download {} --pattern="*baseline*" --dir=${{ env.PERFORMANCE_BASELINE_DIR }} || true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Run ${{ matrix.benchmark_type }} benchmarks
+      env:
+        BENCHMARK_TYPE: ${{ matrix.benchmark_type }}
+        BENCHMARK_SUITE: ${{ github.event.inputs.benchmark_suite || 'all' }}
+        PYTEST_WORKERS: 1  # パフォーマンステストは単一プロセス
+      run: |
+        # ベンチマーク実行
+        pytest tests/performance/test_performance_benchmarks.py \
+          --benchmark-only \
+          --benchmark-json=benchmark-${{ matrix.benchmark_type }}.json \
+          --benchmark-histogram=histogram-${{ matrix.benchmark_type }} \
+          --benchmark-save=${{ matrix.benchmark_type }}-$(date +%Y%m%d) \
+          --timeout=${{ env.BENCHMARK_TIMEOUT }} \
+          -v -k "${{ matrix.benchmark_type }}" \
+          -m "performance and ${{ matrix.benchmark_type }}"
+
+    - name: Generate performance analysis
+      run: |
+        python scripts/analyze_performance.py \
+          --benchmark-file benchmark-${{ matrix.benchmark_type }}.json \
+          --baseline-dir ${{ env.PERFORMANCE_BASELINE_DIR }} \
+          --output-dir performance-analysis-${{ matrix.benchmark_type }} \
+          --type ${{ matrix.benchmark_type }}
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results-${{ matrix.benchmark_type }}
+        path: |
+          benchmark-${{ matrix.benchmark_type }}.json
+          histogram-${{ matrix.benchmark_type }}.*
+          performance-analysis-${{ matrix.benchmark_type }}/
+        retention-days: 90
+
+  # Issue #761 推論システム特化ベンチマーク
+  inference-deep-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Run comprehensive inference benchmarks
+      env:
+        DEEP_BENCHMARK_MODE: true
+        INFERENCE_BENCHMARK_ITERATIONS: 1000
+        INFERENCE_BATCH_SIZES: "1,8,16,32,64,128"
+        INFERENCE_CONCURRENCY_LEVELS: "1,5,10,20,50,100"
+      run: |
+        # 推論システム詳細ベンチマーク
+        pytest tests/performance/test_inference_deep_benchmarks.py \
+          --benchmark-only \
+          --benchmark-json=inference-deep-benchmark.json \
+          --benchmark-histogram=inference-deep-histogram \
+          --timeout=${{ env.BENCHMARK_TIMEOUT }} \
+          -v -m "inference and deep"
+
+    - name: Verify Issue #761 targets
+      run: |
+        python scripts/verify_issue_761_targets.py \
+          --benchmark-file inference-deep-benchmark.json \
+          --latency-target 5.0 \
+          --throughput-target 10000.0 \
+          --memory-reduction-target 0.5 \
+          --accuracy-retention-target 0.97 \
+          --output-report inference-target-verification.json
+
+    - name: Generate inference performance report
+      run: |
+        python scripts/generate_inference_report.py \
+          --benchmark-data inference-deep-benchmark.json \
+          --verification-data inference-target-verification.json \
+          --output-dir inference-performance-report \
+          --format html,pdf,json
+
+    - name: Upload inference benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: inference-deep-benchmark-results
+        path: |
+          inference-deep-benchmark.json
+          inference-deep-histogram.*
+          inference-target-verification.json
+          inference-performance-report/
+        retention-days: 90
+
+  # メモリリーク検出
+  memory-leak-detection:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pip install memory-profiler psutil tracemalloc
+
+    - name: Run memory leak detection
+      run: |
+        # 長時間実行でメモリリーク検出
+        python scripts/memory_leak_detector.py \
+          --duration 3600 \
+          --interval 30 \
+          --threshold 100 \
+          --output memory-leak-report.json
+
+    - name: Memory profile inference system
+      run: |
+        # 推論システムメモリプロファイル
+        python -m memory_profiler scripts/profile_inference_memory.py \
+          --output inference-memory-profile.txt
+
+    - name: Upload memory analysis
+      uses: actions/upload-artifact@v3
+      with:
+        name: memory-analysis-results
+        path: |
+          memory-leak-report.json
+          inference-memory-profile.txt
+        retention-days: 90
+
+  # 長時間安定性テスト
+  stability-testing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240  # 4時間
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Run stability tests
+      env:
+        STABILITY_TEST_DURATION: 14400  # 4時間
+        STABILITY_TEST_INTERVAL: 60     # 1分間隔
+      run: |
+        # 長時間安定性テスト
+        pytest tests/stability/ \
+          --duration=${{ env.STABILITY_TEST_DURATION }} \
+          --interval=${{ env.STABILITY_TEST_INTERVAL }} \
+          --junit-xml=stability-results.xml \
+          -v -m "stability"
+
+    - name: Generate stability report
+      run: |
+        python scripts/generate_stability_report.py \
+          --test-results stability-results.xml \
+          --output-dir stability-report \
+          --format html,json
+
+    - name: Upload stability results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: stability-test-results
+        path: |
+          stability-results.xml
+          stability-report/
+        retention-days: 90
+
+  # 結果集約と分析
+  performance-analysis:
+    runs-on: ubuntu-latest
+    needs: [nightly-benchmarks, inference-deep-benchmark, memory-leak-detection, stability-testing]
+    if: always()
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all benchmark artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install analysis dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+        pip install matplotlib seaborn plotly pandas numpy
+
+    - name: Comprehensive performance analysis
+      run: |
+        python scripts/comprehensive_performance_analysis.py \
+          --benchmark-dirs benchmark-results-* \
+          --inference-dir inference-deep-benchmark-results \
+          --memory-dir memory-analysis-results \
+          --stability-dir stability-test-results \
+          --output-dir comprehensive-performance-analysis \
+          --format html,pdf,json
+
+    - name: Performance regression detection
+      run: |
+        python scripts/detect_performance_regression.py \
+          --current-benchmarks comprehensive-performance-analysis \
+          --baseline-dir ${{ env.PERFORMANCE_BASELINE_DIR }} \
+          --threshold 5.0 \
+          --output regression-analysis.json
+
+    - name: Generate performance dashboard
+      run: |
+        python scripts/generate_performance_dashboard.py \
+          --data-dir comprehensive-performance-analysis \
+          --output-dir performance-dashboard \
+          --include-trends true \
+          --include-comparisons true
+
+    - name: Update performance baselines
+      run: |
+        # 成功した場合のみベースライン更新
+        python scripts/update_performance_baselines.py \
+          --benchmark-dirs benchmark-results-* \
+          --output-dir updated-baselines \
+          --strategy conservative
+
+    - name: Upload comprehensive analysis
+      uses: actions/upload-artifact@v3
+      with:
+        name: comprehensive-performance-analysis
+        path: |
+          comprehensive-performance-analysis/
+          regression-analysis.json
+          performance-dashboard/
+          updated-baselines/
+        retention-days: 365  # 1年保持
+
+    - name: Upload new baselines
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-baselines-${{ github.run_number }}
+        path: updated-baselines/
+        retention-days: 365
+
+  # パフォーマンス結果通知
+  performance-notification:
+    runs-on: ubuntu-latest
+    needs: [performance-analysis]
+    if: always()
+    steps:
+    - name: Download analysis results
+      uses: actions/download-artifact@v3
+      with:
+        name: comprehensive-performance-analysis
+
+    - name: Create performance issue on regression
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+
+          // 回帰分析結果読み込み
+          let regressionData = {};
+          try {
+            regressionData = JSON.parse(fs.readFileSync('regression-analysis.json', 'utf8'));
+          } catch (e) {
+            console.log('No regression analysis found');
+            return;
+          }
+
+          if (regressionData.has_regression) {
+            const title = `🐌 Performance Regression Detected - ${new Date().toISOString().split('T')[0]}`;
+            const body = `
+            ## Performance Regression Report
+
+            **Detection Date**: ${new Date().toISOString()}
+            **Commit**: ${context.sha}
+            **Run**: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}
+
+            ### Regression Summary
+
+            ${regressionData.regressions.map(r =>
+              `- **${r.metric}**: ${r.change}% change (threshold: ${r.threshold}%)`
+            ).join('\n')}
+
+            ### Affected Areas
+
+            ${regressionData.affected_areas.join(', ')}
+
+            ### Recommended Actions
+
+            1. Review recent changes in affected areas
+            2. Run local performance tests
+            3. Consider reverting problematic changes
+            4. Update performance baselines if intentional
+
+            📊 [View Detailed Analysis](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})
+            `;
+
+            // 既存の回帰Issueをチェック
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'performance-regression'
+            });
+
+            const existingIssue = issues.data.find(issue =>
+              issue.title.includes('Performance Regression Detected') &&
+              issue.created_at > new Date(Date.now() - 24*60*60*1000).toISOString()
+            );
+
+            if (!existingIssue) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['performance-regression', 'bug', 'priority-high']
+              });
+            }
+          }
+
+    - name: Comment on related PRs
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+
+          // パフォーマンス結果サマリー読み込み
+          let performanceData = {};
+          try {
+            performanceData = JSON.parse(fs.readFileSync('comprehensive-performance-analysis/summary.json', 'utf8'));
+          } catch (e) {
+            console.log('No performance summary found');
+            return;
+          }
+
+          // 最近のPRを取得
+          const prs = await github.rest.pulls.list({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            per_page: 10
+          });
+
+          const comment = `## 🚀 Nightly Performance Report
+
+          **Test Date**: ${new Date().toISOString().split('T')[0]}
+
+          ### Key Metrics
+
+          | Metric | Current | Target | Status |
+          |--------|---------|--------|--------|
+          | Inference Latency | ${performanceData.inference?.avg_latency || 'N/A'}ms | <5ms | ${performanceData.inference?.latency_status || '❓'} |
+          | Throughput | ${performanceData.inference?.throughput || 'N/A'}/sec | >10,000/sec | ${performanceData.inference?.throughput_status || '❓'} |
+          | Memory Efficiency | ${performanceData.memory?.efficiency || 'N/A'}% | >50% | ${performanceData.memory?.efficiency_status || '❓'} |
+
+          📊 [View Full Report](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})
+          `;
+
+          // 関連PRにコメント（performance関連の変更がある場合）
+          for (const pr of prs.data) {
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+
+            const hasPerformanceChanges = files.data.some(file =>
+              file.filename.includes('inference') ||
+              file.filename.includes('performance') ||
+              file.filename.includes('optimization')
+            );
+
+            if (hasPerformanceChanges) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: comment
+              });
+            }
+          }
