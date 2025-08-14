@@ -210,6 +210,7 @@ except ImportError:
     print("[WARNING] 実データプロバイダーV2未対応")
 
 import numpy as np
+from model_performance_monitor import ModelPerformanceMonitor
 
 
 class PersonalAnalysisEngine:
@@ -291,6 +292,9 @@ class PersonalAnalysisEngine:
             self.advanced_technical_mode = True
         else:
             self.advanced_technical_mode = False
+
+        # モデル性能監視システム統合 (Issue #827)
+        self.performance_monitor = ModelPerformanceMonitor()
 
     async def get_personal_recommendations(self, limit=3):
         """個人向け推奨銘柄生成（基本機能）"""
@@ -479,6 +483,10 @@ class PersonalAnalysisEngine:
                 'analysis_type': 'multi_symbol'
             }
 
+            # モデル性能を記録 (Issue #827)
+            # 予測値: final_score, 実績値: アクションが「買い」または「強い買い」なら1、それ以外は0
+            self.performance_monitor.record_prediction(final_score, 1 if action in ["買い", "強い買い"] else 0)
+
             # 日付ベースキャッシュ（メモリ効率向上）
             if len(self.analysis_cache) >= self.max_cache_size:
                 # 古いキャッシュを削除（メモリ管理）
@@ -542,6 +550,14 @@ class PersonalAnalysisEngine:
             'risk_assessment': risk_assessment,
             'diversification_score': min(100, len(buy_recommendations) * 20)  # 分散化スコア
         }
+
+    def get_model_performance_metrics(self) -> dict:
+        """
+        モデル性能監視コンポーネントから現在の性能メトリクスを取得します。
+        """
+        if hasattr(self, 'performance_monitor'):
+            return self.performance_monitor.get_metrics()
+        return {"accuracy": 0.0, "num_samples": 0}
 
 
 class SimpleProgress:
@@ -1261,6 +1277,16 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
         print("・複数銘柄への分散投資を推奨")
         print("・リスクレベルを考慮した投資を")
         print("・投資は自己責任で！")
+
+        # モデル性能監視結果の表示 (Issue #827)
+        if hasattr(engine, 'performance_monitor'):
+            model_metrics = engine.get_model_performance_metrics()
+            print("\n" + "="*60)
+            print("モデル性能監視レポート")
+            print("="*60)
+            print(f"  現在の予測精度: {model_metrics['accuracy']:.2f}")
+            print(f"  評価サンプル数: {model_metrics['num_samples']}")
+            print("  (注: 予測精度は簡易的なバイナリ分類に基づいています)")
 
         return True
 
