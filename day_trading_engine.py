@@ -86,16 +86,16 @@ class PersonalDayTradingEngine:
         else:
             self.real_data_engine = None
             self.data_mode = "DEMO"
-            
+
     def _load_dynamic_symbols(self) -> dict:
         """動的銘柄取得"""
         try:
             from src.day_trade.data.symbol_selector import DynamicSymbolSelector
             selector = DynamicSymbolSelector()
-            
+
             # デイトレード向け高流動性銘柄を取得
             symbols = selector.get_liquid_symbols(limit=20)
-            
+
             # 辞書形式に変換（名前は簡易版）
             symbol_dict = {}
             for symbol in symbols:
@@ -107,10 +107,10 @@ class PersonalDayTradingEngine:
                     "1605": "INPEX", "6098": "リクルート", "8001": "伊藤忠商事"
                 }
                 symbol_dict[symbol] = name_map.get(symbol, f"銘柄{symbol}")
-            
+
             print(f"✅ 動的銘柄取得成功: {len(symbol_dict)}銘柄")
             return symbol_dict
-            
+
         except Exception as e:
             print(f"❌ 動的銘柄取得失敗: {e}")
             raise RuntimeError(f"デイトレード銘柄の取得に失敗しました: {e}") from e

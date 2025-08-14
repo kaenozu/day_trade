@@ -28,6 +28,13 @@
       }
     },
 
+    "performance_monitoring": {
+      "enabled": true,
+      "accuracy_warning_threshold": 0.85,
+      "accuracy_retrain_threshold": 0.75,
+      "min_samples_for_evaluation": 50
+    },
+
     "features": {
       "technical_indicators": true,
       "price_features": true,

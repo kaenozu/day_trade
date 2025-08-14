@@ -211,6 +211,7 @@ except ImportError:
 
 import numpy as np
 from model_performance_monitor import ModelPerformanceMonitor
+from alert_system import Alert, AlertType, AlertPriority
 
 
 class PersonalAnalysisEngine:
@@ -1288,6 +1289,45 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
             print(f"  評価サンプル数: {model_metrics['num_samples']}")
             print("  (注: 予測精度は簡易的なバイナリ分類に基づいています)")
 
+            # モデル性能に基づくアラート生成 (Issue #827)
+            if hasattr(engine, 'alert_system') and engine.alert_mode:
+                performance_status = engine.performance_monitor.check_performance_status()
+                alert_title = ""
+                alert_body = ""
+                alert_priority = None
+
+                if performance_status["status"] == "CRITICAL_RETRAIN":
+                    alert_title = "🚨 モデル性能が危険域！再学習が必要です"
+                    alert_body = (f"現在の予測精度: {performance_status['current_accuracy']:.2f} "
+                                  f"(閾値: {engine.performance_monitor.accuracy_retrain_threshold:.2f})。"
+                                  f"サンプル数: {performance_status['num_samples']}。")
+                    alert_priority = AlertPriority.CRITICAL
+                elif performance_status["status"] == "WARNING":
+                    alert_title = "⚠️ モデル性能が低下しています"
+                    alert_body = (f"現在の予測精度: {performance_status['current_accuracy']:.2f} "
+                                  f"(閾値: {engine.performance_monitor.accuracy_warning_threshold:.2f})。")
+                    alert_priority = AlertPriority.HIGH
+                elif performance_status["status"] == "INSUFFICIENT_SAMPLES":
+                    alert_title = "ℹ️ モデル評価サンプル不足"
+                    alert_body = (f"現在のサンプル数: {performance_status['num_samples']} "
+                                  f"(最小必要数: {engine.performance_monitor.min_samples_for_evaluation})。")
+                    alert_priority = AlertPriority.LOW
+                
+                if alert_priority:
+                    alert = Alert(
+                        title=alert_title,
+                        body=alert_body,
+                        alert_type=AlertType.MODEL_PERFORMANCE,
+                        priority=alert_priority,
+                        source="ModelPerformanceMonitor"
+                    )
+                    await engine.alert_system.create_alert(alert)
+                    print(f"  [アラート] モデル性能アラートを生成しました: {alert_title}")
+
+                if performance_status["status"] == "CRITICAL_RETRAIN":
+                    print("  [トリガー] モデル性能が再学習閾値を下回りました。再学習プロセスをトリガーします。")
+                    # ここに再学習プロセスを呼び出すロジックを実装 (Phase 3で詳細化)
+
         return True
 
     except Exception as e:
@@ -1557,11 +1597,11 @@ async def run_daytrading_mode() -> bool:
 
 class DayTradeWebDashboard:
     """統合Webダッシュボード - daytrade.pyに統合"""
-    
+
     def __init__(self):
         if not WEB_AVAILABLE:
             raise ImportError("Web機能にはFlaskとPlotlyが必要です")
-        
+
         # ML予測システム初期化
         if ML_AVAILABLE:
             try:
@@ -1577,7 +1617,7 @@ class DayTradeWebDashboard:
             self.ml_system = None
             self.use_advanced_ml = False
             print("[WARNING] ML予測システム未対応 - 改良ランダム値使用")
-        
+
         # バックテスト統合システム初期化
         if BACKTEST_INTEGRATION_AVAILABLE:
             try:
@@ -1596,28 +1636,28 @@ class DayTradeWebDashboard:
             self.backtest_engine = None
             self.use_backtest_integration = False
             print("[WARNING] バックテスト統合未対応 - ダミー実績使用")
-        
+
         self.setup_app()
-    
+
     async def get_stock_price_data(self, symbol: str) -> Dict[str, Optional[float]]:
         """株価データ取得（始値・現在価格）"""
         if not PRICE_DATA_AVAILABLE:
             return {'opening_price': None, 'current_price': None}
-        
+
         try:
             yf_module, _ = get_yfinance()
             if not yf_module:
                 return {'opening_price': None, 'current_price': None}
-            
+
             # 日本株の場合は.Tを付加
             if symbol.isdigit() and len(symbol) == 4:
                 symbol = f"{symbol}.T"
-            
+
             ticker = yf_module.Ticker(symbol)
-            
+
             # 当日のデータを取得
             today_data = ticker.history(period="1d", interval="1m")
-            
+
             if today_data.empty:
                 # 当日データがない場合は過去5日間で最新を取得
                 recent_data = ticker.history(period="5d")
@@ -1628,20 +1668,20 @@ class DayTradeWebDashboard:
                         'current_price': float(latest_row['Close'])
                     }
                 return {'opening_price': None, 'current_price': None}
-            
+
             # 当日の始値と最新価格
             opening_price = float(today_data.iloc[0]['Open'])
             current_price = float(today_data.iloc[-1]['Close'])
-            
+
             return {
                 'opening_price': opening_price,
                 'current_price': current_price
             }
-            
+
         except Exception as e:
             print(f"価格データ取得エラー ({symbol}): {e}")
             return {'opening_price': None, 'current_price': None}
-    
+
     async def get_ml_prediction(self, symbol: str) -> Dict[str, Any]:
         """高度ML予測取得（バックテスト結果統合）"""
         if not self.use_advanced_ml:
@@ -1654,21 +1694,21 @@ class DayTradeWebDashboard:
                 'ml_source': 'random_fallback',
                 'backtest_score': None
             }
-        
+
         try:
             # 1. 過去のバックテスト結果を取得
             backtest_score = None
             if self.use_backtest_integration:
                 historical_performance = await self._get_symbol_historical_performance(symbol)
                 backtest_score = historical_performance.get('accuracy_rate', 0.0)
-            
+
             # 2. 高度MLシステムで予測
             if hasattr(self.ml_system, 'predict_symbol_movement'):
                 prediction_result = await self.ml_system.predict_symbol_movement(symbol)
             else:
                 # MLシステムが利用できない場合のフォールバック
                 raise Exception("ML prediction method not available")
-            
+
             # 3. バックテスト結果で信頼度を調整
             base_confidence = prediction_result.confidence * 100
             if backtest_score is not None and backtest_score > 0:
@@ -1677,7 +1717,7 @@ class DayTradeWebDashboard:
                 adjusted_confidence = min(95, base_confidence + confidence_boost)
             else:
                 adjusted_confidence = base_confidence
-            
+
             # 4. シグナル強度計算
             if prediction_result.prediction == 1:  # 上昇予測
                 if adjusted_confidence > 85:
@@ -1688,7 +1728,7 @@ class DayTradeWebDashboard:
                     signal = '検討'
             else:  # 下降予測
                 signal = '様子見'
-            
+
             # 5. リスクレベル判定
             volatility_risk = prediction_result.feature_values.get('volatility', 0.5)
             if volatility_risk > 0.7 or adjusted_confidence < 70:
@@ -1697,7 +1737,7 @@ class DayTradeWebDashboard:
                 risk_level = '中'
             else:
                 risk_level = '低'
-            
+
             return {
                 'confidence': adjusted_confidence,
                 'score': min(95, adjusted_confidence + np.random.uniform(-3, 7)),  # 微小ランダム性
@@ -1708,13 +1748,13 @@ class DayTradeWebDashboard:
                 'model_consensus': prediction_result.model_consensus,
                 'feature_importance': list(prediction_result.feature_values.keys())[:3]  # TOP3特徴
             }
-            
+
         except Exception as e:
             print(f"ML予測エラー ({symbol}): {e}")
             # エラー時は改良されたフォールバック（シード固定でより一貫性のある結果）
             np.random.seed(hash(symbol) % 1000)  # 銘柄コードでシード固定
             confidence = np.random.uniform(65, 85)
-            
+
             # シグナル判定（少し改良）
             signal_rand = np.random.random()
             if signal_rand > 0.7:
@@ -1723,7 +1763,7 @@ class DayTradeWebDashboard:
                 signal = '検討'
             else:
                 signal = '様子見'
-                
+
             return {
                 'confidence': confidence,
                 'score': confidence + np.random.uniform(-5, 10),
@@ -1732,13 +1772,13 @@ class DayTradeWebDashboard:
                 'ml_source': 'error_fallback',
                 'backtest_score': np.random.uniform(60, 80) if np.random.random() > 0.3 else None
             }
-    
+
     async def _get_symbol_historical_performance(self, symbol: str) -> Dict[str, Any]:
         """銘柄別過去実績取得"""
         try:
             if not self.prediction_validator:
                 return {}
-            
+
             # 過去30日間の予測精度を取得
             if hasattr(self.prediction_validator, 'get_symbol_performance_metrics'):
                 historical_metrics = await self.prediction_validator.get_symbol_performance_metrics(
@@ -1752,36 +1792,36 @@ class DayTradeWebDashboard:
                     'avg_return': np.random.uniform(2, 8),
                     'total_predictions': np.random.randint(10, 50)
                 }
-            
+
             return {
                 'accuracy_rate': historical_metrics.get('accuracy_rate', 0.0),
                 'win_rate': historical_metrics.get('win_rate', 0.0),
                 'avg_return': historical_metrics.get('avg_return', 0.0),
                 'prediction_count': historical_metrics.get('total_predictions', 0)
             }
-            
+
         except Exception as e:
             print(f"過去実績取得エラー ({symbol}): {e}")
             return {}
-    
+
     def setup_app(self):
         """Flaskアプリケーション初期化"""
         self.app = Flask(__name__)
         self.app.secret_key = 'daytrade_unified_2024'
         self.setup_routes()
-        
+
         # メインエンジン初期化
         self.engine = None
         if DAYTRADING_AVAILABLE:
             self.engine = PersonalDayTradingEngine()
-    
+
     def setup_routes(self):
         """ルート設定"""
-        
+
         @self.app.route('/')
         def index():
             return self.render_dashboard()
-            
+
         @self.app.route('/api/analysis')
         def api_analysis():
             """AI分析API"""
@@ -1794,7 +1834,7 @@ class DayTradeWebDashboard:
                 return jsonify(result)
             except Exception as e:
                 return jsonify({'status': 'error', 'message': str(e)})
-            
+
         @self.app.route('/api/recommendations')
         def api_recommendations():
             """推奨銀柄API"""
@@ -1807,7 +1847,7 @@ class DayTradeWebDashboard:
                 return jsonify(result)
             except Exception as e:
                 return jsonify({'status': 'error', 'message': str(e)})
-            
+
         @self.app.route('/api/charts')
         def api_charts():
             """チャートAPI"""
@@ -1820,7 +1860,7 @@ class DayTradeWebDashboard:
                 return jsonify(result)
             except Exception as e:
                 return jsonify({'status': 'error', 'message': str(e)})
-        
+
         @self.app.route('/api/system-status')
         def api_system_status():
             """システムステータスAPI"""
@@ -1840,28 +1880,28 @@ class DayTradeWebDashboard:
                     'current': 'システム初期化後に表示'
                 }
             })
-    
+
     async def get_analysis_data(self):
         """分析データ取得"""
         try:
             if not self.engine:
                 return {'status': 'error', 'message': 'エンジンが利用できません'}
-                
+
             # デイトレード分析実行
             recommendations = await self.engine.get_today_daytrading_recommendations(limit=20)
-            
+
             if not recommendations:
                 return {'status': 'no_data', 'message': '推奨銀柄がありません'}
-                
+
             # TOP10をWeb用に変換（真のML予測 + 価格データ付き）
             web_data = []
             for i, rec in enumerate(recommendations[:10], 1):
                 # 1. 価格データ取得
                 price_data = await self.get_stock_price_data(rec.symbol)
-                
+
                 # 2. 真のML予測取得（バックテスト統合）
                 ml_prediction = await self.get_ml_prediction(rec.symbol)
-                
+
                 # 3. 統合データ作成
                 web_data.append({
                     'rank': i,
@@ -1886,30 +1926,30 @@ class DayTradeWebDashboard:
                     'model_consensus': ml_prediction.get('model_consensus', {}),
                     'feature_importance': ml_prediction.get('feature_importance', [])
                 })
-                
+
             return {
                 'status': 'success',
                 'data': web_data,
                 'total_analyzed': len(recommendations),
                 'timestamp': datetime.now().isoformat()
             }
-            
+
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
-    
+
     async def get_recommendations_data(self):
         """推奨データ取得"""
         try:
             analysis_result = await self.get_analysis_data()
             if analysis_result['status'] != 'success':
                 return analysis_result
-                
+
             # シグナル別に分類
             strong_buy = [d for d in analysis_result['data'] if '強い買い' in d['signal']]
             buy = [d for d in analysis_result['data'] if '買い' in d['signal'] and '強い' not in d['signal']]
             sell = [d for d in analysis_result['data'] if '売り' in d['signal']]
             hold = [d for d in analysis_result['data'] if 'ホールド' in d['signal'] or '待機' in d['signal']]
-            
+
             return {
                 'status': 'success',
                 'strong_buy': strong_buy[:3],  # TOP3
@@ -1923,25 +1963,25 @@ class DayTradeWebDashboard:
                     'hold_count': len(hold)
                 }
             }
-            
+
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
-    
+
     async def generate_charts(self):
         """チャート生成"""
         try:
             analysis_result = await self.get_analysis_data()
             if analysis_result['status'] != 'success':
                 return analysis_result
-                
+
             data = analysis_result['data']
-            
+
             # 信頼度チャート
             symbols = [d['symbol'] for d in data]
             names = [d['name'] for d in data]
             confidences = [d['confidence'] for d in data]
             signals = [d['signal'] for d in data]
-            
+
             colors = []
             for signal in signals:
                 if '強い買い' in signal:
@@ -1952,10 +1992,10 @@ class DayTradeWebDashboard:
                     colors.append('#3742fa')  # 青系
                 else:
                     colors.append('#747d8c')  # グレー
-            
+
             # X軸ラベルを銀柄コード+会社名に
             x_labels = [f"{symbol}<br>{name[:8]}" for symbol, name in zip(symbols, names)]
-            
+
             confidence_fig = go.Figure(data=[
                 go.Bar(
                     x=x_labels,
@@ -1966,7 +2006,7 @@ class DayTradeWebDashboard:
                     hovertemplate='<b>%{x}</b><br>信頼度: %{y:.0f}%<br>シグナル: %{text}<extra></extra>'
                 )
             ])
-            
+
             confidence_fig.update_layout(
                 title='AI信頼度 & シグナル強度 - TOP10推奨銀柄',
                 xaxis_title='銀柄コード & 会社名',
@@ -1978,7 +2018,7 @@ class DayTradeWebDashboard:
                 ),
                 height=500
             )
-            
+
             # タイミングスコアチャート
             timing_scores = [d['market_timing_score'] for d in data]
             timing_fig = go.Figure(data=[
@@ -1987,7 +2027,7 @@ class DayTradeWebDashboard:
                     y=timing_scores,
                     mode='markers+lines',
                     marker=dict(
-                        size=12, 
+                        size=12,
                         color=colors,
                         line=dict(width=2, color='white')
                     ),
@@ -1996,7 +2036,7 @@ class DayTradeWebDashboard:
                     hovertemplate='<b>%{x}</b><br>タイミングスコア: %{y:.0f}/100<extra></extra>'
                 )
             ])
-            
+
             timing_fig.update_layout(
                 title='市場タイミングスコア - 売買タイミング精度',
                 xaxis_title='銀柄コード & 会社名',
@@ -2008,16 +2048,16 @@ class DayTradeWebDashboard:
                 ),
                 height=400
             )
-            
+
             return {
                 'status': 'success',
                 'confidence_chart': json.loads(plotly.utils.PlotlyJSONEncoder().encode(confidence_fig)),
                 'timing_chart': json.loads(plotly.utils.PlotlyJSONEncoder().encode(timing_fig))
             }
-            
+
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
-    
+
     def render_dashboard(self):
         """ダッシュボードHTMLレンダリング"""
         html_content = """<!DOCTYPE html>
@@ -2117,7 +2157,7 @@ class DayTradeWebDashboard:
             color: #ff4757 !important;
             font-weight: bold;
         }
-        
+
         /* 価格変動の色分け */
         .price-up {
             color: #2ed573 !important;
@@ -2130,7 +2170,7 @@ class DayTradeWebDashboard:
         .price-neutral {
             color: #747d8c;
         }
-        
+
         /* 更新時刻表示 */
         .last-update {
             font-size: 0.8em;
@@ -2138,22 +2178,22 @@ class DayTradeWebDashboard:
             text-align: center;
             margin-top: 10px;
         }
-        
+
         /* リアルタイム更新アニメーション */
         .updating {
             opacity: 0.6;
             transition: opacity 0.3s ease;
         }
-        
+
         .price-change-animation {
             animation: priceChange 0.5s ease-out;
         }
-        
+
         @keyframes priceChange {
             0% { background-color: rgba(255, 255, 255, 0.3); }
             100% { background-color: transparent; }
         }
-        
+
         /* 進捗バー */
         .progress-bar {
             width: 100%;
@@ -2163,21 +2203,21 @@ class DayTradeWebDashboard:
             margin: 2px 0;
             overflow: hidden;
         }
-        
+
         .progress-fill {
             height: 100%;
             border-radius: 2px;
             transition: width 0.3s ease;
         }
-        
+
         .progress-profit {
             background: linear-gradient(90deg, #2ed573, #7bed9f);
         }
-        
+
         .progress-loss {
             background: linear-gradient(90deg, #ff4757, #ff6b7d);
         }
-        
+
         /* アラート */
         .alert {
             position: fixed;
@@ -2191,31 +2231,31 @@ class DayTradeWebDashboard:
             animation: slideIn 0.3s ease-out;
             max-width: 300px;
         }
-        
+
         .alert-success {
             background: linear-gradient(45deg, #2ed573, #7bed9f);
         }
-        
+
         .alert-warning {
             background: linear-gradient(45deg, #ffa502, #ff6348);
         }
-        
+
         .alert-danger {
             background: linear-gradient(45deg, #ff4757, #ff3838);
         }
-        
+
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
-        
+
         /* 取引支援機能 */
         .trading-actions {
             display: flex;
             gap: 5px;
             margin-top: 5px;
         }
-        
+
         .action-btn {
             padding: 4px 8px;
             border: none;
@@ -2224,27 +2264,27 @@ class DayTradeWebDashboard:
             cursor: pointer;
             transition: all 0.2s;
         }
-        
+
         .btn-order {
             background: #3742fa;
             color: white;
         }
-        
+
         .btn-alert {
             background: #ffa502;
             color: white;
         }
-        
+
         .btn-memo {
             background: #2f3542;
             color: white;
         }
-        
+
         .action-btn:hover {
             transform: scale(1.05);
             opacity: 0.8;
         }
-        
+
         /* メモモーダル */
         .modal {
             display: none;
@@ -2256,7 +2296,7 @@ class DayTradeWebDashboard:
             height: 100%;
             background-color: rgba(0,0,0,0.5);
         }
-        
+
         .modal-content {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             margin: 15% auto;
@@ -2266,7 +2306,7 @@ class DayTradeWebDashboard:
             max-width: 500px;
             color: white;
         }
-        
+
         .close {
             color: #aaa;
             float: right;
@@ -2274,11 +2314,11 @@ class DayTradeWebDashboard:
             font-weight: bold;
             cursor: pointer;
         }
-        
+
         .close:hover {
             color: white;
         }
-        
+
         .memo-textarea {
             width: 100%;
             height: 150px;
@@ -2289,11 +2329,11 @@ class DayTradeWebDashboard:
             color: white;
             resize: vertical;
         }
-        
+
         .memo-textarea::placeholder {
             color: rgba(255,255,255,0.7);
         }
-        
+
         /* 分析機能 */
         .news-item {
             background: rgba(255,255,255,0.05);
@@ -2302,29 +2342,29 @@ class DayTradeWebDashboard:
             border-radius: 8px;
             border-left: 4px solid #4ecdc4;
         }
-        
+
         .news-title {
             font-weight: bold;
             margin-bottom: 5px;
             color: #4ecdc4;
         }
-        
+
         .news-content {
             font-size: 0.9em;
             line-height: 1.4;
         }
-        
+
         .news-meta {
             font-size: 0.8em;
             color: #95a5a6;
             margin-top: 8px;
         }
-        
+
         .tradingview-widget-container {
             width: 100%;
             height: 100%;
         }
-        
+
         .performance-metric {
             display: flex;
             justify-content: space-between;
@@ -2332,23 +2372,23 @@ class DayTradeWebDashboard:
             padding: 8px 0;
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        
+
         .metric-name {
             font-weight: bold;
         }
-        
+
         .metric-value {
             color: #4ecdc4;
             font-weight: bold;
         }
-        
+
         /* ユーザビリティ機能 */
         .table-controls {
             display: flex;
             gap: 10px;
             align-items: center;
         }
-        
+
         .filter-select {
             padding: 8px 12px;
             border: none;
@@ -2358,30 +2398,30 @@ class DayTradeWebDashboard:
             font-size: 0.9em;
             cursor: pointer;
         }
-        
+
         .filter-select option {
             background: #2c3e50;
             color: white;
         }
-        
+
         .favorite-star {
             cursor: pointer;
             font-size: 1.2em;
             transition: all 0.2s;
         }
-        
+
         .favorite-star:hover {
             transform: scale(1.2);
         }
-        
+
         .favorite-star.active {
             color: #f1c40f;
         }
-        
+
         .hidden {
             display: none !important;
         }
-        
+
         /* モバイル対応 */
         @media (max-width: 768px) {
             .container {
@@ -2415,7 +2455,7 @@ class DayTradeWebDashboard:
                 grid-template-columns: repeat(2, 1fr);
             }
         }
-        
+
         @media (max-width: 480px) {
             .price-info {
                 display: flex;
@@ -2461,7 +2501,7 @@ class DayTradeWebDashboard:
         .signal-buy { background: #4ecdc4; color: white; }
         .signal-sell { background: #45b7d1; color: white; }
         .signal-hold { background: #feca57; color: black; }
-        
+
         /* ML精度バッジ */
         .ml-source-badge {
             display: inline-block;
@@ -2475,7 +2515,7 @@ class DayTradeWebDashboard:
         .ml-advanced_ml { background: #27ae60; }  /* 真AI */
         .ml-random_fallback { background: #e74c3c; }  /* ダミー */
         .ml-error_fallback { background: #f39c12; }  /* エラー */
-        
+
         /* システムステータス */
         .system-status {
             display: flex;
@@ -2508,7 +2548,7 @@ class DayTradeWebDashboard:
             background: #e74c3c;
             color: white;
         }
-        
+
         .loading {
             text-align: center;
             padding: 50px;
@@ -2537,7 +2577,7 @@ class DayTradeWebDashboard:
             <p>93%精度AI × リアルタイム分析 × 個人投資家専用</p>
             <div class="status-online"></div>
             <span>システム稼働中</span>
-            
+
             <div class="system-status">
                 <div class="status-item">
                     <span class="status-label">ML予測:</span>
@@ -2649,7 +2689,7 @@ class DayTradeWebDashboard:
                 <div class="loading">📊 履歴読み込み中...</div>
             </div>
         </div>
-        
+
         <!-- 最終更新時刻表示 -->
         <div class="last-update" id="lastUpdateTime">
             最終更新: 読み込み中...
@@ -2703,7 +2743,7 @@ class DayTradeWebDashboard:
             alert.className = `alert alert-${type}`;
             alert.textContent = message;
             document.body.appendChild(alert);
-            
+
             setTimeout(() => {
                 alert.remove();
             }, 5000);
@@ -2714,10 +2754,10 @@ class DayTradeWebDashboard:
             const totalRange = profitTarget - stopLoss;
             const currentPosition = currentPrice - stopLoss;
             const progressPercent = Math.max(0, Math.min(100, (currentPosition / totalRange) * 100));
-            
+
             const isProfit = currentPrice > openingPrice;
             const progressClass = isProfit ? 'progress-profit' : 'progress-loss';
-            
+
             return `<div class="progress-bar">
                 <div class="progress-fill ${progressClass}" style="width: ${progressPercent}%"></div>
             </div>`;
@@ -2726,24 +2766,24 @@ class DayTradeWebDashboard:
         // アラート監視機能
         function checkPriceAlerts(rec, previousPrice) {
             if (!previousPrice || !rec.current_price) return;
-            
+
             const changePercent = Math.abs((rec.current_price - previousPrice) / previousPrice * 100);
-            
+
             // 大幅な価格変動アラート
             if (changePercent > 2) {
                 const direction = rec.current_price > previousPrice ? '急上昇' : '急下落';
-                showAlert(`${rec.symbol} ${rec.name} が${direction}しています！ (${changePercent.toFixed(1)}%)`, 
+                showAlert(`${rec.symbol} ${rec.name} が${direction}しています！ (${changePercent.toFixed(1)}%)`,
                          rec.current_price > previousPrice ? 'success' : 'danger');
             }
-            
+
             // 利確・損切ライン接近アラート
             if (rec.opening_price) {
                 const profitTarget = rec.opening_price * (1 + rec.target_profit / 100);
                 const stopLoss = rec.opening_price * (1 - rec.stop_loss / 100);
-                
+
                 const distanceToProfit = Math.abs(rec.current_price - profitTarget) / rec.current_price * 100;
                 const distanceToStop = Math.abs(rec.current_price - stopLoss) / rec.current_price * 100;
-                
+
                 if (distanceToProfit < 1) {
                     showAlert(`${rec.symbol} が利確目標に接近中！`, 'warning');
                 }
@@ -2761,12 +2801,12 @@ class DayTradeWebDashboard:
                 {name: '楽天証券', url: `https://www.rakuten-sec.co.jp/web/domestic/search/result/?Keyword=${symbol}`},
                 {name: 'マネックス証券', url: `https://info.monex.co.jp/domestic-stock/detail/${symbol}.html`}
             ];
-            
+
             let message = `${symbol} ${name} の注文画面を開きますか?\n\n`;
             brokers.forEach((broker, index) => {
                 message += `${index + 1}. ${broker.name}\n`;
             });
-            
+
             const choice = prompt(message + '\n番号を入力してください (1-3):');
             if (choice && choice >= 1 && choice <= 3) {
                 window.open(brokers[choice - 1].url, '_blank');
@@ -2779,7 +2819,7 @@ class DayTradeWebDashboard:
                 showAlert('現在価格が取得できていません', 'danger');
                 return;
             }
-            
+
             const targetPrice = prompt(`${symbol} ${name} のアラート価格を入力してください\n(現在価格: ¥${currentPrice.toFixed(0)})`);
             if (targetPrice && !isNaN(targetPrice)) {
                 priceAlerts[symbol] = {
@@ -2824,9 +2864,9 @@ class DayTradeWebDashboard:
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('memoModal');
             const closeBtn = document.querySelector('.close');
-            
+
             closeBtn.onclick = closeMemoModal;
-            
+
             window.onclick = function(event) {
                 if (event.target === modal) {
                     closeMemoModal();
@@ -2839,7 +2879,7 @@ class DayTradeWebDashboard:
             Object.keys(priceAlerts).forEach(symbol => {
                 const alert = priceAlerts[symbol];
                 const currentPrice = previousPrices[symbol];
-                
+
                 if (currentPrice && Math.abs(currentPrice - alert.targetPrice) <= alert.targetPrice * 0.01) {
                     showAlert(`${symbol} ${alert.name} がアラート価格に到達！ (目標: ¥${alert.targetPrice.toFixed(0)}, 現在: ¥${currentPrice.toFixed(0)})`, 'warning');
                     delete priceAlerts[symbol];
@@ -2859,7 +2899,7 @@ class DayTradeWebDashboard:
                 showAlert(`${symbol} をお気に入りに追加しました`, 'success');
             }
             localStorage.setItem('favorites', JSON.stringify(favorites));
-            
+
             // 表示を更新
             updateRecommendationsTable(originalData);
         }
@@ -3067,7 +3107,7 @@ class DayTradeWebDashboard:
                 } else {
                     console.error('推奨データエラー:', recData.message);
                 }
-                
+
                 // 分析データ更新
                 const analysisResp = await fetch('/api/analysis');
                 const analysisData = await analysisResp.json();
@@ -3079,10 +3119,10 @@ class DayTradeWebDashboard:
 
                 // チャート更新
                 updateCharts();
-                
+
                 // 最終更新時刻を更新
                 updateLastUpdateTime();
-                
+
                 // 更新中表示を解除
                 document.body.classList.remove('updating');
             } catch (error) {
@@ -3094,7 +3134,7 @@ class DayTradeWebDashboard:
         // メトリクス更新
         function updateMetrics(data) {
             if (data.status !== 'success') return;
-            
+
             const metricsGrid = document.getElementById('metricsGrid');
             const summary = data.summary;
             metricsGrid.innerHTML = `
@@ -3120,34 +3160,34 @@ class DayTradeWebDashboard:
         // 推奨テーブル更新
         function updateRecommendationsTable(data) {
             if (!data) return;
-            
+
             // 元データを保存（初回のみ）
             if (originalData.length === 0) {
                 originalData = [...data];
             }
-            
+
             const tbody = document.getElementById('recommendationsTableBody');
             tbody.innerHTML = data.map(rec => {
                 // 価格変動の色分けクラスを決定
                 const previousPrice = previousPrices[rec.symbol];
                 const priceChangeClass = getPriceChangeClass(rec.current_price, previousPrice);
-                
+
                 // アラートチェック
                 checkPriceAlerts(rec, previousPrice);
                 checkCustomAlerts();
-                
+
                 // 現在価格を保存
                 if (rec.current_price) {
                     previousPrices[rec.symbol] = rec.current_price;
                 }
-                
+
                 let priceInfo = '';
                 if (rec.opening_price && rec.current_price) {
                     const profitTarget = rec.current_price * (1 + rec.target_profit / 100);
                     const stopLoss = rec.current_price * (1 - rec.stop_loss / 100);
                     const priceChange = rec.current_price - rec.opening_price;
                     const progressBar = createProgressBar(rec.current_price, rec.opening_price, profitTarget, stopLoss);
-                    
+
                     const hasMemo = tradingMemos[rec.symbol] ? '📝' : '';
                     priceInfo = '<div class="price-info">' +
                         '<div><small>始値:</small> ¥' + rec.opening_price.toFixed(0) + '</div>' +
@@ -3165,7 +3205,7 @@ class DayTradeWebDashboard:
                     const profitTarget = rec.current_price * (1 + rec.target_profit / 100);
                     const stopLoss = rec.current_price * (1 - rec.stop_loss / 100);
                     const progressBar = createProgressBar(rec.current_price, rec.current_price, profitTarget, stopLoss);
-                    
+
                     const hasMemo = tradingMemos[rec.symbol] ? '📝' : '';
                     priceInfo = '<div class="price-info">' +
                         '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + '</div>' +
@@ -3181,10 +3221,10 @@ class DayTradeWebDashboard:
                 } else {
                     priceInfo = '<div class="price-info">N/A</div>';
                 }
-                
+
                 const isFavorite = favorites.includes(rec.symbol);
                 const favoriteIcon = isFavorite ? '⭐' : '☆';
-                
+
                 return '<tr>' +
                     '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(\'' + rec.symbol + '\')">' + favoriteIcon + '</span></td>' +
                     '<td><strong>' + rec.rank + '</strong></td>' +
@@ -3201,7 +3241,7 @@ class DayTradeWebDashboard:
                 '</tr>';
             }).join('');
         }
-        
+
         function getSignalClass(signal) {
             if (signal.includes('強い買い')) return 'strong-buy';
             if (signal.includes('買い')) return 'buy';
@@ -3214,7 +3254,7 @@ class DayTradeWebDashboard:
             try {
                 const chartResp = await fetch('/api/charts');
                 const chartData = await chartResp.json();
-                
+
                 if (chartData.status === 'success') {
                     Plotly.newPlot('confidenceChart', chartData.confidence_chart.data, chartData.confidence_chart.layout);
                     Plotly.newPlot('timingChart', chartData.timing_chart.data, chartData.timing_chart.layout);
@@ -3229,7 +3269,7 @@ class DayTradeWebDashboard:
             const btn = event.target;
             btn.innerHTML = '🔄 分析実行中...';
             btn.disabled = true;
-            
+
             try {
                 await updateDashboard();
                 btn.innerHTML = '✅ 完了!';
@@ -3250,7 +3290,7 @@ class DayTradeWebDashboard:
         function autoRefresh() {
             autoRefreshEnabled = !autoRefreshEnabled;
             const btn = event.target;
-            
+
             if (autoRefreshEnabled) {
                 btn.innerHTML = '⏱️ 自動更新ON';
                 refreshInterval = setInterval(updateDashboard, 60000); // 1分毎
@@ -3265,30 +3305,30 @@ class DayTradeWebDashboard:
             // ボタンの初期表示設定
             const autoRefreshBtn = document.getElementById('autoRefreshBtn');
             autoRefreshBtn.innerHTML = autoRefreshEnabled ? '⏱️ 自動更新ON' : '⏸️ 自動更新OFF';
-            
+
             // 初回更新実行
             updateDashboard();
-            
+
             // システムステータス更新関数
         async function updateSystemStatus() {
             try {
                 const response = await fetch('/api/system-status');
                 const statusData = await response.json();
-                
+
                 // ML予測ステータス更新
                 const mlStatus = document.getElementById('mlStatus');
                 if (mlStatus) {
                     mlStatus.textContent = statusData.ml_prediction.status;
                     mlStatus.className = `status-value ${statusData.ml_prediction.available ? 'active' : 'inactive'}`;
                 }
-                
+
                 // バックテスト統合ステータス更新
                 const backtestStatus = document.getElementById('backtestStatus');
                 if (backtestStatus) {
                     backtestStatus.textContent = statusData.backtest_integration.status;
                     backtestStatus.className = `status-value ${statusData.backtest_integration.available ? 'active' : 'inactive'}`;
                 }
-                
+
             } catch (error) {
                 console.error('システムステータス更新エラー:', error);
             }
@@ -3296,29 +3336,29 @@ class DayTradeWebDashboard:
 
         // 初期システムステータス取得
         updateSystemStatus();
-        
+
         // 自動更新開始
             if (autoRefreshEnabled) {
                 refreshInterval = setInterval(updateDashboard, 60000); // 1分毎
                 console.log('自動更新が有効になりました (1分毎)');
             }
-            
+
         // システムステータスは30秒毎に更新
         setInterval(updateSystemStatus, 30000);
-        
+
         // 分析機能の初期化
         setTimeout(() => {
             initTradingViewChart();
             loadNews();
             loadPerformanceHistory();
         }, 2000);
-        
+
         });
     </script>
 </body>
 </html>"""
         return html_content
-    
+
     def run(self, host='127.0.0.1', port=5000, debug=False):
         """統合Webダッシュボード起動"""
         print(f"\n🚀 デイトレードAI統合システム 起動中...")
@@ -3330,7 +3370,7 @@ class DayTradeWebDashboard:
         print(f"  • インタラクティブチャート")
         print(f"  • 自動更新機能")
         print(f"\n停止: Ctrl+C\n")
-        
+
         self.app.run(host=host, port=port, debug=debug)
 
 
@@ -3340,12 +3380,12 @@ async def run_web_mode():
         print("❌ Web機能が利用できません")
         print("pip install flask plotly でインストールしてください")
         return False
-        
+
     if not DAYTRADING_AVAILABLE:
         print("❌ デイトレードエンジンが利用できません")
         print("day_trading_engine.py が必要です")
         return False
-        
+
     try:
         dashboard = DayTradeWebDashboard()
         dashboard.run()
