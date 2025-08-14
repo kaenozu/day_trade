@@ -66,19 +66,8 @@ class PersonalDayTradingEngine:
     """個人向けデイトレードエンジン"""
 
     def __init__(self):
-        # デイトレード向け推奨銘柄（流動性重視）
-        self.daytrading_symbols = {
-            "7203": "トヨタ自動車",     # 大型株・安定
-            "9984": "ソフトバンクG",    # ボラティリティ高
-            "6758": "ソニーG",         # テック・動きやすい
-            "8306": "三菱UFJ",         # 金融・出来高大
-            "4689": "LINEヤフー",      # IT・値動き活発
-            "7974": "任天堂",          # ゲーム・話題性
-            "8035": "東京エレクトロン", # 半導体・変動大
-            "6954": "ファナック",      # 工作機械・循環物色
-            "9437": "NTTドコモ",       # 通信・安定配当
-            "4568": "第一三共",        # 製薬・材料株
-        }
+        # 動的銘柄取得システム
+        self.daytrading_symbols = self._load_dynamic_symbols()
 
         # 市場時間管理システム初期化
         if MARKET_TIME_AVAILABLE:
@@ -97,6 +86,34 @@ class PersonalDayTradingEngine:
         else:
             self.real_data_engine = None
             self.data_mode = "DEMO"
+
+    def _load_dynamic_symbols(self) -> dict:
+        """動的銘柄取得"""
+        try:
+            from src.day_trade.data.symbol_selector import DynamicSymbolSelector
+            selector = DynamicSymbolSelector()
+
+            # デイトレード向け高流動性銘柄を取得
+            symbols = selector.get_liquid_symbols(limit=20)
+
+            # 辞書形式に変換（名前は簡易版）
+            symbol_dict = {}
+            for symbol in symbols:
+                # 簡易的な名前マッピング（本来はDBから取得すべき）
+                name_map = {
+                    "7203": "トヨタ自動車", "8306": "三菱UFJ", "6758": "ソニーG",
+                    "9984": "ソフトバンクG", "4751": "サイバーエージェント", "6861": "キーエンス",
+                    "4689": "LINEヤフー", "7974": "任天堂", "8058": "三菱商事",
+                    "1605": "INPEX", "6098": "リクルート", "8001": "伊藤忠商事"
+                }
+                symbol_dict[symbol] = name_map.get(symbol, f"銘柄{symbol}")
+
+            print(f"✅ 動的銘柄取得成功: {len(symbol_dict)}銘柄")
+            return symbol_dict
+
+        except Exception as e:
+            print(f"❌ 動的銘柄取得失敗: {e}")
+            raise RuntimeError(f"デイトレード銘柄の取得に失敗しました: {e}") from e
 
         # MLモデルの初期化とロード (仮実装)
         try:
@@ -139,7 +156,7 @@ class PersonalDayTradingEngine:
         else:
             return TradingSession.AFTER_MARKET
 
-    async def get_today_daytrading_recommendations(self, limit: int = 5) -> List[DayTradingRecommendation]:
+    async def get_today_daytrading_recommendations(self, limit: int = 20) -> List[DayTradingRecommendation]:
         """今日のデイトレード推奨取得（実データ対応）"""
         current_session = self._get_current_trading_session()
 
@@ -256,7 +273,7 @@ class PersonalDayTradingEngine:
         else:
             return "モメンタム中立"
 
-    async def get_tomorrow_premarket_forecast(self, limit: int = 5) -> List[DayTradingRecommendation]:
+    async def get_tomorrow_premarket_forecast(self, limit: int = 20) -> List[DayTradingRecommendation]:
         """翌日前場予想取得（大引け後専用）"""
         recommendations = []
         symbols = list(self.daytrading_symbols.keys())[:limit]
@@ -954,7 +971,7 @@ async def demo_daytrading_engine():
     print("今日のデイトレード推奨 TOP5:")
     print("-" * 50)
 
-    recommendations = await engine.get_today_daytrading_recommendations(limit=5)
+    recommendations = await engine.get_today_daytrading_recommendations(limit=20)
 
     for i, rec in enumerate(recommendations, 1):
         signal_icon = {

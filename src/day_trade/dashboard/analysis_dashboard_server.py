@@ -196,8 +196,6 @@ async def get_dashboard():
                 <div class="status">📊 データ取得: <span class="enabled">有効</span></div>
                 <div class="status">🎓 教育機能: <span class="enabled">有効</span></div>
                 <div class="status">⚡ シグナル生成: <span class="enabled">有効</span></div>
-                <div class="status">🚫 自動取引: <span class="disabled">完全無効</span></div>
-                <div class="status">🚫 注文実行: <span class="disabled">完全無効</span></div>
 
                 <hr>
                 <button onclick="startAnalysis()">分析開始</button>
