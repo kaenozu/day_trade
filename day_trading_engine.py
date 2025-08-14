@@ -84,7 +84,7 @@ class PersonalDayTradingEngine:
             # これらをまとめて予測するため、出力はn_featuresとして扱う (predictions, confidence)
             # ここではシンプルに、Xの最初の3つの特徴量から線形結合で予測値を生成
             y = X[:, 0] * 0.5 + X[:, 1] * 0.3 + X[:, 2] * 0.2 + np.random.randn(n_samples) * 0.1 # 予測値
-            
+
             # 信頼度も適当に生成 (0.6 - 0.9の範囲)
             confidence_targets = np.random.uniform(0.6, 0.9, n_samples)
 
@@ -101,7 +101,7 @@ class PersonalDayTradingEngine:
             # モデルを一時ファイルに保存
             temp_model_path = "./temp_rf_model.joblib"
             self.ml_model.save_model(temp_model_path)
-            
+
             # 保存したモデルをロード
             self.ml_model.load_model(temp_model_path)
             print("\n[MLモデル] RandomForestモデルの学習、保存、ロードが完了しました。\n")
@@ -177,7 +177,7 @@ class PersonalDayTradingEngine:
         # 例: predictions[0] = overnight_gap, predictions[1] = premarket_momentum など
         # 今回は暫定的に、予測結果の最初のいくつかの要素を割り当てる
         prediction_results = self.ml_model.predict(features)
-        
+
         # predictionsとconfidenceの形状を確認し、適切に割り当てる
         # ここでは単一の予測値を想定
         predicted_values = prediction_results.predictions.flatten()
@@ -187,7 +187,7 @@ class PersonalDayTradingEngine:
         premarket_momentum = predicted_values[1] if len(predicted_values) > 1 else 0.0
         volume_expectation = predicted_values[2] if len(predicted_values) > 2 else 0.0
         volatility_forecast = predicted_values[3] if len(predicted_values) > 3 else 0.0
-        
+
         # 信頼度を考慮した上で、ランダム性を残すか、完全にAI予測に置き換えるかを検討する
         # ここではAI予測を優先
         confidence = 75.0 # AIモデルの信頼度をここに反映させる
@@ -388,7 +388,7 @@ class PersonalDayTradingEngine:
         # 3. AIモデルで予測
         # predictions配列の各要素が、日中ボラティリティ、出来高比率、価格モメンタムなどの予測値に対応すると仮定
         prediction_results = self.ml_model.predict(features)
-        
+
         predicted_values = prediction_results.predictions.flatten()
         confidence_values = prediction_results.confidence.flatten() if prediction_results.confidence is not None else np.array([0.0])
 
@@ -478,7 +478,7 @@ class PersonalDayTradingEngine:
         # 過去数日間のデータが必要な場合を考慮し、期間と間隔を設定
         # ここでは過去1日分のデータを取得する例 (日中ボラティリティなどを計算するため)
         # 実際には、AIモデルが必要とする期間のデータを取得するように調整
-        
+
         # for simplicity, let's fetch one day data
         # To get overnight gap, we might need previous day's closing price
         # For now, let's just get 5 days of data to simulate some history
@@ -538,13 +538,13 @@ class PersonalDayTradingEngine:
         # 価格特徴量
         price_change = close_p - prev_close
         daily_range = high_p - low_p
-        
+
         # 出来高特徴量 (ここでは単純な出来高を特徴量として使う)
-        
+
         # テクニカル指標 (ここでは簡易的なRSIとMACDをモックとして生成)
         # 実際には src/day_trade/analysis/signals.py などからインポートして利用
         # RSIを模倣
-        rsi_mock = 50 + (price_change / max(1, daily_range)) * 10 
+        rsi_mock = 50 + (price_change / max(1, daily_range)) * 10
         rsi_mock = np.clip(rsi_mock, 0, 100) # RSIは0-100の範囲
 
         # MACDを模倣
@@ -566,7 +566,7 @@ class PersonalDayTradingEngine:
 
         # RandomForestModelの_hyperparameter_optimizationでnum_features=10としていたので、ここで合わせる
         # 実際には、config/ml.json の features に基づいて、適切な特徴量エンジニアリングパイプラインを構築する必要がある
-        
+
         # もし特徴量の数が足りない場合、ゼロ埋めするなどの対応が必要
         num_expected_features = 10 # RandomForestModelが期待する特徴量の数
         if features_array.shape[1] < num_expected_features:
