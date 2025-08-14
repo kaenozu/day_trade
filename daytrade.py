@@ -211,10 +211,7 @@ except ImportError:
 
 import numpy as np
 from model_performance_monitor import ModelPerformanceMonitor
-<<<<<<< HEAD
 from alert_system import Alert, AlertType, AlertPriority
-=======
->>>>>>> 6d241116c5f580dca22013359f59b2fa52caa6e2
 
 
 class PersonalAnalysisEngine:
@@ -1292,7 +1289,6 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
             print(f"  評価サンプル数: {model_metrics['num_samples']}")
             print("  (注: 予測精度は簡易的なバイナリ分類に基づいています)")
 
-<<<<<<< HEAD
             # モデル性能に基づくアラート生成 (Issue #827)
             if hasattr(engine, 'alert_system') and engine.alert_mode:
                 performance_status = engine.performance_monitor.check_performance_status()
@@ -1331,9 +1327,6 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
                 if performance_status["status"] == "CRITICAL_RETRAIN":
                     print("  [トリガー] モデル性能が再学習閾値を下回りました。再学習プロセスをトリガーします。")
                     # ここに再学習プロセスを呼び出すロジックを実装 (Phase 3で詳細化)
-
-=======
->>>>>>> 6d241116c5f580dca22013359f59b2fa52caa6e2
         return True
 
     except Exception as e:
