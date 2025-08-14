@@ -6,7 +6,7 @@ import { useQuery } from 'react-query';
 // Components
 import { KPICard } from '@/components/cards/KPICard';
 import { ChartCard } from '@/components/cards/ChartCard';
-import { TradingFeed } from '@/components/trading/TradingFeed';
+import { AnalysisFeed } from '@/components/analysis/AnalysisFeed';
 import { MarketOverview } from '@/components/market/MarketOverview';
 import { MLPerformance } from '@/components/ml/MLPerformance';
 import { QuickStats } from '@/components/dashboard/QuickStats';
@@ -97,7 +97,7 @@ export const DashboardPage: React.FC = () => {
     },
     {
       id: 'trades',
-      title: '取引実行数',
+      title: '分析実行数',
       value: dashboardData.trades.executed,
       unit: '件',
       change: dashboardData.trades.change,
@@ -278,16 +278,16 @@ export const DashboardPage: React.FC = () => {
             />
           </motion.div>
 
-          {/* リアルタイム取引フィード */}
+          {/* リアルタイム分析フィード */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.6 }}
             className="lg:col-span-2"
           >
-            <TradingFeed
-              trades={dashboardData.trades.recent}
-              realTimeTrade={realTimeData?.latestTrade}
+            <AnalysisFeed
+              analyses={dashboardData.trades.recent}
+              realTimeAnalysis={realTimeData?.latestAnalysis}
             />
           </motion.div>
         </div>
