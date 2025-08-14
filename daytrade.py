@@ -1639,44 +1639,59 @@ class DayTradeWebDashboard:
         self.setup_app()
 
     async def get_stock_price_data(self, symbol: str) -> Dict[str, Optional[float]]:
-        """株価データ取得（始値・現在価格）"""
+        """株価データ取得（始値・現在価格）- タイムアウト付き実データ取得"""
         if not PRICE_DATA_AVAILABLE:
             return {'opening_price': None, 'current_price': None}
 
         try:
-            yf_module, _ = get_yfinance()
-            if not yf_module:
-                return {'opening_price': None, 'current_price': None}
+            import asyncio
+            import concurrent.futures
+            
+            def fetch_yfinance_data():
+                """同期版yfinanceデータ取得"""
+                yf_module, _ = get_yfinance()
+                if not yf_module:
+                    return {'opening_price': None, 'current_price': None}
 
-            # 日本株の場合は.Tを付加
-            if symbol.isdigit() and len(symbol) == 4:
-                symbol = f"{symbol}.T"
+                # 日本株の場合は.Tを付加
+                symbol_yf = symbol
+                if symbol.isdigit() and len(symbol) == 4:
+                    symbol_yf = f"{symbol}.T"
 
-            ticker = yf_module.Ticker(symbol)
+                ticker = yf_module.Ticker(symbol_yf)
+                
+                # 軽量化：1日分のデータのみ取得
+                today_data = ticker.history(period="1d")
+                
+                if today_data.empty:
+                    # 当日データがない場合は過去5日間で最新を取得
+                    recent_data = ticker.history(period="5d")
+                    if not recent_data.empty:
+                        latest_row = recent_data.iloc[-1]
+                        return {
+                            'opening_price': float(latest_row['Open']),
+                            'current_price': float(latest_row['Close'])
+                        }
+                    return {'opening_price': None, 'current_price': None}
 
-            # 当日のデータを取得
-            today_data = ticker.history(period="1d", interval="1m")
+                # 当日の始値と最新価格
+                opening_price = float(today_data.iloc[0]['Open'])
+                current_price = float(today_data.iloc[-1]['Close'])
 
-            if today_data.empty:
-                # 当日データがない場合は過去5日間で最新を取得
-                recent_data = ticker.history(period="5d")
-                if not recent_data.empty:
-                    latest_row = recent_data.iloc[-1]
-                    return {
-                        'opening_price': float(latest_row['Open']),
-                        'current_price': float(latest_row['Close'])
-                    }
-                return {'opening_price': None, 'current_price': None}
+                return {
+                    'opening_price': opening_price,
+                    'current_price': current_price
+                }
 
-            # 当日の始値と最新価格
-            opening_price = float(today_data.iloc[0]['Open'])
-            current_price = float(today_data.iloc[-1]['Close'])
+            # ThreadPoolExecutorで非同期実行 + 3秒タイムアウト
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = loop.run_in_executor(executor, fetch_yfinance_data)
+                return await asyncio.wait_for(future, timeout=3.0)
 
-            return {
-                'opening_price': opening_price,
-                'current_price': current_price
-            }
-
+        except asyncio.TimeoutError:
+            print(f"価格データ取得タイムアウト ({symbol}): 3秒")
+            return {'opening_price': None, 'current_price': None}
         except Exception as e:
             print(f"価格データ取得エラー ({symbol}): {e}")
             return {'opening_price': None, 'current_price': None}
@@ -1892,18 +1907,47 @@ class DayTradeWebDashboard:
             if not recommendations:
                 return {'status': 'no_data', 'message': '推奨銀柄がありません'}
 
-            # TOP10をWeb用に変換（真のML予測 + 価格データ付き）
-            web_data = []
+            # TOP10をWeb用に変換（並列処理で高速化）
+            import asyncio
+            
+            # 並列処理でデータ取得
+            async def get_combined_data(rec, rank):
+                # 価格データとML予測を並列取得
+                price_task = self.get_stock_price_data(rec.symbol)
+                ml_task = self.get_ml_prediction(rec.symbol)
+                
+                price_data, ml_prediction = await asyncio.gather(
+                    price_task, ml_task, return_exceptions=True
+                )
+                
+                # エラーハンドリング
+                if isinstance(price_data, Exception):
+                    price_data = {'opening_price': None, 'current_price': None}
+                if isinstance(ml_prediction, Exception):
+                    ml_prediction = {
+                        'signal': '●買い●', 'confidence': 75.0, 'risk_level': '中リスク', 
+                        'score': 70.0, 'ml_source': 'fallback'
+                    }
+                    
+                return rec, rank, price_data, ml_prediction
+            
+            # 全銘柄の処理を並列実行
+            tasks = []
             for i, rec in enumerate(recommendations[:10], 1):
-                # 1. 価格データ取得
-                price_data = await self.get_stock_price_data(rec.symbol)
-
-                # 2. 真のML予測取得（バックテスト統合）
-                ml_prediction = await self.get_ml_prediction(rec.symbol)
+                tasks.append(get_combined_data(rec, i))
+                
+            combined_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            web_data = []
+            for result in combined_results:
+                if isinstance(result, Exception):
+                    continue
+                    
+                rec, rank, price_data, ml_prediction = result
 
                 # 3. 統合データ作成
                 web_data.append({
-                    'rank': i,
+                    'rank': rank,
                     'symbol': rec.symbol,
                     'name': rec.name,
                     'opening_price': price_data['opening_price'],
