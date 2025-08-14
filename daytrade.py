@@ -1312,7 +1312,7 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
                     alert_body = (f"現在のサンプル数: {performance_status['num_samples']} "
                                   f"(最小必要数: {engine.performance_monitor.min_samples_for_evaluation})。")
                     alert_priority = AlertPriority.LOW
-                
+
                 if alert_priority:
                     alert = Alert(
                         title=alert_title,
