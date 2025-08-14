@@ -1,0 +1,54 @@
+# Day Trade Personal - 個人利用専用設定
+# Personal Use Configuration - No Commercial Features
+
+app:
+  name: "Day Trade Personal"
+  version: "1.0-personal"
+  mode: "personal_only"  # 個人利用限定
+  log_level: "WARNING"   # エラーのみ表示
+
+# データ設定（シンプル化）
+data:
+  source: "yfinance"           # Yahoo Finance（無料）
+  cache_enabled: true          # キャッシュで高速化
+  cache_duration_hours: 1      # 1時間キャッシュ
+  database: "sqlite"           # SQLite（個人用）
+  db_path: "./personal_data.db"
+
+# 個人向け銘柄設定
+symbols:
+  default_count: 3             # デフォルト3銘柄
+  max_analysis: 8              # 最大8銘柄まで
+  focus_large_cap: true        # 大型株中心
+  exclude_high_risk: true      # 高リスク銘柄除外
+
+# AI予測設定（個人最適化）
+prediction:
+  model_type: "ensemble"       # アンサンブル
+  accuracy_target: 0.93        # 93%精度目標
+  enable_meta_learning: false  # 個人用には不要
+  enable_optimization: false   # 高速化優先
+  confidence_threshold: 0.6    # 60%以上で推奨
+
+# 出力設定（シンプル）
+output:
+  format: "console"            # コンソール出力
+  save_results: true           # 結果保存
+  results_dir: "./results/"    # 結果保存先
+  show_charts: false           # チャート表示なし（シンプル化）
+
+# 個人投資家向け安全設定
+safety:
+  risk_management: true        # リスク管理有効
+  max_recommendation: 3        # 最大3銘柄推奨
+  require_confirmation: false  # 確認不要（個人判断）
+  disclaimer_required: true    # 免責事項表示
+
+# 商用機能無効化（重要）
+commercial:
+  api_enabled: false           # API機能無効
+  multi_user: false            # マルチユーザー無効
+  authentication: false        # 認証無効
+  billing: false               # 課金機能無効
+  enterprise_monitoring: false # 企業監視無効
+  sla_reporting: false         # SLAレポート無効

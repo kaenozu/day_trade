@@ -1,0 +1,142 @@
+# Issue #800 Phase 1: Docker Build最適化
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+*.md
+docs/
+
+# Logs
+logs/
+*.log
+
+# Data files (unless specifically needed)
+data/raw/
+data/temp/
+*.csv
+*.xlsx
+*.json
+
+# Model files (large)
+models/
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.pth
+
+# Cache
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# Node.js (if any)
+node_modules/
+npm-debug.log*
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Test output
+test-results/
+test-reports/
+
+# Temporary files
+tmp/
+temp/
+
+# CatBoost info
+catboost_info/
+
+# Issue tracking files
+issue_*.md
+*.py.backup

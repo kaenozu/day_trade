@@ -1,0 +1,542 @@
+# Issue #800 Phase 5: Kubernetes バックアップCronJob設定
+# Day Trade ML System 自動バックアップ・スケジューリング
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: day-trade-database-backup
+  namespace: day-trade
+  labels:
+    app: day-trade-ml
+    component: backup
+    type: database
+spec:
+  schedule: "0 2 * * *"  # 毎日午前2時
+  timeZone: "Asia/Tokyo"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: day-trade-backup
+            type: database
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: day-trade-backup-sa
+          containers:
+            - name: database-backup
+              image: postgres:15-alpine
+              imagePullPolicy: Always
+              env:
+                - name: PGHOST
+                  value: "postgresql-service"
+                - name: PGPORT
+                  value: "5432"
+                - name: PGDATABASE
+                  value: "day_trade_ml"
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: database-credentials
+                      key: postgres-username
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: database-credentials
+                      key: postgres-password
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: access-key-id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: secret-access-key
+                - name: S3_BUCKET
+                  value: "day-trade-backups"
+                - name: BACKUP_RETENTION_DAYS
+                  value: "30"
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  echo "Starting PostgreSQL backup..."
+
+                  # バックアップファイル名生成
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="postgresql_backup_${TIMESTAMP}.sql.gz"
+                  BACKUP_PATH="/tmp/${BACKUP_FILE}"
+
+                  # データベースバックアップ実行
+                  echo "Creating database dump..."
+                  pg_dump --verbose --no-password --format=custom --compress=9 | gzip > "${BACKUP_PATH}"
+
+                  # バックアップサイズ確認
+                  BACKUP_SIZE=$(stat -c%s "${BACKUP_PATH}")
+                  echo "Backup size: ${BACKUP_SIZE} bytes"
+
+                  # S3アップロード
+                  echo "Uploading to S3..."
+                  aws s3 cp "${BACKUP_PATH}" "s3://${S3_BUCKET}/database/${BACKUP_FILE}" \
+                    --storage-class STANDARD_IA \
+                    --server-side-encryption AES256
+
+                  # 古いバックアップクリーンアップ
+                  echo "Cleaning up old backups..."
+                  CUTOFF_DATE=$(date -d "${BACKUP_RETENTION_DAYS} days ago" +%Y%m%d)
+                  aws s3 ls "s3://${S3_BUCKET}/database/" | while read -r line; do
+                    FILE_DATE=$(echo $line | awk '{print $4}' | grep -o '[0-9]\{8\}' | head -1)
+                    if [ "${FILE_DATE}" -lt "${CUTOFF_DATE}" ]; then
+                      FILE_NAME=$(echo $line | awk '{print $4}')
+                      echo "Deleting old backup: ${FILE_NAME}"
+                      aws s3 rm "s3://${S3_BUCKET}/database/${FILE_NAME}"
+                    fi
+                  done
+
+                  # 一時ファイル削除
+                  rm -f "${BACKUP_PATH}"
+
+                  echo "Database backup completed successfully"
+              volumeMounts:
+                - name: backup-temp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "500m"
+          volumes:
+            - name: backup-temp
+              emptyDir:
+                sizeLimit: 2Gi
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: day-trade-ml-models-backup
+  namespace: day-trade
+  labels:
+    app: day-trade-ml
+    component: backup
+    type: ml-models
+spec:
+  schedule: "0 3 * * 0"  # 毎週日曜日午前3時
+  timeZone: "Asia/Tokyo"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 4
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: day-trade-backup
+            type: ml-models
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: day-trade-backup-sa
+          containers:
+            - name: ml-models-backup
+              image: alpine:latest
+              imagePullPolicy: Always
+              env:
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: access-key-id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: secret-access-key
+                - name: S3_BUCKET
+                  value: "day-trade-backups"
+                - name: BACKUP_RETENTION_DAYS
+                  value: "90"
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  echo "Starting ML models backup..."
+
+                  # 必要ツールインストール
+                  apk add --no-cache aws-cli tar gzip
+
+                  # バックアップファイル名生成
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="ml_models_backup_${TIMESTAMP}.tar.gz"
+                  BACKUP_PATH="/tmp/${BACKUP_FILE}"
+
+                  # モデルファイルアーカイブ作成
+                  echo "Creating models archive..."
+                  cd /app/models
+                  tar -czf "${BACKUP_PATH}" .
+
+                  # バックアップサイズ確認
+                  BACKUP_SIZE=$(stat -c%s "${BACKUP_PATH}")
+                  echo "Backup size: ${BACKUP_SIZE} bytes"
+
+                  # S3アップロード
+                  echo "Uploading to S3..."
+                  aws s3 cp "${BACKUP_PATH}" "s3://${S3_BUCKET}/models/${BACKUP_FILE}" \
+                    --storage-class STANDARD_IA \
+                    --server-side-encryption AES256
+
+                  # メタデータファイル作成
+                  cat > /tmp/backup_metadata.json << EOF
+                  {
+                    "backup_id": "${BACKUP_FILE}",
+                    "timestamp": "$(date -Iseconds)",
+                    "size_bytes": ${BACKUP_SIZE},
+                    "type": "ml_models",
+                    "retention_days": ${BACKUP_RETENTION_DAYS}
+                  }
+                  EOF
+
+                  aws s3 cp /tmp/backup_metadata.json "s3://${S3_BUCKET}/models/metadata/${BACKUP_FILE}.metadata"
+
+                  # 古いバックアップクリーンアップ
+                  echo "Cleaning up old backups..."
+                  CUTOFF_DATE=$(date -d "${BACKUP_RETENTION_DAYS} days ago" +%Y%m%d)
+                  aws s3 ls "s3://${S3_BUCKET}/models/" | while read -r line; do
+                    FILE_DATE=$(echo $line | awk '{print $4}' | grep -o '[0-9]\{8\}' | head -1)
+                    if [ "${FILE_DATE}" -lt "${CUTOFF_DATE}" ]; then
+                      FILE_NAME=$(echo $line | awk '{print $4}')
+                      echo "Deleting old backup: ${FILE_NAME}"
+                      aws s3 rm "s3://${S3_BUCKET}/models/${FILE_NAME}"
+                      aws s3 rm "s3://${S3_BUCKET}/models/metadata/${FILE_NAME}.metadata" || true
+                    fi
+                  done
+
+                  echo "ML models backup completed successfully"
+              volumeMounts:
+                - name: ml-models
+                  mountPath: /app/models
+                  readOnly: true
+                - name: backup-temp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "200m"
+                limits:
+                  memory: "2Gi"
+                  cpu: "1000m"
+          volumes:
+            - name: ml-models
+              persistentVolumeClaim:
+                claimName: ml-models-pvc
+            - name: backup-temp
+              emptyDir:
+                sizeLimit: 5Gi
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: day-trade-config-backup
+  namespace: day-trade
+  labels:
+    app: day-trade-ml
+    component: backup
+    type: config
+spec:
+  schedule: "0 1 * * *"  # 毎日午前1時
+  timeZone: "Asia/Tokyo"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: day-trade-backup
+            type: config
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: day-trade-backup-sa
+          containers:
+            - name: config-backup
+              image: alpine:latest
+              imagePullPolicy: Always
+              env:
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: access-key-id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: secret-access-key
+                - name: S3_BUCKET
+                  value: "day-trade-backups"
+                - name: BACKUP_RETENTION_DAYS
+                  value: "14"
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  echo "Starting config backup..."
+
+                  # 必要ツールインストール
+                  apk add --no-cache aws-cli tar gzip kubectl
+
+                  # バックアップファイル名生成
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="config_backup_${TIMESTAMP}.tar.gz"
+                  BACKUP_PATH="/tmp/${BACKUP_FILE}"
+
+                  # 設定ファイル収集
+                  mkdir -p /tmp/backup_staging/app_config
+                  mkdir -p /tmp/backup_staging/k8s_config
+
+                  # アプリケーション設定ファイル
+                  if [ -d "/app/config" ]; then
+                    cp -r /app/config/* /tmp/backup_staging/app_config/
+                  fi
+
+                  # Kubernetes設定ファイル
+                  kubectl get configmaps -n day-trade -o yaml > /tmp/backup_staging/k8s_config/configmaps.yaml
+                  kubectl get secrets -n day-trade -o yaml > /tmp/backup_staging/k8s_config/secrets.yaml
+
+                  # アーカイブ作成
+                  echo "Creating config archive..."
+                  cd /tmp/backup_staging
+                  tar -czf "${BACKUP_PATH}" .
+
+                  # S3アップロード
+                  echo "Uploading to S3..."
+                  aws s3 cp "${BACKUP_PATH}" "s3://${S3_BUCKET}/config/${BACKUP_FILE}" \
+                    --storage-class STANDARD \
+                    --server-side-encryption AES256
+
+                  echo "Config backup completed successfully"
+              volumeMounts:
+                - name: app-config
+                  mountPath: /app/config
+                  readOnly: true
+                - name: backup-temp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+          volumes:
+            - name: app-config
+              configMap:
+                name: day-trade-config
+            - name: backup-temp
+              emptyDir:
+                sizeLimit: 1Gi
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: day-trade-redis-backup
+  namespace: day-trade
+  labels:
+    app: day-trade-ml
+    component: backup
+    type: redis
+spec:
+  schedule: "0 */6 * * *"  # 6時間毎
+  timeZone: "Asia/Tokyo"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 10
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: day-trade-backup
+            type: redis
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: day-trade-backup-sa
+          containers:
+            - name: redis-backup
+              image: redis:7-alpine
+              imagePullPolicy: Always
+              env:
+                - name: REDIS_HOST
+                  value: "redis-service"
+                - name: REDIS_PORT
+                  value: "6379"
+                - name: REDIS_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: redis-credentials
+                      key: redis-password
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: access-key-id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: secret-access-key
+                - name: S3_BUCKET
+                  value: "day-trade-backups"
+                - name: BACKUP_RETENTION_DAYS
+                  value: "7"
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  echo "Starting Redis backup..."
+
+                  # 必要ツールインストール
+                  apk add --no-cache aws-cli
+
+                  # バックアップファイル名生成
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="redis_backup_${TIMESTAMP}.rdb"
+                  BACKUP_PATH="/tmp/${BACKUP_FILE}"
+
+                  # Redis SAVE実行
+                  echo "Triggering Redis SAVE..."
+                  redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" -a "${REDIS_PASSWORD}" SAVE
+
+                  # RDBファイル取得（実際の実装ではRedisサーバーからRDBファイルを取得）
+                  # ここでは簡略化してRedisデータをダンプ
+                  echo "Creating Redis dump..."
+                  redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" -a "${REDIS_PASSWORD}" --rdb "${BACKUP_PATH}"
+
+                  # バックアップサイズ確認
+                  BACKUP_SIZE=$(stat -c%s "${BACKUP_PATH}")
+                  echo "Backup size: ${BACKUP_SIZE} bytes"
+
+                  # S3アップロード
+                  echo "Uploading to S3..."
+                  aws s3 cp "${BACKUP_PATH}" "s3://${S3_BUCKET}/redis/${BACKUP_FILE}" \
+                    --storage-class STANDARD \
+                    --server-side-encryption AES256
+
+                  # 古いバックアップクリーンアップ
+                  echo "Cleaning up old backups..."
+                  CUTOFF_DATE=$(date -d "${BACKUP_RETENTION_DAYS} days ago" +%Y%m%d)
+                  aws s3 ls "s3://${S3_BUCKET}/redis/" | while read -r line; do
+                    FILE_DATE=$(echo $line | awk '{print $4}' | grep -o '[0-9]\{8\}' | head -1)
+                    if [ "${FILE_DATE}" -lt "${CUTOFF_DATE}" ]; then
+                      FILE_NAME=$(echo $line | awk '{print $4}')
+                      echo "Deleting old backup: ${FILE_NAME}"
+                      aws s3 rm "s3://${S3_BUCKET}/redis/${FILE_NAME}"
+                    fi
+                  done
+
+                  echo "Redis backup completed successfully"
+              volumeMounts:
+                - name: backup-temp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+          volumes:
+            - name: backup-temp
+              emptyDir:
+                sizeLimit: 1Gi
+
+---
+# バックアップ専用ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: day-trade-backup-sa
+  namespace: day-trade
+  labels:
+    app: day-trade-ml
+    component: backup
+
+---
+# バックアップ用ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: day-trade-backup-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes", "persistentvolumeclaims"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list"]
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: day-trade-backup-role-binding
+subjects:
+  - kind: ServiceAccount
+    name: day-trade-backup-sa
+    namespace: day-trade
+roleRef:
+  kind: ClusterRole
+  name: day-trade-backup-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# AWS認証情報Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aws-credentials
+  namespace: day-trade
+  labels:
+    app: day-trade-ml
+    component: backup
+type: Opaque
+data:
+  # Base64エンコード済み（実際の運用では適切なキー管理を使用）
+  access-key-id: QUtJQUlPU0ZPRE5OKEVYQU1QTEU=  # AKIAIOSFODNN7EXAMPLE
+  secret-access-key: d0phbFJYVXROZkVNSS9LN01ERU5HLytCQ2JYWGZUaFFEUTJsNE5zTw==  # wJalrXUtnFEMI/K7MDENG/+bCbXXfTHQDQ2l4NsO
+
+---
+# バックアップ監視用ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: day-trade-backup-monitor
+  namespace: day-trade
+  labels:
+    app: day-trade-ml
+    component: backup
+spec:
+  selector:
+    matchLabels:
+      app: day-trade-backup
+  endpoints:
+    - port: metrics
+      interval: 60s
+      path: /metrics
