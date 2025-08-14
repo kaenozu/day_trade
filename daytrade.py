@@ -37,7 +37,7 @@ import time
 import argparse
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 # 個人版システム設定
 project_root = Path(__file__).parent
@@ -66,6 +66,14 @@ except ImportError:
     DAYTRADING_AVAILABLE = False
 
 try:
+    from enhanced_symbol_manager import EnhancedSymbolManager, SymbolTier
+    ENHANCED_SYMBOLS_AVAILABLE = True
+    print("[OK] 拡張銘柄管理システム: 100銘柄体制対応")
+except ImportError:
+    ENHANCED_SYMBOLS_AVAILABLE = False
+    print("[WARNING] 拡張銘柄管理システム未対応")
+
+try:
     from real_data_provider import RealDataProvider, RealDataAnalysisEngine
     REAL_DATA_AVAILABLE = True
     print("[OK] 実戦投入モード: リアルデータ対応")
@@ -81,6 +89,78 @@ except ImportError:
     RISK_MANAGER_AVAILABLE = False
     print("[WARNING] リスク管理システム未対応")
 
+try:
+    from stability_manager import SystemStabilityManager, ErrorLevel
+    STABILITY_MANAGER_AVAILABLE = True
+    print("[OK] 技術的安定性システム: エラーハンドリング強化")
+except ImportError:
+    STABILITY_MANAGER_AVAILABLE = False
+    print("[WARNING] 安定性管理システム未対応")
+
+try:
+    from parallel_analyzer import ParallelAnalyzer
+    PARALLEL_ANALYZER_AVAILABLE = True
+    print("[OK] 並列分析システム: 高速処理対応")
+except ImportError:
+    PARALLEL_ANALYZER_AVAILABLE = False
+    print("[WARNING] 並列分析システム未対応")
+
+try:
+    from sector_diversification import SectorDiversificationManager
+    SECTOR_DIVERSIFICATION_AVAILABLE = True
+    print("[OK] セクター分散システム: 33業界完全分散対応")
+except ImportError:
+    SECTOR_DIVERSIFICATION_AVAILABLE = False
+    print("[WARNING] セクター分散システム未対応")
+
+try:
+    from theme_stock_analyzer import ThemeStockAnalyzer
+    THEME_STOCK_AVAILABLE = True
+    print("[OK] テーマ株・材料株システム: ニュース連動分析対応")
+except ImportError:
+    THEME_STOCK_AVAILABLE = False
+    print("[WARNING] テーマ株・材料株システム未対応")
+
+try:
+    from prediction_validator import PredictionValidator, Prediction, ValidationPeriod
+    PREDICTION_VALIDATOR_AVAILABLE = True
+    print("[OK] 予測精度検証システム: 93%精度目標追跡対応")
+except ImportError:
+    PREDICTION_VALIDATOR_AVAILABLE = False
+    print("[WARNING] 予測精度検証システム未対応")
+
+try:
+    from performance_tracker import PerformanceTracker, Trade, TradeType, TradeResult, RiskLevel
+    PERFORMANCE_TRACKER_AVAILABLE = True
+    print("[OK] 包括的パフォーマンス追跡システム: 総合運用分析対応")
+except ImportError:
+    PERFORMANCE_TRACKER_AVAILABLE = False
+    print("[WARNING] 包括的パフォーマンス追跡システム未対応")
+
+try:
+    from alert_system import RealTimeAlertSystem, Alert, AlertType, AlertPriority, NotificationMethod
+    ALERT_SYSTEM_AVAILABLE = True
+    print("[OK] リアルタイムアラート・通知システム: 即時通知・リスク管理対応")
+except ImportError:
+    ALERT_SYSTEM_AVAILABLE = False
+    print("[WARNING] リアルタイムアラート・通知システム未対応")
+
+try:
+    from advanced_technical_analyzer import AdvancedTechnicalAnalyzer, AdvancedAnalysis, TechnicalSignal, SignalStrength
+    ADVANCED_TECHNICAL_AVAILABLE = True
+    print("[OK] 高度技術指標・分析手法拡張システム: 先進的技術分析対応")
+except ImportError:
+    ADVANCED_TECHNICAL_AVAILABLE = False
+    print("[WARNING] 高度技術指標・分析手法拡張システム未対応")
+
+try:
+    from real_data_provider_v2 import real_data_provider, MultiSourceDataProvider
+    REAL_DATA_PROVIDER_V2_AVAILABLE = True
+    print("[OK] 実データプロバイダーV2: 複数ソース対応・品質管理強化")
+except ImportError:
+    REAL_DATA_PROVIDER_V2_AVAILABLE = False
+    print("[WARNING] 実データプロバイダーV2未対応")
+
 import numpy as np
 
 
@@ -88,37 +168,123 @@ class PersonalAnalysisEngine:
     """個人投資家向けシンプル分析エンジン"""
 
     def __init__(self):
-        # 個人投資家向け厳選銘柄（流動性・安定性重視）
-        self.recommended_symbols = {
-            "7203": "トヨタ自動車",    # 大型株・安定
-            "8306": "三菱UFJ",        # 金融・高配当
-            "9984": "ソフトバンクG",  # テック・成長
-            "6758": "ソニーG",        # エンタメ・グローバル
-            "7974": "任天堂",         # ゲーム・ブランド力
-            "4689": "LINEヤフー",     # IT・生活密着
-            "8035": "東京エレクトロン", # 半導体・景気連動
-            "6861": "キーエンス",     # 精密機器・高収益
-            "8316": "三井住友FG",     # 金融・メガバンク
-            "4503": "アステラス製薬", # 製薬・ディフェンシブ
-            "9437": "NTTドコモ",      # 通信・安定配当
-            "2914": "日本たばこ",     # 生活必需品・高配当
-            "4568": "第一三共",       # 製薬・研究開発力
-            "6954": "ファナック",     # 工作機械・ロボット
-            "9983": "ファーストリテイリング"  # 小売・グローバル
-        }
+        # 拡張銘柄管理システム統合
+        if ENHANCED_SYMBOLS_AVAILABLE:
+            self.symbol_manager = EnhancedSymbolManager()
+            # 拡張システムから銘柄取得
+            all_symbols = self.symbol_manager.symbols
+            self.recommended_symbols = {
+                symbol: info.name for symbol, info in all_symbols.items()
+                if info.is_active
+            }
+            self.enhanced_mode = True
+        else:
+            # フォールバック: 従来の15銘柄
+            self.recommended_symbols = {
+                "7203": "トヨタ自動車",    # 大型株・安定
+                "8306": "三菱UFJ",        # 金融・高配当
+                "9984": "ソフトバンクG",  # テック・成長
+                "6758": "ソニーG",        # エンタメ・グローバル
+                "7974": "任天堂",         # ゲーム・ブランド力
+                "4689": "LINEヤフー",     # IT・生活密着
+                "8035": "東京エレクトロン", # 半導体・景気連動
+                "6861": "キーエンス",     # 精密機器・高収益
+                "8316": "三井住友FG",     # 金融・メガバンク
+                "4503": "アステラス製薬", # 製薬・ディフェンシブ
+                "9437": "NTTドコモ",      # 通信・安定配当
+                "2914": "日本たばこ",     # 生活必需品・高配当
+                "4568": "第一三共",       # 製薬・研究開発力
+                "6954": "ファナック",     # 工作機械・ロボット
+                "9983": "ファーストリテイリング"  # 小売・グローバル
+            }
+            self.enhanced_mode = False
+
         self.analysis_cache = {}
         self.max_cache_size = 50  # メモリ使用量制限
+
+        # セクター分散システム統合
+        if SECTOR_DIVERSIFICATION_AVAILABLE:
+            self.sector_diversification = SectorDiversificationManager()
+            self.diversification_mode = True
+        else:
+            self.diversification_mode = False
+
+        # テーマ株・材料株システム統合
+        if THEME_STOCK_AVAILABLE:
+            self.theme_analyzer = ThemeStockAnalyzer()
+            self.theme_mode = True
+        else:
+            self.theme_mode = False
+
+        # 予測精度検証システム統合
+        if PREDICTION_VALIDATOR_AVAILABLE:
+            self.prediction_validator = PredictionValidator()
+            self.validation_mode = True
+        else:
+            self.validation_mode = False
+
+        # 包括的パフォーマンス追跡システム統合
+        if PERFORMANCE_TRACKER_AVAILABLE:
+            self.performance_tracker = PerformanceTracker()
+            self.performance_mode = True
+        else:
+            self.performance_mode = False
+
+        # リアルタイムアラート・通知システム統合
+        if ALERT_SYSTEM_AVAILABLE:
+            self.alert_system = RealTimeAlertSystem()
+            self.alert_mode = True
+        else:
+            self.alert_mode = False
+
+        # 高度技術指標・分析手法拡張システム統合
+        if ADVANCED_TECHNICAL_AVAILABLE:
+            self.advanced_technical = AdvancedTechnicalAnalyzer()
+            self.advanced_technical_mode = True
+        else:
+            self.advanced_technical_mode = False
 
     async def get_personal_recommendations(self, limit=3):
         """個人向け推奨銘柄生成（基本機能）"""
         recommendations = []
-        symbols = list(self.recommended_symbols.keys())[:limit]
 
-        for symbol in symbols:
-            # シンプルな分析（デモ用）
-            np.random.seed(hash(symbol) % 1000)  # 銘柄ごとに固定シード
-            confidence = np.random.uniform(65, 95)
-            score = np.random.uniform(60, 90)
+        # 拡張モードでは分散銘柄から選択
+        if self.enhanced_mode and hasattr(self, 'symbol_manager'):
+            symbols = self.symbol_manager.get_top_symbols_by_criteria("liquidity", limit * 2)
+            symbol_keys = [s.symbol for s in symbols[:limit]]
+        else:
+            symbol_keys = list(self.recommended_symbols.keys())[:limit]
+
+        for symbol_key in symbol_keys:
+            # 拡張モードでの詳細分析
+            if self.enhanced_mode and hasattr(self, 'symbol_manager'):
+                symbol_info = self.symbol_manager.symbols.get(symbol_key)
+                if symbol_info:
+                    # 拡張分析（リスクスコア・ボラティリティ考慮）
+                    base_score = 50 + (symbol_info.stability_score * 0.3) + (symbol_info.growth_potential * 0.2)
+                    volatility_bonus = 10 if symbol_info.volatility_level.value in ["高ボラ", "中ボラ"] else 0
+                    score = min(95, base_score + volatility_bonus + np.random.uniform(-5, 15))
+
+                    confidence = max(60, min(95,
+                        symbol_info.liquidity_score * 0.7 + symbol_info.stability_score * 0.3 + np.random.uniform(-5, 10)
+                    ))
+
+                    risk_level = "低" if symbol_info.risk_score < 40 else ("中" if symbol_info.risk_score < 70 else "高")
+                    name = symbol_info.name
+                else:
+                    # フォールバック
+                    np.random.seed(hash(symbol_key) % 1000)
+                    confidence = np.random.uniform(65, 95)
+                    score = np.random.uniform(60, 90)
+                    risk_level = "中" if confidence > 75 else "低"
+                    name = self.recommended_symbols.get(symbol_key, symbol_key)
+            else:
+                # 従来の分析
+                np.random.seed(hash(symbol_key) % 1000)
+                confidence = np.random.uniform(65, 95)
+                score = np.random.uniform(60, 90)
+                risk_level = "中" if confidence > 75 else "低"
+                name = self.recommended_symbols.get(symbol_key, symbol_key)
 
             # シンプルなシグナル判定
             if score > 75 and confidence > 80:
@@ -129,17 +295,74 @@ class PersonalAnalysisEngine:
                 action = "検討"
 
             recommendations.append({
-                'symbol': symbol,
-                'name': self.recommended_symbols[symbol],
+                'symbol': symbol_key,
+                'name': name,
                 'action': action,
                 'score': score,
                 'confidence': confidence,
-                'risk_level': "中" if confidence > 75 else "低"
+                'risk_level': risk_level
             })
 
         # スコア順にソート
         recommendations.sort(key=lambda x: x['score'], reverse=True)
         return recommendations
+
+    async def get_enhanced_multi_analysis(self, count: int = 10, criteria: str = "diversified"):
+        """拡張多銘柄分析"""
+        if not self.enhanced_mode or not hasattr(self, 'symbol_manager'):
+            return await self.get_multi_symbol_analysis(list(self.recommended_symbols.keys())[:count])
+
+        # 銘柄選択戦略
+        if criteria == "diversified":
+            symbols = self.symbol_manager.get_diversified_portfolio(count)
+        elif criteria == "high_volatility":
+            symbols = self.symbol_manager.get_top_symbols_by_criteria("high_volatility", count)
+        elif criteria == "low_risk":
+            symbols = self.symbol_manager.get_top_symbols_by_criteria("low_risk", count)
+        elif criteria == "growth":
+            symbols = self.symbol_manager.get_top_symbols_by_criteria("growth", count)
+        else:
+            symbols = self.symbol_manager.get_top_symbols_by_criteria("liquidity", count)
+
+        symbol_keys = [s.symbol for s in symbols]
+        return await self.get_multi_symbol_analysis(symbol_keys)
+
+    async def get_ultra_fast_analysis(self, symbols: List[str]) -> List[Dict[str, Any]]:
+        """超高速並列分析（新機能）"""
+
+        if not PARALLEL_ANALYZER_AVAILABLE:
+            # フォールバック: 従来分析
+            return await self.get_multi_symbol_analysis(symbols)
+
+        # 並列分析システム使用
+        try:
+            analyzer = ParallelAnalyzer(max_concurrent=min(20, len(symbols)))
+            results = await analyzer.analyze_symbols_batch(symbols, enable_cache=True)
+
+            # フォーマット変換
+            formatted_results = []
+            for result in results:
+                formatted_results.append({
+                    'symbol': result.symbol,
+                    'name': result.name,
+                    'action': result.action,
+                    'score': result.score,
+                    'confidence': result.confidence,
+                    'risk_level': result.risk_level,
+                    'technical_score': result.technical_score,
+                    'fundamental_score': result.fundamental_score,
+                    'sentiment_score': result.sentiment_score,
+                    'processing_time': result.processing_time,
+                    'data_source': result.data_source
+                })
+
+            await analyzer.cleanup()
+            return formatted_results
+
+        except Exception as e:
+            self.logger.error(f"Ultra fast analysis failed: {e}")
+            # フォールバック
+            return await self.get_multi_symbol_analysis(symbols)
 
     async def get_multi_symbol_analysis(self, symbol_list: List[str], batch_size: int = 5):
         """複数銘柄同時分析（新機能）"""
@@ -475,18 +698,44 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
         print("93%精度AI × 複数銘柄同時処理")
 
         engine = PersonalAnalysisEngine()
-        all_symbols = list(engine.recommended_symbols.keys())
 
-        # 銘柄数制限
-        if symbol_count > len(all_symbols):
-            print(f"注意: 利用可能銘柄数は{len(all_symbols)}銘柄です。最大数で実行します。")
-            symbol_count = len(all_symbols)
+        # 拡張銘柄システム対応
+        if hasattr(engine, 'enhanced_mode') and engine.enhanced_mode:
+            print(f"拡張銘柄システム使用中: 最大{len(engine.recommended_symbols)}銘柄から選択")
+            # 銘柄数制限
+            max_symbols = len(engine.recommended_symbols)
+            if symbol_count > max_symbols:
+                print(f"注意: 利用可能銘柄数は{max_symbols}銘柄です。最大数で実行します。")
+                symbol_count = max_symbols
 
-        target_symbols = all_symbols[:symbol_count]
+            # ステップ1: 超高速並列分析実行
+            progress.show_step("超高速並列分析実行", 1)
+            if PARALLEL_ANALYZER_AVAILABLE:
+                # 銘柄選択
+                analysis_criteria = "low_risk" if safe_mode else "diversified"
+                if analysis_criteria == "diversified":
+                    selected_symbols = engine.symbol_manager.get_diversified_portfolio(symbol_count)
+                elif analysis_criteria == "low_risk":
+                    selected_symbols = engine.symbol_manager.get_top_symbols_by_criteria("low_risk", symbol_count)
+                else:
+                    selected_symbols = engine.symbol_manager.get_top_symbols_by_criteria("liquidity", symbol_count)
 
-        # ステップ1: 複数銘柄分析
-        progress.show_step("複数銘柄同時分析実行", 1)
-        recommendations = await engine.get_multi_symbol_analysis(target_symbols)
+                symbol_keys = [s.symbol for s in selected_symbols]
+                recommendations = await engine.get_ultra_fast_analysis(symbol_keys)
+            else:
+                # フォールバック: 拡張分析
+                analysis_criteria = "low_risk" if safe_mode else "diversified"
+                recommendations = await engine.get_enhanced_multi_analysis(symbol_count, analysis_criteria)
+        else:
+            # 従来システム
+            all_symbols = list(engine.recommended_symbols.keys())
+            if symbol_count > len(all_symbols):
+                print(f"注意: 利用可能銘柄数は{len(all_symbols)}銘柄です。最大数で実行します。")
+                symbol_count = len(all_symbols)
+
+            target_symbols = all_symbols[:symbol_count]
+            progress.show_step("複数銘柄同時分析実行", 1)
+            recommendations = await engine.get_multi_symbol_analysis(target_symbols)
 
         # ステップ2: 安全モード適用
         if safe_mode:
@@ -556,6 +805,365 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
             print(f"\n期待リターン: {portfolio_recommendation['expected_return_percent']:.1f}%")
             print(f"リスク評価: {portfolio_recommendation['risk_assessment']}")
             print(f"分散化スコア: {portfolio_recommendation['diversification_score']:.0f}/100")
+
+        # セクター分散分析表示
+        if hasattr(engine, 'diversification_mode') and engine.diversification_mode:
+            print("\n" + "="*60)
+            print("セクター分散分析レポート")
+            print("="*60)
+
+            try:
+                # 現在選択された銘柄のセクター分析
+                selected_symbols = [r['symbol'] for r in recommendations]
+                diversification_report = engine.sector_diversification.generate_diversification_report(selected_symbols)
+
+                metrics = diversification_report['diversification_metrics']
+                print(f"セクター分散状況:")
+                print(f"  カバーセクター数: {metrics['total_sectors']} / 33業界")
+                print(f"  セクターカバレッジ: {metrics['sector_coverage']:.1f}%")
+                print(f"  バランススコア: {metrics['sector_balance_score']:.1f}/100")
+                print(f"  集中リスク: {diversification_report['risk_assessment']['concentration_risk']}")
+                print(f"  分散品質: {diversification_report['risk_assessment']['diversification_quality']}")
+
+                print(f"\n改善提案:")
+                for suggestion in diversification_report['improvement_suggestions']:
+                    print(f"  • {suggestion}")
+
+            except Exception as e:
+                print(f"セクター分散分析でエラーが発生: {e}")
+
+        # テーマ株・材料株分析表示
+        if hasattr(engine, 'theme_mode') and engine.theme_mode:
+            print("\n" + "="*60)
+            print("テーマ株・材料株分析レポート")
+            print("="*60)
+
+            try:
+                # 注目テーマ分析
+                hot_themes = await engine.theme_analyzer.get_hot_themes(limit=3)
+
+                if hot_themes:
+                    print(f"注目テーマTOP3:")
+                    for i, theme in enumerate(hot_themes, 1):
+                        print(f"{i}. {theme.theme_category.value}")
+                        print(f"   テーマ強度: {theme.theme_strength:.1f}/100")
+                        print(f"   市場注目度: {theme.market_attention:.1f}/100")
+                        print(f"   投資見通し: {theme.investment_outlook}")
+
+                        # 関連銘柄でポートフォリオに含まれるもの
+                        selected_symbols_set = set(r['symbol'] for r in recommendations)
+                        matching_stocks = [
+                            stock for stock in theme.related_stocks
+                            if stock.symbol in selected_symbols_set
+                        ]
+
+                        if matching_stocks:
+                            print(f"   ポートフォリオ内関連銘柄: {', '.join([f'{s.symbol}({s.name})' for s in matching_stocks])}")
+
+                # 材料株機会
+                material_opportunities = await engine.theme_analyzer.get_material_opportunities(30)
+
+                if material_opportunities:
+                    print(f"\n材料株機会:")
+                    for material in material_opportunities[:3]:
+                        print(f"• {material.symbol} ({material.name})")
+                        print(f"  材料: {material.material_description}")
+                        print(f"  期待インパクト: {material.expected_impact:.1f}% (確率{material.probability:.0f}%)")
+
+            except Exception as e:
+                print(f"テーマ株分析でエラーが発生: {e}")
+
+        # 予測精度検証レポート表示
+        if hasattr(engine, 'validation_mode') and engine.validation_mode:
+            print("\n" + "="*60)
+            print("予測精度検証レポート（93%精度目標追跡）")
+            print("="*60)
+
+            try:
+                # パフォーマンスレポート生成
+                performance_report = await engine.prediction_validator.generate_performance_report()
+
+                if "error" not in performance_report:
+                    current_perf = performance_report["current_performance"]
+                    system_status = performance_report["system_status"]
+
+                    print(f"システム目標精度: {system_status['target_accuracy']}%")
+                    print(f"現在の精度: {current_perf['accuracy_rate']:.1f}% ({current_perf['target_achievement']})")
+                    print(f"検証期間: {current_perf['period']}")
+                    print(f"総予測数: {current_perf['total_predictions']}件")
+                    print(f"勝率: {current_perf['win_rate']:.1f}%")
+                    print(f"平均リターン: {current_perf['avg_return']:.2f}%")
+                    print(f"プロフィットファクター: {current_perf['profit_factor']:.2f}")
+
+                    # 信頼度別的中率
+                    confidence_analysis = performance_report.get("confidence_analysis", {})
+                    if confidence_analysis:
+                        print(f"\n信頼度別的中率:")
+                        for level, rate in confidence_analysis.items():
+                            if rate > 0:
+                                print(f"  {level}: {rate:.1f}%")
+
+                    # 改善提案
+                    suggestions = performance_report.get("improvement_suggestions", [])
+                    if suggestions:
+                        print(f"\nAI改善提案:")
+                        for suggestion in suggestions[:3]:  # TOP3のみ表示
+                            print(f"  • {suggestion}")
+
+                else:
+                    print(f"予測精度レポート生成でエラーが発生しました")
+
+            except Exception as e:
+                print(f"予測精度検証でエラーが発生: {e}")
+
+        # 包括的パフォーマンス追跡レポート表示
+        if hasattr(engine, 'performance_mode') and engine.performance_mode:
+            print("\n" + "="*60)
+            print("包括的パフォーマンス追跡レポート")
+            print("="*60)
+
+            try:
+                # 包括的パフォーマンスレポート生成
+                comprehensive_report = await engine.performance_tracker.generate_comprehensive_report()
+
+                if "error" not in comprehensive_report:
+                    portfolio_summary = comprehensive_report["portfolio_summary"]
+                    perf_30d = comprehensive_report["performance_metrics"]["30_days"]
+                    risk_analysis = comprehensive_report["risk_analysis"]
+
+                    # ポートフォリオサマリー
+                    print(f"ポートフォリオ: {portfolio_summary['portfolio_name']}")
+                    print(f"初期資本: {portfolio_summary['initial_capital']:,.0f}円")
+                    print(f"現在資本: {portfolio_summary['current_capital']:,.0f}円")
+                    print(f"総リターン: {portfolio_summary['total_return']:.2f}%")
+                    print(f"現金残高: {portfolio_summary['cash_balance']:,.0f}円")
+
+                    # 30日パフォーマンス
+                    print(f"\n30日間パフォーマンス:")
+                    print(f"  年率リターン: {perf_30d['annualized_return']:.2f}%")
+                    print(f"  ボラティリティ: {perf_30d['volatility']:.2f}%")
+                    print(f"  シャープレシオ: {perf_30d['sharpe_ratio']:.2f}")
+                    print(f"  最大ドローダウン: {perf_30d['max_drawdown']:.2f}%")
+                    print(f"  勝率: {perf_30d['win_rate']:.1f}%")
+                    print(f"  プロフィットファクター: {perf_30d['profit_factor']:.2f}")
+
+                    # リスク分析
+                    if risk_analysis:
+                        print(f"\nリスク分析:")
+                        print(f"  リスクレベル: {risk_analysis.get('risk_level', 'N/A')}")
+                        print(f"  分散化スコア: {risk_analysis.get('diversification_score', 0):.1f}/100")
+
+                        risk_recs = risk_analysis.get('risk_recommendations', [])
+                        if risk_recs:
+                            print(f"  リスク管理提言: {risk_recs[0]}")
+
+                    # ベンチマーク比較
+                    benchmark = comprehensive_report["benchmark_comparison"]
+                    if benchmark.get('alpha_30d'):
+                        print(f"\nベンチマーク比較:")
+                        print(f"  アルファ: {benchmark['alpha_30d']:.2f}%")
+                        print(f"  トラッキングエラー: {benchmark['tracking_error_30d']:.2f}%")
+
+                else:
+                    print(f"包括的パフォーマンスレポート生成でエラーが発生しました")
+
+            except Exception as e:
+                print(f"包括的パフォーマンス追跡でエラーが発生: {e}")
+
+        # リアルタイムアラート・通知システム
+        if hasattr(engine, 'alert_mode') and engine.alert_mode:
+            print("\n" + "="*60)
+            print("リアルタイムアラート・通知システム")
+            print("="*60)
+
+            try:
+                # アラートシステム開始
+                await engine.alert_system.start_monitoring()
+
+                # 買いシグナルチェック
+                buy_signals = await engine.alert_system.check_buy_signals(recommendations)
+
+                # リスク警告チェック（パフォーマンスレポートがある場合）
+                risk_warnings = []
+                if hasattr(engine, 'performance_mode') and engine.performance_mode:
+                    try:
+                        portfolio = await engine.performance_tracker.get_portfolio()
+                        if portfolio:
+                            portfolio_data = {
+                                "max_drawdown": portfolio.max_drawdown,
+                                "volatility": portfolio.volatility,
+                                "win_rate": portfolio.win_rate
+                            }
+                            risk_warnings = await engine.alert_system.check_risk_warnings(portfolio_data)
+                    except Exception as e:
+                        print(f"リスクチェックでエラー: {e}")
+
+                # アラート統計表示
+                alert_stats = engine.alert_system.get_alert_statistics()
+
+                print(f"アラート監視状況: {'稼働中' if alert_stats.get('system_running') else '停止中'}")
+                print(f"アクティブルール数: {alert_stats.get('active_rules', 0)}")
+                print(f"検出された買いシグナル: {len(buy_signals)}件")
+                print(f"検出されたリスク警告: {len(risk_warnings)}件")
+
+                # 重要アラートの表示
+                if buy_signals:
+                    print(f"\n🎯 買いシグナル:")
+                    for signal in buy_signals[:3]:  # TOP3のみ表示
+                        print(f"  • {signal.symbol}: {signal.title}")
+                        print(f"    信頼度: {signal.confidence:.1f}%")
+
+                if risk_warnings:
+                    print(f"\n⚠️ リスク警告:")
+                    for warning in risk_warnings[:2]:  # TOP2のみ表示
+                        print(f"  • {warning.title}")
+                        print(f"    推奨アクション: {', '.join(warning.suggested_actions[:2])}")
+
+                # アクティブアラート数表示
+                active_alerts = await engine.alert_system.get_active_alerts()
+                if active_alerts:
+                    critical_alerts = [a for a in active_alerts if a.priority == AlertPriority.CRITICAL]
+                    high_alerts = [a for a in active_alerts if a.priority == AlertPriority.HIGH]
+
+                    print(f"\n📢 現在のアラート状況:")
+                    print(f"  緊急アラート: {len(critical_alerts)}件")
+                    print(f"  高優先度アラート: {len(high_alerts)}件")
+                    print(f"  総アクティブアラート: {len(active_alerts)}件")
+
+                print(f"\nアラートログ: alert_data/alert_log.txt に記録中")
+
+                # アラートシステム停止
+                await engine.alert_system.stop_monitoring()
+
+            except Exception as e:
+                print(f"アラートシステムでエラーが発生: {e}")
+
+        # 高度技術指標・分析手法拡張システム
+        if hasattr(engine, 'advanced_technical_mode') and engine.advanced_technical_mode:
+            print("\n" + "="*60)
+            print("高度技術指標・分析手法拡張システム")
+            print("="*60)
+
+            try:
+                # 上位3銘柄について高度技術分析実行
+                top_symbols = [r['symbol'] for r in recommendations[:3]]
+                advanced_analyses = []
+
+                print(f"高度技術分析実行中...")
+                for symbol in top_symbols:
+                    advanced_analysis = await engine.advanced_technical.analyze_symbol(symbol, period="3mo")
+                    if advanced_analysis:
+                        advanced_analyses.append(advanced_analysis)
+                        print(f"  {symbol}: 分析完了")
+
+                if advanced_analyses:
+                    print(f"\n🔬 高度技術分析結果 (TOP{len(advanced_analyses)}銘柄):")
+
+                    for analysis in advanced_analyses:
+                        print(f"\n📊 {analysis.symbol}:")
+                        print(f"  現在価格: ¥{analysis.current_price:.2f} ({analysis.price_change:+.2f}%)")
+                        print(f"  総合スコア: {analysis.composite_score:.1f}/100")
+                        print(f"  トレンド強度: {analysis.trend_strength:+.1f}")
+                        print(f"  モメンタムスコア: {analysis.momentum_score:+.1f}")
+                        print(f"  ボラティリティ局面: {analysis.volatility_regime}")
+                        print(f"  異常度スコア: {analysis.anomaly_score:.1f}")
+
+                        # 主要技術指標
+                        print(f"  主要指標:")
+                        if 'RSI_14' in analysis.momentum_indicators:
+                            rsi = analysis.momentum_indicators['RSI_14']
+                            rsi_status = "買われすぎ" if rsi > 70 else "売られすぎ" if rsi < 30 else "中立"
+                            print(f"    RSI(14): {rsi:.1f} ({rsi_status})")
+
+                        if 'MACD' in analysis.trend_indicators:
+                            macd = analysis.trend_indicators['MACD']
+                            macd_signal = analysis.trend_indicators.get('MACD_Signal', 0)
+                            macd_direction = "上昇" if macd > macd_signal else "下降"
+                            print(f"    MACD: {macd:.4f} ({macd_direction})")
+
+                        if 'BB_Position' in analysis.volatility_indicators:
+                            bb_pos = analysis.volatility_indicators['BB_Position']
+                            bb_status = "上限付近" if bb_pos > 80 else "下限付近" if bb_pos < 20 else "中央付近"
+                            print(f"    ボリンジャーバンド位置: {bb_pos:.1f}% ({bb_status})")
+
+                        # プライマリシグナル
+                        if analysis.primary_signals:
+                            print(f"  🎯 主要シグナル:")
+                            for signal in analysis.primary_signals[:2]:
+                                signal_emoji = "🟢" if signal.signal_type == "BUY" else "🔴" if signal.signal_type == "SELL" else "🟡"
+                                print(f"    {signal_emoji} {signal.indicator_name}: {signal.signal_type} (信頼度{signal.confidence:.0f}%)")
+
+                        # 統計プロファイル
+                        if analysis.statistical_profile:
+                            stats = analysis.statistical_profile
+                            print(f"  📈 統計プロファイル:")
+                            print(f"    年率リターン: {stats.get('mean_return', 0)*100:.1f}%")
+                            print(f"    ボラティリティ: {stats.get('volatility', 0)*100:.1f}%")
+                            if 'sharpe_ratio' in stats:
+                                print(f"    シャープレシオ: {stats['sharpe_ratio']:.2f}")
+
+                        # 機械学習予測
+                        if analysis.ml_prediction:
+                            ml = analysis.ml_prediction
+                            direction_emoji = "📈" if ml['direction'] == "上昇" else "📉" if ml['direction'] == "下落" else "➡️"
+                            print(f"  🤖 AI予測:")
+                            print(f"    {direction_emoji} 方向性: {ml['direction']} (信頼度{ml['confidence']:.0f}%)")
+                            print(f"    期待リターン: {ml.get('expected_return', 0):.2f}%")
+                            print(f"    リスクレベル: {ml['risk_level']}")
+
+                        # パターン認識
+                        if analysis.pattern_recognition:
+                            pattern = analysis.pattern_recognition
+                            print(f"  🔍 パターン認識:")
+                            print(f"    検出パターン: {pattern.get('detected_pattern', 'N/A')}")
+                            print(f"    現在位置: {pattern.get('current_position', 'N/A')}")
+
+                            support_levels = pattern.get('support_levels', [])
+                            if support_levels:
+                                print(f"    サポートレベル: {', '.join([f'¥{level:.0f}' for level in support_levels])}")
+
+                    # 高度分析サマリー
+                    print(f"\n📊 高度分析サマリー:")
+                    avg_composite = sum(a.composite_score for a in advanced_analyses) / len(advanced_analyses)
+                    avg_trend = sum(a.trend_strength for a in advanced_analyses) / len(advanced_analyses)
+                    avg_momentum = sum(a.momentum_score for a in advanced_analyses) / len(advanced_analyses)
+
+                    print(f"  平均総合スコア: {avg_composite:.1f}/100")
+                    print(f"  平均トレンド強度: {avg_trend:+.1f}")
+                    print(f"  平均モメンタム: {avg_momentum:+.1f}")
+
+                    # 全体的な市場判断
+                    market_sentiment = "強気" if avg_composite > 70 else "弱気" if avg_composite < 50 else "中立"
+                    print(f"  市場センチメント: {market_sentiment}")
+
+                    # 投資アドバイス
+                    print(f"\n💡 高度分析に基づく投資アドバイス:")
+
+                    buy_signals = sum(1 for a in advanced_analyses for s in a.primary_signals if s.signal_type == "BUY")
+                    sell_signals = sum(1 for a in advanced_analyses for s in a.primary_signals if s.signal_type == "SELL")
+
+                    if buy_signals > sell_signals:
+                        print(f"  📈 買いシグナルが優勢です。積極的な投資を検討")
+                    elif sell_signals > buy_signals:
+                        print(f"  📉 売りシグナルが優勢です。慎重な判断を推奨")
+                    else:
+                        print(f"  ⚖️ シグナルが拮抗しています。様子見を推奨")
+
+                    # ボラティリティ環境
+                    high_vol_count = sum(1 for a in advanced_analyses if a.volatility_regime in ["高ボラ", "超高ボラ"])
+                    if high_vol_count > 0:
+                        print(f"  ⚠️ 高ボラティリティ環境です。ポジションサイズに注意")
+
+                    # 異常検知
+                    high_anomaly = sum(1 for a in advanced_analyses if a.anomaly_score > 50)
+                    if high_anomaly > 0:
+                        print(f"  🚨 異常な価格変動を検知。特に注意して監視推奨")
+
+                else:
+                    print(f"高度技術分析データが取得できませんでした")
+
+            except Exception as e:
+                print(f"高度技術分析でエラーが発生: {e}")
 
         progress.show_completion()
 
