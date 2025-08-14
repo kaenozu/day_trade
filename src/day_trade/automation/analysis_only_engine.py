@@ -301,7 +301,7 @@ class AnalysisOnlyEngine:
                     f"historical_data_{symbol}", "data_fetch"
                 ):
                     historical_data = await asyncio.get_event_loop().run_in_executor(
-                        None, self.stock_fetcher.get_historical_data, symbol, "30d"
+                        None, self.stock_fetcher.get_historical_data, symbol, "1mo"
                     )
 
                 # シグナル生成（パフォーマンス監視付き）

@@ -255,7 +255,7 @@ class TradingEngine:
                         self.executor,
                         self.stock_fetcher.get_historical_data,
                         symbol,
-                        "30d",
+                        "1mo",
                     )
 
                     if historical_data is not None and not historical_data.empty:
