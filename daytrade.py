@@ -27,11 +27,14 @@ sys.path.insert(0, str(project_root))
 FULL_SYSTEM_AVAILABLE = False  # 個人版はシンプルシステムのみ
 
 # オプション機能のインポート
+CHART_AVAILABLE = False # チャート機能が利用可能かどうかのフラグ
 try:
-    from src.day_trade.visualization.personal_charts import PersonalChartGenerator
+    # matplotlibとseabornがインストールされていればTrueにする (ここではインポートしない)
+    import matplotlib
+    import seaborn
     CHART_AVAILABLE = True
 except ImportError:
-    CHART_AVAILABLE = False
+    pass # インポートできない場合はFalseのまま
 
 try:
     from analysis_history import PersonalAnalysisHistory, PersonalAlertSystem
@@ -381,9 +384,14 @@ async def run_quick_mode(symbols: Optional[List[str]] = None, generate_chart: bo
         progress.show_completion()
 
         # チャート生成（オプション）
-        if generate_chart and CHART_AVAILABLE:
-            print("\n[チャート] グラフ生成中...")
+        if generate_chart:
+            print()
+            print("[チャート] グラフ生成中...")
             try:
+                # ここでチャート関連モジュールを遅延インポート
+                import matplotlib.pyplot as plt
+                import seaborn as sns
+                from src.day_trade.visualization.personal_charts import PersonalChartGenerator
                 chart_gen = PersonalChartGenerator()
 
                 # 分析結果チャート
@@ -394,12 +402,13 @@ async def run_quick_mode(symbols: Optional[List[str]] = None, generate_chart: bo
                 print(f"[チャート] サマリーチャートを保存しました: {summary_chart_path}")
                 print("[チャート] 投資判断の参考にしてください")
 
+            except ImportError:
+                print()
+                print("[警告] チャート機能が利用できません")
+                print("pip install matplotlib seaborn で必要なライブラリをインストールしてください")
             except Exception as e:
                 print(f"[警告] チャート生成エラー: {e}")
                 print("テキスト結果をご参照ください")
-        elif generate_chart and not CHART_AVAILABLE:
-            print("\n[警告] チャート機能が利用できません")
-            print("pip install matplotlib でmatplotlibをインストールしてください")
 
         print("\n個人投資家向けガイド:")
         print("・スコア70点以上: 投資検討価値が高い銘柄")
@@ -524,9 +533,17 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
         progress.show_completion()
 
         # チャート生成（オプション）
-        if generate_chart and CHART_AVAILABLE:
-            print("\n[チャート] 複数銘柄分析グラフ生成中...")
+        if generate_chart:
+            print()
+            print()
+            print("[チャート] 複数銘柄分析グラフ生成中...")
+            print()
+            print()
             try:
+                # ここでチャート関連モジュールを遅延インポート
+                import matplotlib.pyplot as plt
+                import seaborn as sns
+                from src.day_trade.visualization.personal_charts import PersonalChartGenerator
                 chart_gen = PersonalChartGenerator()
 
                 # TOP10のみをチャート化（見やすさのため）
@@ -537,6 +554,10 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
                 print(f"[チャート] 分析チャートを保存しました: {analysis_chart_path}")
                 print(f"[チャート] サマリーチャートを保存しました: {summary_chart_path}")
 
+            except ImportError:
+                print()
+                print("[警告] チャート機能が利用できません")
+                print("pip install matplotlib seaborn で必要なライブラリをインストールしてください")
             except Exception as e:
                 print(f"[警告] チャート生成エラー: {e}")
 
