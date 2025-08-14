@@ -46,6 +46,7 @@ dependencies = [
     "cryptography>=41.0.0,<43.0",  # Encryption support
     "pyotp>=2.9.0,<3.0",  # TOTP/MFA support
     "qrcode[pil]>=7.4.0,<8.0",  # QR code generation for MFA
+    "catboost>=1.2.0,<2.0", # Added for ML ensemble system
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

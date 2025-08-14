@@ -11,6 +11,8 @@ from datetime import datetime, time, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from src.day_trade.ml.base_models.random_forest_model import RandomForestModel
+from src.day_trade.data.fetchers.yfinance_fetcher import YFinanceFetcher
 
 # 実データプロバイダー統合
 try:
@@ -95,6 +97,14 @@ class PersonalDayTradingEngine:
         else:
             self.real_data_engine = None
             self.data_mode = "DEMO"
+
+        # MLモデルの初期化とロード (仮実装)
+        try:
+            self.ml_model = RandomForestModel() # configは後で追加
+            self.data_fetcher = YFinanceFetcher() # YFinanceFetcherの初期化
+        except ImportError:
+            self.ml_model = None
+            self.data_fetcher = None
 
     def _get_current_trading_session(self) -> TradingSession:
         """現在の取引時間帯を取得（正確な市場時間管理）"""
@@ -267,14 +277,33 @@ class PersonalDayTradingEngine:
         """翌日前場機会分析"""
         symbol_name = self.daytrading_symbols[symbol]
 
-        # 翌日ベースのシード
-        np.random.seed(hash(symbol + tomorrow_str) % 1000)
+        # AIモデルによる予測に置き換え
+        # 1. 予測に必要な市場データを取得
+        market_data = self._fetch_mock_market_data(symbol, tomorrow_str)
 
-        # 翌日前場を想定した指標
-        overnight_gap = np.random.uniform(-2.0, 2.0)    # オーバーナイトギャップ
-        premarket_momentum = np.random.uniform(-1.5, 1.5)  # 前場想定モメンタム
-        volume_expectation = np.random.uniform(0.8, 2.0)   # 出来高期待値
-        volatility_forecast = np.random.uniform(2.0, 6.0)  # ボラティリティ予想
+        # 2. 取得したデータから特徴量を生成
+        features = self._prepare_features_for_prediction(market_data)
+
+        # 3. AIモデルで予測
+        # predictions配列の各要素が、オーバーナイトギャップ、プレマーケットモメンタムなどの予測値に対応すると仮定
+        # この部分のインデックスと意味は、実際のMLモデルの実装に依存
+        # 例: predictions[0] = overnight_gap, predictions[1] = premarket_momentum など
+        # 今回は暫定的に、予測結果の最初のいくつかの要素を割り当てる
+        prediction_results = self.ml_model.predict(features)
+
+        # predictionsとconfidenceの形状を確認し、適切に割り当てる
+        # ここでは単一の予測値を想定
+        predicted_values = prediction_results.predictions.flatten()
+        confidence_values = prediction_results.confidence.flatten() if prediction_results.confidence is not None else np.array([0.0])
+
+        overnight_gap = predicted_values[0] if len(predicted_values) > 0 else 0.0
+        premarket_momentum = predicted_values[1] if len(predicted_values) > 1 else 0.0
+        volume_expectation = predicted_values[2] if len(predicted_values) > 2 else 0.0
+        volatility_forecast = predicted_values[3] if len(predicted_values) > 3 else 0.0
+
+        # 信頼度を考慮した上で、ランダム性を残すか、完全にAI予測に置き換えるかを検討する
+        # ここではAI予測を優先
+        confidence = 75.0 # AIモデルの信頼度をここに反映させる
 
         # 翌日前場シグナル判定
         signal = self._determine_tomorrow_premarket_signal(
@@ -292,10 +321,16 @@ class PersonalDayTradingEngine:
         # 前場推奨保有時間
         holding_time = self._get_premarket_holding_time(signal)
 
-        # 翌日予想信頼度
-        confidence = self._calculate_premarket_confidence(
-            signal, volatility_forecast, volume_expectation
-        )
+        # 翌日予想信頼度 (AIモデルの信頼度を使用)
+        # prediction_results.confidenceが存在し、かつ値が1つ以上ある場合、その平均値を使用
+        # 存在しない場合、または値がない場合は、以前の計算ロジックをフォールバックとして使用するか、固定値を割り当てる
+        if confidence_values.size > 0:
+            confidence = np.mean(confidence_values) * 100 # %表示にするため
+        else:
+            # フォールバックとして以前のロジックを使用
+            confidence = self._calculate_premarket_confidence(
+                signal, volatility_forecast, volume_expectation
+            )
 
         # リスク評価（オーバーナイト考慮）
         risk_level = self._assess_premarket_risk(volatility_forecast, overnight_gap)
@@ -456,13 +491,23 @@ class PersonalDayTradingEngine:
         """デイトレード機会分析"""
         symbol_name = self.daytrading_symbols[symbol]
 
-        # シード固定で銘柄ごとに一貫した分析
-        np.random.seed(hash(symbol + str(datetime.now().date())) % 1000)
+        # AIモデルによる予測に置き換え
+        # 1. 予測に必要な市場データを取得
+        market_data = self._fetch_mock_market_data(symbol, str(datetime.now().date()).replace('-', '')) # YYYYMMDD形式に変換
 
-        # デイトレード専用指標計算
-        intraday_volatility = np.random.uniform(1.5, 8.0)  # 日中ボラティリティ%
-        volume_ratio = np.random.uniform(0.7, 2.5)        # 平均出来高比
-        price_momentum = np.random.uniform(-3.0, 3.0)     # 価格モメンタム%
+        # 2. 取得したデータから特徴量を生成
+        features = self._prepare_features_for_prediction(market_data)
+
+        # 3. AIモデルで予測
+        # predictions配列の各要素が、日中ボラティリティ、出来高比率、価格モメンタムなどの予測値に対応すると仮定
+        prediction_results = self.ml_model.predict(features)
+
+        predicted_values = prediction_results.predictions.flatten()
+        confidence_values = prediction_results.confidence.flatten() if prediction_results.confidence is not None else np.array([0.0])
+
+        intraday_volatility = predicted_values[0] if len(predicted_values) > 0 else 0.0
+        volume_ratio = predicted_values[1] if len(predicted_values) > 1 else 0.0
+        price_momentum = predicted_values[2] if len(predicted_values) > 2 else 0.0
 
         # 時間帯別補正
         session_multiplier = self._get_session_multiplier(session)
@@ -487,10 +532,14 @@ class PersonalDayTradingEngine:
         # 推奨保有時間
         holding_time = self._get_recommended_holding_time(signal, session)
 
-        # 信頼度計算（時間帯と市況を考慮）
-        confidence = self._calculate_daytrading_confidence(
-            signal, adjusted_volatility, volume_ratio, session
-        )
+        # 信頼度計算（AIモデルの信頼度を使用）
+        if confidence_values.size > 0:
+            confidence = np.mean(confidence_values) * 100 # %表示にするため
+        else:
+            # フォールバックとして以前のロジックを使用
+            confidence = self._calculate_daytrading_confidence(
+                signal, adjusted_volatility, volume_ratio, session
+            )
 
         # リスクレベル
         risk_level = self._assess_daytrading_risk(adjusted_volatility, signal)
@@ -530,6 +579,116 @@ class PersonalDayTradingEngine:
             TradingSession.AFTER_MARKET: 0.4       # 引け後は限定的
         }
         return multipliers.get(session, 1.0)
+
+    def _fetch_mock_market_data(self, symbol: str, date_str: str) -> Dict[str, Any]:
+        """
+        市場データ取得メソッド
+        YFinanceFetcherを使用して過去の市場データを取得する
+        """
+        # YFinanceFetcherを使用して履歴データを取得
+        # 'date_str'はYYYYMMDD形式なので、YYYY-MM-DDに変換
+        date_obj = datetime.strptime(date_str, '%Y%m%d')
+        # 過去数日間のデータが必要な場合を考慮し、期間と間隔を設定
+        # ここでは過去1日分のデータを取得する例 (日中ボラティリティなどを計算するため)
+        # 実際には、AIモデルが必要とする期間のデータを取得するように調整
+
+        # for simplicity, let's fetch one day data
+        # To get overnight gap, we might need previous day's closing price
+        # For now, let's just get 5 days of data to simulate some history
+        historical_data = self.data_fetcher.get_historical_data(
+            code=symbol, period="5d", interval="1d"
+        )
+
+        if historical_data is not None and not historical_data.empty:
+            # 最新のデータを取得
+            latest_data = historical_data.iloc[-1]
+            # 昨日の終値 (一つ前のデータ)
+            prev_close = historical_data.iloc[-2]['終値'] if len(historical_data) >= 2 else latest_data['終値'] # Fallback if not enough data
+
+            return {
+                "Open": latest_data.get("始値", 0),
+                "High": latest_data.get("高値", 0),
+                "Low": latest_data.get("安値", 0),
+                "Close": latest_data.get("終値", 0),
+                "Volume": latest_data.get("出来高", 0),
+                "PrevClose": prev_close,
+                "DateTime": latest_data.name # Index contains datetime
+            }
+        else:
+            # データ取得失敗時、またはデータがない場合のフォールバック
+            # ここでは依然としてモックデータを返す
+            np.random.seed(hash(symbol + date_str + "market_data") % 100000)
+            return {
+                "Open": np.random.uniform(1000, 2000),
+                "High": np.random.uniform(2000, 2100),
+                "Low": np.random.uniform(900, 1000),
+                "Close": np.random.uniform(1000, 2000),
+                "Volume": int(np.random.uniform(1_000_000, 10_000_000)),
+                "PrevClose": np.random.uniform(1000, 2000),
+            }
+
+    def _prepare_features_for_prediction(self, market_data: Dict[str, Any]) -> np.ndarray:
+        """
+        予測用特徴量準備メソッド
+        RandomForestモデルが必要とする形式にデータを変換する。
+        ここでは、簡易的なテクニカル指標と価格・出来高特徴量を生成。
+        """
+        # 必要なデータポイントが存在するか確認
+        if not all(k in market_data for k in ["Open", "High", "Low", "Close", "Volume", "PrevClose"]):
+            # データ不足の場合、ゼロ配列を返すか、エラーハンドリングを行う
+            # ここでは暫定的に、num_featuresに合うようにゼロ埋めされた配列を返す
+            num_features = 10  # モデルが期待する特徴量の数
+            return np.zeros((1, num_features))
+
+        open_p = market_data["Open"]
+        high_p = market_data["High"]
+        low_p = market_data["Low"]
+        close_p = market_data["Close"]
+        volume = market_data["Volume"]
+        prev_close = market_data["PrevClose"]
+
+        # 簡易的な特徴量エンジニアリング
+        # 価格特徴量
+        price_change = close_p - prev_close
+        daily_range = high_p - low_p
+
+        # 出来高特徴量 (ここでは単純な出来高を特徴量として使う)
+
+        # テクニカル指標 (ここでは簡易的なRSIとMACDをモックとして生成)
+        # 実際には src/day_trade/analysis/signals.py などからインポートして利用
+        # RSIを模倣
+        rsi_mock = 50 + (price_change / max(1, daily_range)) * 10
+        rsi_mock = np.clip(rsi_mock, 0, 100) # RSIは0-100の範囲
+
+        # MACDを模倣
+        macd_mock = (close_p - prev_close) * 10
+        macd_mock = np.clip(macd_mock, -100, 100) # 適当な範囲
+
+        # モデルが期待する特徴量の順序に合わせて配列を作成
+        # RandomForestModelは (n_samples, n_features) 形式を期待
+        # 例: [price_change, daily_range, volume, rsi_mock, macd_mock, ...]
+        # 現状は5つの特徴量
+        features_array = np.array([
+            price_change,
+            daily_range,
+            volume,
+            rsi_mock,
+            macd_mock,
+            open_p, high_p, low_p, close_p, prev_close # 他の価格情報も特徴量として含める
+        ]).reshape(1, -1) # 1サンプル、n_features
+
+        # RandomForestModelの_hyperparameter_optimizationでnum_features=10としていたので、ここで合わせる
+        # 実際には、config/ml.json の features に基づいて、適切な特徴量エンジニアリングパイプラインを構築する必要がある
+
+        # もし特徴量の数が足りない場合、ゼロ埋めするなどの対応が必要
+        num_expected_features = 10 # RandomForestModelが期待する特徴量の数
+        if features_array.shape[1] < num_expected_features:
+            padding = np.zeros((1, num_expected_features - features_array.shape[1]))
+            features_array = np.hstack((features_array, padding))
+        elif features_array.shape[1] > num_expected_features:
+            features_array = features_array[:, :num_expected_features] # 多すぎる場合は切り詰める
+
+        return features_array
 
     def _determine_daytrading_signal(self, volatility: float, momentum: float,
                                    volume: float, session: TradingSession) -> DayTradingSignal:
