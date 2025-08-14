@@ -47,10 +47,11 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <h5>ポートフォリオ価値</h5>
+                                <h5>分析対象価値</h5>
                                 <h3 id="portfolio-value">--</h3>
+                                <small class="text-light opacity-75">※シミュレーション値</small>
                             </div>
-                            <i class="fas fa-wallet fa-2x"></i>
+                            <i class="fas fa-chart-pie fa-2x"></i>
                         </div>
                     </div>
                 </div>
@@ -60,8 +61,9 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <h5>日次リターン</h5>
+                                <h5>分析結果スコア</h5>
                                 <h3 id="daily-return">--</h3>
+                                <small class="text-light opacity-75">※予測精度</small>
                             </div>
                             <i class="fas fa-chart-line fa-2x"></i>
                         </div>
@@ -137,13 +139,17 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
-                        <h5><i class="fas fa-chart-line me-2"></i>ポートフォリオ</h5>
+                        <h5><i class="fas fa-chart-line me-2"></i>分析対象銘柄</h5>
                         <button class="btn btn-sm btn-outline-primary float-end" onclick="updateChart('portfolio')">
                             <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
                     <div class="card-body">
                         <div id="portfolio-chart">チャート読み込み中...</div>
+                        <div class="mt-2 text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            分析専用 - 実取引は行いません
+                        </div>
                     </div>
                 </div>
             </div>
@@ -167,12 +173,16 @@
                 <div class="card">
                     <div class="card-header">
                         <h5><i class="fas fa-chart-bar me-2"></i>分析パフォーマンス</h5>
-                        <button class="btn btn-sm btn-outline-primary float-end" onclick="updateChart('trading')">
+                        <button class="btn btn-sm btn-outline-primary float-end" onclick="updateChart('analysis')">
                             <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
                     <div class="card-body">
-                        <div id="trading-chart">チャート読み込み中...</div>
+                        <div id="analysis-chart">チャート読み込み中...</div>
+                        <div class="mt-2 text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            分析専用チャート - 取引実行機能なし
+                        </div>
                     </div>
                 </div>
             </div>
