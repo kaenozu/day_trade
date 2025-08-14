@@ -1,0 +1,298 @@
+# Issue #800 Phase 3: Scheduler Service Kubernetes マニフェスト
+# ExecutionScheduler + タスク管理・監視 + 自動化ワークフロー
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler-service
+  namespace: day-trade
+  labels:
+    app: scheduler-service
+    component: automation
+    version: v1
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate  # スケジューラは1つのインスタンスのみ実行
+  selector:
+    matchLabels:
+      app: scheduler-service
+  template:
+    metadata:
+      labels:
+        app: scheduler-service
+        component: automation
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8002"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: day-trade-scheduler-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1002
+        fsGroup: 1002
+      containers:
+      - name: scheduler-service
+        image: ghcr.io/your-org/day-trade/scheduler-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8002
+          name: http
+          protocol: TCP
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: SCHEDULER_CONFIG_PATH
+          value: "/app/schedules"
+        - name: LOG_LEVEL
+          value: "WARNING"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        envFrom:
+        - secretRef:
+            name: scheduler-service-secrets
+        - configMapRef:
+            name: scheduler-service-config
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 45
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 9
+        volumeMounts:
+        - name: scheduler-config
+          mountPath: /app/schedules
+        - name: logs
+          mountPath: /app/logs
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: scheduler-config
+        configMap:
+          name: scheduler-config-files
+      - name: logs
+        emptyDir: {}
+      imagePullSecrets:
+      - name: ghcr-secret
+      nodeSelector:
+        kubernetes.io/os: linux
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scheduler-service
+  namespace: day-trade
+  labels:
+    app: scheduler-service
+    component: automation
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8002
+    targetPort: 8002
+    protocol: TCP
+    name: http
+  selector:
+    app: scheduler-service
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: day-trade-scheduler-service
+  namespace: day-trade
+  labels:
+    app: scheduler-service
+    component: automation
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scheduler-service-config
+  namespace: day-trade
+  labels:
+    app: scheduler-service
+    component: automation
+data:
+  MARKET_HOURS_TIMEZONE: "Asia/Tokyo"
+  TRADING_HOURS_START: "09:00"
+  TRADING_HOURS_END: "15:00"
+  AUTO_TRADING_ENABLED: "false"
+  TASK_RETRY_ATTEMPTS: "3"
+  TASK_RETRY_DELAY_SECONDS: "30"
+  PREDICTION_SCHEDULE_CRON: "0 */15 9-15 * * MON-FRI"  # 15分毎
+  DATA_UPDATE_SCHEDULE_CRON: "0 */5 9-15 * * MON-FRI"   # 5分毎
+  REPORT_GENERATION_CRON: "0 0 16 * * MON-FRI"          # 毎営業日16:00
+  MODEL_RETRAIN_CRON: "0 0 2 * * SUN"                   # 毎週日曜2:00
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scheduler-config-files
+  namespace: day-trade
+  labels:
+    app: scheduler-service
+    component: automation
+data:
+  default_schedule.yaml: |
+    # Issue #800 Phase 3: デフォルトスケジュール設定
+    version: "1.0"
+
+    schedules:
+      # 市場開始前準備
+      - name: "market-prep"
+        cron: "0 30 8 * * MON-FRI"
+        timezone: "Asia/Tokyo"
+        tasks:
+          - type: "system_check"
+            description: "システムヘルスチェック"
+          - type: "data_validation"
+            description: "前日データ検証"
+          - type: "model_warm_up"
+            description: "MLモデルウォームアップ"
+
+      # リアルタイム予測
+      - name: "real-time-prediction"
+        cron: "0 */15 9-15 * * MON-FRI"
+        timezone: "Asia/Tokyo"
+        tasks:
+          - type: "fetch_latest_data"
+            description: "最新市場データ取得"
+          - type: "run_prediction"
+            description: "EnsembleSystem予測実行"
+          - type: "update_cache"
+            description: "予測結果キャッシュ更新"
+
+      # データ更新
+      - name: "data-refresh"
+        cron: "0 */5 9-15 * * MON-FRI"
+        timezone: "Asia/Tokyo"
+        tasks:
+          - type: "symbol_selection"
+            description: "SmartSymbolSelector実行"
+          - type: "market_data_update"
+            description: "市場データ更新"
+
+      # 日次レポート
+      - name: "daily-report"
+        cron: "0 0 16 * * MON-FRI"
+        timezone: "Asia/Tokyo"
+        tasks:
+          - type: "generate_performance_report"
+            description: "パフォーマンスレポート生成"
+          - type: "accuracy_validation"
+            description: "93%精度検証"
+          - type: "send_notification"
+            description: "日次サマリー通知"
+
+      # 週次モデル再訓練
+      - name: "weekly-retrain"
+        cron: "0 0 2 * * SUN"
+        timezone: "Asia/Tokyo"
+        tasks:
+          - type: "backup_models"
+            description: "現在のモデルバックアップ"
+          - type: "retrain_ensemble"
+            description: "EnsembleSystem再訓練"
+          - type: "validate_new_models"
+            description: "新モデル精度検証"
+          - type: "deploy_if_improved"
+            description: "改善時の自動デプロイ"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: scheduler-service-secrets
+  namespace: day-trade
+  labels:
+    app: scheduler-service
+    component: automation
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://user:password@postgres:5432/day_trade"
+  REDIS_URL: "redis://:password@redis:6379"
+  SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+  EMAIL_USERNAME: "notifications@company.com"
+  EMAIL_PASSWORD: "your-email-password-here"
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scheduler-health-check
+  namespace: day-trade
+  labels:
+    app: scheduler-service
+    component: automation
+spec:
+  schedule: "*/5 * * * *"  # 5分毎
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: health-check
+            image: curlimages/curl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              if ! curl -f http://scheduler-service:8002/health; then
+                echo "Scheduler service health check failed"
+                exit 1
+              fi
+              echo "Scheduler service health check passed"
+          restartPolicy: OnFailure
+      backoffLimit: 3
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: scheduler-logs-pvc
+  namespace: day-trade
+  labels:
+    app: scheduler-service
+    component: automation
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: gp2

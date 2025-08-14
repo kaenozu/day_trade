@@ -1,0 +1,479 @@
+# Optimized Alerting Rules for SLO-based Monitoring
+# Day Trade ML System - Issue #802
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: optimized-alerting-rules
+  namespace: day-trade
+  labels:
+    component: monitoring
+    app: day-trade-ml
+    optimization_version: "v2.0"
+spec:
+  groups:
+
+  # Critical Business Alerts - 最高優先度
+  - name: critical.business
+    interval: 30s
+    rules:
+
+    - alert: MLAccuracyCriticalFailure
+      expr: sli:business:ml_accuracy:current < 90.0
+      for: 5m
+      labels:
+        severity: critical
+        priority: p0
+        team: ml-ops
+        service: ml-service
+        alert_type: business_critical
+        escalation: "immediate"
+      annotations:
+        summary: "🚨 CRITICAL: ML prediction accuracy severely degraded"
+        description: |
+          ML prediction accuracy has dropped to {{ $value | humanizePercentage }},
+          significantly below the critical threshold of 93%.
+          This directly impacts trading profitability.
+
+          Immediate actions required:
+          - Check model drift detection
+          - Verify training data quality
+          - Consider emergency model rollback
+        runbook_url: "https://wiki.day-trade-ml.com/runbooks/ml-accuracy-failure"
+        dashboard: "https://grafana.day-trade-ml.com/d/ml-service/ml-service-overview"
+
+    - alert: TradingSystemCompleteFailure
+      expr: |
+        (
+          sum(rate(trade_executions_total{status="success"}[5m])) == 0
+        ) and (
+          sum(rate(trade_executions_total[5m])) > 0
+        )
+      for: 2m
+      labels:
+        severity: critical
+        priority: p0
+        team: trading-ops
+        service: execution-service
+        alert_type: business_critical
+        escalation: "immediate"
+      annotations:
+        summary: "🚨 CRITICAL: Trading system complete failure - zero successful trades"
+        description: |
+          No successful trades executed in last 5 minutes despite trading attempts.
+          Revenue generation completely stopped.
+
+          Immediate investigation required:
+          - Check execution service health
+          - Verify broker API connectivity
+          - Review trade rejection reasons
+        financial_impact: "HIGH - Revenue generation stopped"
+
+    - alert: SystemWideOutage
+      expr: |
+        avg(up{job=~".*-service"}) < 0.5
+      for: 1m
+      labels:
+        severity: critical
+        priority: p0
+        team: platform-ops
+        alert_type: infrastructure_critical
+        escalation: "immediate"
+      annotations:
+        summary: "🚨 CRITICAL: System-wide outage detected"
+        description: |
+          Less than 50% of core services are responding.
+          Complete system failure likely.
+
+          Emergency response protocol activated.
+
+  # High Priority Alerts - SLO重要違反
+  - name: high.slo_violations
+    interval: 30s
+    rules:
+
+    - alert: MLServiceSLOAvailabilityViolation
+      expr: |
+        (
+          avg_over_time(sli:availability:ml_service:5m[30m]) < 99.5
+        ) and (
+          avg_over_time(sli:availability:ml_service:5m[5m]) < 99.0
+        )
+      for: 5m
+      labels:
+        severity: high
+        priority: p1
+        team: ml-ops
+        service: ml-service
+        slo: availability
+        alert_type: slo_violation
+      annotations:
+        summary: "ML Service availability SLO violation"
+        description: |
+          ML Service availability {{ $value | humanizePercentage }} is below SLO target of 99.9%.
+          Current 30-minute average: {{ query "avg_over_time(sli:availability:ml_service:5m[30m])" | first | value | humanizePercentage }}
+
+          Impact: Reduced prediction capability, potential trading delays.
+
+    - alert: MLServiceErrorBudgetBurnRateHigh
+      expr: |
+        (
+          (1 - sli:availability:ml_service:5m / 100) > (0.001 * 10)
+        )
+      for: 2m
+      labels:
+        severity: high
+        priority: p1
+        team: ml-ops
+        service: ml-service
+        alert_type: error_budget
+      annotations:
+        summary: "ML Service error budget burning at 10x normal rate"
+        description: |
+          Error budget consumption rate is 10x higher than sustainable.
+          At current rate, monthly error budget will be exhausted in {{ with query "(0.001 * 30 * 24 * 60) / ((1 - sli:availability:ml_service:5m / 100) * 60)" }}{{ . | first | value | humanizeDuration }}{{ end }}.
+
+          Consider:
+          - Immediate canary rollback if deployment in progress
+          - Rate limiting incoming requests
+          - Circuit breaker activation
+
+    - alert: EndToEndLatencySLOViolation
+      expr: |
+        histogram_quantile(0.95, sum(rate(end_to_end_duration_seconds_bucket[5m])) by (le)) > 150
+      for: 10m
+      labels:
+        severity: high
+        priority: p1
+        team: platform-ops
+        alert_type: slo_violation
+        slo: latency
+      annotations:
+        summary: "End-to-end trading latency SLO violation"
+        description: |
+          End-to-end trading latency P95 is {{ $value }}s, exceeding SLO target of 180s.
+          This impacts trading execution speed and may affect profitability.
+
+  # Medium Priority Alerts - 警告レベル
+  - name: medium.warnings
+    interval: 60s
+    rules:
+
+    - alert: MLServiceLatencyDegrading
+      expr: |
+        increase(sli:latency:ml_prediction:p95:5m[30m]) > 5
+      for: 15m
+      labels:
+        severity: medium
+        priority: p2
+        team: ml-ops
+        service: ml-service
+        alert_type: performance_degradation
+      annotations:
+        summary: "ML Service latency gradually increasing"
+        description: |
+          ML prediction P95 latency has increased by {{ $value }}s over the last 30 minutes.
+          Current P95: {{ query "sli:latency:ml_prediction:p95:5m" | first | value }}s
+
+          This may indicate:
+          - Increased model complexity
+          - Resource contention
+          - Data processing bottlenecks
+
+    - alert: DataFreshnessWarning
+      expr: |
+        (time() - max(data_last_updated_timestamp)) > 600
+      for: 5m
+      labels:
+        severity: medium
+        priority: p2
+        team: data-ops
+        service: data-service
+        alert_type: data_quality
+      annotations:
+        summary: "Market data freshness degrading"
+        description: |
+          Market data has not been updated for {{ $value | humanizeDuration }}.
+          Stale data may impact prediction accuracy and trading decisions.
+
+          Check:
+          - Data provider API status
+          - Network connectivity
+          - Data fetching service health
+
+    - alert: ResourceUtilizationHigh
+      expr: |
+        avg by (service) (
+          rate(container_cpu_usage_seconds_total{container=~".*-service"}[5m])
+        ) * 100 > 80
+      for: 15m
+      labels:
+        severity: medium
+        priority: p2
+        team: platform-ops
+        alert_type: resource_utilization
+      annotations:
+        summary: "High CPU utilization detected"
+        description: |
+          Service {{ $labels.service }} CPU utilization is {{ $value | humanizePercentage }}.
+          Consider scaling or optimization.
+
+  # Low Priority Alerts - 予防的監視
+  - name: low.preventive
+    interval: 300s
+    rules:
+
+    - alert: MemoryUtilizationTrend
+      expr: |
+        predict_linear(
+          avg by (service) (
+            container_memory_usage_bytes{container=~".*-service"} /
+            container_spec_memory_limit_bytes{container=~".*-service"}
+          )[1h:],
+          3600
+        ) > 0.9
+      for: 30m
+      labels:
+        severity: low
+        priority: p3
+        team: platform-ops
+        alert_type: capacity_planning
+      annotations:
+        summary: "Memory utilization trending toward limit"
+        description: |
+          Service {{ $labels.service }} memory utilization trending to exceed 90% in next hour.
+          Current: {{ query "avg by (service) (container_memory_usage_bytes{container=~\".*-service\"} / container_spec_memory_limit_bytes{container=~\".*-service\"})" | first | value | humanizePercentage }}
+
+          Consider proactive scaling.
+
+    - alert: ModelDriftDetection
+      expr: |
+        ml_model_drift_detection_score > 0.15
+      for: 1h
+      labels:
+        severity: low
+        priority: p3
+        team: ml-ops
+        service: ml-service
+        alert_type: model_quality
+      annotations:
+        summary: "Model drift detected"
+        description: |
+          Model drift score {{ $value }} exceeds threshold of 0.1.
+          Model performance may be degrading due to market changes.
+
+          Consider:
+          - Model retraining with recent data
+          - Feature engineering review
+          - A/B testing with new model
+
+  # Special Alerts - 複合条件・特殊ケース
+  - name: special.composite
+    interval: 60s
+    rules:
+
+    - alert: CascadingFailureRisk
+      expr: |
+        (
+          (avg(up{job=~".*-service"}) < 0.8) and
+          (rate(http_requests_total{code=~"5.."}[5m]) > rate(http_requests_total{code=~"5.."}[5m] offset 1h) * 2)
+        )
+      for: 5m
+      labels:
+        severity: high
+        priority: p1
+        team: platform-ops
+        alert_type: cascading_failure
+      annotations:
+        summary: "Cascading failure risk detected"
+        description: |
+          Multiple services showing degraded health with error rate spike.
+          Risk of cascading failure across the system.
+
+          Immediate circuit breaker activation recommended.
+
+    - alert: AnomalousTradePatterns
+      expr: |
+        (
+          (rate(trade_executions_total[5m]) > avg_over_time(rate(trade_executions_total[5m])[1h]) * 3) or
+          (rate(trade_executions_total[5m]) < avg_over_time(rate(trade_executions_total[5m])[1h]) * 0.1)
+        ) and (
+          hour() >= 9 and hour() <= 16  # Market hours
+        )
+      for: 10m
+      labels:
+        severity: medium
+        priority: p2
+        team: trading-ops
+        alert_type: anomaly_detection
+      annotations:
+        summary: "Anomalous trading pattern detected"
+        description: |
+          Trading frequency {{ if gt $value 3.0 }}significantly higher{{ else }}unusually lower{{ end }} than normal.
+          Current rate: {{ query "rate(trade_executions_total[5m])" | first | value | humanize }} trades/sec
+          Normal range: {{ query "avg_over_time(rate(trade_executions_total[5m])[1h])" | first | value | humanize }} ± 3x
+
+          Investigation recommended for potential:
+          - Market anomalies
+          - Algorithm issues
+          - External interference
+
+  # Alerting Optimization Rules
+  - name: optimization.meta
+    interval: 300s
+    rules:
+
+    - alert: AlertStormDetected
+      expr: |
+        sum(increase(prometheus_notifications_total[5m])) > 50
+      for: 2m
+      labels:
+        severity: medium
+        priority: p2
+        team: platform-ops
+        alert_type: meta_monitoring
+      annotations:
+        summary: "Alert storm detected - high notification volume"
+        description: |
+          {{ $value }} alerts sent in last 5 minutes. Potential alert storm.
+          Consider alert grouping or root cause investigation.
+
+    - alert: AlertManagerDown
+      expr: up{job="alertmanager"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        priority: p0
+        team: platform-ops
+        alert_type: monitoring_infrastructure
+      annotations:
+        summary: "AlertManager is down"
+        description: "AlertManager is not responding. Critical alerts may not be delivered."
+
+---
+# Alert Routing Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: day-trade
+data:
+  alertmanager.yml: |
+    global:
+      smtp_smarthost: 'smtp.gmail.com:587'
+      smtp_from: 'alerts@day-trade-ml.com'
+
+    route:
+      group_by: ['alertname', 'service']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'default'
+
+      routes:
+      # Critical business alerts - immediate escalation
+      - match:
+          priority: p0
+        receiver: 'critical-alerts'
+        group_wait: 0s
+        group_interval: 1m
+        repeat_interval: 5m
+
+      # High priority SLO violations
+      - match:
+          priority: p1
+        receiver: 'high-priority-alerts'
+        group_wait: 30s
+        group_interval: 2m
+        repeat_interval: 30m
+
+      # Medium priority warnings
+      - match:
+          priority: p2
+        receiver: 'medium-priority-alerts'
+        group_wait: 2m
+        group_interval: 10m
+        repeat_interval: 2h
+
+      # Low priority preventive
+      - match:
+          priority: p3
+        receiver: 'low-priority-alerts'
+        group_wait: 10m
+        group_interval: 30m
+        repeat_interval: 24h
+
+    receivers:
+    - name: 'default'
+      slack_configs:
+      - api_url: '{{ .SlackWebhookURL }}'
+        channel: '#alerts-general'
+        title: '{{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+    - name: 'critical-alerts'
+      email_configs:
+      - to: 'oncall@day-trade-ml.com'
+        subject: '🚨 CRITICAL ALERT: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Dashboard: {{ .Annotations.dashboard }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+      slack_configs:
+      - api_url: '{{ .SlackWebhookURL }}'
+        channel: '#alerts-critical'
+        title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+
+          {{ .Annotations.description }}
+          {{ end }}
+        color: 'danger'
+        send_resolved: true
+      pagerduty_configs:
+      - routing_key: '{{ .PagerDutyKey }}'
+        description: '{{ .GroupLabels.alertname }}'
+
+    - name: 'high-priority-alerts'
+      slack_configs:
+      - api_url: '{{ .SlackWebhookURL }}'
+        channel: '#alerts-high'
+        title: '⚠️ HIGH: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          Service: {{ .Labels.service }}
+          {{ .Annotations.summary }}
+          {{ end }}
+        color: 'warning'
+
+    - name: 'medium-priority-alerts'
+      slack_configs:
+      - api_url: '{{ .SlackWebhookURL }}'
+        channel: '#alerts-medium'
+        title: '📋 MEDIUM: {{ .GroupLabels.alertname }}'
+        color: 'good'
+
+    - name: 'low-priority-alerts'
+      slack_configs:
+      - api_url: '{{ .SlackWebhookURL }}'
+        channel: '#alerts-low'
+        title: '💡 INFO: {{ .GroupLabels.alertname }}'
+
+    inhibit_rules:
+    # Inhibit medium/low alerts when critical alerts are firing
+    - source_match:
+        priority: p0
+      target_match_re:
+        priority: p[1-3]
+      equal: ['service']
+
+    # Inhibit duplicate SLO alerts
+    - source_match:
+        alert_type: slo_violation
+      target_match:
+        alert_type: slo_violation
+      equal: ['service', 'slo']

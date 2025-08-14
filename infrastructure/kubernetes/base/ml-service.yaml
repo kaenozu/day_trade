@@ -1,0 +1,249 @@
+# Issue #800 Phase 3: ML Service Kubernetes マニフェスト
+# EnsembleSystem (93%精度) + モデル推論API
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-service
+  namespace: day-trade
+  labels:
+    app: ml-service
+    component: ensemble-system
+    version: v1
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ml-service
+  template:
+    metadata:
+      labels:
+        app: ml-service
+        component: ensemble-system
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: day-trade-ml-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: ml-service
+        image: ghcr.io/your-org/day-trade/ml-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: ML_MODEL_PATH
+          value: "/app/models"
+        - name: LOG_LEVEL
+          value: "WARNING"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        envFrom:
+        - secretRef:
+            name: ml-service-secrets
+        - configMapRef:
+            name: ml-service-config
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 12
+        volumeMounts:
+        - name: ml-models
+          mountPath: /app/models
+          readOnly: false
+        - name: logs
+          mountPath: /app/logs
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: ml-models
+        persistentVolumeClaim:
+          claimName: ml-models-pvc
+      - name: logs
+        emptyDir: {}
+      imagePullSecrets:
+      - name: ghcr-secret
+      nodeSelector:
+        kubernetes.io/os: linux
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - ml-service
+              topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-service
+  namespace: day-trade
+  labels:
+    app: ml-service
+    component: ensemble-system
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: ml-service
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: day-trade-ml-service
+  namespace: day-trade
+  labels:
+    app: ml-service
+    component: ensemble-system
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ml-service-config
+  namespace: day-trade
+  labels:
+    app: ml-service
+    component: ensemble-system
+data:
+  ENSEMBLE_CONFIG_USE_XGBOOST: "true"
+  ENSEMBLE_CONFIG_USE_CATBOOST: "true"
+  ENSEMBLE_CONFIG_USE_RANDOM_FOREST: "true"
+  ENSEMBLE_CONFIG_USE_LSTM_TRANSFORMER: "false"
+  ENSEMBLE_CONFIG_USE_GRADIENT_BOOSTING: "false"
+  ENSEMBLE_CONFIG_USE_SVR: "false"
+  MAX_PARALLEL_PREDICTIONS: "10"
+  CACHE_TTL_SECONDS: "300"
+  MODEL_UPDATE_INTERVAL_HOURS: "24"
+  ENABLE_MONITORING: "true"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ml-service-secrets
+  namespace: day-trade
+  labels:
+    app: ml-service
+    component: ensemble-system
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://user:password@postgres:5432/day_trade"
+  REDIS_URL: "redis://:password@redis:6379"
+  JWT_SECRET_KEY: "your-jwt-secret-here"
+  API_ENCRYPTION_KEY: "your-api-encryption-key-here"
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ml-service-pdb
+  namespace: day-trade
+  labels:
+    app: ml-service
+    component: ensemble-system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ml-service
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ml-service-hpa
+  namespace: day-trade
+  labels:
+    app: ml-service
+    component: ensemble-system
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ml-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60

@@ -1,0 +1,251 @@
+# Issue #800 Phase 4: Day Trade アラートルール
+# EnsembleSystem (93%精度) + 完全自動化システムアラート
+
+groups:
+  # MLサービス (EnsembleSystem) アラート
+  - name: ml-service.rules
+    interval: 30s
+    rules:
+      # 93%精度低下アラート
+      - alert: EnsembleAccuracyDegraded
+        expr: ml_ensemble_accuracy < 0.93
+        for: 5m
+        labels:
+          severity: critical
+          service: ml-service
+          component: ensemble-system
+        annotations:
+          summary: "EnsembleSystem精度が93%を下回りました"
+          description: "EnsembleSystemの精度が {{ $value | humanizePercentage }} に低下しています。目標は93%以上です。"
+          runbook_url: "https://docs.company.com/runbooks/ml-accuracy-degraded"
+
+      # 予測レスポンス時間アラート
+      - alert: MLPredictionLatencyHigh
+        expr: histogram_quantile(0.95, rate(ml_prediction_duration_seconds_bucket[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          service: ml-service
+          component: prediction-api
+        annotations:
+          summary: "ML予測APIのレスポンス時間が高い"
+          description: "95パーセンタイルの予測時間が {{ $value }}秒です。目標は0.5秒以内です。"
+
+      # MLサービス高エラー率
+      - alert: MLServiceHighErrorRate
+        expr: rate(ml_http_requests_total{status=~"5.."}[5m]) / rate(ml_http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: ml-service
+        annotations:
+          summary: "MLサービスのエラー率が高い"
+          description: "エラー率が {{ $value | humanizePercentage }} です。"
+
+      # MLサービスダウン
+      - alert: MLServiceDown
+        expr: up{job="ml-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: ml-service
+        annotations:
+          summary: "MLサービスがダウンしています"
+          description: "MLサービス (EnsembleSystem) が {{ $labels.instance }} でダウンしています。"
+
+      # メモリ使用率高
+      - alert: MLServiceHighMemoryUsage
+        expr: ml_memory_usage_percent > 90
+        for: 5m
+        labels:
+          severity: warning
+          service: ml-service
+        annotations:
+          summary: "MLサービスのメモリ使用率が高い"
+          description: "メモリ使用率が {{ $value }}% です。"
+
+  # データサービス アラート
+  - name: data-service.rules
+    interval: 30s
+    rules:
+      # データ取得失敗アラート
+      - alert: DataFetchFailure
+        expr: increase(data_fetch_errors_total[10m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: data-service
+          component: data-fetcher
+        annotations:
+          summary: "データ取得エラーが多発しています"
+          description: "過去10分間で {{ $value }} 件のデータ取得エラーが発生しています。"
+
+      # SmartSymbolSelector動作異常
+      - alert: SmartSymbolSelectorError
+        expr: rate(symbol_selection_errors_total[5m]) > 0.1
+        for: 1m
+        labels:
+          severity: warning
+          service: data-service
+          component: smart-symbol-selector
+        annotations:
+          summary: "SmartSymbolSelectorでエラーが発生"
+          description: "銘柄選択処理でエラー率が {{ $value | humanizePercentage }} です。"
+
+      # データサービスダウン
+      - alert: DataServiceDown
+        expr: up{job="data-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: data-service
+        annotations:
+          summary: "データサービスがダウンしています"
+          description: "データサービスが {{ $labels.instance }} でダウンしています。"
+
+      # 市場データ遅延
+      - alert: MarketDataDelay
+        expr: time() - data_last_update_timestamp > 600
+        for: 1m
+        labels:
+          severity: warning
+          service: data-service
+        annotations:
+          summary: "市場データの更新が遅延しています"
+          description: "最後のデータ更新から {{ $value }} 秒経過しています。"
+
+  # スケジューラサービス アラート
+  - name: scheduler-service.rules
+    interval: 30s
+    rules:
+      # スケジューラタスク失敗
+      - alert: SchedulerTaskFailure
+        expr: increase(scheduler_task_failures_total[15m]) > 3
+        for: 1m
+        labels:
+          severity: warning
+          service: scheduler-service
+          component: execution-scheduler
+        annotations:
+          summary: "スケジューラタスクが複数回失敗しています"
+          description: "過去15分間で {{ $value }} 件のタスク実行失敗が発生しています。"
+
+      # 自動化ワークフロー停止
+      - alert: AutomationWorkflowStopped
+        expr: scheduler_active_workflows == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: scheduler-service
+        annotations:
+          summary: "自動化ワークフローが停止しています"
+          description: "アクティブなワークフローが0件です。自動化システムが停止している可能性があります。"
+
+      # スケジューラサービスダウン
+      - alert: SchedulerServiceDown
+        expr: up{job="scheduler-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: scheduler-service
+        annotations:
+          summary: "スケジューラサービスがダウンしています"
+          description: "スケジューラサービスが {{ $labels.instance }} でダウンしています。"
+
+  # インフラストラクチャ アラート
+  - name: infrastructure.rules
+    interval: 30s
+    rules:
+      # Redis接続障害
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redisがダウンしています"
+          description: "Redis {{ $labels.instance }} がダウンしています。"
+
+      # PostgreSQL接続障害
+      - alert: PostgreSQLDown
+        expr: up{job="postgresql"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgresql
+        annotations:
+          summary: "PostgreSQLがダウンしています"
+          description: "PostgreSQL {{ $labels.instance }} がダウンしています。"
+
+      # ディスク使用量高
+      - alert: HighDiskUsage
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "ディスク使用量が高い"
+          description: "{{ $labels.instance }} のディスク使用量が {{ $value }}% です。"
+
+      # CPU使用率高
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "CPU使用率が高い"
+          description: "{{ $labels.instance }} のCPU使用率が {{ $value }}% です。"
+
+      # メモリ使用率高
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "メモリ使用率が高い"
+          description: "{{ $labels.instance }} のメモリ使用率が {{ $value }}% です。"
+
+  # ビジネスメトリクス アラート
+  - name: business-metrics.rules
+    interval: 60s
+    rules:
+      # 93%精度未達成
+      - alert: AccuracyTargetMissed
+        expr: avg_over_time(ml_ensemble_accuracy[1h]) < 0.93
+        for: 10m
+        labels:
+          severity: critical
+          service: business
+          component: accuracy-monitoring
+        annotations:
+          summary: "1時間平均精度が93%を下回りました"
+          description: "過去1時間の平均精度が {{ $value | humanizePercentage }} です。"
+
+      # 予測実行数低下
+      - alert: LowPredictionVolume
+        expr: rate(ml_predictions_total[1h]) < 100
+        for: 15m
+        labels:
+          severity: warning
+          service: business
+        annotations:
+          summary: "予測実行数が低下しています"
+          description: "時間あたりの予測実行数が {{ $value }} 件です。"
+
+      # データ品質低下
+      - alert: DataQualityDegraded
+        expr: data_quality_score < 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: business
+          component: data-quality
+        annotations:
+          summary: "データ品質が低下しています"
+          description: "データ品質スコアが {{ $value }} です。"

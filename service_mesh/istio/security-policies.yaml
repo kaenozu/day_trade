@@ -1,0 +1,343 @@
+# Istio Security Policies
+# Day Trade ML System - Service Mesh Security
+
+# Namespace-wide mTLS Policy
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: day-trade-mtls
+  namespace: day-trade
+spec:
+  mtls:
+    mode: STRICT
+
+---
+# Default Authorization Policy (Deny All)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+  namespace: day-trade
+spec:
+  # Empty spec denies all requests
+
+---
+# Allow Ingress Gateway to Services
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingress-gateway
+  namespace: day-trade
+spec:
+  selector:
+    matchLabels:
+      app: ml-service
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+  - to:
+    - operation:
+        methods: ["GET", "POST"]
+        paths: ["/api/v1/ml/*"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-data-service-access
+  namespace: day-trade
+spec:
+  selector:
+    matchLabels:
+      app: data-service
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+    - source:
+        principals: ["cluster.local/ns/day-trade/sa/ml-service"]
+    - source:
+        principals: ["cluster.local/ns/day-trade/sa/symbol-service"]
+  - to:
+    - operation:
+        methods: ["GET", "POST"]
+        paths: ["/api/v1/data/*"]
+
+---
+# JWT Authentication for External Access
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+  namespace: day-trade
+spec:
+  selector:
+    matchLabels:
+      app: ml-service
+  jwtRules:
+  - issuer: "https://auth.day-trade-ml.com"
+    jwksUri: "https://auth.day-trade-ml.com/.well-known/jwks.json"
+    audiences:
+    - "day-trade-ml-api"
+    forwardOriginalToken: true
+  - issuer: "day-trade-admin"
+    jwks: |
+      {
+        "keys": [
+          {
+            "kty": "RSA",
+            "kid": "admin-key-2025",
+            "use": "sig",
+            "alg": "RS256",
+            "n": "...",
+            "e": "AQAB"
+          }
+        ]
+      }
+    audiences:
+    - "day-trade-admin-api"
+
+---
+# API Key Authentication
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: api-key-auth
+  namespace: day-trade
+spec:
+  selector:
+    matchLabels:
+      app: ml-service
+  action: ALLOW
+  rules:
+  - when:
+    - key: request.headers[x-api-key]
+      values: ["ml-api-key-2025-v1"]
+  - when:
+    - key: request.headers[authorization]
+      values: ["Bearer *"]
+
+---
+# Service-to-Service Authorization
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ml-to-data-service
+  namespace: day-trade
+spec:
+  selector:
+    matchLabels:
+      app: data-service
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/day-trade/sa/ml-service"]
+  - to:
+    - operation:
+        methods: ["GET", "POST"]
+        paths: ["/api/v1/data/stocks/*", "/api/v1/data/batch-fetch"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: symbol-to-data-service
+  namespace: day-trade
+spec:
+  selector:
+    matchLabels:
+      app: data-service
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/day-trade/sa/symbol-service"]
+  - to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/api/v1/data/stocks/*"]
+
+---
+# Execution Service - Internal Only
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: execution-service-internal
+  namespace: day-trade
+spec:
+  selector:
+    matchLabels:
+      app: execution-service
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/day-trade/sa/ml-service"
+        - "cluster.local/ns/day-trade/sa/symbol-service"
+        - "cluster.local/ns/day-trade/sa/notification-service"
+  - when:
+    - key: request.headers[x-internal-service]
+      values: ["true"]
+
+---
+# Rate Limiting Policy
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: rate-limit-filter
+  namespace: day-trade
+spec:
+  workloadSelector:
+    labels:
+      app: ml-service
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.local_ratelimit
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+          value:
+            stat_prefix: local_rate_limiter
+            token_bucket:
+              max_tokens: 1000
+              tokens_per_fill: 100
+              fill_interval: 60s
+            filter_enabled:
+              runtime_key: local_rate_limit_enabled
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+            filter_enforced:
+              runtime_key: local_rate_limit_enforced
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+            response_headers_to_add:
+            - append: false
+              header:
+                key: x-local-rate-limit
+                value: 'true'
+
+---
+# RBAC Configuration
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: rbac-admin-access
+  namespace: day-trade
+spec:
+  action: ALLOW
+  rules:
+  - when:
+    - key: source.user
+      values: ["admin@day-trade-ml.com"]
+  - to:
+    - operation:
+        methods: ["*"]
+        paths: ["/*"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: rbac-read-only-access
+  namespace: day-trade
+spec:
+  selector:
+    matchLabels:
+      access-level: read-only
+  action: ALLOW
+  rules:
+  - when:
+    - key: source.user
+      values: ["readonly@day-trade-ml.com", "monitor@day-trade-ml.com"]
+  - to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/api/v1/*/health", "/api/v1/*/status", "/api/v1/*/stats"]
+
+---
+# Network Security Policy
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: network-security
+  namespace: day-trade
+spec:
+  action: DENY
+  rules:
+  - when:
+    - key: source.ip
+      values: ["192.168.100.0/24", "10.0.100.0/24"]  # Blocked IP ranges
+  - when:
+    - key: request.headers[user-agent]
+      values: ["*bot*", "*crawler*", "*scanner*"]
+
+---
+# Security Headers Policy
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: security-headers
+  namespace: day-trade
+spec:
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.lua
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+          inline_code: |
+            function envoy_on_response(response_handle)
+              response_handle:headers():add("X-Frame-Options", "DENY")
+              response_handle:headers():add("X-Content-Type-Options", "nosniff")
+              response_handle:headers():add("X-XSS-Protection", "1; mode=block")
+              response_handle:headers():add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+              response_handle:headers():add("Content-Security-Policy", "default-src 'self'")
+              response_handle:headers():add("Referrer-Policy", "strict-origin-when-cross-origin")
+            end
+
+---
+# Audit Logging
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: audit-logging
+  namespace: day-trade
+spec:
+  accessLogging:
+  - providers:
+    - name: otel
+  - providers:
+    - name: stackdriver
+  metrics:
+  - providers:
+    - name: prometheus
+  - overrides:
+    - match:
+        metric: ALL_METRICS
+      tagOverrides:
+        request_protocol:
+          value: "istio_request_protocol | 'unknown'"

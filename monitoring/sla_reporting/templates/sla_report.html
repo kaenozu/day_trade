@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLA Report - Day Trade ML System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #667eea;
+        }
+
+        .card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 2.2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .metric-value.ok { color: #4CAF50; }
+        .metric-value.warning { color: #FF9800; }
+        .metric-value.critical { color: #f44336; }
+
+        .metric-unit {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .section {
+            background: white;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .section-header h2 {
+            color: #333;
+            font-size: 1.5em;
+        }
+
+        .section-content {
+            padding: 25px;
+        }
+
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .metrics-table th,
+        .metrics-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .metrics-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.ok {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.critical {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-fill.ok { background-color: #4CAF50; }
+        .progress-fill.warning { background-color: #FF9800; }
+        .progress-fill.critical { background-color: #f44336; }
+
+        .incident-list {
+            list-style: none;
+        }
+
+        .incident-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #DC3545;
+        }
+
+        .incident-header {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .incident-details {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .recommendations {
+            list-style: none;
+        }
+
+        .recommendation-item {
+            background: #e7f3ff;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #2196F3;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .compliance-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: white;
+        }
+
+        .compliance-circle.ok { background: conic-gradient(#4CAF50 {{ report.overall_compliance * 3.6 }}deg, #e9ecef 0deg); }
+        .compliance-circle.warning { background: conic-gradient(#FF9800 {{ report.overall_compliance * 3.6 }}deg, #e9ecef 0deg); }
+        .compliance-circle.critical { background: conic-gradient(#f44336 {{ report.overall_compliance * 3.6 }}deg, #e9ecef 0deg); }
+
+        @media (max-width: 768px) {
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 10px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📊 SLA Report</h1>
+            <div class="subtitle">
+                Day Trade ML System - {{ report.report_type.title() }} Report<br>
+                Period: {{ format_datetime(report.period_start) }} - {{ format_datetime(report.period_end) }}
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="card">
+                <h3>Overall Compliance</h3>
+                <div class="compliance-circle {% if report.overall_compliance >= 99 %}ok{% elif report.overall_compliance >= 95 %}warning{% else %}critical{% endif %}">
+                    {{ "%.1f"|format(report.overall_compliance) }}%
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Error Budget Consumed</h3>
+                <div class="metric-value {% if report.error_budget_consumed <= 25 %}ok{% elif report.error_budget_consumed <= 75 %}warning{% else %}critical{% endif %}">
+                    {{ "%.1f"|format(report.error_budget_consumed) }}
+                </div>
+                <div class="metric-unit">%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill {% if report.error_budget_consumed <= 25 %}ok{% elif report.error_budget_consumed <= 75 %}warning{% else %}critical{% endif %}"
+                         style="width: {{ report.error_budget_consumed }}%"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Total Incidents</h3>
+                <div class="metric-value {% if report.incidents|length == 0 %}ok{% elif report.incidents|length <= 3 %}warning{% else %}critical{% endif %}">
+                    {{ report.incidents|length }}
+                </div>
+                <div class="metric-unit">incidents</div>
+            </div>
+
+            <div class="card">
+                <h3>Service Status</h3>
+                <div class="metric-value {% if (report.sli_metrics|selectattr('status', 'equalto', 'ok')|list|length / report.sli_metrics|length * 100) >= 90 %}ok{% elif (report.sli_metrics|selectattr('status', 'equalto', 'ok')|list|length / report.sli_metrics|length * 100) >= 70 %}warning{% else %}critical{% endif %}">
+                    {{ (report.sli_metrics|selectattr('status', 'equalto', 'ok')|list|length / report.sli_metrics|length * 100)|round(0)|int }}
+                </div>
+                <div class="metric-unit">% healthy</div>
+            </div>
+        </div>
+
+        <!-- SLI Metrics -->
+        <div class="section">
+            <div class="section-header">
+                <h2>🎯 SLI Metrics Performance</h2>
+            </div>
+            <div class="section-content">
+                <table class="metrics-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Current Value</th>
+                            <th>Target</th>
+                            <th>Compliance</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for metric in report.sli_metrics %}
+                        <tr>
+                            <td><strong>{{ metric.name.replace('_', ' ').title() }}</strong></td>
+                            <td>{{ "%.2f"|format(metric.value) }} {{ metric.unit }}</td>
+                            <td>{{ "%.2f"|format(metric.target) }} {{ metric.unit }}</td>
+                            <td>
+                                {{ "%.1f"|format(metric.compliance_percentage) }}%
+                                <div class="progress-bar">
+                                    <div class="progress-fill {{ metric.status }}"
+                                         style="width: {{ metric.compliance_percentage }}%"></div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="status-badge {{ metric.status }}">{{ metric.status }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Incidents -->
+        {% if report.incidents %}
+        <div class="section">
+            <div class="section-header">
+                <h2>🚨 Recent Incidents</h2>
+            </div>
+            <div class="section-content">
+                <ul class="incident-list">
+                    {% for incident in report.incidents[:10] %}
+                    <li class="incident-item">
+                        <div class="incident-header">
+                            {{ incident.alert_name }} - {{ incident.service }}
+                            <span class="status-badge {{ incident.severity }}">{{ incident.severity }}</span>
+                        </div>
+                        <div class="incident-details">
+                            Duration: {{ format_duration(incident.duration_minutes) }} |
+                            Start: {{ format_datetime(incident.start_time) }} |
+                            End: {{ format_datetime(incident.end_time) }}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recommendations -->
+        <div class="section">
+            <div class="section-header">
+                <h2>💡 Recommendations</h2>
+            </div>
+            <div class="section-content">
+                <ul class="recommendations">
+                    {% for recommendation in report.recommendations %}
+                    <li class="recommendation-item">
+                        {{ recommendation }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            Report generated at {{ format_datetime(report.generated_at) }} by Day Trade ML System<br>
+            <em>This report is automatically generated based on SLI metrics and incident data.</em>
+        </div>
+    </div>
+</body>
+</html>

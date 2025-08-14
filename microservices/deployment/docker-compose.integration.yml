@@ -1,0 +1,269 @@
+# Docker Compose for Integration Testing
+# Day Trade ML System - Issue #801
+
+version: '3.8'
+
+services:
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: day-trade-redis
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=redis_password_2025
+    command: redis-server --requirepass redis_password_2025
+    networks:
+      - day-trade-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password_2025", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ML Service
+  ml-service:
+    build:
+      context: ../ml_service
+      dockerfile: Dockerfile
+    container_name: day-trade-ml-service
+    ports:
+      - "8000:8000"
+    environment:
+      - SERVICE_NAME=ml-service
+      - SERVICE_PORT=8000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password_2025
+      - LOG_LEVEL=INFO
+      - METRICS_ENABLED=true
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - day-trade-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Data Service
+  data-service:
+    build:
+      context: ../data_service
+      dockerfile: Dockerfile
+    container_name: day-trade-data-service
+    ports:
+      - "8001:8001"
+    environment:
+      - SERVICE_NAME=data-service
+      - SERVICE_PORT=8001
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password_2025
+      - LOG_LEVEL=INFO
+      - METRICS_ENABLED=true
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - day-trade-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Symbol Service
+  symbol-service:
+    build:
+      context: ../symbol_service
+      dockerfile: Dockerfile
+    container_name: day-trade-symbol-service
+    ports:
+      - "8002:8002"
+    environment:
+      - SERVICE_NAME=symbol-service
+      - SERVICE_PORT=8002
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password_2025
+      - LOG_LEVEL=INFO
+      - METRICS_ENABLED=true
+    depends_on:
+      redis:
+        condition: service_healthy
+      data-service:
+        condition: service_healthy
+    networks:
+      - day-trade-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Execution Service
+  execution-service:
+    build:
+      context: ../execution_service
+      dockerfile: Dockerfile
+    container_name: day-trade-execution-service
+    ports:
+      - "8003:8003"
+    environment:
+      - SERVICE_NAME=execution-service
+      - SERVICE_PORT=8003
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password_2025
+      - LOG_LEVEL=INFO
+      - METRICS_ENABLED=true
+    depends_on:
+      redis:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+    networks:
+      - day-trade-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ../notification_service
+      dockerfile: Dockerfile
+    container_name: day-trade-notification-service
+    ports:
+      - "8004:8004"
+    environment:
+      - SERVICE_NAME=notification-service
+      - SERVICE_PORT=8004
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password_2025
+      - LOG_LEVEL=INFO
+      - METRICS_ENABLED=true
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - day-trade-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: day-trade-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../monitoring/prometheus/rules:/etc/prometheus/rules:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - day-trade-network
+    depends_on:
+      - ml-service
+      - data-service
+      - symbol-service
+      - execution-service
+      - notification-service
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: day-trade-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - ../../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - day-trade-network
+    depends_on:
+      - prometheus
+
+  # Jaeger Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.48
+    container_name: day-trade-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # HTTP collector
+      - "14250:14250"  # gRPC collector
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - day-trade-network
+
+  # Integration Test Runner
+  integration-tests:
+    build:
+      context: ../integration_tests
+      dockerfile: Dockerfile
+    container_name: day-trade-integration-tests
+    environment:
+      - PYTHONPATH=/app
+      - ML_SERVICE_URL=http://ml-service:8000
+      - DATA_SERVICE_URL=http://data-service:8001
+      - SYMBOL_SERVICE_URL=http://symbol-service:8002
+      - EXECUTION_SERVICE_URL=http://execution-service:8003
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8004
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password_2025
+    depends_on:
+      ml-service:
+        condition: service_healthy
+      data-service:
+        condition: service_healthy
+      symbol-service:
+        condition: service_healthy
+      execution-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    networks:
+      - day-trade-network
+    command: ["python", "-m", "pytest", "test_microservices_integration.py", "-v", "--tb=short"]
+    volumes:
+      - ./test_results:/app/test_results
+
+networks:
+  day-trade-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  test_results:

@@ -1,23 +1,28 @@
-# Prometheus設定ファイル
-# Day Trade リアルタイムメトリクス収集設定
+# Issue #800 Phase 4: Prometheus本番環境設定
+# EnsembleSystem (93%精度) + 完全自動化システム監視
 
 global:
-  scrape_interval: 15s      # デフォルトスクレイプ間隔
-  evaluation_interval: 15s  # アラートルール評価間隔
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
   external_labels:
-    cluster: 'day_trade_production'
+    cluster: 'day-trade-production'
     environment: 'production'
+    project: 'day-trade'
 
-# アラートルール設定
+# ルールファイル
 rule_files:
   - "rules/*.yml"
 
-# AlertManager設定
+# アラートマネージャー設定
 alerting:
   alertmanagers:
     - static_configs:
         - targets:
           - alertmanager:9093
+      scheme: http
+      timeout: 10s
+      api_version: v2
 
 # スクレイプ設定
 scrape_configs:
@@ -25,74 +30,75 @@ scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
-
-  # システムメトリクス (Node Exporter)
-  - job_name: 'node-exporter'
-    static_configs:
-      - targets: ['node-exporter:9100']
-    scrape_interval: 10s
+    scrape_interval: 30s
     metrics_path: /metrics
 
-  # Day Trade アプリケーションメトリクス
-  - job_name: 'day-trade-app'
+  # MLサービス監視 (EnsembleSystem 93%精度)
+  - job_name: 'ml-service'
     static_configs:
-      - targets: ['day-trade-exporter:8000']
-    scrape_interval: 5s
+      - targets: ['ml-service:8000']
+    scrape_interval: 15s
     metrics_path: /metrics
+    scrape_timeout: 10s
     honor_labels: true
+    params:
+      format: ['prometheus']
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'ml_.*'
+        target_label: service
+        replacement: 'ml-service'
 
-  # リスク管理システムメトリクス
-  - job_name: 'risk-management'
+  # データサービス監視 (DataFetcher + SmartSymbolSelector)
+  - job_name: 'data-service'
     static_configs:
-      - targets: ['day-trade-exporter:8000']
-    scrape_interval: 3s
-    metrics_path: /risk_metrics
-    honor_labels: true
+      - targets: ['data-service:8001']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'data_.*'
+        target_label: service
+        replacement: 'data-service'
 
-  # 生成AIエンジンメトリクス
-  - job_name: 'generative-ai-engine'
+  # スケジューラサービス監視 (ExecutionScheduler)
+  - job_name: 'scheduler-service'
     static_configs:
-      - targets: ['day-trade-exporter:8000']
-    scrape_interval: 5s
-    metrics_path: /ai_metrics
-    honor_labels: true
+      - targets: ['scheduler-service:8002']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'scheduler_.*'
+        target_label: service
+        replacement: 'scheduler-service'
 
-  # 不正検知エンジンメトリクス
-  - job_name: 'fraud-detection'
-    static_configs:
-      - targets: ['day-trade-exporter:8000']
-    scrape_interval: 3s
-    metrics_path: /fraud_metrics
-    honor_labels: true
-
-  # データベースメトリクス
-  - job_name: 'database'
-    static_configs:
-      - targets: ['day-trade-exporter:8000']
-    scrape_interval: 10s
-    metrics_path: /db_metrics
-
-  # Redis メトリクス
+  # Redis監視
   - job_name: 'redis'
     static_configs:
       - targets: ['redis-exporter:9121']
-    scrape_interval: 10s
+    scrape_interval: 30s
+    metrics_path: /metrics
 
-  # Trading Performance メトリクス
-  - job_name: 'trading-performance'
+  # PostgreSQL監視
+  - job_name: 'postgresql'
     static_configs:
-      - targets: ['day-trade-exporter:8000']
-    scrape_interval: 1s
-    metrics_path: /trading_metrics
-    honor_labels: true
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+    metrics_path: /metrics
 
-# リモート書き込み設定（将来の拡張用）
-# remote_write:
-#   - url: "http://long-term-storage:9201/write"
-#     queue_config:
-#       max_samples_per_send: 1000
-#       max_shards: 200
+  # Node Exporter (システムメトリクス)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    metrics_path: /metrics
 
-# リモート読み取り設定（将来の拡張用）
-# remote_read:
-#   - url: "http://long-term-storage:9201/read"
+  # cAdvisor (コンテナメトリクス)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+    metrics_path: /metrics

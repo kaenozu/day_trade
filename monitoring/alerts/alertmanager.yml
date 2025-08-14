@@ -1,0 +1,329 @@
+# Issue #800 Phase 4: AlertManager設定
+# Day Trade ML System アラート管理・通知
+
+global:
+  # SMTP設定
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'day-trade-alerts@company.com'
+  smtp_auth_username: 'day-trade-alerts@company.com'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_auth_secret: '${SMTP_AUTH_SECRET}'
+
+  # Slack設定
+  slack_api_url: '${SLACK_API_URL}'
+
+  # 解決タイムアウト
+  resolve_timeout: 5m
+
+# テンプレート
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# ルート設定
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'web.hook'
+
+  routes:
+    # Critical アラート (即座に通知)
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      repeat_interval: 5m
+      continue: true
+
+    # 93%精度低下 (最優先)
+    - match:
+        alertname: EnsembleAccuracyDegraded
+      receiver: 'accuracy-alerts'
+      group_wait: 0s
+      repeat_interval: 2m
+      continue: true
+
+    # MLサービス関連
+    - match:
+        service: ml-service
+      receiver: 'ml-service-alerts'
+      group_interval: 5m
+      repeat_interval: 15m
+      continue: true
+
+    # データサービス関連
+    - match:
+        service: data-service
+      receiver: 'data-service-alerts'
+      group_interval: 5m
+      repeat_interval: 15m
+      continue: true
+
+    # スケジューラサービス関連
+    - match:
+        service: scheduler-service
+      receiver: 'scheduler-alerts'
+      group_interval: 5m
+      repeat_interval: 15m
+      continue: true
+
+    # インフラストラクチャ関連
+    - match:
+        service: infrastructure
+      receiver: 'infrastructure-alerts'
+      group_interval: 10m
+      repeat_interval: 30m
+      continue: true
+
+    # ビジネスメトリクス
+    - match:
+        service: business
+      receiver: 'business-alerts'
+      group_interval: 15m
+      repeat_interval: 1h
+      continue: true
+
+    # 営業時間外は低頻度通知
+    - match_re:
+        severity: warning
+      receiver: 'off-hours-alerts'
+      active_time_intervals:
+        - off-hours
+      group_interval: 30m
+      repeat_interval: 2h
+
+# 受信者設定
+receivers:
+  # デフォルト受信者
+  - name: 'web.hook'
+    webhook_configs:
+      - url: 'http://webhook-logger:8080/alerts'
+        send_resolved: true
+
+  # Critical アラート
+  - name: 'critical-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#day-trade-critical'
+        username: 'AlertManager'
+        icon_emoji: ':fire:'
+        title: '🚨 CRITICAL: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          *Severity:* {{ .Labels.severity }}
+          *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05 JST" }}
+          {{ if .GeneratorURL }}*Source:* <{{ .GeneratorURL }}|Prometheus>{{ end }}
+          {{ if .Annotations.runbook_url }}*Runbook:* <{{ .Annotations.runbook_url }}|View>{{ end }}
+          {{ end }}
+        send_resolved: true
+
+    email_configs:
+      - to: 'dev-team@company.com,ops-team@company.com'
+        subject: '🚨 Day Trade Critical Alert: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        body: |
+          Critical alert in Day Trade ML System:
+
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Service: {{ .Labels.service }}
+          Severity: {{ .Labels.severity }}
+          Started: {{ .StartsAt.Format "2006-01-02 15:04:05 JST" }}
+          {{ if .Annotations.runbook_url }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+          {{ end }}
+        send_resolved: true
+
+  # 93%精度アラート (最優先)
+  - name: 'accuracy-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#day-trade-accuracy'
+        username: 'AccuracyMonitor'
+        icon_emoji: ':chart_with_downwards_trend:'
+        title: '📉 EnsembleSystem精度低下警告'
+        text: |
+          🎯 *93%精度目標未達成*
+
+          {{ range .Alerts }}
+          *現在精度:* {{ .Annotations.description }}
+          *時刻:* {{ .StartsAt.Format "2006-01-02 15:04:05 JST" }}
+          *対応必要:* 即座にモデル確認・再訓練検討
+          {{ if .Annotations.runbook_url }}*対応手順:* <{{ .Annotations.runbook_url }}|View>{{ end }}
+          {{ end }}
+        send_resolved: true
+
+    email_configs:
+      - to: 'ml-team@company.com,lead-engineer@company.com'
+        subject: '📉 Day Trade: EnsembleSystem精度低下 - 即座対応必要'
+        body: |
+          Day Trade EnsembleSystemの精度が93%目標を下回りました。
+
+          {{ range .Alerts }}
+          詳細: {{ .Annotations.description }}
+          発生時刻: {{ .StartsAt.Format "2006-01-02 15:04:05 JST" }}
+
+          対応アクション:
+          1. モデル状態確認
+          2. データ品質検証
+          3. 必要に応じてモデル再訓練
+          {{ if .Annotations.runbook_url }}
+
+          詳細手順: {{ .Annotations.runbook_url }}
+          {{ end }}
+          {{ end }}
+
+  # MLサービスアラート
+  - name: 'ml-service-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#day-trade-ml'
+        username: 'MLServiceMonitor'
+        icon_emoji: ':robot_face:'
+        title: '🤖 ML Service Alert: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: |
+          {{ range .Alerts }}
+          *Service:* ML Service (EnsembleSystem)
+          *Issue:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05 JST" }}
+          {{ end }}
+
+  # データサービスアラート
+  - name: 'data-service-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#day-trade-data'
+        username: 'DataServiceMonitor'
+        icon_emoji: ':bar_chart:'
+        title: '📊 Data Service Alert: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: |
+          {{ range .Alerts }}
+          *Service:* Data Service (DataFetcher + SmartSymbolSelector)
+          *Issue:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05 JST" }}
+          {{ end }}
+
+  # スケジューラアラート
+  - name: 'scheduler-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#day-trade-scheduler'
+        username: 'SchedulerMonitor'
+        icon_emoji: ':calendar:'
+        title: '⏰ Scheduler Alert: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: |
+          {{ range .Alerts }}
+          *Service:* Scheduler Service (ExecutionScheduler)
+          *Issue:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05 JST" }}
+          {{ end }}
+
+  # インフラアラート
+  - name: 'infrastructure-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#day-trade-infra'
+        username: 'InfraMonitor'
+        icon_emoji: ':warning:'
+        title: '⚠️ Infrastructure Alert: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: |
+          {{ range .Alerts }}
+          *Component:* {{ .Labels.service }}
+          *Issue:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05 JST" }}
+          {{ end }}
+
+  # ビジネスメトリクスアラート
+  - name: 'business-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#day-trade-business'
+        username: 'BusinessMonitor'
+        icon_emoji: ':chart_with_upwards_trend:'
+        title: '📈 Business Metrics Alert: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: |
+          {{ range .Alerts }}
+          *Metric:* {{ .Labels.component }}
+          *Issue:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          *Impact:* Business Operations
+          *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05 JST" }}
+          {{ end }}
+
+  # 営業時間外アラート
+  - name: 'off-hours-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#day-trade-off-hours'
+        username: 'OffHoursMonitor'
+        icon_emoji: ':zzz:'
+        title: '💤 Off-Hours Alert: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: |
+          営業時間外アラート (低優先度)
+          {{ range .Alerts }}
+          *Issue:* {{ .Annotations.summary }}
+          *Service:* {{ .Labels.service }}
+          *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05 JST" }}
+          {{ end }}
+
+# 抑制ルール
+inhibit_rules:
+  # サービスダウン時は他のアラートを抑制
+  - source_match:
+      alertname: 'MLServiceDown'
+    target_match:
+      service: 'ml-service'
+    equal: ['instance']
+
+  - source_match:
+      alertname: 'DataServiceDown'
+    target_match:
+      service: 'data-service'
+    equal: ['instance']
+
+  - source_match:
+      alertname: 'SchedulerServiceDown'
+    target_match:
+      service: 'scheduler-service'
+    equal: ['instance']
+
+  # Critical アラート発生時は warning を抑制
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service', 'instance']
+
+# 時間間隔設定
+time_intervals:
+  # 営業時間外 (平日18:00-9:00, 土日全日)
+  - name: off-hours
+    time_intervals:
+      - times:
+          - start_time: '18:00'
+            end_time: '23:59'
+          - start_time: '00:00'
+            end_time: '09:00'
+        weekdays: ['monday:friday']
+      - weekdays: ['saturday', 'sunday']
+
+  # 市場時間 (平日9:00-15:00)
+  - name: market-hours
+    time_intervals:
+      - times:
+          - start_time: '09:00'
+            end_time: '15:00'
+        weekdays: ['monday:friday']

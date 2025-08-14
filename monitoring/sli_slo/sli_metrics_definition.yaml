@@ -1,0 +1,381 @@
+# SLI (Service Level Indicators) Metrics Definition
+# Day Trade ML System - Issue #802
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sli-metrics-definition
+  namespace: day-trade
+  labels:
+    component: monitoring
+    app: day-trade-ml
+data:
+  sli_config.yaml: |
+    # SLI Metrics Definition for Day Trade ML System
+
+    # 1. 可用性 (Availability) SLI
+    availability:
+      description: "サービス稼働率 - 正常にレスポンスを返す割合"
+      metrics:
+        - name: "ml_service_availability"
+          query: |
+            (
+              sum(rate(http_requests_total{service="ml-service",code!~"5.."}[5m])) /
+              sum(rate(http_requests_total{service="ml-service"}[5m]))
+            ) * 100
+          unit: "percentage"
+          target: 99.9
+
+        - name: "data_service_availability"
+          query: |
+            (
+              sum(rate(http_requests_total{service="data-service",code!~"5.."}[5m])) /
+              sum(rate(http_requests_total{service="data-service"}[5m]))
+            ) * 100
+          unit: "percentage"
+          target: 99.5
+
+        - name: "symbol_service_availability"
+          query: |
+            (
+              sum(rate(http_requests_total{service="symbol-service",code!~"5.."}[5m])) /
+              sum(rate(http_requests_total{service="symbol-service"}[5m]))
+            ) * 100
+          unit: "percentage"
+          target: 99.5
+
+        - name: "execution_service_availability"
+          query: |
+            (
+              sum(rate(http_requests_total{service="execution-service",code!~"5.."}[5m])) /
+              sum(rate(http_requests_total{service="execution-service"}[5m]))
+            ) * 100
+          unit: "percentage"
+          target: 99.0
+
+    # 2. レイテンシ (Latency) SLI
+    latency:
+      description: "応答時間 - リクエストからレスポンスまでの時間"
+      metrics:
+        - name: "ml_prediction_latency_p95"
+          query: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{service="ml-service",endpoint="/api/v1/ml/predict"}[5m])) by (le)
+            )
+          unit: "seconds"
+          target: 30.0
+
+        - name: "ml_prediction_latency_p99"
+          query: |
+            histogram_quantile(0.99,
+              sum(rate(http_request_duration_seconds_bucket{service="ml-service",endpoint="/api/v1/ml/predict"}[5m])) by (le)
+            )
+          unit: "seconds"
+          target: 45.0
+
+        - name: "data_fetch_latency_p95"
+          query: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{service="data-service",endpoint=~"/api/v1/data/.*"}[5m])) by (le)
+            )
+          unit: "seconds"
+          target: 60.0
+
+        - name: "symbol_selection_latency_p95"
+          query: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{service="symbol-service",endpoint="/api/v1/symbols/recommend"}[5m])) by (le)
+            )
+          unit: "seconds"
+          target: 20.0
+
+        - name: "trade_execution_latency_p95"
+          query: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{service="execution-service",endpoint="/api/v1/execution/trade"}[5m])) by (le)
+            )
+          unit: "seconds"
+          target: 120.0
+
+    # 3. スループット (Throughput) SLI
+    throughput:
+      description: "処理能力 - 単位時間あたりの処理量"
+      metrics:
+        - name: "ml_predictions_per_second"
+          query: |
+            sum(rate(ml_prediction_requests_total[5m]))
+          unit: "requests/second"
+          target: 100.0
+
+        - name: "data_requests_per_second"
+          query: |
+            sum(rate(http_requests_total{service="data-service"}[5m]))
+          unit: "requests/second"
+          target: 500.0
+
+        - name: "total_system_throughput"
+          query: |
+            sum(rate(http_requests_total{service=~".*-service"}[5m]))
+          unit: "requests/second"
+          target: 1000.0
+
+    # 4. エラー率 (Error Rate) SLI
+    error_rate:
+      description: "エラー発生率 - 失敗したリクエストの割合"
+      metrics:
+        - name: "ml_service_error_rate"
+          query: |
+            (
+              sum(rate(http_requests_total{service="ml-service",code=~"5.."}[5m])) /
+              sum(rate(http_requests_total{service="ml-service"}[5m]))
+            ) * 100
+          unit: "percentage"
+          target: 0.1
+
+        - name: "data_service_error_rate"
+          query: |
+            (
+              sum(rate(http_requests_total{service="data-service",code=~"5.."}[5m])) /
+              sum(rate(http_requests_total{service="data-service"}[5m]))
+            ) * 100
+          unit: "percentage"
+          target: 0.5
+
+        - name: "critical_api_error_rate"
+          query: |
+            (
+              sum(rate(http_requests_total{service=~".*-service",endpoint=~"/api/v1/.*/critical/.*",code=~"5.."}[5m])) /
+              sum(rate(http_requests_total{service=~".*-service",endpoint=~"/api/v1/.*/critical/.*"}[5m]))
+            ) * 100
+          unit: "percentage"
+          target: 0.01
+
+    # 5. 精度 (Accuracy) SLI - ML特有
+    accuracy:
+      description: "予測精度 - MLモデルの正確性指標"
+      metrics:
+        - name: "ml_prediction_accuracy"
+          query: |
+            ml_prediction_accuracy_ratio
+          unit: "percentage"
+          target: 93.0
+
+        - name: "ml_prediction_confidence"
+          query: |
+            avg(ml_prediction_confidence_score)
+          unit: "score"
+          target: 0.85
+
+        - name: "ml_model_drift_score"
+          query: |
+            ml_model_drift_detection_score
+          unit: "score"
+          target: 0.1
+
+    # 6. データ品質 (Data Quality) SLI
+    data_quality:
+      description: "データ品質 - 取得・処理データの信頼性"
+      metrics:
+        - name: "data_freshness"
+          query: |
+            time() - max(data_last_updated_timestamp)
+          unit: "seconds"
+          target: 300.0
+
+        - name: "data_completeness_rate"
+          query: |
+            (
+              sum(data_points_complete) /
+              sum(data_points_total)
+            ) * 100
+          unit: "percentage"
+          target: 95.0
+
+        - name: "symbol_coverage_rate"
+          query: |
+            (
+              count(symbol_data_available == 1) /
+              count(symbol_data_total)
+            ) * 100
+          unit: "percentage"
+          target: 90.0
+
+    # 7. リソース使用率 (Resource Utilization) SLI
+    resource_utilization:
+      description: "リソース効率性 - CPU・メモリ・ストレージ使用率"
+      metrics:
+        - name: "cpu_utilization_p95"
+          query: |
+            quantile(0.95,
+              avg by (container) (
+                rate(container_cpu_usage_seconds_total{container=~".*-service"}[5m])
+              ) * 100
+            )
+          unit: "percentage"
+          target: 80.0
+
+        - name: "memory_utilization_p95"
+          query: |
+            quantile(0.95,
+              avg by (container) (
+                (container_memory_usage_bytes{container=~".*-service"} /
+                 container_spec_memory_limit_bytes{container=~".*-service"}) * 100
+              )
+            )
+          unit: "percentage"
+          target: 85.0
+
+        - name: "redis_memory_utilization"
+          query: |
+            (redis_memory_used_bytes / redis_memory_max_bytes) * 100
+          unit: "percentage"
+          target: 80.0
+
+    # 8. セキュリティ (Security) SLI
+    security:
+      description: "セキュリティ指標 - 認証・認可・アクセス制御"
+      metrics:
+        - name: "authentication_success_rate"
+          query: |
+            (
+              sum(rate(auth_attempts_total{status="success"}[5m])) /
+              sum(rate(auth_attempts_total[5m]))
+            ) * 100
+          unit: "percentage"
+          target: 99.0
+
+        - name: "unauthorized_access_rate"
+          query: |
+            sum(rate(http_requests_total{code="401"}[5m]))
+          unit: "requests/second"
+          target: 1.0
+
+        - name: "rate_limit_violations"
+          query: |
+            sum(rate(http_requests_total{code="429"}[5m]))
+          unit: "requests/second"
+          target: 10.0
+
+    # 9. ビジネスメトリクス (Business Metrics) SLI
+    business:
+      description: "ビジネス指標 - 取引・収益・ROI関連"
+      metrics:
+        - name: "successful_trades_per_hour"
+          query: |
+            sum(rate(trade_executions_total{status="success"}[1h]))
+          unit: "trades/hour"
+          target: 100.0
+
+        - name: "trade_success_rate"
+          query: |
+            (
+              sum(rate(trade_executions_total{status="success"}[5m])) /
+              sum(rate(trade_executions_total[5m]))
+            ) * 100
+          unit: "percentage"
+          target: 95.0
+
+        - name: "average_trade_profit"
+          query: |
+            avg(trade_profit_amount)
+          unit: "currency"
+          target: 100.0
+
+        - name: "roi_daily"
+          query: |
+            (sum_over_time(trade_profit_amount[24h]) / sum_over_time(trade_investment_amount[24h])) * 100
+          unit: "percentage"
+          target: 5.0
+
+---
+# SLI Recording Rules for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sli-recording-rules
+  namespace: day-trade
+  labels:
+    component: monitoring
+    app: day-trade-ml
+spec:
+  groups:
+  - name: sli.availability
+    interval: 30s
+    rules:
+    - record: sli:availability:ml_service:5m
+      expr: |
+        (
+          sum(rate(http_requests_total{service="ml-service",code!~"5.."}[5m])) /
+          sum(rate(http_requests_total{service="ml-service"}[5m]))
+        ) * 100
+
+    - record: sli:availability:data_service:5m
+      expr: |
+        (
+          sum(rate(http_requests_total{service="data-service",code!~"5.."}[5m])) /
+          sum(rate(http_requests_total{service="data-service"}[5m]))
+        ) * 100
+
+    - record: sli:availability:overall:5m
+      expr: |
+        (
+          sum(rate(http_requests_total{service=~".*-service",code!~"5.."}[5m])) /
+          sum(rate(http_requests_total{service=~".*-service"}[5m]))
+        ) * 100
+
+  - name: sli.latency
+    interval: 30s
+    rules:
+    - record: sli:latency:ml_prediction:p95:5m
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(http_request_duration_seconds_bucket{service="ml-service",endpoint="/api/v1/ml/predict"}[5m])) by (le)
+        )
+
+    - record: sli:latency:ml_prediction:p99:5m
+      expr: |
+        histogram_quantile(0.99,
+          sum(rate(http_request_duration_seconds_bucket{service="ml-service",endpoint="/api/v1/ml/predict"}[5m])) by (le)
+        )
+
+  - name: sli.error_rate
+    interval: 30s
+    rules:
+    - record: sli:error_rate:ml_service:5m
+      expr: |
+        (
+          sum(rate(http_requests_total{service="ml-service",code=~"5.."}[5m])) /
+          sum(rate(http_requests_total{service="ml-service"}[5m]))
+        ) * 100
+
+    - record: sli:error_rate:critical_apis:5m
+      expr: |
+        (
+          sum(rate(http_requests_total{service=~".*-service",endpoint=~"/api/v1/.*/critical/.*",code=~"5.."}[5m])) /
+          sum(rate(http_requests_total{service=~".*-service",endpoint=~"/api/v1/.*/critical/.*"}[5m]))
+        ) * 100
+
+  - name: sli.throughput
+    interval: 30s
+    rules:
+    - record: sli:throughput:ml_predictions:5m
+      expr: |
+        sum(rate(ml_prediction_requests_total[5m]))
+
+    - record: sli:throughput:total_system:5m
+      expr: |
+        sum(rate(http_requests_total{service=~".*-service"}[5m]))
+
+  - name: sli.business
+    interval: 60s
+    rules:
+    - record: sli:business:trade_success_rate:5m
+      expr: |
+        (
+          sum(rate(trade_executions_total{status="success"}[5m])) /
+          sum(rate(trade_executions_total[5m]))
+        ) * 100
+
+    - record: sli:business:ml_accuracy:current
+      expr: |
+        ml_prediction_accuracy_ratio * 100

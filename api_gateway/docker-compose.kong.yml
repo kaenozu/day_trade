@@ -1,0 +1,374 @@
+version: '3.8'
+
+# Kong API Gateway - Day Trade ML System
+# Microservices API Gateway with Kong
+
+networks:
+  day-trade-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  kong-datastore:
+  kong-logs:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  elasticsearch-data:
+
+services:
+  # Kong Database (PostgreSQL)
+  kong-database:
+    image: postgres:15-alpine
+    container_name: kong-database
+    restart: unless-stopped
+    networks:
+      - day-trade-network
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kong_db_password_2025
+      POSTGRES_DB: kong
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    volumes:
+      - kong-datastore:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kong"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "5433:5432"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Kong Migration (Database Setup)
+  kong-migration:
+    image: kong:3.4-alpine
+    container_name: kong-migration
+    restart: "no"
+    networks:
+      - day-trade-network
+    command: kong migrations bootstrap
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_PORT: 5432
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong_db_password_2025
+      KONG_PG_DATABASE: kong
+    depends_on:
+      kong-database:
+        condition: service_healthy
+
+  # Redis (Rate Limiting & Cache)
+  redis:
+    image: redis:7-alpine
+    container_name: kong-redis
+    restart: unless-stopped
+    networks:
+      - day-trade-network
+    command: redis-server --appendonly yes --requirepass redis_password_2025
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "6380:6379"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # Kong API Gateway
+  kong:
+    image: kong:3.4-alpine
+    container_name: kong-gateway
+    restart: unless-stopped
+    networks:
+      - day-trade-network
+    environment:
+      # Database Configuration
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_PORT: 5432
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong_db_password_2025
+      KONG_PG_DATABASE: kong
+
+      # Kong Configuration
+      KONG_PROXY_ACCESS_LOG: /var/log/kong/access.log
+      KONG_ADMIN_ACCESS_LOG: /var/log/kong/admin_access.log
+      KONG_PROXY_ERROR_LOG: /var/log/kong/error.log
+      KONG_ADMIN_ERROR_LOG: /var/log/kong/admin_error.log
+
+      # Network Configuration
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_PROXY_LISTEN_SSL: 0.0.0.0:8443
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_ADMIN_GUI_LISTEN: 0.0.0.0:8002
+
+      # Security
+      KONG_ADMIN_GUI_AUTH: basic-auth
+      KONG_ENFORCE_RBAC: on
+      KONG_ADMIN_GUI_SESSION_CONF: '{"secret":"super-secret-session-key","storage":"memory","cookie_secure":false}'
+
+      # Plugins
+      KONG_PLUGINS: bundled,prometheus
+
+      # Logging
+      KONG_LOG_LEVEL: info
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+
+      # Headers
+      KONG_REAL_IP_HEADER: X-Forwarded-For
+      KONG_REAL_IP_RECURSIVE: on
+      KONG_TRUSTED_IPS: 0.0.0.0/0,::/0
+
+      # Performance
+      KONG_WORKER_PROCESSES: auto
+      KONG_WORKER_CONNECTIONS: 4096
+
+    ports:
+      # Proxy Port (HTTP)
+      - "8000:8000"
+      # Proxy Port (HTTPS)
+      - "8443:8443"
+      # Admin API Port
+      - "8001:8001"
+      # Admin GUI Port
+      - "8002:8002"
+
+    volumes:
+      - kong-logs:/var/log/kong
+      - ./kong/kong.yml:/usr/local/kong/declarative/kong.yml:ro
+      - ./kong/plugins:/usr/local/share/lua/5.1/kong/plugins:ro
+
+    depends_on:
+      kong-database:
+        condition: service_healthy
+      kong-migration:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Kong Admin GUI (Konga)
+  konga:
+    image: pantsel/konga:latest
+    container_name: kong-admin-gui
+    restart: unless-stopped
+    networks:
+      - day-trade-network
+    environment:
+      NODE_ENV: development
+      KONGA_HOOK_TIMEOUT: 120000
+      DB_ADAPTER: postgres
+      DB_HOST: kong-database
+      DB_PORT: 5432
+      DB_USER: kong
+      DB_PASSWORD: kong_db_password_2025
+      DB_DATABASE: konga
+      TOKEN_SECRET: super-secret-konga-token-2025
+    ports:
+      - "1337:1337"
+    depends_on:
+      kong-database:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Prometheus (Metrics Collection)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: kong-prometheus
+    restart: unless-stopped
+    networks:
+      - day-trade-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    volumes:
+      - ./monitoring/prometheus/prometheus-kong.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9091:9090"
+    depends_on:
+      - kong
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Grafana (Metrics Visualization)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: kong-grafana
+    restart: unless-stopped
+    networks:
+      - day-trade-network
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: kong_grafana_admin_2025
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/kong-dashboards:/var/lib/grafana/dashboards
+      - ./monitoring/grafana/kong-provisioning:/etc/grafana/provisioning
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Jaeger (Distributed Tracing)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: kong-jaeger
+    restart: unless-stopped
+    networks:
+      - day-trade-network
+    environment:
+      COLLECTOR_ZIPKIN_HOST_PORT: :9411
+      SPAN_STORAGE_TYPE: memory
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger Collector
+      - "9411:9411"    # Zipkin Collector
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # ELK Stack - Elasticsearch
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: kong-elasticsearch
+    restart: unless-stopped
+    networks:
+      - day-trade-network
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - "9201:9200"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # ELK Stack - Logstash
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: kong-logstash
+    restart: unless-stopped
+    networks:
+      - day-trade-network
+    volumes:
+      - ./monitoring/logstash/kong-logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - kong-logs:/var/log/kong:ro
+    environment:
+      LS_JAVA_OPTS: -Xmx256m -Xms256m
+    depends_on:
+      - elasticsearch
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # ELK Stack - Kibana
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kong-kibana
+    restart: unless-stopped
+    networks:
+      - day-trade-network
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5602:5601"
+    depends_on:
+      - elasticsearch
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+

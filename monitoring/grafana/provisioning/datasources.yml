@@ -1,0 +1,120 @@
+# Issue #800 Phase 4: Grafana データソース設定
+
+apiVersion: 1
+
+datasources:
+  # Prometheus - メトリクス監視
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      queryTimeout: 60s
+      timeInterval: 30s
+      manageAlerts: true
+      prometheusType: Prometheus
+      prometheusVersion: 2.40.0
+      cacheLevel: 'High'
+      incrementalQuerying: true
+      incrementalQueryOverlapWindow: 10m
+      disableRecordingRules: false
+    editable: true
+
+  # Loki - ログ管理
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - datasourceUid: '${DS_PROMETHEUS}'
+          matcherRegex: "traceID=(\\w+)"
+          name: TraceID
+          url: "$${__value.raw}"
+    editable: true
+
+  # Elasticsearch - ログ検索・分析
+  - name: Elasticsearch
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    database: "day-trade-logs-*"
+    jsonData:
+      interval: Daily
+      timeField: "@timestamp"
+      esVersion: "8.0.0"
+      logMessageField: message
+      logLevelField: level
+      maxConcurrentShardRequests: 5
+      includeFrozen: false
+    editable: true
+
+  # Jaeger - 分散トレーシング
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    jsonData:
+      tracesToLogs:
+        datasourceUid: '${DS_LOKI}'
+        tags: ['job', 'instance', 'pod', 'namespace']
+        mappedTags: [
+          { key: 'service.name', value: 'service' },
+          { key: 'service.namespace', value: 'namespace' }
+        ]
+        mapTagNamesEnabled: true
+        spanStartTimeShift: '1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: false
+        filterBySpanID: false
+      tracesToMetrics:
+        datasourceUid: '${DS_PROMETHEUS}'
+        tags: [
+          { key: 'service.name', value: 'service' },
+          { key: 'job' }
+        ]
+        queries:
+          - name: 'Sample query'
+            query: 'histogram_quantile(0.5, sum(rate(tempo_spanmetrics_latency_bucket{$__tags}[5m])) by (le))'
+      nodeGraph:
+        enabled: true
+    editable: true
+
+  # AlertManager - アラート管理
+  - name: AlertManager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    jsonData:
+      implementation: prometheus
+    editable: true
+
+  # CloudWatch (AWS環境)
+  - name: CloudWatch
+    type: cloudwatch
+    access: proxy
+    jsonData:
+      authType: default
+      defaultRegion: ap-northeast-1
+      customMetricsNamespaces: "AWS/ECS,AWS/RDS,AWS/ElastiCache,AWS/ApplicationELB"
+      assumeRoleArn: ""
+    editable: true
+
+  # Azure Monitor (Azure環境)
+  - name: Azure Monitor
+    type: grafana-azure-monitor-datasource
+    access: proxy
+    jsonData:
+      cloudName: azuremonitor
+      tenantId: "${AZURE_TENANT_ID}"
+      clientId: "${AZURE_CLIENT_ID}"
+      subscriptionId: "${AZURE_SUBSCRIPTION_ID}"
+    secureJsonData:
+      clientSecret: "${AZURE_CLIENT_SECRET}"
+    editable: true
+
+deleteDatasources:
+  - name: "TestData DB"

@@ -1,0 +1,409 @@
+# SLO (Service Level Objectives) Configuration
+# Day Trade ML System - Issue #802
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: slo-objectives
+  namespace: day-trade
+  labels:
+    component: monitoring
+    app: day-trade-ml
+data:
+  slo_config.yaml: |
+    # SLO Objectives for Day Trade ML System
+    # Based on SLI metrics with specific targets and measurement windows
+
+    # SLO Period Definitions
+    measurement_windows:
+      real_time: "5m"      # リアルタイム監視
+      short_term: "1h"     # 短期監視
+      medium_term: "24h"   # 日次監視
+      monthly: "30d"       # 月次SLA評価
+      quarterly: "90d"     # 四半期評価
+
+    # Tier Definitions
+    service_tiers:
+      critical:     # 最重要サービス - ML予測・取引実行
+        availability: 99.9
+        latency_p95: 30
+        error_rate: 0.1
+        response_budget: 0.1  # 0.1% error budget
+
+      important:    # 重要サービス - データ取得・銘柄選択
+        availability: 99.5
+        latency_p95: 60
+        error_rate: 0.5
+        response_budget: 0.5
+
+      standard:     # 標準サービス - 通知・監視
+        availability: 99.0
+        latency_p95: 120
+        error_rate: 1.0
+        response_budget: 1.0
+
+    # Service-specific SLO Objectives
+    services:
+      ml-service:
+        tier: critical
+        description: "機械学習予測サービス - システム核心機能"
+        objectives:
+          # 可用性 SLO
+          availability:
+            target: 99.9          # 月間ダウンタイム < 43分
+            measurement_window: "30d"
+            alerting_threshold: 99.5  # 早期警告
+            sli_query: "sli:availability:ml_service:5m"
+
+          # レイテンシ SLO
+          latency_p95:
+            target: 30            # 95%tile < 30秒
+            measurement_window: "1h"
+            alerting_threshold: 25
+            sli_query: "sli:latency:ml_prediction:p95:5m"
+
+          latency_p99:
+            target: 45            # 99%tile < 45秒
+            measurement_window: "1h"
+            alerting_threshold: 40
+            sli_query: "sli:latency:ml_prediction:p99:5m"
+
+          # エラー率 SLO
+          error_rate:
+            target: 0.1           # 0.1%未満
+            measurement_window: "1h"
+            alerting_threshold: 0.05
+            sli_query: "sli:error_rate:ml_service:5m"
+
+          # スループット SLO
+          throughput:
+            target: 100           # 100 RPS以上
+            measurement_window: "5m"
+            alerting_threshold: 80
+            sli_query: "sli:throughput:ml_predictions:5m"
+
+          # 精度 SLO - ML特有
+          accuracy:
+            target: 93.0          # 93%以上の精度維持
+            measurement_window: "24h"
+            alerting_threshold: 92.0
+            sli_query: "sli:business:ml_accuracy:current"
+            critical: true        # ビジネス重要指標
+
+      data-service:
+        tier: important
+        description: "データ取得・管理サービス"
+        objectives:
+          availability:
+            target: 99.5          # 月間ダウンタイム < 3.6時間
+            measurement_window: "30d"
+            alerting_threshold: 99.0
+            sli_query: "sli:availability:data_service:5m"
+
+          latency_p95:
+            target: 60            # 95%tile < 60秒
+            measurement_window: "1h"
+            alerting_threshold: 50
+            sli_query: "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"data-service\"}[5m])) by (le))"
+
+          error_rate:
+            target: 0.5
+            measurement_window: "1h"
+            alerting_threshold: 0.3
+            sli_query: "sli:error_rate:data_service:5m"
+
+          # データ品質 SLO
+          data_freshness:
+            target: 300           # 5分以内の新鮮度
+            measurement_window: "5m"
+            alerting_threshold: 180
+            sli_query: "time() - max(data_last_updated_timestamp)"
+
+          data_completeness:
+            target: 95.0          # 95%以上の完全性
+            measurement_window: "1h"
+            alerting_threshold: 90.0
+            sli_query: "(sum(data_points_complete) / sum(data_points_total)) * 100"
+
+      symbol-service:
+        tier: important
+        description: "銘柄選択・分析サービス"
+        objectives:
+          availability:
+            target: 99.5
+            measurement_window: "30d"
+            alerting_threshold: 99.0
+            sli_query: "sli:availability:symbol_service:5m"
+
+          latency_p95:
+            target: 20            # 95%tile < 20秒
+            measurement_window: "1h"
+            alerting_threshold: 15
+            sli_query: "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"symbol-service\"}[5m])) by (le))"
+
+          error_rate:
+            target: 0.5
+            measurement_window: "1h"
+            alerting_threshold: 0.3
+            sli_query: "sli:error_rate:symbol_service:5m"
+
+          # 銘柄カバレッジ SLO
+          symbol_coverage:
+            target: 90.0          # 90%以上の銘柄カバー
+            measurement_window: "1h"
+            alerting_threshold: 85.0
+            sli_query: "(count(symbol_data_available == 1) / count(symbol_data_total)) * 100"
+
+      execution-service:
+        tier: critical
+        description: "取引実行サービス - 収益直結"
+        objectives:
+          availability:
+            target: 99.0          # 取引時間外考慮
+            measurement_window: "30d"
+            alerting_threshold: 98.5
+            sli_query: "sli:availability:execution_service:5m"
+
+          latency_p95:
+            target: 120           # 95%tile < 2分
+            measurement_window: "1h"
+            alerting_threshold: 90
+            sli_query: "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"execution-service\"}[5m])) by (le))"
+
+          error_rate:
+            target: 1.0           # 取引失敗許容範囲
+            measurement_window: "1h"
+            alerting_threshold: 0.5
+            sli_query: "sli:error_rate:execution_service:5m"
+
+          # 取引成功率 SLO
+          trade_success_rate:
+            target: 95.0          # 95%以上の取引成功
+            measurement_window: "1h"
+            alerting_threshold: 90.0
+            sli_query: "sli:business:trade_success_rate:5m"
+            critical: true
+
+      notification-service:
+        tier: standard
+        description: "通知・アラートサービス"
+        objectives:
+          availability:
+            target: 99.0
+            measurement_window: "30d"
+            alerting_threshold: 98.0
+            sli_query: "sli:availability:notification_service:5m"
+
+          latency_p95:
+            target: 10            # 95%tile < 10秒
+            measurement_window: "1h"
+            alerting_threshold: 8
+            sli_query: "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"notification-service\"}[5m])) by (le))"
+
+          error_rate:
+            target: 1.0
+            measurement_window: "1h"
+            alerting_threshold: 0.5
+            sli_query: "sli:error_rate:notification_service:5m"
+
+    # System-wide SLO Objectives
+    system_wide:
+      description: "システム全体の統合SLO"
+      objectives:
+        # 全体可用性 SLO
+        overall_availability:
+          target: 99.5            # システム全体稼働率
+          measurement_window: "30d"
+          alerting_threshold: 99.0
+          sli_query: "sli:availability:overall:5m"
+
+        # エンドツーエンド SLO
+        end_to_end_latency:
+          target: 180             # 銘柄選択～取引実行まで3分以内
+          measurement_window: "1h"
+          alerting_threshold: 150
+          sli_query: "histogram_quantile(0.95, sum(rate(end_to_end_duration_seconds_bucket[5m])) by (le))"
+
+        # システムスループット SLO
+        system_throughput:
+          target: 1000            # 1000 RPS以上
+          measurement_window: "5m"
+          alerting_threshold: 800
+          sli_query: "sli:throughput:total_system:5m"
+
+        # リソース効率性 SLO
+        resource_efficiency:
+          cpu_utilization:
+            target: 80.0          # CPU使用率80%以下
+            measurement_window: "1h"
+            alerting_threshold: 85.0
+            sli_query: "quantile(0.95, avg by (container) (rate(container_cpu_usage_seconds_total{container=~\".*-service\"}[5m])) * 100)"
+
+          memory_utilization:
+            target: 85.0          # メモリ使用率85%以下
+            measurement_window: "1h"
+            alerting_threshold: 90.0
+            sli_query: "quantile(0.95, avg by (container) ((container_memory_usage_bytes{container=~\".*-service\"} / container_spec_memory_limit_bytes{container=~\".*-service\"}) * 100))"
+
+    # Business SLO Objectives
+    business:
+      description: "ビジネス重要指標のSLO"
+      objectives:
+        # 収益性 SLO
+        profitability:
+          daily_roi:
+            target: 5.0           # 日次ROI 5%以上
+            measurement_window: "24h"
+            alerting_threshold: 3.0
+            sli_query: "(sum_over_time(trade_profit_amount[24h]) / sum_over_time(trade_investment_amount[24h])) * 100"
+            critical: true
+
+          weekly_roi:
+            target: 25.0          # 週次ROI 25%以上
+            measurement_window: "7d"
+            alerting_threshold: 20.0
+            sli_query: "(sum_over_time(trade_profit_amount[7d]) / sum_over_time(trade_investment_amount[7d])) * 100"
+
+        # 取引頻度 SLO
+        trading_frequency:
+          trades_per_hour:
+            target: 100           # 時間あたり100取引以上
+            measurement_window: "1h"
+            alerting_threshold: 80
+            sli_query: "sum(rate(trade_executions_total{status=\"success\"}[1h]))"
+
+          daily_trades:
+            target: 2000          # 日次2000取引以上
+            measurement_window: "24h"
+            alerting_threshold: 1500
+            sli_query: "sum(increase(trade_executions_total{status=\"success\"}[24h]))"
+
+    # Error Budget Policies
+    error_budget:
+      description: "エラーバジェット管理ポリシー"
+
+      policies:
+        critical_services:
+          budget_percentage: 0.1  # 0.1%のエラーバジェット
+          burn_rate_alerts:
+            - threshold: 2.0      # 2倍の燃焼率で警告
+              window: "1h"
+              severity: "warning"
+            - threshold: 10.0     # 10倍の燃焼率で重大警告
+              window: "5m"
+              severity: "critical"
+
+        important_services:
+          budget_percentage: 0.5  # 0.5%のエラーバジェット
+          burn_rate_alerts:
+            - threshold: 2.0
+              window: "1h"
+              severity: "warning"
+            - threshold: 5.0
+              window: "15m"
+              severity: "critical"
+
+        standard_services:
+          budget_percentage: 1.0  # 1.0%のエラーバジェット
+          burn_rate_alerts:
+            - threshold: 2.0
+              window: "2h"
+              severity: "warning"
+
+      # Auto-mitigation policies
+      auto_mitigation:
+        enabled: true
+        actions:
+          - trigger: "error_budget_50_percent_consumed"
+            action: "reduce_traffic_to_canary"
+            parameters:
+              canary_traffic_percentage: 5
+
+          - trigger: "error_budget_75_percent_consumed"
+            action: "rollback_deployment"
+            parameters:
+              rollback_to: "previous_stable"
+
+          - trigger: "error_budget_90_percent_consumed"
+            action: "emergency_circuit_breaker"
+            parameters:
+              enable_circuit_breaker: true
+              duration: "1h"
+
+---
+# SLO Alerting Rules
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slo-alerting-rules
+  namespace: day-trade
+  labels:
+    component: monitoring
+    app: day-trade-ml
+spec:
+  groups:
+  - name: slo.ml_service
+    rules:
+    - alert: MLServiceAvailabilitySLOViolation
+      expr: sli:availability:ml_service:5m < 99.5
+      for: 5m
+      labels:
+        severity: critical
+        service: ml-service
+        slo: availability
+      annotations:
+        summary: "ML Service availability SLO violation"
+        description: "ML Service availability {{ $value }}% is below SLO target of 99.9%"
+
+    - alert: MLServiceLatencySLOViolation
+      expr: sli:latency:ml_prediction:p95:5m > 25
+      for: 5m
+      labels:
+        severity: warning
+        service: ml-service
+        slo: latency
+      annotations:
+        summary: "ML Service latency SLO violation"
+        description: "ML Service P95 latency {{ $value }}s exceeds SLO target of 30s"
+
+    - alert: MLAccuracyCriticalSLOViolation
+      expr: sli:business:ml_accuracy:current < 92.0
+      for: 15m
+      labels:
+        severity: critical
+        service: ml-service
+        slo: accuracy
+      annotations:
+        summary: "CRITICAL: ML prediction accuracy below SLO"
+        description: "ML prediction accuracy {{ $value }}% is below critical threshold of 93%"
+
+  - name: slo.error_budget
+    rules:
+    - alert: ErrorBudgetBurnRateHigh
+      expr: |
+        (
+          (1 - sli:availability:ml_service:5m / 100) > (0.1 * 10)
+        )
+      for: 2m
+      labels:
+        severity: critical
+        service: ml-service
+        alert_type: error_budget
+      annotations:
+        summary: "High error budget burn rate for ML Service"
+        description: "Error budget burning 10x faster than sustainable rate"
+
+    - alert: ErrorBudget50PercentConsumed
+      expr: |
+        (
+          1 - (
+            avg_over_time(sli:availability:ml_service:5m[30d]) / 100
+          )
+        ) > (0.1 * 0.5)
+      labels:
+        severity: warning
+        service: ml-service
+        alert_type: error_budget
+      annotations:
+        summary: "50% of monthly error budget consumed"
+        description: "ML Service has consumed 50% of error budget for this month"
