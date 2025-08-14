@@ -197,7 +197,7 @@ function updateChart(chartType) {
 }
 
 function updateAllCharts() {
-    const chartTypes = ['comprehensive', 'portfolio', 'system', 'trading', 'risk'];
+    const chartTypes = ['comprehensive', 'portfolio', 'system', 'analysis', 'risk'];
     chartTypes.forEach(chartType => {
         updateChart(chartType);
     });
