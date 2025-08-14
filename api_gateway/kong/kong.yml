@@ -231,8 +231,7 @@ plugins:
       preflight_continue: false
     tags: ["global", "cors"]
 
-# Route-specific Plugins
-plugins:
+  # Route-specific Plugins
   # ML Service High Priority Rate Limiting
   - name: rate-limiting
     route: ml-predict

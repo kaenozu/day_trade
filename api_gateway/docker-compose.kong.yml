@@ -112,12 +112,6 @@ services:
       KONG_PG_PASSWORD: kong_db_password_2025
       KONG_PG_DATABASE: kong
 
-      # Kong Configuration
-      KONG_PROXY_ACCESS_LOG: /var/log/kong/access.log
-      KONG_ADMIN_ACCESS_LOG: /var/log/kong/admin_access.log
-      KONG_PROXY_ERROR_LOG: /var/log/kong/error.log
-      KONG_ADMIN_ERROR_LOG: /var/log/kong/admin_error.log
-
       # Network Configuration
       KONG_PROXY_LISTEN: 0.0.0.0:8000
       KONG_PROXY_LISTEN_SSL: 0.0.0.0:8443
