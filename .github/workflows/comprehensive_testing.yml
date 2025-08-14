@@ -1,0 +1,506 @@
+name: Comprehensive Testing Pipeline
+
+on:
+  push:
+    branches: [ main, develop, feature/*, issue-* ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # 毎日午前2時にフルテストスイート実行
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_level:
+        description: 'Test Level'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+        - quick
+        - standard
+        - full
+        - performance
+      enable_benchmarks:
+        description: 'Enable Performance Benchmarks'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.9'
+  CACHE_VERSION: v2
+  PYTEST_TIMEOUT: 3600
+
+jobs:
+  # コード品質チェック
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.cache/pre-commit
+        key: ${{ runner.os }}-deps-${{ env.CACHE_VERSION }}-${{ hashFiles('**/requirements*.txt', '.pre-commit-config.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-deps-${{ env.CACHE_VERSION }}-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pip install pre-commit
+
+    - name: Run pre-commit hooks
+      run: |
+        pre-commit install
+        pre-commit run --all-files
+
+    - name: Run static analysis
+      run: |
+        # MyPy type checking
+        mypy src/day_trade --ignore-missing-imports --no-strict-optional
+
+        # Pylint code quality
+        pylint src/day_trade --exit-zero --output-format=json > pylint-report.json
+
+        # Security scan with bandit
+        bandit -r src/day_trade -f json -o bandit-report.json || true
+
+    - name: Upload analysis reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: code-quality-reports
+        path: |
+          pylint-report.json
+          bandit-report.json
+
+  # ユニットテスト
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ env.CACHE_VERSION }}-${{ matrix.python-version }}-${{ hashFiles('**/requirements*.txt') }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Run unit tests
+      run: |
+        pytest tests/unit/ \
+          --cov=src/day_trade \
+          --cov-report=xml \
+          --cov-report=html \
+          --junit-xml=junit/test-results-${{ matrix.python-version }}.xml \
+          --timeout=${{ env.PYTEST_TIMEOUT }} \
+          -v
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: unit-test-results-${{ matrix.python-version }}
+        path: |
+          junit/test-results-*.xml
+          htmlcov/
+          coverage.xml
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      if: matrix.python-version == '3.9'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-unit-tests
+
+  # 統合テスト
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [code-quality]
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Run integration tests
+      env:
+        REDIS_URL: redis://localhost:6379
+        TEST_MODE: integration
+      run: |
+        pytest tests/integration/ \
+          --cov=src/day_trade \
+          --cov-report=xml \
+          --junit-xml=junit/integration-results.xml \
+          --timeout=${{ env.PYTEST_TIMEOUT }} \
+          -v -m "integration"
+
+    - name: Upload integration test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-test-results
+        path: |
+          junit/integration-results.xml
+          coverage.xml
+
+  # パフォーマンステスト
+  performance-tests:
+    runs-on: ubuntu-latest
+    needs: [unit-tests]
+    if: |
+      github.event_name == 'schedule' ||
+      github.event.inputs.test_level == 'performance' ||
+      github.event.inputs.test_level == 'full' ||
+      github.event.inputs.enable_benchmarks == 'true'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Run performance benchmarks
+      env:
+        BENCHMARK_MODE: true
+        PERFORMANCE_BASELINE_FILE: tests/baselines/performance.json
+      run: |
+        pytest tests/performance/ \
+          --benchmark-only \
+          --benchmark-json=benchmark-results.json \
+          --junit-xml=junit/performance-results.xml \
+          --timeout=${{ env.PYTEST_TIMEOUT }} \
+          -v -m "performance"
+
+    - name: Generate performance report
+      run: |
+        python -m src.day_trade.testing.reporters \
+          --performance-data benchmark-results.json \
+          --output-dir performance-reports
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: performance-test-results
+        path: |
+          benchmark-results.json
+          junit/performance-results.xml
+          performance-reports/
+
+    - name: Performance regression check
+      run: |
+        python scripts/check_performance_regression.py \
+          --current benchmark-results.json \
+          --baseline tests/baselines/performance.json \
+          --tolerance 10
+
+  # Issue #761 推論システム特化テスト
+  inference-system-tests:
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Test inference optimization system
+      env:
+        TEST_INFERENCE_TARGETS: "latency,throughput,memory,accuracy"
+      run: |
+        pytest tests/integration/test_inference_integration.py \
+          --cov=src/day_trade/inference \
+          --cov-report=xml \
+          --junit-xml=junit/inference-results.xml \
+          --timeout=${{ env.PYTEST_TIMEOUT }} \
+          -v -m "integration and inference"
+
+    - name: Verify Issue #761 targets
+      run: |
+        python scripts/verify_inference_targets.py \
+          --latency-target 5.0 \
+          --throughput-target 10000.0 \
+          --memory-target 0.5 \
+          --accuracy-target 0.97
+
+    - name: Upload inference test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: inference-test-results
+        path: |
+          junit/inference-results.xml
+          coverage.xml
+
+  # セキュリティテスト
+  security-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        languages: python
+
+  # テスト結果集約
+  test-summary:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, performance-tests, inference-system-tests]
+    if: always()
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all test artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+
+    - name: Generate comprehensive test report
+      run: |
+        python -m src.day_trade.testing.reporters \
+          --test-results unit-test-results*/junit/ \
+          --integration-results integration-test-results/junit/ \
+          --performance-results performance-test-results/ \
+          --inference-results inference-test-results/junit/ \
+          --output-dir comprehensive-reports \
+          --format html,json,markdown
+
+    - name: Upload comprehensive report
+      uses: actions/upload-artifact@v3
+      with:
+        name: comprehensive-test-report
+        path: comprehensive-reports/
+
+    - name: Publish test results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Test Results Summary
+        path: |
+          **/junit/*.xml
+        reporter: java-junit
+        fail-on-error: false
+
+    - name: Comment PR with test summary
+      uses: actions/github-script@v6
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+
+          // テスト結果サマリー読み込み
+          const summaryFile = 'comprehensive-reports/test_summary.json';
+          if (fs.existsSync(summaryFile)) {
+            const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'));
+
+            const comment = `## 🧪 Test Results Summary
+
+            | Test Type | Total | Passed | Failed | Success Rate |
+            |-----------|-------|--------|--------|--------------|
+            | Unit Tests | ${summary.unit.total || 0} | ${summary.unit.passed || 0} | ${summary.unit.failed || 0} | ${summary.unit.success_rate || 0}% |
+            | Integration | ${summary.integration.total || 0} | ${summary.integration.passed || 0} | ${summary.integration.failed || 0} | ${summary.integration.success_rate || 0}% |
+            | Performance | ${summary.performance.total || 0} | ${summary.performance.passed || 0} | ${summary.performance.failed || 0} | ${summary.performance.success_rate || 0}% |
+            | Inference | ${summary.inference.total || 0} | ${summary.inference.passed || 0} | ${summary.inference.failed || 0} | ${summary.inference.success_rate || 0}% |
+
+            **Overall Success Rate**: ${summary.overall.success_rate || 0}%
+
+            📊 [View Detailed Report](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          }
+
+  # デプロイ前チェック
+  deployment-readiness:
+    runs-on: ubuntu-latest
+    needs: [test-summary, security-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check deployment readiness
+      run: |
+        echo "🚀 Deployment readiness check"
+
+        # テスト成功率チェック
+        python scripts/check_deployment_readiness.py \
+          --min-success-rate 95.0 \
+          --max-failed-tests 5 \
+          --require-performance-pass true
+
+    - name: Create deployment tag
+      if: success()
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+        # バージョンタグ作成
+        VERSION=$(python -c "import src.day_trade; print(src.day_trade.__version__)")
+        TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+        TAG="v${VERSION}-${TIMESTAMP}"
+
+        git tag $TAG
+        git push origin $TAG
+
+        echo "Created deployment tag: $TAG"
+
+    - name: Trigger deployment
+      if: success()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.repos.createDispatchEvent({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            event_type: 'deploy',
+            client_payload: {
+              ref: context.sha,
+              environment: 'production'
+            }
+          });
+
+  # 失敗時通知
+  failure-notification:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, performance-tests, inference-system-tests, security-tests]
+    if: failure()
+    steps:
+    - name: Notify on failure
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const title = `❌ CI Pipeline Failed - ${context.workflow}`;
+          const body = `
+          ## Pipeline Failure
+
+          **Branch**: ${context.ref}
+          **Commit**: ${context.sha}
+          **Run**: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}
+
+          Please check the failed jobs and address the issues.
+          `;
+
+          // Issueを作成（既存の同様のIssueがない場合）
+          const issues = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            labels: 'ci-failure'
+          });
+
+          const existingIssue = issues.data.find(issue =>
+            issue.title.includes('CI Pipeline Failed') &&
+            issue.body.includes(context.sha)
+          );
+
+          if (!existingIssue) {
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['ci-failure', 'bug']
+            });
+          }
