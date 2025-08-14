@@ -189,7 +189,7 @@ class PortfolioManager:
 
             # データ取得
             price_data = self.data_fetcher.fetch_multiple_symbols(
-                symbols, period="30d", use_parallel=True
+                symbols, period="1mo", use_parallel=True
             )
 
             # リスク分析

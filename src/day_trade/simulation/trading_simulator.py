@@ -656,7 +656,7 @@ if __name__ == "__main__":
     test_symbols = ["7203", "8306", "9984", "6758", "4689"]
 
     result = simulator.run_simulation(
-        symbols=test_symbols, simulation_days=10, data_period="30d"
+        symbols=test_symbols, simulation_days=10, data_period="1mo"
     )
 
     print("=== シミュレーション結果 ===")

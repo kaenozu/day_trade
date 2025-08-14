@@ -1093,4 +1093,22 @@ if __name__ == "__main__":
     print("🌐  ダッシュボード: http://localhost:8000")
     print("=" * 80)
 
+
+# 自動取引・注文実行エンドポイントの明示的禁止
+@app.api_route("/api/trading/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def trading_disabled(path: str):
+    """取引関連API完全無効化"""
+    raise HTTPException(
+        status_code=403,
+        detail="自動取引機能は完全に無効化されています。このシステムは分析専用です。"
+    )
+
+@app.api_route("/api/orders/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def orders_disabled(path: str):
+    """注文関連API完全無効化"""
+    raise HTTPException(
+        status_code=403,
+        detail="注文実行機能は完全に無効化されています。このシステムは分析専用です。"
+    )
+
     uvicorn.run(app, host="127.0.0.1", port=8000)
