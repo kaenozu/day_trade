@@ -17,7 +17,7 @@ cd day_trade
 pip install -r requirements.txt
 
 # 3. 分析実行！
-python daytrade_personal.py
+python daytrade.py
 ```
 
 **これだけで93%精度のAI分析結果が表示されます！**
@@ -66,7 +66,14 @@ python daytrade_personal.py
 
 ### 基本の使い方
 ```bash
-python daytrade_personal.py
+# 基本分析
+python daytrade.py
+
+# チャート付き分析（グラフで表示）
+python daytrade.py --chart
+
+# 安全モード（低リスクのみ）
+python daytrade.py --safe
 ```
 これだけで主要3銘柄の分析結果が表示されます！
 
@@ -164,7 +171,11 @@ A: Yahoo Finance等の無料データソースを使用しています。
 
 ### ステップ2: 実行
 ```bash
-python daytrade_personal.py
+# 基本分析
+python daytrade.py
+
+# チャート表示したい場合
+python daytrade.py --chart
 ```
 
 ### ステップ3: 結果を確認
