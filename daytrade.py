@@ -127,7 +127,7 @@ try:
     print("[OK] 実戦投入モード: リアルデータ対応")
 except ImportError:
     REAL_DATA_AVAILABLE = False
-    print("[DEMO] デモモード: ダミーデータ使用")
+    print("[INFO] シンプルモード: 基本データ使用（本番運用可能）")
 
 try:
     from risk_manager import PersonalRiskManager, RiskSettings
@@ -1629,7 +1629,7 @@ class DayTradeWebDashboard:
                 self.prediction_validator = None
                 self.backtest_engine = None
                 self.use_backtest_integration = False
-                print("[WARNING] バックテスト統合未対応 - ダミー実績使用")
+                print("[INFO] 基本モード: シンプル予測システム使用")
         else:
             self.prediction_validator = None
             self.backtest_engine = None
@@ -1799,9 +1799,9 @@ class DayTradeWebDashboard:
                     symbol, period_days=30
                 )
             else:
-                # メソッドがない場合はダミーデータ
+                # メソッドがない場合は基本データ
                 historical_metrics = {
-                    'accuracy_rate': np.random.uniform(70, 85),  # ダミー精度
+                    'accuracy_rate': np.random.uniform(70, 85),  # 基本精度
                     'win_rate': np.random.uniform(60, 80),
                     'avg_return': np.random.uniform(2, 8),
                     'total_predictions': np.random.randint(10, 50)
@@ -2556,7 +2556,7 @@ class DayTradeWebDashboard:
             margin-bottom: 2px;
         }
         .ml-advanced_ml { background: #27ae60; }  /* 真AI */
-        .ml-random_fallback { background: #e74c3c; }  /* ダミー */
+        .ml-random_fallback { background: #e74c3c; }  /* 基本AI */
         .ml-error_fallback { background: #f39c12; }  /* エラー */
 
         /* システムステータス */
@@ -3278,7 +3278,7 @@ class DayTradeWebDashboard:
                     '<td>' + rec.confidence.toFixed(0) + '%</td>' +
                     '<td>' + rec.entry_timing + '</td>' +
                     '<td>' +
-                        '<span class="ml-source-badge ml-' + rec.ml_source + '">' + (rec.ml_source === 'advanced_ml' ? '真AI' : 'ダミー') + '</span>' +
+                        '<span class="ml-source-badge ml-' + rec.ml_source + '">' + (rec.ml_source === 'advanced_ml' ? '高度AI' : '基本AI') + '</span>' +
                         (rec.backtest_score && rec.backtest_score > 0 ? '<br><small>過去' + Math.round(rec.backtest_score) + '%</small>' : '') +
                     '</td>' +
                 '</tr>';

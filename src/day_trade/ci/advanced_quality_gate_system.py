@@ -1396,8 +1396,8 @@ class AdvancedQualityGateSystem:
                     lines_of_code=complexity_data["lines_of_code"],
                     complexity_score=complexity,
                     maintainability_index=maintainability,
-                    type_coverage=0.0,  # TODO: 実装
-                    documentation_coverage=0.0,  # TODO: 実装
+                    type_coverage=self._calculate_type_coverage(file_path),  # 本番実装
+                    documentation_coverage=self._calculate_doc_coverage(file_path),  # 本番実装
                     quality_level=quality_level,
                 )
 
@@ -1525,6 +1525,78 @@ class AdvancedQualityGateSystem:
         )
 
         return "\n".join(lines)
+
+    def _calculate_type_coverage(self, file_path: str) -> float:
+        """型アノテーションカバレッジ計算（本番実装）"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            import ast
+            
+            # 関数定義数をカウント
+            tree = ast.parse(content)
+            total_functions = 0
+            typed_functions = 0
+            
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    total_functions += 1
+                    
+                    # 戻り値の型アノテーションチェック
+                    has_return_annotation = node.returns is not None
+                    
+                    # 引数の型アノテーションチェック
+                    has_arg_annotations = all(
+                        arg.annotation is not None for arg in node.args.args
+                        if arg.arg != 'self'  # selfは除外
+                    )
+                    
+                    if has_return_annotation and has_arg_annotations:
+                        typed_functions += 1
+            
+            # カバレッジ計算
+            if total_functions == 0:
+                return 100.0  # 関数がない場合は100%
+            
+            coverage = (typed_functions / total_functions) * 100
+            return round(coverage, 1)
+            
+        except Exception:
+            return 0.0
+
+    def _calculate_doc_coverage(self, file_path: str) -> float:
+        """ドキュメントカバレッジ計算（本番実装）"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            import ast
+            
+            tree = ast.parse(content)
+            total_items = 0
+            documented_items = 0
+            
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    total_items += 1
+                    
+                    # docstringの存在チェック
+                    if (node.body and 
+                        isinstance(node.body[0], ast.Expr) and 
+                        isinstance(node.body[0].value, ast.Constant) and 
+                        isinstance(node.body[0].value.value, str)):
+                        documented_items += 1
+            
+            # カバレッジ計算
+            if total_items == 0:
+                return 100.0  # アイテムがない場合は100%
+            
+            coverage = (documented_items / total_items) * 100
+            return round(coverage, 1)
+            
+        except Exception:
+            return 0.0
 
 
 # CLI インターフェース
