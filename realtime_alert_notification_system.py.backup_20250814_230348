@@ -1,0 +1,854 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Realtime Alert & Notification System - リアルタイムアラート・通知システム
+
+Issue #788実装：リアルタイムアラート・通知システム
+重要な取引機会やリスクを即座に通知するアラートシステム
+"""
+
+import asyncio
+import pandas as pd
+import numpy as np
+import logging
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple, Any, Union, Callable
+from dataclasses import dataclass, field
+from enum import Enum
+import json
+import sqlite3
+from pathlib import Path
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import time
+import threading
+from queue import Queue, Empty
+import uuid
+from datetime_encoder import DateTimeEncoder
+
+# Windows環境での文字化け対策
+import sys
+import os
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except:
+        import codecs
+        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+
+class AlertPriority(Enum):
+    """アラート優先度"""
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFO = "info"
+
+class AlertType(Enum):
+    """アラートタイプ"""
+    PRICE_ALERT = "price_alert"
+    VOLUME_ALERT = "volume_alert"
+    TECHNICAL_SIGNAL = "technical_signal"
+    RISK_WARNING = "risk_warning"
+    SYSTEM_ERROR = "system_error"
+    TRADING_OPPORTUNITY = "trading_opportunity"
+    MARKET_NEWS = "market_news"
+    PERFORMANCE_UPDATE = "performance_update"
+
+class NotificationChannel(Enum):
+    """通知チャネル"""
+    CONSOLE = "console"
+    EMAIL = "email"
+    LOG_FILE = "log_file"
+    DATABASE = "database"
+    WEBHOOK = "webhook"
+    DESKTOP = "desktop"
+
+@dataclass
+class AlertRule:
+    """アラートルール"""
+    rule_id: str
+    name: str
+    alert_type: AlertType
+    condition: str  # Python式として評価
+    priority: AlertPriority
+    enabled: bool = True
+    cooldown_minutes: int = 5
+    last_triggered: Optional[datetime] = None
+    trigger_count: int = 0
+    description: str = ""
+    symbols: List[str] = field(default_factory=list)
+    notification_channels: List[NotificationChannel] = field(default_factory=list)
+
+@dataclass
+class Alert:
+    """アラート"""
+    alert_id: str
+    rule_id: str
+    alert_type: AlertType
+    priority: AlertPriority
+    symbol: str
+    title: str
+    message: str
+    data: Dict[str, Any]
+    timestamp: datetime
+    acknowledged: bool = False
+    resolved: bool = False
+
+@dataclass
+class NotificationConfig:
+    """通知設定"""
+    email_enabled: bool = False
+    email_smtp_server: str = ""
+    email_smtp_port: int = 587
+    email_username: str = ""
+    email_password: str = ""
+    email_to_addresses: List[str] = field(default_factory=list)
+    webhook_url: str = ""
+    webhook_enabled: bool = False
+    desktop_enabled: bool = True
+    console_enabled: bool = True
+
+class AlertConditionEvaluator:
+    """アラート条件評価器"""
+
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        self.safe_globals = {
+            '__builtins__': {},
+            'abs': abs,
+            'max': max,
+            'min': min,
+            'round': round,
+            'len': len,
+            'sum': sum,
+            'any': any,
+            'all': all,
+            'np': np,
+            'pd': pd
+        }
+
+    def evaluate_condition(self, condition: str, context: Dict[str, Any]) -> bool:
+        """条件評価"""
+
+        try:
+            # 安全なコンテキスト作成
+            safe_context = {**self.safe_globals, **context}
+
+            # 条件評価
+            result = eval(condition, safe_context, {})
+            return bool(result)
+
+        except Exception as e:
+            self.logger.error(f"条件評価エラー: {condition} - {e}")
+            return False
+
+class NotificationManager:
+    """通知管理システム"""
+
+    def __init__(self, config: NotificationConfig):
+        self.config = config
+        self.logger = logging.getLogger(__name__)
+
+    async def send_notification(self, alert: Alert, channels: List[NotificationChannel]):
+        """通知送信"""
+
+        for channel in channels:
+            try:
+                if channel == NotificationChannel.CONSOLE and self.config.console_enabled:
+                    await self._send_console_notification(alert)
+                elif channel == NotificationChannel.EMAIL and self.config.email_enabled:
+                    await self._send_email_notification(alert)
+                elif channel == NotificationChannel.LOG_FILE:
+                    await self._send_log_notification(alert)
+                elif channel == NotificationChannel.DESKTOP and self.config.desktop_enabled:
+                    await self._send_desktop_notification(alert)
+                elif channel == NotificationChannel.WEBHOOK and self.config.webhook_enabled:
+                    await self._send_webhook_notification(alert)
+
+            except Exception as e:
+                self.logger.error(f"通知送信エラー {channel}: {e}")
+
+    async def _send_console_notification(self, alert: Alert):
+        """コンソール通知"""
+
+        priority_emoji = {
+            AlertPriority.CRITICAL: "🚨",
+            AlertPriority.HIGH: "⚠️",
+            AlertPriority.MEDIUM: "📢",
+            AlertPriority.LOW: "ℹ️",
+            AlertPriority.INFO: "💡"
+        }
+
+        emoji = priority_emoji.get(alert.priority, "📢")
+        timestamp = alert.timestamp.strftime("%H:%M:%S")
+
+        print(f"{emoji} [{timestamp}] {alert.symbol} - {alert.title}")
+        print(f"   {alert.message}")
+
+        if alert.priority in [AlertPriority.CRITICAL, AlertPriority.HIGH]:
+            print("   " + "="*50)
+
+    async def _send_email_notification(self, alert: Alert):
+        """メール通知"""
+
+        if not self.config.email_to_addresses:
+            return
+
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = self.config.email_username
+            msg['To'] = ", ".join(self.config.email_to_addresses)
+            msg['Subject'] = f"[{alert.priority.value.upper()}] {alert.symbol} - {alert.title}"
+
+            body = f"""
+アラート通知
+
+銘柄: {alert.symbol}
+優先度: {alert.priority.value.upper()}
+タイプ: {alert.alert_type.value}
+タイトル: {alert.title}
+メッセージ: {alert.message}
+発生時刻: {alert.timestamp.strftime("%Y-%m-%d %H:%M:%S")}
+
+詳細データ:
+{json.dumps(alert.data, indent=2, ensure_ascii=False)}
+
+---
+デイトレードAIシステム
+"""
+
+            msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+            server = smtplib.SMTP(self.config.email_smtp_server, self.config.email_smtp_port)
+            server.starttls()
+            server.login(self.config.email_username, self.config.email_password)
+            server.send_message(msg)
+            server.quit()
+
+            self.logger.info(f"メール通知送信完了: {alert.alert_id}")
+
+        except Exception as e:
+            self.logger.error(f"メール通知エラー: {e}")
+
+    async def _send_log_notification(self, alert: Alert):
+        """ログファイル通知"""
+
+        log_level = {
+            AlertPriority.CRITICAL: logging.CRITICAL,
+            AlertPriority.HIGH: logging.ERROR,
+            AlertPriority.MEDIUM: logging.WARNING,
+            AlertPriority.LOW: logging.INFO,
+            AlertPriority.INFO: logging.INFO
+        }
+
+        level = log_level.get(alert.priority, logging.INFO)
+        message = f"[{alert.symbol}] {alert.title}: {alert.message}"
+
+        self.logger.log(level, message)
+
+    async def _send_desktop_notification(self, alert: Alert):
+        """デスクトップ通知"""
+
+        # Windows環境での簡易実装
+        try:
+            import win10toast
+            toaster = win10toast.ToastNotifier()
+            toaster.show_toast(
+                f"{alert.symbol} - {alert.title}",
+                alert.message,
+                duration=10,
+                threaded=True
+            )
+        except ImportError:
+            self.logger.debug("デスクトップ通知ライブラリが利用できません")
+        except Exception as e:
+            self.logger.error(f"デスクトップ通知エラー: {e}")
+
+    async def _send_webhook_notification(self, alert: Alert):
+        """Webhook通知"""
+
+        if not self.config.webhook_url:
+            return
+
+        try:
+            import requests
+
+            payload = {
+                'alert_id': alert.alert_id,
+                'symbol': alert.symbol,
+                'priority': alert.priority.value,
+                'type': alert.alert_type.value,
+                'title': alert.title,
+                'message': alert.message,
+                'timestamp': alert.timestamp.isoformat(),
+                'data': alert.data
+            }
+
+            response = requests.post(
+                self.config.webhook_url,
+                json=payload,
+                timeout=10
+            )
+            response.raise_for_status()
+
+            self.logger.info(f"Webhook通知送信完了: {alert.alert_id}")
+
+        except Exception as e:
+            self.logger.error(f"Webhook通知エラー: {e}")
+
+class RealTimeAlertSystem:
+    """リアルタイムアラートシステム"""
+
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+
+        # データベース設定
+        self.db_path = Path("alert_data/alerts.db")
+        self.db_path.parent.mkdir(exist_ok=True)
+
+        # コンポーネント初期化
+        self.condition_evaluator = AlertConditionEvaluator()
+
+        # 通知設定（デフォルト）
+        self.notification_config = NotificationConfig(
+            console_enabled=True,
+            desktop_enabled=True
+        )
+        self.notification_manager = NotificationManager(self.notification_config)
+
+        # アラート管理
+        self.alert_rules: Dict[str, AlertRule] = {}
+        self.active_alerts: Dict[str, Alert] = {}
+        self.alert_queue = Queue()
+
+        # 監視対象データ
+        self.market_data: Dict[str, Dict[str, Any]] = {}
+
+        # スレッド管理
+        self.monitoring_thread = None
+        self.notification_thread = None
+        self.is_running = False
+
+        self._init_database()
+        self._setup_default_rules()
+
+        self.logger.info("Realtime alert system initialized")
+
+    def _init_database(self):
+        """データベース初期化"""
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # アラートルールテーブル
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS alert_rules (
+                        rule_id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        alert_type TEXT NOT NULL,
+                        condition_text TEXT NOT NULL,
+                        priority TEXT NOT NULL,
+                        enabled INTEGER DEFAULT 1,
+                        cooldown_minutes INTEGER DEFAULT 5,
+                        last_triggered TEXT,
+                        trigger_count INTEGER DEFAULT 0,
+                        description TEXT,
+                        symbols TEXT,
+                        notification_channels TEXT,
+                        created_at TEXT NOT NULL
+                    )
+                ''')
+
+                # アラート履歴テーブル
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS alert_history (
+                        alert_id TEXT PRIMARY KEY,
+                        rule_id TEXT NOT NULL,
+                        alert_type TEXT NOT NULL,
+                        priority TEXT NOT NULL,
+                        symbol TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        message TEXT NOT NULL,
+                        data TEXT,
+                        timestamp TEXT NOT NULL,
+                        acknowledged INTEGER DEFAULT 0,
+                        resolved INTEGER DEFAULT 0
+                    )
+                ''')
+
+                conn.commit()
+
+        except Exception as e:
+            self.logger.error(f"データベース初期化エラー: {e}")
+
+    def _setup_default_rules(self):
+        """デフォルトルール設定"""
+
+        # 1. 価格急変アラート
+        self.add_alert_rule(AlertRule(
+            rule_id="price_spike",
+            name="価格急変アラート",
+            alert_type=AlertType.PRICE_ALERT,
+            condition="abs(current_change) > 0.05",  # 5%以上の変動
+            priority=AlertPriority.HIGH,
+            cooldown_minutes=15,
+            description="5%以上の急激な価格変動を検出",
+            notification_channels=[NotificationChannel.CONSOLE, NotificationChannel.LOG_FILE]
+        ))
+
+        # 2. 出来高急増アラート
+        self.add_alert_rule(AlertRule(
+            rule_id="volume_surge",
+            name="出来高急増アラート",
+            alert_type=AlertType.VOLUME_ALERT,
+            condition="volume_ratio > 3.0",  # 平均の3倍以上
+            priority=AlertPriority.MEDIUM,
+            cooldown_minutes=30,
+            description="通常の3倍以上の出来高を検出",
+            notification_channels=[NotificationChannel.CONSOLE]
+        ))
+
+        # 3. 技術的売買シグナル
+        self.add_alert_rule(AlertRule(
+            rule_id="technical_signal",
+            name="技術的売買シグナル",
+            alert_type=AlertType.TECHNICAL_SIGNAL,
+            condition="signal_strength > 75",  # 強いシグナル
+            priority=AlertPriority.MEDIUM,
+            cooldown_minutes=60,
+            description="強い技術的売買シグナルを検出",
+            notification_channels=[NotificationChannel.CONSOLE, NotificationChannel.LOG_FILE]
+        ))
+
+        # 4. リスク警告
+        self.add_alert_rule(AlertRule(
+            rule_id="risk_warning",
+            name="リスク警告",
+            alert_type=AlertType.RISK_WARNING,
+            condition="risk_score > 80 or volatility > 0.4",
+            priority=AlertPriority.CRITICAL,
+            cooldown_minutes=10,
+            description="高リスク状況を検出",
+            notification_channels=[NotificationChannel.CONSOLE, NotificationChannel.LOG_FILE]
+        ))
+
+        # 5. 取引機会アラート
+        self.add_alert_rule(AlertRule(
+            rule_id="trading_opportunity",
+            name="取引機会アラート",
+            alert_type=AlertType.TRADING_OPPORTUNITY,
+            condition="prediction_confidence > 0.8 and signal_consensus >= 0.7",
+            priority=AlertPriority.HIGH,
+            cooldown_minutes=30,
+            description="高信頼度の取引機会を検出",
+            notification_channels=[NotificationChannel.CONSOLE, NotificationChannel.LOG_FILE]
+        ))
+
+        # 6. システムエラーアラート
+        self.add_alert_rule(AlertRule(
+            rule_id="system_error",
+            name="システムエラーアラート",
+            alert_type=AlertType.SYSTEM_ERROR,
+            condition="error_count > 0",
+            priority=AlertPriority.CRITICAL,
+            cooldown_minutes=5,
+            description="システムエラーを検出",
+            notification_channels=[NotificationChannel.CONSOLE, NotificationChannel.LOG_FILE]
+        ))
+
+    def add_alert_rule(self, rule: AlertRule):
+        """アラートルール追加"""
+
+        self.alert_rules[rule.rule_id] = rule
+
+        # データベースに保存
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    INSERT OR REPLACE INTO alert_rules
+                    (rule_id, name, alert_type, condition_text, priority, enabled,
+                     cooldown_minutes, last_triggered, trigger_count, description,
+                     symbols, notification_channels, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    rule.rule_id,
+                    rule.name,
+                    rule.alert_type.value,
+                    rule.condition,
+                    rule.priority.value,
+                    1 if rule.enabled else 0,
+                    rule.cooldown_minutes,
+                    rule.last_triggered.isoformat() if rule.last_triggered else None,
+                    rule.trigger_count,
+                    rule.description,
+                    json.dumps(rule.symbols),
+                    json.dumps([c.value for c in rule.notification_channels]),
+                    datetime.now().isoformat()
+                ))
+
+                conn.commit()
+
+        except Exception as e:
+            self.logger.error(f"ルール保存エラー: {e}")
+
+    def update_market_data(self, symbol: str, data: Dict[str, Any]):
+        """市場データ更新"""
+
+        self.market_data[symbol] = {
+            **data,
+            'timestamp': datetime.now(),
+            'symbol': symbol
+        }
+
+    async def check_alert_conditions(self, symbol: str):
+        """アラート条件チェック"""
+
+        if symbol not in self.market_data:
+            return
+
+        market_data = self.market_data[symbol]
+        current_time = datetime.now()
+
+        for rule in self.alert_rules.values():
+            if not rule.enabled:
+                continue
+
+            # 銘柄フィルター
+            if rule.symbols and symbol not in rule.symbols:
+                continue
+
+            # クールダウンチェック
+            if rule.last_triggered:
+                time_since_last = current_time - rule.last_triggered
+                if time_since_last.total_seconds() < rule.cooldown_minutes * 60:
+                    continue
+
+            try:
+                # 条件評価
+                condition_met = self.condition_evaluator.evaluate_condition(
+                    rule.condition, market_data
+                )
+
+                if condition_met:
+                    await self._trigger_alert(rule, symbol, market_data)
+
+            except Exception as e:
+                self.logger.error(f"アラート条件チェックエラー {rule.rule_id}: {e}")
+
+    async def _trigger_alert(self, rule: AlertRule, symbol: str, data: Dict[str, Any]):
+        """アラート発火"""
+
+        # アラート作成
+        alert = Alert(
+            alert_id=str(uuid.uuid4()),
+            rule_id=rule.rule_id,
+            alert_type=rule.alert_type,
+            priority=rule.priority,
+            symbol=symbol,
+            title=rule.name,
+            message=self._generate_alert_message(rule, symbol, data),
+            data=data,
+            timestamp=datetime.now()
+        )
+
+        # アクティブアラートに追加
+        self.active_alerts[alert.alert_id] = alert
+
+        # 通知キューに追加
+        self.alert_queue.put((alert, rule.notification_channels))
+
+        # ルール更新
+        rule.last_triggered = datetime.now()
+        rule.trigger_count += 1
+
+        # データベースに保存
+        await self._save_alert_to_db(alert)
+
+        self.logger.info(f"アラート発火: {rule.name} - {symbol}")
+
+    def _generate_alert_message(self, rule: AlertRule, symbol: str, data: Dict[str, Any]) -> str:
+        """アラートメッセージ生成"""
+
+        message_templates = {
+            AlertType.PRICE_ALERT: f"{symbol}の価格が急変しました",
+            AlertType.VOLUME_ALERT: f"{symbol}の出来高が急増しています",
+            AlertType.TECHNICAL_SIGNAL: f"{symbol}で技術的売買シグナルが発生",
+            AlertType.RISK_WARNING: f"{symbol}で高リスク状況を検出",
+            AlertType.TRADING_OPPORTUNITY: f"{symbol}で取引機会を検出",
+            AlertType.SYSTEM_ERROR: f"システムエラーが発生しました"
+        }
+
+        base_message = message_templates.get(rule.alert_type, rule.description)
+
+        # データに基づくメッセージ強化
+        try:
+            if 'current_price' in data:
+                base_message += f" (価格: {data['current_price']:.0f}円)"
+            if 'current_change' in data:
+                change_pct = data['current_change'] * 100
+                base_message += f" (変動率: {change_pct:+.2f}%)"
+            if 'volume_ratio' in data:
+                base_message += f" (出来高比: {data['volume_ratio']:.1f}倍)"
+        except:
+            pass
+
+        return base_message
+
+    async def _save_alert_to_db(self, alert: Alert):
+        """アラートをデータベースに保存"""
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    INSERT INTO alert_history
+                    (alert_id, rule_id, alert_type, priority, symbol, title,
+                     message, data, timestamp, acknowledged, resolved)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    alert.alert_id,
+                    alert.rule_id,
+                    alert.alert_type.value,
+                    alert.priority.value,
+                    alert.symbol,
+                    alert.title,
+                    alert.message,
+                    json.dumps(alert.data, ensure_ascii=False, default=str),
+                    alert.timestamp.isoformat(),
+                    1 if alert.acknowledged else 0,
+                    1 if alert.resolved else 0
+                ))
+
+                conn.commit()
+
+        except Exception as e:
+            self.logger.error(f"アラート保存エラー: {e}")
+
+    def start_monitoring(self):
+        """監視開始"""
+
+        if self.is_running:
+            return
+
+        self.is_running = True
+
+        # 通知処理スレッド開始
+        self.notification_thread = threading.Thread(target=self._notification_worker, daemon=True)
+        self.notification_thread.start()
+
+        self.logger.info("アラート監視開始")
+
+    def stop_monitoring(self):
+        """監視停止"""
+
+        self.is_running = False
+        self.logger.info("アラート監視停止")
+
+    def _notification_worker(self):
+        """通知ワーカー"""
+
+        while self.is_running:
+            try:
+                # キューから通知を取得
+                alert, channels = self.alert_queue.get(timeout=1.0)
+
+                # 非同期で通知送信
+                asyncio.create_task(
+                    self.notification_manager.send_notification(alert, channels)
+                )
+
+                self.alert_queue.task_done()
+
+            except Empty:
+                continue
+            except Exception as e:
+                self.logger.error(f"通知ワーカーエラー: {e}")
+
+    def acknowledge_alert(self, alert_id: str):
+        """アラート確認"""
+
+        if alert_id in self.active_alerts:
+            self.active_alerts[alert_id].acknowledged = True
+            self.logger.info(f"アラート確認: {alert_id}")
+
+    def resolve_alert(self, alert_id: str):
+        """アラート解決"""
+
+        if alert_id in self.active_alerts:
+            self.active_alerts[alert_id].resolved = True
+            del self.active_alerts[alert_id]
+            self.logger.info(f"アラート解決: {alert_id}")
+
+    def get_active_alerts(self) -> List[Alert]:
+        """アクティブアラート取得"""
+
+        return list(self.active_alerts.values())
+
+    def get_alert_statistics(self) -> Dict[str, Any]:
+        """アラート統計取得"""
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # 今日のアラート数
+                today = datetime.now().date()
+                cursor.execute('''
+                    SELECT COUNT(*) FROM alert_history
+                    WHERE date(timestamp) = ?
+                ''', (today.isoformat(),))
+                today_count = cursor.fetchone()[0]
+
+                # 優先度別統計
+                cursor.execute('''
+                    SELECT priority, COUNT(*) FROM alert_history
+                    WHERE date(timestamp) >= date('now', '-7 days')
+                    GROUP BY priority
+                ''')
+                priority_stats = dict(cursor.fetchall())
+
+                # タイプ別統計
+                cursor.execute('''
+                    SELECT alert_type, COUNT(*) FROM alert_history
+                    WHERE date(timestamp) >= date('now', '-7 days')
+                    GROUP BY alert_type
+                ''')
+                type_stats = dict(cursor.fetchall())
+
+                return {
+                    'active_alerts': len(self.active_alerts),
+                    'today_alerts': today_count,
+                    'priority_stats': priority_stats,
+                    'type_stats': type_stats,
+                    'total_rules': len(self.alert_rules),
+                    'enabled_rules': len([r for r in self.alert_rules.values() if r.enabled])
+                }
+
+        except Exception as e:
+            self.logger.error(f"統計取得エラー: {e}")
+            return {}
+
+# グローバルインスタンス
+realtime_alert_system = RealTimeAlertSystem()
+
+# テスト・デモ実行
+async def run_alert_system_test():
+    """アラートシステムテスト実行"""
+
+    print("=== 🔔 リアルタイムアラート・通知システムテスト ===")
+
+    # 監視開始
+    realtime_alert_system.start_monitoring()
+
+    # テストデータでアラートをトリガー
+    test_symbols = ["7203", "8306", "4751"]
+
+    print(f"\n📊 テストアラート生成:")
+
+    for i, symbol in enumerate(test_symbols, 1):
+        print(f"\n--- テスト {i}: {symbol} ---")
+
+        # 1. 価格急変テスト
+        realtime_alert_system.update_market_data(symbol, {
+            'current_price': 3000,
+            'current_change': 0.08,  # 8%変動
+            'volume_ratio': 2.5,
+            'signal_strength': 0,
+            'risk_score': 30,
+            'volatility': 0.2,
+            'prediction_confidence': 0.6,
+            'signal_consensus': 0.5,
+            'error_count': 0
+        })
+
+        await realtime_alert_system.check_alert_conditions(symbol)
+        await asyncio.sleep(0.5)
+
+        # 2. 出来高急増テスト
+        realtime_alert_system.update_market_data(symbol, {
+            'current_price': 3000,
+            'current_change': 0.02,
+            'volume_ratio': 4.5,  # 4.5倍の出来高
+            'signal_strength': 0,
+            'risk_score': 30,
+            'volatility': 0.2,
+            'prediction_confidence': 0.6,
+            'signal_consensus': 0.5,
+            'error_count': 0
+        })
+
+        await realtime_alert_system.check_alert_conditions(symbol)
+        await asyncio.sleep(0.5)
+
+        # 3. 取引機会テスト
+        realtime_alert_system.update_market_data(symbol, {
+            'current_price': 3000,
+            'current_change': 0.02,
+            'volume_ratio': 1.5,
+            'signal_strength': 80,  # 強いシグナル
+            'risk_score': 30,
+            'volatility': 0.2,
+            'prediction_confidence': 0.85,  # 高信頼度
+            'signal_consensus': 0.8,  # 高合意度
+            'error_count': 0
+        })
+
+        await realtime_alert_system.check_alert_conditions(symbol)
+        await asyncio.sleep(0.5)
+
+        # 4. リスク警告テスト
+        realtime_alert_system.update_market_data(symbol, {
+            'current_price': 3000,
+            'current_change': 0.02,
+            'volume_ratio': 1.5,
+            'signal_strength': 50,
+            'risk_score': 85,  # 高リスク
+            'volatility': 0.45,  # 高ボラティリティ
+            'prediction_confidence': 0.6,
+            'signal_consensus': 0.5,
+            'error_count': 0
+        })
+
+        await realtime_alert_system.check_alert_conditions(symbol)
+        await asyncio.sleep(0.5)
+
+    # 少し待って通知処理を完了
+    await asyncio.sleep(2.0)
+
+    # 統計表示
+    print(f"\n📈 アラート統計:")
+    stats = realtime_alert_system.get_alert_statistics()
+
+    print(f"  アクティブアラート: {stats.get('active_alerts', 0)}")
+    print(f"  本日のアラート: {stats.get('today_alerts', 0)}")
+    print(f"  総ルール数: {stats.get('total_rules', 0)}")
+    print(f"  有効ルール数: {stats.get('enabled_rules', 0)}")
+
+    # アクティブアラート表示
+    active_alerts = realtime_alert_system.get_active_alerts()
+    if active_alerts:
+        print(f"\n🔔 アクティブアラート一覧:")
+        for alert in active_alerts[:5]:  # 上位5件
+            print(f"  - {alert.symbol}: {alert.title} ({alert.priority.value})")
+
+    # 監視停止
+    realtime_alert_system.stop_monitoring()
+
+    print(f"\n✅ リアルタイムアラート・通知システムテスト完了")
+
+if __name__ == "__main__":
+    # ログ設定
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+    # テスト実行
+    asyncio.run(run_alert_system_test())

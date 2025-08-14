@@ -14,6 +14,20 @@ from enum import Enum
 from src.day_trade.ml.base_models.random_forest_model import RandomForestModel
 from src.day_trade.data.fetchers.yfinance_fetcher import YFinanceFetcher
 
+# 実データプロバイダー統合
+try:
+    from real_data_provider import RealDataProvider, RealDataAnalysisEngine
+    REAL_DATA_AVAILABLE = True
+except ImportError:
+    REAL_DATA_AVAILABLE = False
+
+# 市場時間管理システム統合
+try:
+    from market_time_manager import MarketTimeManager, MarketSession
+    MARKET_TIME_AVAILABLE = True
+except ImportError:
+    MARKET_TIME_AVAILABLE = False
+
 class DayTradingSignal(Enum):
     """デイトレードシグナル"""
     STRONG_BUY = "強い買い"      # 即座に買い
@@ -66,50 +80,51 @@ class PersonalDayTradingEngine:
             "4568": "第一三共",        # 製薬・材料株
         }
 
+        # 市場時間管理システム初期化
+        if MARKET_TIME_AVAILABLE:
+            self.market_manager = MarketTimeManager()
+            self.time_mode = "ACCURATE"
+        else:
+            self.market_manager = None
+            self.time_mode = "SIMPLE"
+
         self.current_session = self._get_current_trading_session()
 
+        # 実データプロバイダー初期化
+        if REAL_DATA_AVAILABLE:
+            self.real_data_engine = RealDataAnalysisEngine()
+            self.data_mode = "REAL"
+        else:
+            self.real_data_engine = None
+            self.data_mode = "DEMO"
+
         # MLモデルの初期化とロード (仮実装)
-        self.ml_model = RandomForestModel() # configは後で追加
-        # 学習済みモデルのロード。実際にはパスを指定する
-        # self.ml_model.load_model("path/to/your/trained_rf_model.joblib")
-
-        # モデルが未学習の場合、テスト用に学習・保存・ロード
-        if not self.ml_model.is_trained:
-            print("\n[MLモデル] テスト用にRandomForestモデルを学習中... (初回のみ)\n")
-            # テストデータ生成
-            # RandomForestModelが期待する特徴量数を合わせるため、num_featuresを10とする
-            n_samples, n_features = 1000, 10 # _prepare_features_for_predictionと合わせる
-            X = np.random.randn(n_samples, n_features)
-            # 出力は3つの指標 (ボラティリティ、出来高比率、価格モメンタム) と信頼度と仮定
-            # これらをまとめて予測するため、出力はn_featuresとして扱う (predictions, confidence)
-            # ここではシンプルに、Xの最初の3つの特徴量から線形結合で予測値を生成
-            y = X[:, 0] * 0.5 + X[:, 1] * 0.3 + X[:, 2] * 0.2 + np.random.randn(n_samples) * 0.1 # 予測値
-
-            # 信頼度も適当に生成 (0.6 - 0.9の範囲)
-            confidence_targets = np.random.uniform(0.6, 0.9, n_samples)
-
-            # yを (予測値, 信頼度) の形式にするために、結合する
-            # RandomForestModelのpredict()はModelPredictionを返すので、ここで対応する出力を生成する必要がある
-            # 現状、RandomForestModelのpredictはpredictionsとconfidenceを別々に返すので、学習時はpredictionsのみで良い
-            # ここではpredictionsとして、3つの予測値を結合した配列を生成
-            y_combined = np.hstack((X[:, :3], confidence_targets.reshape(-1, 1), np.random.uniform(0.1, 1.0, (n_samples, 6)))) # 10列にする
-
-            # 学習
-            self.ml_model.set_feature_names([f"feature_{i}" for i in range(n_features)])
-            self.ml_model.fit(X, y_combined[:, 0]) # 最初の予測値のみで学習 (信頼度は後で調整)
-
-            # モデルを一時ファイルに保存
-            temp_model_path = "./temp_rf_model.joblib"
-            self.ml_model.save_model(temp_model_path)
-
-            # 保存したモデルをロード
-            self.ml_model.load_model(temp_model_path)
-            print("\n[MLモデル] RandomForestモデルの学習、保存、ロードが完了しました。\n")
-
-        self.data_fetcher = YFinanceFetcher() # YFinanceFetcherの初期化
+        try:
+            self.ml_model = RandomForestModel() # configは後で追加
+            self.data_fetcher = YFinanceFetcher() # YFinanceFetcherの初期化
+        except ImportError:
+            self.ml_model = None
+            self.data_fetcher = None
 
     def _get_current_trading_session(self) -> TradingSession:
-        """現在の取引時間帯を取得"""
+        """現在の取引時間帯を取得（正確な市場時間管理）"""
+        # 正確な市場時間管理システム使用
+        if self.market_manager:
+            market_session = self.market_manager.get_current_session()
+
+            # MarketSessionをTradingSessionに変換
+            session_map = {
+                MarketSession.PRE_MARKET: TradingSession.PRE_MARKET,
+                MarketSession.MORNING_SESSION: TradingSession.MORNING_SESSION,
+                MarketSession.LUNCH_BREAK: TradingSession.LUNCH_BREAK,
+                MarketSession.AFTERNOON_SESSION: TradingSession.AFTERNOON_SESSION,
+                MarketSession.AFTER_MARKET: TradingSession.AFTER_MARKET,
+                MarketSession.MARKET_CLOSED: TradingSession.AFTER_MARKET  # 休場日は大引け後として扱う
+            }
+
+            return session_map.get(market_session, TradingSession.AFTER_MARKET)
+
+        # フォールバック: 従来の簡易判定
         now = datetime.now()
         current_time = now.time()
 
@@ -125,15 +140,21 @@ class PersonalDayTradingEngine:
             return TradingSession.AFTER_MARKET
 
     async def get_today_daytrading_recommendations(self, limit: int = 5) -> List[DayTradingRecommendation]:
-        """今日のデイトレード推奨取得"""
-        recommendations = []
-        symbols = list(self.daytrading_symbols.keys())[:limit]
-
+        """今日のデイトレード推奨取得（実データ対応）"""
         current_session = self._get_current_trading_session()
 
         # 大引け後は翌日前場予想モードに切り替え
         if current_session == TradingSession.AFTER_MARKET:
             return await self.get_tomorrow_premarket_forecast(limit)
+
+        # 実データエンジン使用可能な場合
+        if self.real_data_engine:
+            real_recommendations = await self.real_data_engine.analyze_daytrading_opportunities(limit)
+            return [self._convert_to_daytrading_recommendation(rec, current_session) for rec in real_recommendations]
+
+        # フォールバック: ダミーデータ使用
+        recommendations = []
+        symbols = list(self.daytrading_symbols.keys())[:limit]
 
         for symbol in symbols:
             rec = await self._analyze_daytrading_opportunity(symbol, current_session)
@@ -141,7 +162,99 @@ class PersonalDayTradingEngine:
 
         # 市場タイミングスコア順でソート
         recommendations.sort(key=lambda x: x.market_timing_score, reverse=True)
+
         return recommendations
+
+    def _convert_to_daytrading_recommendation(self, real_rec: Dict[str, any], session: TradingSession) -> DayTradingRecommendation:
+        """実データ推奨をDayTradingRecommendationに変換"""
+
+        # シグナル変換
+        signal_map = {
+            "★強い買い★": DayTradingSignal.STRONG_BUY,
+            "●買い●": DayTradingSignal.BUY,
+            "△やや買い△": DayTradingSignal.BUY,
+            "…待機…": DayTradingSignal.WAIT,
+            "▽売り▽": DayTradingSignal.SELL,
+            "▼強い売り▼": DayTradingSignal.STRONG_SELL,
+        }
+
+        signal = signal_map.get(real_rec.get("signal", "…待機…"), DayTradingSignal.WAIT)
+
+        # エントリータイミング生成
+        entry_timing = self._generate_entry_timing(real_rec, session)
+
+        # 保有時間推奨
+        holding_time = self._generate_holding_time(real_rec, session)
+
+        return DayTradingRecommendation(
+            symbol=real_rec["symbol"],
+            name=real_rec["name"],
+            signal=signal,
+            entry_timing=entry_timing,
+            target_profit=real_rec.get("target_profit", 2.0),
+            stop_loss=real_rec.get("stop_loss", 1.5),
+            holding_time=holding_time,
+            confidence=real_rec.get("confidence", 80),
+            risk_level=self._calculate_risk_level(real_rec),
+            volume_trend="実データベース",
+            price_momentum=self._calculate_momentum(real_rec),
+            intraday_volatility=real_rec.get("volatility", 3.0),
+            market_timing_score=real_rec.get("trading_score", 70)
+        )
+
+    def _generate_entry_timing(self, real_rec: Dict[str, any], session: TradingSession) -> str:
+        """エントリータイミング生成"""
+        signal = real_rec.get("signal", "")
+        change_pct = real_rec.get("change_percent", 0)
+
+        if "強い買い" in signal:
+            return "即座に成り行きで積極エントリー（実データ推奨）"
+        elif "買い" in signal:
+            if change_pct > 0:
+                return "押し目5-10分待ってからエントリー（実ギャップ）"
+            else:
+                return "現在値近辺でエントリー（実下値）"
+        elif "待機" in signal:
+            return "待機期間中エントリーチャンス探し"
+        else:
+            return "利確・損切りタイミング判定（実データ）"
+
+    def _generate_holding_time(self, real_rec: Dict[str, any], session: TradingSession) -> str:
+        """保有時間推奨"""
+        volatility = real_rec.get("volatility", 3.0)
+
+        if volatility > 5.0:
+            return "短時間1〜2時間程度"
+        elif volatility > 3.0:
+            return "30分〜1時間での決済"
+        else:
+            return "当日中決済完了推奨"
+
+    def _calculate_risk_level(self, real_rec: Dict[str, any]) -> str:
+        """リスクレベル計算"""
+        volatility = real_rec.get("volatility", 3.0)
+        trading_score = real_rec.get("trading_score", 70)
+
+        if volatility > 6.0:
+            return "[高リスク]"
+        elif volatility > 3.0 and trading_score > 80:
+            return "[中リスク]"
+        else:
+            return "[低リスク]"
+
+    def _calculate_momentum(self, real_rec: Dict[str, any]) -> str:
+        """価格モメンタム計算"""
+        change_pct = real_rec.get("change_percent", 0)
+        rsi = real_rec.get("rsi", 50)
+
+        if change_pct > 2.0 and rsi < 70:
+            return "強い上昇モメンタム"
+        elif change_pct > 0 and rsi < 60:
+            return "上昇基調"
+        elif change_pct < -2.0 and rsi > 30:
+            return "下落からの反転期待"
+        else:
+            return "モメンタム中立"
 
     async def get_tomorrow_premarket_forecast(self, limit: int = 5) -> List[DayTradingRecommendation]:
         """翌日前場予想取得（大引け後専用）"""
@@ -801,7 +914,12 @@ class PersonalDayTradingEngine:
         return max(0, min(100, score))
 
     def get_session_advice(self) -> str:
-        """現在の時間帯に応じたアドバイス"""
+        """現在の時間帯に応じたアドバイス（正確な市場時間管理）"""
+        # 正確な市場時間管理システム使用
+        if self.market_manager:
+            return self.market_manager.get_session_advice()
+
+        # フォールバック: 従来のアドバイス
         session = self._get_current_trading_session()
         current_time = datetime.now().strftime("%H:%M")
         tomorrow = datetime.now() + timedelta(days=1)
