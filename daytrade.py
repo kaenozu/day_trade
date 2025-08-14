@@ -47,6 +47,20 @@ sys.path.insert(0, str(project_root))
 FULL_SYSTEM_AVAILABLE = False  # 個人版はシンプルシステムのみ
 
 # オプション機能のインポート
+
+# --- Issue #827: 自動モデル性能監視と再学習トリガーシステム統合予定 ---
+# from model_monitoring_system import ModelPerformanceMonitor
+# from model_retraining_trigger import RetrainingTrigger
+# MODEL_MONITORING_AVAILABLE = False
+# try:
+#     # モデル監視と再学習関連モジュールが利用可能かチェック
+#     import model_monitoring_system
+#     import model_retraining_trigger
+#     MODEL_MONITORING_AVAILABLE = True
+# except ImportError:
+#     pass
+# --------------------------------------------------------------------
+
 CHART_AVAILABLE = False # チャート機能が利用可能かどうかのフラグ
 try:
     # matplotlibとseabornがインストールされていればTrueにする (ここではインポートしない)
