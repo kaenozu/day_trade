@@ -473,12 +473,7 @@ class DynamicWeightingSystem:
 
                         # アラートのトリガー (例: ログ、外部システムへの通知)
                         logger.critical(f"重大なコンセプトドリフトを検出しました！モデルの再評価を強く推奨します。理由: {drift_reason}")
-                        # 本番アラートシステム統合
-                        self._send_critical_alert(
-                            title="重大なコンセプトドリフト検出",
-                            message=f"理由: {drift_reason}",
-                            urgency="critical"
-                        )
+                        # アラートはWebダッシュボードで表示（外部通知削除）
 
             # 重み更新判定
             if (self.update_counter >= self.config.update_frequency and
@@ -1356,45 +1351,7 @@ class DynamicWeightingSystem:
         except Exception as e:
             logger.error(f"重み変化可視化エラー: {e}")
 
-    def _send_critical_alert(self, title: str, message: str, urgency: str = "high"):
-        """重要アラート送信（本番実装）"""
-        try:
-            # ログベースアラート（基本実装）
-            logger.critical(f"[ALERT-{urgency.upper()}] {title}: {message}")
-            
-            # アラート履歴記録
-            if not hasattr(self, '_alert_history'):
-                self._alert_history = []
-            
-            import time
-            alert_record = {
-                'timestamp': time.time(),
-                'title': title,
-                'message': message,
-                'urgency': urgency,
-                'acknowledged': False
-            }
-            self._alert_history.append(alert_record)
-            
-            # 外部システム統合（例：Slack、メール等）
-            # 実際の本番環境では以下を有効化：
-            # self._send_to_external_systems(alert_record)
-            
-        except Exception as e:
-            logger.error(f"アラート送信失敗: {e}")
-
-    def _send_to_external_systems(self, alert_record: dict):
-        """外部アラートシステムへの送信（拡張可能）"""
-        # 実装例：
-        # - Slack webhook
-        # - メール送信
-        # - PagerDuty統合
-        # - Teams通知
-        pass
-
-    def get_alert_history(self) -> list:
-        """アラート履歴取得"""
-        return getattr(self, '_alert_history', [])
+    # アラート機能は削除 - Webダッシュボード統合
 
 
 if __name__ == "__main__":

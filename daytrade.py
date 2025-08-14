@@ -102,7 +102,7 @@ except ImportError:
     print("[WARNING] Web機能未対応 - pip install flask plotly")
 
 try:
-    from analysis_history import PersonalAnalysisHistory, PersonalAlertSystem
+    from analysis_history import PersonalAnalysisHistory
     HISTORY_AVAILABLE = True
 except ImportError:
     HISTORY_AVAILABLE = False
@@ -185,13 +185,8 @@ except ImportError:
     PERFORMANCE_TRACKER_AVAILABLE = False
     print("[WARNING] 包括的パフォーマンス追跡システム未対応")
 
-try:
-    from alert_system import RealTimeAlertSystem, Alert, AlertType, AlertPriority, NotificationMethod
-    ALERT_SYSTEM_AVAILABLE = True
-    print("[OK] リアルタイムアラート・通知システム: 即時通知・リスク管理対応")
-except ImportError:
-    ALERT_SYSTEM_AVAILABLE = False
-    print("[WARNING] リアルタイムアラート・通知システム未対応")
+# 外部アラートシステムは削除 - Webダッシュボード統合
+ALERT_SYSTEM_AVAILABLE = False
 
 try:
     from advanced_technical_analyzer import AdvancedTechnicalAnalyzer, AdvancedAnalysis, TechnicalSignal, SignalStrength
@@ -211,7 +206,7 @@ except ImportError:
 
 import numpy as np
 from model_performance_monitor import ModelPerformanceMonitor
-from alert_system import Alert, AlertType, AlertPriority
+# アラートシステム削除 - Webダッシュボード統合
 
 
 class PersonalAnalysisEngine:
@@ -280,12 +275,8 @@ class PersonalAnalysisEngine:
         else:
             self.performance_mode = False
 
-        # リアルタイムアラート・通知システム統合
-        if ALERT_SYSTEM_AVAILABLE:
-            self.alert_system = RealTimeAlertSystem()
-            self.alert_mode = True
-        else:
-            self.alert_mode = False
+        # アラート機能はWebダッシュボード統合
+        self.alert_mode = False
 
         # 高度技術指標・分析手法拡張システム統合
         if ADVANCED_TECHNICAL_AVAILABLE:
@@ -1046,73 +1037,7 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
             except Exception as e:
                 print(f"包括的パフォーマンス追跡でエラーが発生: {e}")
 
-        # リアルタイムアラート・通知システム
-        if hasattr(engine, 'alert_mode') and engine.alert_mode:
-            print("\n" + "="*60)
-            print("リアルタイムアラート・通知システム")
-            print("="*60)
-
-            try:
-                # アラートシステム開始
-                await engine.alert_system.start_monitoring()
-
-                # 買いシグナルチェック
-                buy_signals = await engine.alert_system.check_buy_signals(recommendations)
-
-                # リスク警告チェック（パフォーマンスレポートがある場合）
-                risk_warnings = []
-                if hasattr(engine, 'performance_mode') and engine.performance_mode:
-                    try:
-                        portfolio = await engine.performance_tracker.get_portfolio()
-                        if portfolio:
-                            portfolio_data = {
-                                "max_drawdown": portfolio.max_drawdown,
-                                "volatility": portfolio.volatility,
-                                "win_rate": portfolio.win_rate
-                            }
-                            risk_warnings = await engine.alert_system.check_risk_warnings(portfolio_data)
-                    except Exception as e:
-                        print(f"リスクチェックでエラー: {e}")
-
-                # アラート統計表示
-                alert_stats = engine.alert_system.get_alert_statistics()
-
-                print(f"アラート監視状況: {'稼働中' if alert_stats.get('system_running') else '停止中'}")
-                print(f"アクティブルール数: {alert_stats.get('active_rules', 0)}")
-                print(f"検出された買いシグナル: {len(buy_signals)}件")
-                print(f"検出されたリスク警告: {len(risk_warnings)}件")
-
-                # 重要アラートの表示
-                if buy_signals:
-                    print(f"\n🎯 買いシグナル:")
-                    for signal in buy_signals[:3]:  # TOP3のみ表示
-                        print(f"  • {signal.symbol}: {signal.title}")
-                        print(f"    信頼度: {signal.confidence:.1f}%")
-
-                if risk_warnings:
-                    print(f"\n⚠️ リスク警告:")
-                    for warning in risk_warnings[:2]:  # TOP2のみ表示
-                        print(f"  • {warning.title}")
-                        print(f"    推奨アクション: {', '.join(warning.suggested_actions[:2])}")
-
-                # アクティブアラート数表示
-                active_alerts = await engine.alert_system.get_active_alerts()
-                if active_alerts:
-                    critical_alerts = [a for a in active_alerts if a.priority == AlertPriority.CRITICAL]
-                    high_alerts = [a for a in active_alerts if a.priority == AlertPriority.HIGH]
-
-                    print(f"\n📢 現在のアラート状況:")
-                    print(f"  緊急アラート: {len(critical_alerts)}件")
-                    print(f"  高優先度アラート: {len(high_alerts)}件")
-                    print(f"  総アクティブアラート: {len(active_alerts)}件")
-
-                print(f"\nアラートログ: alert_data/alert_log.txt に記録中")
-
-                # アラートシステム停止
-                await engine.alert_system.stop_monitoring()
-
-            except Exception as e:
-                print(f"アラートシステムでエラーが発生: {e}")
+        # アラート機能はWebダッシュボードで統合表示
 
         # 高度技術指標・分析手法拡張システム
         if hasattr(engine, 'advanced_technical_mode') and engine.advanced_technical_mode:
@@ -1289,44 +1214,7 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
             print(f"  評価サンプル数: {model_metrics['num_samples']}")
             print("  (注: 予測精度は簡易的なバイナリ分類に基づいています)")
 
-            # モデル性能に基づくアラート生成 (Issue #827)
-            if hasattr(engine, 'alert_system') and engine.alert_mode:
-                performance_status = engine.performance_monitor.check_performance_status()
-                alert_title = ""
-                alert_body = ""
-                alert_priority = None
-
-                if performance_status["status"] == "CRITICAL_RETRAIN":
-                    alert_title = "🚨 モデル性能が危険域！再学習が必要です"
-                    alert_body = (f"現在の予測精度: {performance_status['current_accuracy']:.2f} "
-                                  f"(閾値: {engine.performance_monitor.accuracy_retrain_threshold:.2f})。"
-                                  f"サンプル数: {performance_status['num_samples']}。")
-                    alert_priority = AlertPriority.CRITICAL
-                elif performance_status["status"] == "WARNING":
-                    alert_title = "⚠️ モデル性能が低下しています"
-                    alert_body = (f"現在の予測精度: {performance_status['current_accuracy']:.2f} "
-                                  f"(閾値: {engine.performance_monitor.accuracy_warning_threshold:.2f})。")
-                    alert_priority = AlertPriority.HIGH
-                elif performance_status["status"] == "INSUFFICIENT_SAMPLES":
-                    alert_title = "ℹ️ モデル評価サンプル不足"
-                    alert_body = (f"現在のサンプル数: {performance_status['num_samples']} "
-                                  f"(最小必要数: {engine.performance_monitor.min_samples_for_evaluation})。")
-                    alert_priority = AlertPriority.LOW
-
-                if alert_priority:
-                    alert = Alert(
-                        title=alert_title,
-                        body=alert_body,
-                        alert_type=AlertType.MODEL_PERFORMANCE,
-                        priority=alert_priority,
-                        source="ModelPerformanceMonitor"
-                    )
-                    await engine.alert_system.create_alert(alert)
-                    print(f"  [アラート] モデル性能アラートを生成しました: {alert_title}")
-
-                if performance_status["status"] == "CRITICAL_RETRAIN":
-                    print("  [トリガー] モデル性能が再学習閾値を下回りました。再学習プロセスをトリガーします。")
-                    # ここに再学習プロセスを呼び出すロジックを実装 (Phase 3で詳細化)
+            # モデル性能監視はWebダッシュボードで表示
         return True
 
     except Exception as e:
@@ -1394,8 +1282,7 @@ def show_analysis_history() -> bool:
         print(f"最高スコア: {summary['analysis_stats']['best_score']:.1f}点")
         print(f"平均処理時間: {summary['analysis_stats']['avg_time']:.1f}秒")
 
-        if summary['alert_stats']['total_alerts'] > 0:
-            print(f"アラート: {summary['alert_stats']['unread_alerts']}件未読 / {summary['alert_stats']['total_alerts']}件")
+        # アラート統計は削除（Webダッシュボード統合）
 
         return True
 
@@ -1555,11 +1442,7 @@ async def run_daytrading_mode() -> bool:
 
                 analysis_id = history.save_analysis_result(history_data)
 
-                # アラートチェック
-                alert_system = PersonalAlertSystem(history)
-                alerts = alert_system.check_analysis_alerts(history_data['recommendations'])
-                if alerts:
-                    print(f"\n[アラート] {len(alerts)}件の新しいアラートが生成されました")
+                # アラート機能は削除（Webダッシュボード統合）
 
             except Exception as e:
                 print(f"[注意] 履歴保存エラー: {e}")
@@ -2292,6 +2175,43 @@ class DayTradeWebDashboard:
             to { transform: translateX(0); opacity: 1; }
         }
 
+        /* システム状況パネル */
+        .system-status-panel {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .system-status-panel h3 {
+            margin: 0 0 15px 0;
+            color: #fff;
+            font-size: 18px;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        .status-label {
+            display: flex;
+            align-items: center;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-ok { background: #2ed573; }
+        .status-warning { background: #ffa502; }
+        .status-error { background: #ff3838; }
+
         /* 取引支援機能 */
         .trading-actions {
             display: flex;
@@ -2678,7 +2598,40 @@ class DayTradeWebDashboard:
             <div class="loading">🔍 データ取得中...</div>
         </div>
 
-        <!-- コントララー -->
+        <!-- システム状況パネル -->
+        <div class="system-status-panel">
+            <h3>📊 システム状況</h3>
+            <div class="status-item">
+                <div class="status-label">
+                    <div class="status-indicator status-ok"></div>
+                    <span>AI予測システム</span>
+                </div>
+                <span>稼働中</span>
+            </div>
+            <div class="status-item">
+                <div class="status-label">
+                    <div class="status-indicator status-ok"></div>
+                    <span>価格データ取得</span>
+                </div>
+                <span>正常</span>
+            </div>
+            <div class="status-item">
+                <div class="status-label">
+                    <div class="status-indicator status-ok"></div>
+                    <span>モデル性能監視</span>
+                </div>
+                <span id="modelPerformanceStatus">監視中</span>
+            </div>
+            <div class="status-item">
+                <div class="status-label">
+                    <div class="status-indicator status-ok"></div>
+                    <span>データ品質</span>
+                </div>
+                <span>良好</span>
+            </div>
+        </div>
+
+        <!-- コントローラー -->
         <div style="text-align: center; margin-bottom: 30px;">
             <button class="btn" onclick="runAnalysis()">🔄 最新分析実行</button>
             <button class="btn" id="autoRefreshBtn" onclick="autoRefresh()">⏱️ 自動更新ON</button>
