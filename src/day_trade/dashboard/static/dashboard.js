@@ -107,9 +107,9 @@ function updateDashboardData(data) {
             }
         }
 
-        // 取引データ
-        if (data.trading) {
-            document.getElementById('trades-today').textContent = data.trading.trades_today + '回';
+        // 分析データ
+        if (data.analysis) {
+            document.getElementById('analysis-today').textContent = data.analysis.completed_today + '件';
         }
 
         // システムデータ
