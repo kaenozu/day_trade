@@ -9,9 +9,11 @@ Market Time Manager - 市場時間管理システム
 
 import jpholiday
 from datetime import datetime, time, timedelta
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, List
 import logging
 from enum import Enum
+import yaml
+from pathlib import Path
 
 class MarketSession(Enum):
     """市場セッション"""
@@ -36,6 +38,7 @@ class MarketTimeManager:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self._last_status: Optional[MarketStatus] = None
 
         # 東証の営業時間
         self.morning_open = time(9, 0)      # 前場開始
@@ -44,18 +47,22 @@ class MarketTimeManager:
         self.afternoon_close = time(15, 0)  # 後場終了
 
         # 特別営業日・休業日の管理
-        self.special_holidays = {
-            # 年末年始休場（通常12/31-1/3）
-            "2024-12-31": "大納会翌日",
-            "2025-01-01": "元日",
-            "2025-01-02": "年始休場",
-            "2025-01-03": "年始休場",
-            # 臨時休場など（必要に応じて追加）
-        }
+        self._load_market_calendar()
 
-        self.special_trading_days = {
-            "2025-01-04": "臨時営業日", # For testing purposes
-        }
+    def _load_market_calendar(self):
+        config_path = Path(__file__).parent / "config" / "market_calendar.yaml"
+        if not config_path.exists():
+            self.logger.warning(f"Market calendar config file not found: {config_path}. Using empty special days.")
+            self.special_holidays = {}
+            self.special_trading_days = {}
+            return
+
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+
+        self.special_holidays = {item['date']: item['name'] for item in config.get('special_holidays', [])}
+        self.special_trading_days = {item['date']: item['name'] for item in config.get('special_trading_days', [])}
+        self.logger.info(f"Market calendar loaded from {config_path}")
 
     def is_market_day(self, date: datetime) -> bool:
         """
@@ -68,14 +75,14 @@ class MarketTimeManager:
             bool: 営業日かどうか
         """
 
-        date_str = date.strftime('%Y-%m-%d')
+        date_obj = date.date()
 
         # 特別休場日チェック
-        if date_str in self.special_holidays:
+        if date_obj in self.special_holidays:
             return False
 
         # 特別営業日チェック
-        if date_str in self.special_trading_days:
+        if date_obj in self.special_trading_days:
             return True
 
         # 土日チェック
@@ -129,14 +136,21 @@ class MarketTimeManager:
         """
         session = self.get_current_session(now)
 
+        current_status = MarketStatus.CLOSED
         if session == MarketSession.MARKET_CLOSED:
-            return MarketStatus.CLOSED
+            current_status = MarketStatus.CLOSED
         elif session in [MarketSession.MORNING_SESSION, MarketSession.AFTERNOON_SESSION]:
-            return MarketStatus.OPEN
+            current_status = MarketStatus.OPEN
         elif session == MarketSession.PRE_MARKET:
-            return MarketStatus.PRE_OPEN
+            current_status = MarketStatus.PRE_OPEN
         else:
-            return MarketStatus.POST_CLOSE
+            current_status = MarketStatus.POST_CLOSE
+
+        if self._last_status != current_status:
+            self.logger.info(f"Market status changed from {self._last_status.value if self._last_status else 'None'} to {current_status.value}")
+            self._last_status = current_status
+
+        return current_status
 
     def is_market_open(self, now: datetime = None) -> bool:
         """
