@@ -1519,6 +1519,9 @@ class DayTradeWebDashboard:
             self.use_backtest_integration = False
             print("[WARNING] バックテスト統合未対応 - ダミー実績使用")
 
+        # 銘柄選択属性（エラー修正用）
+        self.selected_symbols = []
+        
         self.setup_app()
 
     async def get_stock_price_data(self, symbol: str) -> Dict[str, Optional[float]]:
@@ -1761,22 +1764,62 @@ class DayTradeWebDashboard:
         @self.app.route('/api/system-status')
         def api_system_status():
             """システムステータスAPI"""
-            return jsonify({
-                'ml_prediction': {
-                    'available': self.use_advanced_ml,
-                    'status': '真AI予測' if self.use_advanced_ml else 'ランダム値',
-                    'type': 'advanced_ml' if self.use_advanced_ml else 'random_fallback'
-                },
-                'backtest_integration': {
-                    'available': self.use_backtest_integration,
-                    'status': '過去実績統合' if self.use_backtest_integration else '統合なし',
-                    'type': 'integrated' if self.use_backtest_integration else 'standalone'
-                },
-                'prediction_accuracy': {
-                    'target': 93.0,
-                    'current': 'システム初期化後に表示'
+            import asyncio
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                # モデル性能監視ステータスを取得
+                model_perf_status = loop.run_until_complete(self.get_model_performance_status())
+                
+                loop.close()
+                
+                response_data = {
+                    'ml_prediction': {
+                        'available': self.use_advanced_ml,
+                        'status': '真AI予測' if self.use_advanced_ml else 'ランダム値',
+                        'type': 'advanced_ml' if self.use_advanced_ml else 'random_fallback'
+                    },
+                    'backtest_integration': {
+                        'available': self.use_backtest_integration,
+                        'status': '過去実績統合' if self.use_backtest_integration else '統合なし',
+                        'type': 'integrated' if self.use_backtest_integration else 'standalone'
+                    },
+                    'prediction_accuracy': {
+                        'target': 93.0,
+                        'current': model_perf_status.get('current_accuracy', 'N/A') # モデル性能から取得
+                    },
+                    'model_performance_monitor': model_perf_status
                 }
-            })
+                return jsonify(response_data)
+            except Exception as e:
+                return jsonify({'status': 'error', 'message': str(e)})
+
+    async def get_model_performance_status(self):
+        """モデル性能監視ステータスを取得し、必要に応じて再学習をトリガー"""
+        if not hasattr(self.engine, 'performance_monitor'):
+            return {"status": "NOT_AVAILABLE", "message": "ModelPerformanceMonitor not initialized"}
+
+        status_report = self.engine.performance_monitor.check_performance_status()
+        
+        # CRITICAL_RETRAINの場合、再学習をトリガー
+        if status_report['status'] == "CRITICAL_RETRAIN":
+            print("[ML] CRITICAL_RETRAIN: モデルの再学習をトリガーします")
+            # ここでは、どのシンボルのモデルを再学習するかを特定する必要がある
+            # 現状、daytrade.pyは単一のモデルを扱っていると仮定し、
+            # 簡易的に「最新の分析対象銘柄」を再学習対象とする
+            # より堅牢なシステムでは、性能低下した特定のモデルを特定し、そのシンボルを渡す
+            
+            # 仮のシンボルとして、最も最近分析されたシンボルを使用
+            # または、設定ファイルからデフォルトのシンボルを取得
+            # ここでは、簡易的に"7203"を対象とする
+            target_symbol = "7203" # TODO: 実際の性能低下モデルのシンボルを特定するロジックを追加
+            
+            # 再学習はバックグラウンドで実行
+            asyncio.create_task(self._trigger_retraining_and_deployment(target_symbol))
+            status_report['message'] = "再学習がトリガーされました"
+            
+        return status_report
 
     async def get_analysis_data(self):
         """分析データ取得"""
@@ -1893,6 +1936,66 @@ class DayTradeWebDashboard:
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
 
+    async def _trigger_retraining_and_deployment(self, symbol: str):
+        """モデルの再学習とデプロイをトリガーする"""
+        print(f"[ML] モデル再学習とデプロイを開始: {symbol}")
+        try:
+            # 1. 最新の訓練データを準備
+            from ml_prediction_models import ml_prediction_models, PredictionTask
+            from hyperparameter_optimizer import hyperparameter_optimizer
+
+            print(f"[ML] {symbol} の訓練データを準備中...")
+            features, targets = await ml_prediction_models.prepare_training_data(symbol, "1y")
+
+            # 欠損値除去（最後の行は未来の値が不明）
+            valid_idx = features.index[:-1]
+            X = features.loc[valid_idx]
+
+            valid_targets = {}
+            for task, target_series in targets.items():
+                if task in [PredictionTask.PRICE_DIRECTION, PredictionTask.PRICE_REGRESSION]:
+                    y = target_series.loc[valid_idx].dropna()
+                    X_clean = X.loc[y.index]
+                    if len(y) >= 50:  # 十分なサンプル数
+                        valid_targets[task] = y
+
+            if not valid_targets:
+                print(f"[ML] {symbol} の再学習に十分なデータがありません。スキップします。")
+                return False
+
+            # 2. ハイパーパラメータ最適化
+            print(f"[ML] {symbol} のハイパーパラメータ最適化を実行中...")
+            optimized_results = await hyperparameter_optimizer.optimize_all_models(
+                symbol, X, valid_targets
+            )
+
+            # 3. 最適化されたパラメータでモデルを再訓練
+            print(f"[ML] {symbol} のモデルを再訓練中...")
+            # optimized_resultsから最適なパラメータを抽出して渡す
+            # optimized_resultsは {ModelType.value}_{PredictionTask.value}: OptimizationResult の形式
+            # ml_prediction_models.train_models は optimized_params: Dict[str, Dict[str, Any]] を期待
+            # 例: {"Random Forest": {"価格方向予測": {...}}, "XGBoost": {...}}
+            
+            # optimized_paramsを構築
+            optimized_params_for_training = {}
+            for key, opt_result in optimized_results.items():
+                model_type_str, task_str = key.split('_', 1)
+                if model_type_str not in optimized_params_for_training:
+                    optimized_params_for_training[model_type_str] = {}
+                optimized_params_for_training[model_type_str][task_str] = opt_result.best_params
+
+            await ml_prediction_models.train_models(symbol, "1y", optimized_params=optimized_params_for_training) # 再訓練
+
+            # 4. 新しいモデルのデプロイ（ml_prediction_models.pyでモデルが保存されるため、ここではログのみ）
+            print(f"[ML] {symbol} の新しいモデルがデプロイされました。")
+            return True
+
+        except Exception as e:
+            print(f"[ML] モデル再学習とデプロイに失敗しました ({symbol}): {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     async def generate_charts(self):
         """チャート生成"""
         try:
@@ -1992,7 +2095,7 @@ class DayTradeWebDashboard:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>🚀 デイトレードAI統合システム</title>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-3.1.0.min.js"></script>
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <style>
         body {
@@ -2740,7 +2843,7 @@ class DayTradeWebDashboard:
             alert.textContent = message;
             document.body.appendChild(alert);
 
-            setTimeout(() => {
+            setTimeout(function() {
                 alert.remove();
             }, 5000);
         }
@@ -2793,14 +2896,14 @@ class DayTradeWebDashboard:
         function openOrderLink(symbol, name) {
             // 複数の証券会社リンクを表示
             const brokers = [
-                {name: 'SBI証券', url: `https://site2.sbisec.co.jp/ETGate/?_ControlID=WPLETsmR001Control&_PageID=WPLETsmR001Bdl20&_DataStoreID=DSWPLETsmR001Control&_ActionID=DefaultAID&getFlg=on&burl=search_home&cat1=home&cat2=none&dir=info&file=home_info.html&OutSide=on&search=${symbol}`},
-                {name: '楽天証券', url: `https://www.rakuten-sec.co.jp/web/domestic/search/result/?Keyword=${symbol}`},
-                {name: 'マネックス証券', url: `https://info.monex.co.jp/domestic-stock/detail/${symbol}.html`}
+                {name: 'SBI証券', url: "https://site2.sbisec.co.jp/ETGate/?_ControlID=WPLETsmR001Control&_PageID=WPLETsmR001Bdl20&_DataStoreID=DSWPLETsmR001Control&_ActionID=DefaultAID&getFlg=on&burl=search_home&cat1=home&cat2=none&dir=info&file=home_info.html&OutSide=on&search=" + symbol},
+                {name: '楽天証券', url: "https://www.rakuten-sec.co.jp/web/domestic/search/result/?Keyword=" + symbol},
+                {name: 'マネックス証券', url: "https://info.monex.co.jp/domestic-stock/detail/" + symbol + ".html"}
             ];
 
-            let message = `${symbol} ${name} の注文画面を開きますか?\n\n`;
-            brokers.forEach((broker, index) => {
-                message += `${index + 1}. ${broker.name}\n`;
+            let message = symbol + " " + name + " の注文画面を開きますか?\\n\\n";
+            brokers.forEach(function(broker, index) {
+                message += (index + 1) + ". " + broker.name + "\\n";
             });
 
             const choice = prompt(message + '\n番号を入力してください (1-3):');
@@ -2816,7 +2919,7 @@ class DayTradeWebDashboard:
                 return;
             }
 
-            const targetPrice = prompt(`${symbol} ${name} のアラート価格を入力してください\n(現在価格: ¥${currentPrice.toFixed(0)})`);
+            const targetPrice = prompt(symbol + " " + name + " のアラート価格を入力してください\\n(現在価格: ¥" + currentPrice.toFixed(0) + ")");
             if (targetPrice && !isNaN(targetPrice)) {
                 priceAlerts[symbol] = {
                     name: name,
@@ -2825,7 +2928,7 @@ class DayTradeWebDashboard:
                     timestamp: new Date().toISOString()
                 };
                 localStorage.setItem('priceAlerts', JSON.stringify(priceAlerts));
-                showAlert(`${symbol} のアラートを設定しました (¥${targetPrice})`, 'success');
+                showAlert(symbol + " のアラートを設定しました (¥" + targetPrice + ")", 'success');
             }
         }
 
@@ -2872,7 +2975,7 @@ class DayTradeWebDashboard:
 
         // 価格アラートチェック機能を拡張
         function checkCustomAlerts() {
-            Object.keys(priceAlerts).forEach(symbol => {
+            Object.keys(priceAlerts).forEach(function(symbol) {
                 const alert = priceAlerts[symbol];
                 const currentPrice = previousPrices[symbol];
 
@@ -2907,16 +3010,16 @@ class DayTradeWebDashboard:
 
             switch(filterValue) {
                 case 'strong_buy':
-                    filteredData = filteredData.filter(rec => rec.signal.includes('強い買い'));
+                    filteredData = filteredData.filter(function(rec) { return rec.signal.includes('強い買い'); });
                     break;
                 case 'buy':
-                    filteredData = filteredData.filter(rec => rec.signal.includes('買い') && !rec.signal.includes('強い買い'));
+                    filteredData = filteredData.filter(function(rec) { return rec.signal.includes('買い') && !rec.signal.includes('強い買い'); });
                     break;
                 case 'high_confidence':
-                    filteredData = filteredData.filter(rec => rec.confidence >= 80);
+                    filteredData = filteredData.filter(function(rec) { return rec.confidence >= 80; });
                     break;
                 case 'favorites':
-                    filteredData = filteredData.filter(rec => favorites.includes(rec.symbol));
+                    filteredData = filteredData.filter(function(rec) { return favorites.includes(rec.symbol); });
                     break;
                 case 'all':
                 default:
@@ -2949,20 +3052,20 @@ class DayTradeWebDashboard:
             switch(sortType) {
                 case 'rank':
                 case 'rank_asc':
-                    sortedData.sort((a, b) => a.rank - b.rank);
+                    sortedData.sort(function(a, b) { return a.rank - b.rank; });
                     break;
                 case 'rank_desc':
-                    sortedData.sort((a, b) => b.rank - a.rank);
+                    sortedData.sort(function(a, b) { return b.rank - a.rank; });
                     break;
                 case 'confidence_desc':
                 case 'confidence_desc':
-                    sortedData.sort((a, b) => b.confidence - a.confidence);
+                    sortedData.sort(function(a, b) { return b.confidence - a.confidence; });
                     break;
                 case 'confidence_asc':
-                    sortedData.sort((a, b) => a.confidence - b.confidence);
+                    sortedData.sort(function(a, b) { return a.confidence - b.confidence; });
                     break;
                 case 'price_change_desc':
-                    sortedData.sort((a, b) => {
+                    sortedData.sort(function(a, b) {
                         const changeA = a.current_price && a.opening_price ? a.current_price - a.opening_price : 0;
                         const changeB = b.current_price && b.opening_price ? b.current_price - b.opening_price : 0;
                         return changeB - changeA;
@@ -2970,22 +3073,22 @@ class DayTradeWebDashboard:
                     break;
                 case 'symbol':
                 case 'symbol_asc':
-                    sortedData.sort((a, b) => a.symbol.localeCompare(b.symbol));
+                    sortedData.sort(function(a, b) { return a.symbol.localeCompare(b.symbol); });
                     break;
                 case 'symbol_desc':
-                    sortedData.sort((a, b) => b.symbol.localeCompare(a.symbol));
+                    sortedData.sort(function(a, b) { return b.symbol.localeCompare(a.symbol); });
                     break;
                 case 'name_asc':
-                    sortedData.sort((a, b) => a.name.localeCompare(b.name));
+                    sortedData.sort(function(a, b) { return a.name.localeCompare(b.name); });
                     break;
                 case 'name_desc':
-                    sortedData.sort((a, b) => b.name.localeCompare(a.name));
+                    sortedData.sort(function(a, b) { return b.name.localeCompare(a.name); });
                     break;
                 case 'signal_asc':
-                    sortedData.sort((a, b) => a.signal.localeCompare(b.signal));
+                    sortedData.sort(function(a, b) { return a.signal.localeCompare(b.signal); });
                     break;
                 case 'signal_desc':
-                    sortedData.sort((a, b) => b.signal.localeCompare(a.signal));
+                    sortedData.sort(function(a, b) { return b.signal.localeCompare(a.signal); });
                     break;
             }
 
@@ -3039,7 +3142,7 @@ class DayTradeWebDashboard:
             ];
 
             const newsContainer = document.getElementById('newsContainer');
-            newsContainer.innerHTML = sampleNews.map(news => `
+            newsContainer.innerHTML = sampleNews.map(function(news) { return `
                 <div class="news-item">
                     <div class="news-title">${news.title}</div>
                     <div class="news-content">${news.content}</div>
@@ -3059,9 +3162,9 @@ class DayTradeWebDashboard:
                 { date: '2024-08-06', accuracy: 93.8, trades: 16, profit: 2.6 }
             ];
 
-            const avgAccuracy = historyData.reduce((sum, day) => sum + day.accuracy, 0) / historyData.length;
-            const totalTrades = historyData.reduce((sum, day) => sum + day.trades, 0);
-            const totalProfit = historyData.reduce((sum, day) => sum + day.profit, 0);
+            const avgAccuracy = historyData.reduce(function(sum, day) { return sum + day.accuracy; }, 0) / historyData.length;
+            const totalTrades = historyData.reduce(function(sum, day) { return sum + day.trades; }, 0);
+            const totalProfit = historyData.reduce(function(sum, day) { return sum + day.profit; }, 0);
 
             const performanceContainer = document.getElementById('performanceHistory');
             performanceContainer.innerHTML = `
@@ -3080,7 +3183,7 @@ class DayTradeWebDashboard:
                     </div>
                 </div>
                 <div class="history-details">
-                    ${historyData.map(day => `
+                    ${historyData.map(function(day) { return `
                         <div class="performance-metric">
                             <span class="metric-name">${day.date}</span>
                             <span class="metric-value">精度:${day.accuracy}% 取引:${day.trades}回 収益:+${day.profit}%</span>
@@ -3163,7 +3266,7 @@ class DayTradeWebDashboard:
             }
 
             const tbody = document.getElementById('recommendationsTableBody');
-            tbody.innerHTML = data.map(rec => {
+            tbody.innerHTML = data.map(function(rec) {
                 // 価格変動の色分けクラスを決定
                 const previousPrice = previousPrices[rec.symbol];
                 const priceChangeClass = getPriceChangeClass(rec.current_price, previousPrice);
@@ -3269,13 +3372,13 @@ class DayTradeWebDashboard:
             try {
                 await updateDashboard();
                 btn.innerHTML = '✅ 完了!';
-                setTimeout(() => {
+                setTimeout(function() {
                     btn.innerHTML = '🔄 最新分析実行';
                     btn.disabled = false;
                 }, 2000);
             } catch (error) {
                 btn.innerHTML = '❌ エラー';
-                setTimeout(() => {
+                setTimeout(function() {
                     btn.innerHTML = '🔄 最新分析実行';
                     btn.disabled = false;
                 }, 2000);
@@ -3323,6 +3426,37 @@ class DayTradeWebDashboard:
                 if (backtestStatus) {
                     backtestStatus.textContent = statusData.backtest_integration.status;
                     backtestStatus.className = `status-value ${statusData.backtest_integration.available ? 'active' : 'inactive'}`;
+                }
+
+                // モデル性能監視ステータス更新 (Issue #827)
+                const modelPerformanceStatusElement = document.getElementById('modelPerformanceStatus');
+                if (modelPerformanceStatusElement && statusData.model_performance_monitor) {
+                    const perfStatus = statusData.model_performance_monitor;
+                    let displayStatus = `精度: ${perfStatus.current_accuracy.toFixed(2)} (${perfStatus.num_samples}件)`;
+                    let statusClass = 'status-ok';
+
+                    if (perfStatus.status === 'WARNING') {
+                        displayStatus = `⚠️ 警告: ${displayStatus}`;
+                        statusClass = 'status-warning';
+                        showAlert(`モデル性能が低下しています: ${perfStatus.current_accuracy.toFixed(2)}`, 'warning');
+                    } else if (perfStatus.status === 'CRITICAL_RETRAIN') {
+                        displayStatus = `🚨 再学習必要: ${displayStatus}`;
+                        statusClass = 'status-error';
+                        showAlert(`モデル性能が著しく低下！再学習を開始します。`, 'danger');
+                    } else if (perfStatus.status === 'INSUFFICIENT_SAMPLES') {
+                        displayStatus = `📊 サンプル不足: ${displayStatus}`;
+                        statusClass = 'status-warning';
+                    }
+
+                    modelPerformanceStatusElement.textContent = displayStatus;
+                    // 親要素のステータスインジケータも更新
+                    const parentStatusItem = modelPerformanceStatusElement.closest('.status-item');
+                    if (parentStatusItem) {
+                        const indicator = parentStatusItem.querySelector('.status-indicator');
+                        if (indicator) {
+                            indicator.className = `status-indicator ${statusClass}`;
+                        }
+                    }
                 }
 
             } catch (error) {
