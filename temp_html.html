@@ -95,7 +95,7 @@
             background: rgba(255,255,255,0.1);
             font-weight: bold;
         }
-        
+
         /* 利確・損切グラデーション背景機能 */
         .recommendations-table tbody tr {
             transition: all 0.3s ease;
@@ -107,7 +107,7 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             filter: brightness(1.1);
         }
-        
+
         /* グラデーション効果の強化 */
         .recommendations-table tbody tr::before {
             content: '';
@@ -644,12 +644,12 @@
             transition-delay: 0s !important;
             transform: none !important;
         }
-        
+
         /* すべてのkeyframesアニメーションを無効化 */
         @keyframes * {
             0%, 100% { transform: none !important; }
         }
-        
+
         /* 日別履歴のスタイリング修正 */
         #dailyHistory {
             word-wrap: break-word;
@@ -658,14 +658,14 @@
             font-size: 0.9em;
             line-height: 1.4;
         }
-        
+
         .performance-metric {
             max-width: 100%;
             overflow: hidden;
             box-sizing: border-box;
             flex-wrap: wrap;
         }
-        
+
         .status-item {
             max-width: 100%;
             overflow: hidden;
@@ -953,7 +953,7 @@
         function openOrderLink(symbol, name) {
             // 楽天証券のみ
             const url = `https://www.rakuten-sec.co.jp/web/market/search/quote.html?ric=${symbol}.T`;
-            
+
             if (confirm(`${symbol} ${name} の楽天証券注文画面を開きますか？`)) {
                 window.open(url, '_blank');
             }
@@ -1147,18 +1147,18 @@
 
         // TradingView チャート初期化
         let tradingViewWidget = null;
-        
+
         // TradingViewで確実に動作するシンボルにマッピング
         function getTradingViewSymbol(symbol) {
             // 日本株は全てAppleのチャートで代用（確実に動作）
             return 'AAPL';
         }
-        
+
         function initTradingViewChart(symbol = '7203') {
             if (typeof TradingView !== 'undefined') {
                 const tvSymbol = getTradingViewSymbol(symbol);
                 console.log(`TradingViewシンボル: ${symbol} -> ${tvSymbol}`);
-                
+
                 tradingViewWidget = new TradingView.widget({
                     "width": "100%",
                     "height": 500,
@@ -1175,17 +1175,17 @@
                 });
             }
         }
-        
+
         // チャート切り替え機能
         function showChart(symbol, name) {
             console.log(`チャートを${symbol} (${name})に切り替えます`);
-            
+
             // TradingViewウィジェットを新しいシンボルで初期化
             if (typeof TradingView !== 'undefined') {
                 // 既存のウィジェットをクリア
                 const container = document.getElementById('tradingview_widget');
                 container.innerHTML = '';
-                
+
                 // 新しいウィジェットを作成
                 tradingViewWidget = new TradingView.widget({
                     "width": "100%",
@@ -1201,7 +1201,7 @@
                     "allow_symbol_change": true,
                     "container_id": "tradingview_widget"
                 });
-                
+
                 // チャートセクションにスクロール
                 document.getElementById('chart-section').scrollIntoView({
                     behavior: 'smooth'
@@ -1279,7 +1279,7 @@
                     console.error('performanceHistory要素が見つかりません');
                     return;
                 }
-                performanceContainer.innerHTML = 
+                performanceContainer.innerHTML =
                     '<div class="performance-summary">' +
                         '<div class="performance-metric">' +
                             '<span class="metric-name">📊 平均予測精度 (5日間)</span>' +
@@ -1303,7 +1303,7 @@
                 }
             }
         }
-        
+
         // 日別履歴読み込み
         function loadDailyHistory() {
             try {
@@ -1317,7 +1317,7 @@
                     '2024-08-14 14:45 - 4063 信越化学: 损切実行 -1.2%損失',
                     '2024-08-14 11:20 - 2914 日本たばこ産業: 買いシグナル発生 信頼度:91%'
                 ];
-                
+
                 // DOM要素のnullチェックを強化
                 const dailyContainer = document.getElementById('dailyHistory');
                 if (dailyContainer && dailyContainer !== null) {
@@ -1343,8 +1343,8 @@
                 console.log('updateDashboard開始');
                 // ローディング表示開始
                 console.log('ローディング表示設定完了');
-                
-                
+
+
                 // 推奨データ更新
                 console.log('API呼び出し開始: /api/recommendations');
                 const recResp = await fetch('/api/recommendations');
@@ -1377,10 +1377,10 @@
                 // 最終更新時刻を更新
                 updateLastUpdateTime();
 
-                
+
                 // ローディング完了
                 console.log('分析完了');
-                
+
             } catch (error) {
                 console.error('データ更新エラー:', error);
                 console.log('分析完了');
@@ -1394,13 +1394,13 @@
             // システムメトリクスを更新
             const summary = data.summary || {};
             const totalPredictions = (summary.strong_buy_count || 0) + (summary.buy_count || 0) + (summary.sell_count || 0) + (summary.hold_count || 0);
-            
+
             // メトリクスカードを更新（nullチェック強化）
             const activePredictionsEl = document.getElementById('activePredictions');
             const todayAccuracyEl = document.getElementById('todayAccuracy');
             const totalProfitEl = document.getElementById('totalProfit');
             const systemStatusEl = document.getElementById('systemStatus');
-            
+
             if (activePredictionsEl && activePredictionsEl !== null) {
                 activePredictionsEl.textContent = totalPredictions;
             } else {
@@ -1421,7 +1421,7 @@
             } else {
                 console.warn('systemStatus要素が見つかりません');
             }
-            
+
             // 可能なら推奨テーブルも更新
             if (data.data && Array.isArray(data.data)) {
                 updateRecommendationsTable(data.data);
@@ -1443,12 +1443,12 @@
 
             const tbody = document.getElementById('recommendationsTableBody');
             console.log('tbody要素取得:', tbody);
-            
+
             if (!tbody || tbody === null) {
                 console.error('recommendationsTableBody要素が見つかりません');
                 return;
             }
-            
+
             console.log('テーブル更新開始、データ件数:', data.length);
             tbody.innerHTML = data.map(rec => {
                 // 価格変動の色分けクラスを決定
@@ -1470,7 +1470,7 @@
                     const stopLoss = rec.current_price * (1 - rec.stop_loss / 100);
                     const priceChange = rec.current_price - rec.opening_price;
                     const progressBar = createProgressBar(rec.current_price, rec.opening_price, profitTarget, stopLoss);
-                    
+
                     // 利確・損切距離インジケーター
                     const totalRange = profitTarget - stopLoss;
                     const pricePosition = (rec.current_price - stopLoss) / totalRange;
@@ -1515,7 +1515,7 @@
 
                 const isFavorite = favorites.includes(rec.symbol);
                 const favoriteIcon = isFavorite ? '⭐' : '☆';
-                
+
                 // 利確・損切距離に基づくグラデーション背景を計算
                 let rowBackground = 'transparent';
                 if (rec.current_price && rec.target_profit && rec.stop_loss) {
@@ -1547,17 +1547,17 @@
             if (signal.includes('売り')) return 'sell';
             return 'hold';
         }
-        
+
         function calculatePriceDistanceGradient(currentPrice, openingPrice, profitTarget, stopLoss) {
             // 価格と利確・損切の距離に基づいてグラデーション色を計算
             if (!currentPrice || !profitTarget || !stopLoss) {
                 return 'transparent';
             }
-            
+
             const basePrice = openingPrice || currentPrice;
             const totalRange = profitTarget - stopLoss; // 利確から損切までの全体幅
             const pricePosition = (currentPrice - stopLoss) / totalRange; // 0(損切)～1(利確)の位置
-            
+
             // 利確に近づくほど緑、損切に近づくほど赤
             if (pricePosition >= 0.8) {
                 // 利確80%以上に近い - 強い緑グラデーション
@@ -1580,7 +1580,7 @@
                 return 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.01) 100%)';
             }
         }
-        
+
         function getPriceDistanceIndicator(pricePosition) {
             // 価格位置に基づくビジュアルインジケーター
             if (pricePosition >= 0.9) {
@@ -1617,7 +1617,7 @@
                         };
                         Plotly.newPlot('confidenceChart', chartData.confidence_chart.data, confidenceLayout, {responsive: true});
                     }
-                    
+
                     // タイミングスコアチャート
                     if (chartData.timing_chart && chartData.timing_chart.data) {
                         const timingLayout = {
@@ -1641,21 +1641,21 @@
             btn.disabled = true;
 
             try {
-                
+
                 // 完全な分析を実行（全API呼び出し）
                 await updateDashboard();
-                
+
                 // 追加でチャートも強制更新
                 setTimeout(async () => {
                     await updateCharts();
                 }, 1000);
-                
+
                 btn.innerHTML = '🤖 AI完全分析';
                 setTimeout(() => {
                     btn.innerHTML = '🤖 AI完全分析';
                     btn.disabled = false;
                 }, 3000);
-                
+
             } catch (error) {
                 console.error('分析実行エラー:', error);
                 console.log('分析完了');
@@ -1670,22 +1670,22 @@
         // 自動更新切り替え
         // 手動更新（価格データのみ更新）
         async function manualRefresh() {
-            
+
             try {
                 // 価格データのみ更新（軽量版）
-                
+
                 const recResp = await fetch('/api/recommendations');
                 const recData = await recResp.json();
-                
+
                 if (recData.status === 'success') {
                     // テーブルの価格データのみ更新
                     updateRecommendationsTable(recData.data || []);
                     updateLastUpdateTime();
                 } else {
                 }
-                
+
                 console.log('分析完了');
-                
+
             } catch (error) {
                 console.error('手動更新エラー:', error);
                 console.log('分析完了');
@@ -1740,7 +1740,7 @@
                 } else {
                     console.warn('backtestStatus要素またはバックテストデータが見つかりません');
                 }
-                
+
                 console.log('システムステータス更新完了');
 
             } catch (error) {
@@ -1762,7 +1762,7 @@
         // ページが完全に読み込まれた後に初期化を実行
         function initializeApp() {
             console.log('アプリ初期化開始');
-            
+
             try {
                 // 初期システムステータス取得
                 updateSystemStatus();
@@ -1795,7 +1795,7 @@
                                 console.error('初期チャート初期化エラー:', error);
                                 initTradingViewChart();
                             });
-                            
+
                         loadNews();
                         loadPerformanceHistory();
                         loadDailyHistory();
@@ -1807,7 +1807,7 @@
                 console.error('アプリ初期化エラー:', error);
             }
         }
-        
+
         // 複数のイベントで初期化を試行
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initializeApp);
@@ -1815,12 +1815,12 @@
             // 既にDOMが読み込まれている場合はすぐ初期化
             setTimeout(initializeApp, 100);
         }
-        
+
         // フォールバックとしてwindow.onloadも使用
         window.addEventListener('load', function() {
             setTimeout(initializeApp, 500);
         });
-        
+
         // 不足している関数定義
         function refreshData() {
             try {
@@ -1834,15 +1834,15 @@
                 showAlert('データ更新に失敗しました', 'danger');
             }
         }
-        
+
         function exportData() {
             try {
                 console.log('データエクスポート実行');
-                
+
                 // 現在の推奨データを取得
                 const recommendations = [];
                 const rows = document.querySelectorAll('.recommendations-table tbody tr');
-                
+
                 rows.forEach(row => {
                     const cells = row.querySelectorAll('td');
                     if (cells.length >= 6) {
@@ -1856,16 +1856,16 @@
                         });
                     }
                 });
-                
+
                 // CSVダウンロード
                 if (recommendations.length > 0) {
                     const csv = 'シンボル,銘柄名,シグナル,信頼度,リスク,価格情報
 ' +
-                        recommendations.map(rec => 
+                        recommendations.map(rec =>
                             `${rec.symbol},"${rec.name}",${rec.signal},${rec.confidence},${rec.risk},"${rec.price}"`
                         ).join('
 ');
-                    
+
                     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                     const link = document.createElement('a');
                     const url = URL.createObjectURL(blob);
@@ -1875,7 +1875,7 @@
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
-                    
+
                     showAlert('データをエクスポートしました', 'success');
                 } else {
                     showAlert('エクスポートするデータがありません', 'warning');

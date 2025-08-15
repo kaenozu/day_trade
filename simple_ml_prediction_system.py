@@ -167,14 +167,14 @@ class SimpleMLPredictionSystem:
             # 実データ取得を試行
             from src.day_trade.utils.yfinance_import import get_yfinance
             yf_module, available = get_yfinance()
-            
+
             if available and yf_module:
                 # 実データ取得成功時
                 return self._calculate_real_features(symbol, yf_module)
             else:
                 # フォールバック：統計ベース特徴量
                 return self._calculate_statistical_features(symbol)
-                
+
         except Exception as e:
             print(f"[INFO] 特徴量生成フォールバック ({symbol}): {e}")
             return self._calculate_statistical_features(symbol)
@@ -185,38 +185,38 @@ class SimpleMLPredictionSystem:
             # 日本株対応
             symbol_yf = f"{symbol}.T" if symbol.isdigit() and len(symbol) == 4 else symbol
             ticker = yf_module.Ticker(symbol_yf)
-            
+
             # 過去30日データ取得
             hist = ticker.history(period="30d")
             if len(hist) < 5:
                 return self._calculate_statistical_features(symbol)
-            
+
             # 技術指標計算
             close_prices = hist['Close']
             volumes = hist['Volume']
-            
+
             # 価格変動率
             price_change_5d = (close_prices.iloc[-1] - close_prices.iloc[-5]) / close_prices.iloc[-5] if len(close_prices) >= 5 else 0
             price_change_20d = (close_prices.iloc[-1] - close_prices.iloc[-20]) / close_prices.iloc[-20] if len(close_prices) >= 20 else 0
-            
+
             # ボラティリティ（標準偏差）
             volatility = close_prices.pct_change().std()
-            
+
             # 出来高比率
             volume_ratio = volumes.iloc[-5:].mean() / volumes.iloc[-20:-5].mean() if len(volumes) >= 20 else 1.0
-            
+
             # RSI（簡易版）
             delta = close_prices.diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
             rs = gain / loss
             rsi = 100 - (100 / (1 + rs)).iloc[-1] if not rs.iloc[-1] == 0 else 50
-            
+
             # トレンド強度（線形回帰傾き）
             import numpy as np
             x = np.arange(len(close_prices))
             trend_strength = np.polyfit(x, close_prices, 1)[0] / close_prices.mean()
-            
+
             return {
                 'price_change_5d': float(price_change_5d),
                 'price_change_20d': float(price_change_20d),
@@ -226,16 +226,16 @@ class SimpleMLPredictionSystem:
                 'trend_strength': float(trend_strength) if not np.isnan(trend_strength) else 0.0,
                 'market_sentiment': np.random.uniform(-0.3, 0.3)  # 市場センチメント（外部データソース要）
             }
-            
+
         except Exception as e:
             print(f"[INFO] 実データ特徴量計算失敗 ({symbol}): {e}")
             return self._calculate_statistical_features(symbol)
-    
+
     def _calculate_statistical_features(self, symbol: str) -> Dict[str, float]:
         """統計ベース特徴量計算（フォールバック）"""
         # 銘柄コードベースの一貫性あるランダム値
         np.random.seed(hash(symbol) % 1000)
-        
+
         # より現実的な値の範囲
         features = {
             'price_change_5d': np.random.uniform(-0.08, 0.08),    # ±8%（現実的範囲）

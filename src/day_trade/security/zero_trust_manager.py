@@ -309,17 +309,17 @@ class RiskAssessment:
             user_id = request.user_context.user_id
             current_time = time.time()
             failure_window = 3600  # 1時間以内の失敗をチェック
-            
+
             # メモリベースの失敗履歴チェック（軽量実装）
             if hasattr(self, '_auth_failures'):
                 user_failures = self._auth_failures.get(user_id, [])
                 recent_failures = [f for f in user_failures if current_time - f < failure_window]
                 return len(recent_failures) >= 3  # 3回以上の失敗でブロック
-            
+
             # 初期化
             if not hasattr(self, '_auth_failures'):
                 self._auth_failures = {}
-                
+
             return False
         except Exception:
             # セキュリティエラーは保守的にTrue（ブロック）を返す

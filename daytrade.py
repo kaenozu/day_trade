@@ -1511,15 +1511,15 @@ class DayTradeWebDashboard:
             print("[WARNING] バックテスト統合未対応 - ダミー実績使用")
 
         self.setup_app()
-    
+
     def _is_cache_valid(self, key: str, ttl_seconds: int) -> bool:
         """キャッシュ有効性チェック"""
         if key not in self._cache or key not in self._cache_ttl:
             return False
-        
+
         from datetime import datetime, timedelta
         return datetime.now() < self._cache_ttl[key]
-    
+
     def _set_cache(self, key: str, value: dict):
         """キャッシュ設定"""
         from datetime import datetime, timedelta
@@ -1534,7 +1534,7 @@ class DayTradeWebDashboard:
         try:
             import asyncio
             import concurrent.futures
-            
+
             def fetch_yfinance_data():
                 """同期版yfinanceデータ取得"""
                 yf_module, _ = get_yfinance()
@@ -1547,10 +1547,10 @@ class DayTradeWebDashboard:
                     symbol_yf = f"{symbol}.T"
 
                 ticker = yf_module.Ticker(symbol_yf)
-                
+
                 # 軽量化：1日分のデータのみ取得
                 today_data = ticker.history(period="1d")
-                
+
                 if today_data.empty:
                     # 当日データがない場合は過去5日間で最新を取得
                     recent_data = ticker.history(period="5d")
@@ -1698,87 +1698,87 @@ class DayTradeWebDashboard:
         except Exception as e:
             print(f"過去実績取得エラー ({symbol}): {e}")
             return {}
-    
+
     async def _generate_metrics_based_prediction(self, symbol: str) -> Dict[str, Any]:
         """高性能アンサンブル予測システム - 並列処理 & 高精度アルゴリズム"""
         try:
             # キャッシュキー生成
             cache_key = f"enhanced_prediction_{symbol}_{datetime.now().strftime('%H')}"
-            
+
             # キャッシュから取得試行
             if hasattr(self, '_prediction_cache') and cache_key in self._prediction_cache:
                 cached_result = self._prediction_cache[cache_key]
                 if datetime.now() - cached_result['timestamp'] < timedelta(minutes=30):
                     return cached_result['data']
-            
+
             # 並列計算用タスク生成
             tasks = []
-            
+
             # 1. 基本メトリクス（非同期）
             tasks.append(asyncio.create_task(self._enhanced_base_metrics(symbol)))
-            
+
             # 2. 高精度テクニカル分析（非同期）
             tasks.append(asyncio.create_task(self._advanced_technical_analysis(symbol)))
-            
+
             # 3. リスク・ボラティリティ分析（非同期）
             tasks.append(asyncio.create_task(self._sophisticated_risk_analysis(symbol)))
-            
+
             # 4. 市場コンテキスト分析（非同期）
             tasks.append(asyncio.create_task(self._comprehensive_market_context(symbol)))
-            
+
             # 並列実行
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            
+
             # エラーハンドリング
             valid_results = [r for r in results if not isinstance(r, Exception)]
             if len(valid_results) < 3:  # 最低3つの分析が必要
                 return await self._simple_fallback_prediction(symbol)
-            
+
             base_metrics, technical_analysis, risk_analysis, market_context = valid_results[:4]
-            
+
             # アンサンブル学習による最終予測
             ensemble_result = await self._ensemble_prediction_fusion(
                 symbol, base_metrics, technical_analysis, risk_analysis, market_context
             )
-            
+
             # 結果をキャッシュ
             if not hasattr(self, '_prediction_cache'):
                 self._prediction_cache = {}
-            
+
             self._prediction_cache[cache_key] = {
                 'timestamp': datetime.now(),
                 'data': ensemble_result
             }
-            
+
             # 古いキャッシュをクリーンアップ
             self._cleanup_prediction_cache()
-            
+
             return ensemble_result
-            
+
         except Exception as e:
             print(f"高性能予測エラー ({symbol}): {e}")
             return await self._simple_fallback_prediction(symbol)
-    
+
     async def _enhanced_base_metrics(self, symbol: str) -> Dict[str, Any]:
         """強化基本メトリクス - リアルタイムデータ統合"""
         await asyncio.sleep(0.01)  # 非同期処理シミュレーション
-        
+
         symbol_hash = hash(symbol) % 10000
         np.random.seed(symbol_hash)
-        
+
         # 複数データソースからの統合メトリクス
         liquidity_factors = {
             'volume_trend': 75 + (symbol_hash % 25),
             'bid_ask_spread': max(0.1, (symbol_hash % 50) / 100),
             'market_depth': 60 + (symbol_hash % 40)
         }
-        
+
         fundamental_analysis = {
             'pe_ratio_score': 50 + ((symbol_hash * 3) % 50),
             'growth_momentum': 40 + ((symbol_hash * 7) % 60),
             'financial_strength': 70 + ((symbol_hash * 11) % 30)
         }
-        
+
         # 予測精度スコア（過去データベース）
         historical_performance = {
             'accuracy_1day': 85 + ((symbol_hash * 13) % 15),  # 85-100%
@@ -1786,7 +1786,7 @@ class DayTradeWebDashboard:
             'accuracy_7day': 75 + ((symbol_hash * 19) % 25),  # 75-100%
             'model_confidence': 88 + ((symbol_hash * 23) % 12)  # 88-100%
         }
-        
+
         return {
             'liquidity': liquidity_factors,
             'fundamentals': fundamental_analysis,
@@ -1797,14 +1797,14 @@ class DayTradeWebDashboard:
                 np.mean(list(historical_performance.values())) * 0.3
             )
         }
-    
+
     async def _advanced_technical_analysis(self, symbol: str) -> Dict[str, Any]:
         """高度テクニカル分析 - 複数指標統合"""
         await asyncio.sleep(0.01)  # 非同期処理シミュレーション
-        
+
         symbol_hash = hash(symbol) % 10000
         np.random.seed(symbol_hash + 100)
-        
+
         # 高精度テクニカル指標
         momentum_indicators = {
             'rsi_14': 30 + (symbol_hash % 40),
@@ -1812,27 +1812,27 @@ class DayTradeWebDashboard:
             'williams_r': -80 + ((symbol_hash * 5) % 60),
             'momentum_score': 60 + ((symbol_hash * 7) % 40)
         }
-        
+
         trend_indicators = {
             'macd_signal': np.random.choice(['強い買い', '買い', '中立', '売り'], p=[0.3, 0.3, 0.3, 0.1]),
             'ema_trend': np.random.choice(['上昇トレンド', '横ばい', '下降トレンド'], p=[0.5, 0.3, 0.2]),
             'bollinger_position': np.random.choice(['上位バンド', '中央', '下位バンド'], p=[0.2, 0.6, 0.2]),
             'trend_strength': 70 + ((symbol_hash * 11) % 30)
         }
-        
+
         volume_analysis = {
             'volume_trend': np.random.choice(['増加', '安定', '減少'], p=[0.4, 0.4, 0.2]),
             'volume_price_correlation': 0.6 + ((symbol_hash % 40) / 100),
             'accumulation_distribution': 60 + ((symbol_hash * 13) % 40)
         }
-        
+
         # 統合テクニカルスコア
         technical_score = (
             np.mean(list(momentum_indicators.values())[:-1]) * 0.4 +  # momentumは数値のみ
             trend_indicators['trend_strength'] * 0.4 +
             volume_analysis['accumulation_distribution'] * 0.2
         )
-        
+
         return {
             'momentum': momentum_indicators,
             'trend': trend_indicators,
@@ -1840,14 +1840,14 @@ class DayTradeWebDashboard:
             'technical_score': technical_score,
             'signal_strength': min(100, max(0, technical_score))
         }
-    
+
     async def _sophisticated_risk_analysis(self, symbol: str) -> Dict[str, Any]:
         """高度リスク分析 - VaR, Beta, Sharpe等"""
         await asyncio.sleep(0.01)  # 非同期処理シミュレーション
-        
+
         symbol_hash = hash(symbol) % 10000
         np.random.seed(symbol_hash + 200)
-        
+
         # リスクメトリクス
         volatility_metrics = {
             'historical_volatility': 0.15 + ((symbol_hash % 30) / 100),  # 15-45%
@@ -1855,27 +1855,27 @@ class DayTradeWebDashboard:
             'volatility_skew': -0.1 + ((symbol_hash % 20) / 100),  # -10% to 10%
             'garch_forecast': 0.20 + ((symbol_hash * 5 % 20) / 100)  # 20-40%
         }
-        
+
         risk_measures = {
             'value_at_risk_95': -0.02 - ((symbol_hash % 30) / 1000),  # -2% to -5%
             'expected_shortfall': -0.03 - ((symbol_hash * 7 % 40) / 1000),  # -3% to -7%
             'beta_coefficient': 0.7 + ((symbol_hash % 60) / 100),  # 0.7-1.3
             'sharpe_ratio': 0.5 + ((symbol_hash * 11 % 150) / 100)  # 0.5-2.0
         }
-        
+
         # リスクカテゴリ判定
         risk_score = (
             abs(risk_measures['value_at_risk_95']) * 30 +
             volatility_metrics['historical_volatility'] * 100 +
             abs(risk_measures['beta_coefficient'] - 1.0) * 20
         )
-        
+
         risk_category = (
             '低リスク' if risk_score < 10 else
             '中リスク' if risk_score < 20 else
             '高リスク'
         )
-        
+
         return {
             'volatility': volatility_metrics,
             'risk_measures': risk_measures,
@@ -1883,14 +1883,14 @@ class DayTradeWebDashboard:
             'risk_category': risk_category,
             'recommended_position_size': max(0.1, min(1.0, 1.0 - (risk_score / 30)))
         }
-    
+
     async def _comprehensive_market_context(self, symbol: str) -> Dict[str, Any]:
         """包括的市場コンテキスト分析"""
         await asyncio.sleep(0.01)  # 非同期処理シミュレーション
-        
+
         symbol_hash = hash(symbol) % 10000
         np.random.seed(symbol_hash + 300)
-        
+
         # 市場環境分析
         market_conditions = {
             'market_sentiment': np.random.choice(['強気', 'やや強気', '中立', 'やや弱気'], p=[0.3, 0.3, 0.3, 0.1]),
@@ -1898,7 +1898,7 @@ class DayTradeWebDashboard:
             'liquidity_environment': np.random.choice(['豊富', '通常', '逼迫'], p=[0.3, 0.5, 0.2]),
             'volatility_regime': np.random.choice(['低ボラ', '中ボラ', '高ボラ'], p=[0.3, 0.5, 0.2])
         }
-        
+
         # セクター分析
         sector_analysis = {
             'sector_momentum': 60 + ((symbol_hash * 13) % 40),
@@ -1906,7 +1906,7 @@ class DayTradeWebDashboard:
             'sector_beta': 0.9 + ((symbol_hash * 17 % 20) / 100),  # 0.9-1.1
             'peer_comparison': 70 + ((symbol_hash * 19) % 30)
         }
-        
+
         # タイミング要因
         timing_factors = {
             'earnings_proximity': ((symbol_hash % 30) < 5),  # 決算近接性
@@ -1914,14 +1914,14 @@ class DayTradeWebDashboard:
             'option_expiry_impact': ((symbol_hash % 20) < 2),  # オプション満期影響
             'calendar_effect': np.random.choice(['月初効果', '月末効果', 'なし'], p=[0.2, 0.2, 0.6])
         }
-        
+
         # 総合市場スコア
         market_score = (
             sector_analysis['sector_momentum'] * 0.4 +
             sector_analysis['peer_comparison'] * 0.3 +
             (sector_analysis['relative_strength'] - 1.0) * 50 * 0.3
         )
-        
+
         return {
             'market_conditions': market_conditions,
             'sector_analysis': sector_analysis,
@@ -1929,13 +1929,13 @@ class DayTradeWebDashboard:
             'market_score': market_score,
             'optimal_timing': '良好' if market_score > 70 else '要注意' if market_score < 50 else '中立'
         }
-    
-    async def _ensemble_prediction_fusion(self, symbol: str, base_metrics: Dict, 
-                                        technical_analysis: Dict, risk_analysis: Dict, 
+
+    async def _ensemble_prediction_fusion(self, symbol: str, base_metrics: Dict,
+                                        technical_analysis: Dict, risk_analysis: Dict,
                                         market_context: Dict) -> Dict[str, Any]:
         """アンサンブル学習による最終予測統合"""
         await asyncio.sleep(0.005)  # 統合処理シミュレーション
-        
+
         # 重み付けスコア計算
         weights = {
             'base': 0.25,
@@ -1943,7 +1943,7 @@ class DayTradeWebDashboard:
             'risk': 0.20,
             'market': 0.20
         }
-        
+
         # 統合信頼度スコア
         confidence_components = {
             'base_component': base_metrics['overall_base_score'],
@@ -1951,17 +1951,17 @@ class DayTradeWebDashboard:
             'risk_component': (1.0 - risk_analysis['risk_score'] / 30) * 100,
             'market_component': market_context['market_score']
         }
-        
+
         # 重み付き最終信頼度
         final_confidence = sum(
             confidence_components[key.replace('_component', '') + '_component'] * weights[key.replace('_component', '')]
             for key in confidence_components.keys()
         )
-        
+
         # シグナル統合判定
         technical_signal = technical_analysis['trend']['macd_signal']
         risk_adjustment = risk_analysis['recommended_position_size']
-        
+
         # 最終シグナル決定
         if final_confidence > 85 and risk_adjustment > 0.7:
             signal = f"強い{technical_signal}" if '買い' in technical_signal else technical_signal
@@ -1969,7 +1969,7 @@ class DayTradeWebDashboard:
             signal = technical_signal
         else:
             signal = '要注意'
-        
+
         return {
             'confidence': min(99, max(50, final_confidence)),
             'score': final_confidence,
@@ -1982,25 +1982,25 @@ class DayTradeWebDashboard:
             'market_timing': market_context['optimal_timing'],
             'processing_time': 'optimized_parallel'
         }
-    
+
     def _cleanup_prediction_cache(self):
         """予測キャッシュクリーンアップ"""
         if not hasattr(self, '_prediction_cache'):
             return
-        
+
         current_time = datetime.now()
         expired_keys = [
             key for key, value in self._prediction_cache.items()
             if current_time - value['timestamp'] > timedelta(hours=2)
         ]
-        
+
         for key in expired_keys:
             del self._prediction_cache[key]
-    
+
     def _calculate_base_metrics(self, symbol: str, seed_value: int) -> Dict[str, float]:
         """基本メトリクス算出"""
         np.random.seed(seed_value)
-        
+
         # 銘柄の特性に基づいた基本スコア
         symbol_characteristics = {
             'liquidity_score': 70 + (seed_value % 30),  # 70-100
@@ -2008,23 +2008,23 @@ class DayTradeWebDashboard:
             'growth_potential': 50 + ((seed_value * 7) % 50),  # 50-100
             'historical_accuracy': 75 + ((seed_value * 3) % 20)  # 75-95
         }
-        
+
         return symbol_characteristics
-    
+
     def _simulate_technical_indicators(self, seed_value: int) -> Dict[str, Any]:
         """テクニカル指標シミュレーション"""
         np.random.seed(seed_value + 100)
-        
+
         # RSIシミュレーション
         rsi = 30 + (seed_value % 40)  # 30-70
         rsi_signal = '買いシグナル' if rsi < 40 else '売りシグナル' if rsi > 60 else '中立'
-        
+
         # MACDシミュレーション
         macd_signal = np.random.choice(['ポジティブクロス', 'ネガティブクロス', '中立'], p=[0.4, 0.3, 0.3])
-        
+
         # ボリンジャーバンド
         bb_position = np.random.choice(['上位バンド近似', '下位バンド近似', '中心線付近'], p=[0.2, 0.3, 0.5])
-        
+
         # 統合スコア
         technical_scores = {
             'rsi': rsi,
@@ -2033,15 +2033,15 @@ class DayTradeWebDashboard:
             'bollinger_position': bb_position,
             'overall_score': 60 + ((seed_value * 13) % 35)  # 60-95
         }
-        
+
         return technical_scores
-    
+
     def _assess_volatility_risk(self, seed_value: int) -> Dict[str, Any]:
         """ボラティリティとリスク評価"""
         np.random.seed(seed_value + 200)
-        
+
         volatility_score = 15 + (seed_value % 25)  # 15-40%
-        
+
         if volatility_score < 20:
             risk_category = '低'
             risk_description = '安定した値動き'
@@ -2051,28 +2051,28 @@ class DayTradeWebDashboard:
         else:
             risk_category = '高'
             risk_description = '高ボラティリティ注意'
-        
+
         return {
             'volatility_percentage': volatility_score,
             'risk_category': risk_category,
             'risk_description': risk_description,
             'recommended_position_size': '100%' if risk_category == '低' else '75%' if risk_category == '中' else '50%'
         }
-    
+
     def _evaluate_market_context(self, seed_value: int) -> Dict[str, Any]:
         """市場状況とセクター強度評価"""
         np.random.seed(seed_value + 300)
-        
+
         market_sentiment = np.random.choice(['強気', '中立', '弱気'], p=[0.4, 0.4, 0.2])
         sector_strength = 60 + (seed_value % 30)  # 60-90
-        
+
         return {
             'market_sentiment': market_sentiment,
             'sector_strength_score': sector_strength,
             'trend_direction': '上昇トレンド' if sector_strength > 75 else '横ばい' if sector_strength > 65 else '下降トレンド'
         }
-    
-    def _calculate_final_confidence(self, base_metrics: Dict, technical_score: Dict, 
+
+    def _calculate_final_confidence(self, base_metrics: Dict, technical_score: Dict,
                                    volatility_metrics: Dict, market_context: Dict) -> float:
         """統合信頼度算出"""
         # 各要素の重み付け
@@ -2082,15 +2082,15 @@ class DayTradeWebDashboard:
             (100 - volatility_metrics['volatility_percentage'] * 2) * 0.2 +
             market_context['sector_strength_score'] * 0.1
         )
-        
+
         # 75-95%の範囲に正規化
         return max(75, min(95, confidence))
-    
-    def _determine_signal(self, confidence: float, technical_score: Dict, 
+
+    def _determine_signal(self, confidence: float, technical_score: Dict,
                          volatility_metrics: Dict) -> tuple:
         """シグナル判定"""
         signal_strength = confidence
-        
+
         if confidence > 88 and volatility_metrics['risk_category'] != '高':
             return signal_strength, '強い買い'
         elif confidence > 82:
@@ -2099,15 +2099,15 @@ class DayTradeWebDashboard:
             return signal_strength, '検討'
         else:
             return signal_strength, '様子見'
-    
+
     async def _simple_fallback_prediction(self, symbol: str) -> Dict[str, Any]:
         """簡易予測フォールバック"""
         symbol_hash = hash(symbol) % 1000
         np.random.seed(symbol_hash)
-        
+
         confidence = 75 + (symbol_hash % 15)  # 75-90%
         signal = np.random.choice(['買い', '検討', '様子見'], p=[0.4, 0.4, 0.2])
-        
+
         return {
             'confidence': confidence,
             'score': confidence + np.random.uniform(-3, 5),
@@ -2121,12 +2121,12 @@ class DayTradeWebDashboard:
         """Flaskアプリケーション初期化"""
         self.app = Flask(__name__)
         self.app.secret_key = 'daytrade_unified_2024'
-        
+
         # 高速化のためのキャッシュ初期化
         from datetime import datetime, timedelta
         self._cache = {}
         self._cache_ttl = {}
-        
+
         self.setup_routes()
 
         # メインエンジン初期化
@@ -2150,12 +2150,12 @@ class DayTradeWebDashboard:
                 cache_key = 'analysis'
                 if self._is_cache_valid(cache_key, 20):
                     return jsonify(self._cache[cache_key])
-                
+
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 result = loop.run_until_complete(self.get_analysis_data())
                 loop.close()
-                
+
                 # キャッシュに保存
                 self._set_cache(cache_key, result)
                 return jsonify(result)
@@ -2171,12 +2171,12 @@ class DayTradeWebDashboard:
                 cache_key = 'recommendations'
                 if self._is_cache_valid(cache_key, 15):
                     return jsonify(self._cache[cache_key])
-                
+
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 result = loop.run_until_complete(self.get_recommendations_data())
                 loop.close()
-                
+
                 # キャッシュに保存
                 self._set_cache(cache_key, result)
                 return jsonify(result)
@@ -2221,75 +2221,75 @@ class DayTradeWebDashboard:
         try:
             if symbols is None:
                 symbols = self.selected_symbols
-            
+
             # バッチサイズで分割（メモリ効率化）
             batch_size = min(10, len(symbols))
             batches = [symbols[i:i + batch_size] for i in range(0, len(symbols), batch_size)]
-            
+
             all_results = []
-            
+
             # バッチごとに並列処理
             for batch in batches:
                 batch_tasks = [
                     asyncio.create_task(self._process_symbol_optimized(symbol))
                     for symbol in batch
                 ]
-                
+
                 batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
                 valid_results = [r for r in batch_results if not isinstance(r, Exception)]
                 all_results.extend(valid_results)
-                
+
                 # バッチ間で短い休憩（システム負荷軽減）
                 await asyncio.sleep(0.001)
-            
+
             return {
                 'status': 'success',
                 'data': all_results[:10],  # TOP10のみ返却
                 'processing_method': 'optimized_batch',
                 'total_processed': len(all_results)
             }
-            
+
         except Exception as e:
             print(f"バッチ分析エラー: {e}")
             return await self.get_analysis_data()  # フォールバック
-    
+
     async def _process_symbol_optimized(self, symbol: str) -> Dict[str, Any]:
         """最適化シンボル処理 - 高速・高精度"""
         try:
             # 並列で価格データと予測を取得
             price_task = asyncio.create_task(self._get_cached_price_data(symbol))
             prediction_task = asyncio.create_task(self._generate_metrics_based_prediction(symbol))
-            
+
             price_data, prediction_result = await asyncio.gather(
                 price_task, prediction_task, return_exceptions=True
             )
-            
+
             # エラーハンドリング
             if isinstance(price_data, Exception):
                 price_data = {'price': 1000 + (hash(symbol) % 5000)}  # フォールバック価格
             if isinstance(prediction_result, Exception):
                 prediction_result = await self._simple_fallback_prediction(symbol)
-            
+
             # 統合結果生成
             return self._create_optimized_result(symbol, price_data, prediction_result)
-            
+
         except Exception as e:
             print(f"シンボル処理エラー ({symbol}): {e}")
             return await self._create_fallback_result(symbol)
-    
+
     async def _get_cached_price_data(self, symbol: str) -> Dict[str, Any]:
         """キャッシュ最適化価格データ取得"""
         cache_key = f"price_{symbol}_{datetime.now().strftime('%H%M')}"
-        
+
         # L1キャッシュ (メモリ)
         if hasattr(self, '_price_cache') and cache_key in self._price_cache:
             return self._price_cache[cache_key]
-        
+
         # 価格データ取得（非同期）
         try:
             await asyncio.sleep(0.005)  # ネットワーク遅延シミュレーション
             symbol_hash = hash(symbol) % 10000
-            
+
             price_data = {
                 'price': 1000 + symbol_hash,
                 'change': -50 + (symbol_hash % 100),
@@ -2298,24 +2298,24 @@ class DayTradeWebDashboard:
                 'market_cap': 50000000000 + (symbol_hash * 1000000),
                 'timestamp': datetime.now().isoformat()
             }
-            
+
             # キャッシュに保存
             if not hasattr(self, '_price_cache'):
                 self._price_cache = {}
             self._price_cache[cache_key] = price_data
-            
+
             # キャッシュサイズ制限
             if len(self._price_cache) > 1000:
                 oldest_keys = list(self._price_cache.keys())[:100]
                 for key in oldest_keys:
                     del self._price_cache[key]
-            
+
             return price_data
-            
+
         except Exception as e:
             print(f"価格データ取得エラー ({symbol}): {e}")
             return {'price': 1000, 'change': 0, 'change_percent': 0.0}
-    
+
     def _create_optimized_result(self, symbol: str, price_data: Dict, prediction: Dict) -> Dict[str, Any]:
         """最適化結果生成"""
         company_names = {
@@ -2324,15 +2324,15 @@ class DayTradeWebDashboard:
             '6954': 'ファナック', '4543': 'テルモ', '8035': '東京エレクトロン',
             '6501': '日立製作所', '9984': 'ソフトバンク', '4568': '第一三共'
         }
-        
+
         name = company_names.get(symbol, f'銘柄{symbol}')
         price = price_data.get('price', 1000)
-        
+
         # 利確・損切価格（始値基準）
         entry_price = price
         profit_target = entry_price * 1.02  # +2%
         stop_loss = entry_price * 0.98     # -2%
-        
+
         return {
             'symbol': symbol,
             'name': name,
@@ -2351,7 +2351,7 @@ class DayTradeWebDashboard:
             'ml_source': prediction.get('ml_source', 'enhanced_ai'),
             'processing_time': 'optimized'
         }
-    
+
     async def _create_fallback_result(self, symbol: str) -> Dict[str, Any]:
         """フォールバック結果生成"""
         return {
@@ -2380,7 +2380,7 @@ class DayTradeWebDashboard:
             result = await self.get_batch_analysis_data()
             if result['status'] == 'success':
                 return result
-            
+
             # フォールバック: 従来の処理
             if not self.engine:
                 return {'status': 'error', 'message': 'エンジンが利用できません'}
@@ -2393,40 +2393,40 @@ class DayTradeWebDashboard:
 
             # TOP10をWeb用に変換（並列処理で高速化）
             import asyncio
-            
+
             # 並列処理でデータ取得
             async def get_combined_data(rec, rank):
                 # 価格データとML予測を並列取得
                 price_task = self.get_stock_price_data(rec.symbol)
                 ml_task = self.get_ml_prediction(rec.symbol)
-                
+
                 price_data, ml_prediction = await asyncio.gather(
                     price_task, ml_task, return_exceptions=True
                 )
-                
+
                 # エラーハンドリング
                 if isinstance(price_data, Exception):
                     price_data = {'opening_price': None, 'current_price': None}
                 if isinstance(ml_prediction, Exception):
                     ml_prediction = {
-                        'signal': '●買い●', 'confidence': 75.0, 'risk_level': '中リスク', 
+                        'signal': '●買い●', 'confidence': 75.0, 'risk_level': '中リスク',
                         'score': 70.0, 'ml_source': 'fallback'
                     }
-                    
+
                 return rec, rank, price_data, ml_prediction
-            
+
             # 全銘柄の処理を並列実行
             tasks = []
             for i, rec in enumerate(recommendations[:10], 1):
                 tasks.append(get_combined_data(rec, i))
-                
+
             combined_results = await asyncio.gather(*tasks, return_exceptions=True)
-            
+
             web_data = []
             for result in combined_results:
                 if isinstance(result, Exception):
                     continue
-                    
+
                 rec, rank, price_data, ml_prediction = result
 
                 # 3. 統合データ作成
@@ -2613,7 +2613,7 @@ class DayTradeWebDashboard:
             background: rgba(255,255,255,0.1);
             font-weight: bold;
         }
-        
+
         /* 利確・損切グラデーション背景機能 */
         .recommendations-table tbody tr {
             transition: all 0.3s ease;
@@ -2625,8 +2625,8 @@ class DayTradeWebDashboard:
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             filter: brightness(1.2) saturate(1.3);
         }
-        
-        
+
+
         /* 利確・損切レベル別の枠線強化 */
         .profit-zone {
             border-left: 4px solid #2ed573;
@@ -3156,12 +3156,12 @@ class DayTradeWebDashboard:
             transition-delay: 0s !important;
             transform: none !important;
         }
-        
+
         /* すべてのkeyframesアニメーションを無効化 */
         @keyframes * {
             0%, 100% { transform: none !important; }
         }
-        
+
         /* 日別履歴のスタイリング修正 */
         #dailyHistory {
             word-wrap: break-word;
@@ -3170,30 +3170,30 @@ class DayTradeWebDashboard:
             font-size: 0.9em;
             line-height: 1.4;
         }
-        
+
         .performance-metric {
             max-width: 100%;
             overflow: hidden;
             box-sizing: border-box;
             flex-wrap: wrap;
         }
-        
+
         .status-item {
             max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        
+
         /* スピナーアニメーション */
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
+
         .loading-overlay {
             backdrop-filter: blur(5px);
         }
-        
+
         /* レスポンシブ対応 */
         @media (max-width: 768px) {
             .progress-container {
@@ -3378,15 +3378,15 @@ class DayTradeWebDashboard:
     <div id="initialLoading" class="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column;">
         <div class="loading-spinner" style="width: 60px; height: 60px; border: 4px solid #333; border-top: 4px solid #4CAF50; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
         <div id="loadingText" style="color: white; font-size: 18px; font-weight: bold; margin-bottom: 15px;">🔍 データ分析を開始中...</div>
-        
+
         <!-- 進捗バー -->
         <div class="progress-container" style="width: 400px; height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; margin-bottom: 15px; overflow: hidden;">
             <div id="progressBar" class="progress-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #4CAF50, #45a049); border-radius: 4px; transition: width 0.5s ease;"></div>
         </div>
-        
+
         <!-- 進捗パーセンテージ -->
         <div id="progressPercent" style="color: #4CAF50; font-size: 16px; font-weight: bold; margin-bottom: 10px;">0%</div>
-        
+
         <!-- 現在の処理ステップ -->
         <div id="currentStep" style="color: #ccc; font-size: 14px; text-align: center;">接続を確立中...</div>
     </div>
@@ -3429,21 +3429,21 @@ class DayTradeWebDashboard:
         // 進捗度更新関数
         function updateLoadingProgress(targetProgress) {
             if (!isFirstLoad) return;
-            
+
             const progressBar = document.getElementById('progressBar');
             const progressPercent = document.getElementById('progressPercent');
             const currentStep = document.getElementById('currentStep');
             const loadingText = document.getElementById('loadingText');
-            
+
             if (!progressBar || !progressPercent || !currentStep || !loadingText) return;
-            
+
             // 段階的に進捗を更新
             const interval = setInterval(() => {
                 if (loadingProgress < targetProgress) {
                     loadingProgress += 2;
                     progressBar.style.width = loadingProgress + '%';
                     progressPercent.textContent = loadingProgress + '%';
-                    
+
                     // 該当するステップメッセージを表示
                     const currentStepData = loadingSteps.find(s => s.step >= loadingProgress);
                     if (currentStepData) {
@@ -3534,7 +3534,7 @@ class DayTradeWebDashboard:
         function openOrderLink(symbol, name) {
             // 楽天証券のみ
             const url = 'https://www.rakuten-sec.co.jp/web/market/search/quote.html?ric=' + symbol + '.T';
-            
+
             if (confirm(symbol + ' ' + name + ' の楽天証券注文画面を開きますか？')) {
                 window.open(url, '_blank');
             }
@@ -3727,18 +3727,18 @@ class DayTradeWebDashboard:
 
         // TradingView チャート初期化
         let tradingViewWidget = null;
-        
+
         // TradingViewで確実に動作するシンボルにマッピング
         function getTradingViewSymbol(symbol) {
             // 日本株は全てAppleのチャートで代用（確実に動作）
             return 'AAPL';
         }
-        
+
         function initTradingViewChart(symbol = '7203') {
             if (typeof TradingView !== 'undefined') {
                 const tvSymbol = getTradingViewSymbol(symbol);
                 console.log('TradingViewシンボル: ' + symbol + ' -> ' + tvSymbol);
-                
+
                 tradingViewWidget = new TradingView.widget({
                     "width": "100%",
                     "height": 500,
@@ -3755,17 +3755,17 @@ class DayTradeWebDashboard:
                 });
             }
         }
-        
+
         // チャート切り替え機能
         function showChart(symbol, name) {
             console.log('チャートを' + symbol + ' (' + name + ')に切り替えます');
-            
+
             // TradingViewウィジェットを新しいシンボルで初期化
             if (typeof TradingView !== 'undefined') {
                 // 既存のウィジェットをクリア
                 const container = document.getElementById('tradingview_widget');
                 container.innerHTML = '';
-                
+
                 // 新しいウィジェットを作成
                 tradingViewWidget = new TradingView.widget({
                     "width": "100%",
@@ -3781,7 +3781,7 @@ class DayTradeWebDashboard:
                     "allow_symbol_change": true,
                     "container_id": "tradingview_widget"
                 });
-                
+
                 // チャートセクションにスクロール
                 document.getElementById('chart-section').scrollIntoView({
                     behavior: 'smooth'
@@ -3853,7 +3853,7 @@ class DayTradeWebDashboard:
                     console.error('performanceHistory要素が見つかりません');
                     return;
                 }
-                performanceContainer.innerHTML = 
+                performanceContainer.innerHTML =
                     '<div class="performance-summary">' +
                         '<div class="performance-metric">' +
                             '<span class="metric-name">📊 平均予測精度 (5日間)</span>' +
@@ -3877,7 +3877,7 @@ class DayTradeWebDashboard:
                 }
             }
         }
-        
+
         // 日別履歴読み込み
         function loadDailyHistory() {
             try {
@@ -3891,7 +3891,7 @@ class DayTradeWebDashboard:
                     '2024-08-14 14:45 - 4063 信越化学: 损切実行 -1.2%損失',
                     '2024-08-14 11:20 - 2914 日本たばこ産業: 買いシグナル発生 信頼度:91%'
                 ];
-                
+
                 // DOM要素のnullチェックを強化
                 const dailyContainer = document.getElementById('dailyHistory');
                 if (dailyContainer && dailyContainer !== null) {
@@ -3917,8 +3917,8 @@ class DayTradeWebDashboard:
                 console.log('updateDashboard開始');
                 // ローディング表示開始
                 console.log('ローディング表示設定完了');
-                
-                
+
+
                 // 推奨データ更新
                 console.log('API呼び出し開始: /api/recommendations');
                 const recResp = await fetch('/api/recommendations', {
@@ -3957,10 +3957,10 @@ class DayTradeWebDashboard:
                 // 最終更新時刻を更新
                 updateLastUpdateTime();
 
-                
+
                 // ローディング完了
                 console.log('分析完了');
-                
+
             } catch (error) {
                 console.error('データ更新エラー:', error);
                 console.log('分析完了');
@@ -3974,13 +3974,13 @@ class DayTradeWebDashboard:
             // システムメトリクスを更新
             const summary = data.summary || {};
             const totalPredictions = (summary.strong_buy_count || 0) + (summary.buy_count || 0) + (summary.sell_count || 0) + (summary.hold_count || 0);
-            
+
             // メトリクスカードを更新（nullチェック強化）
             const activePredictionsEl = document.getElementById('activePredictions');
             const todayAccuracyEl = document.getElementById('todayAccuracy');
             const totalProfitEl = document.getElementById('totalProfit');
             const systemStatusEl = document.getElementById('systemStatus');
-            
+
             if (activePredictionsEl && activePredictionsEl !== null) {
                 activePredictionsEl.textContent = totalPredictions;
             } else {
@@ -4001,7 +4001,7 @@ class DayTradeWebDashboard:
             } else {
                 console.warn('systemStatus要素が見つかりません');
             }
-            
+
             // 可能なら推奨テーブルも更新
             if (data.data && Array.isArray(data.data)) {
                 updateRecommendationsTable(data.data);
@@ -4023,12 +4023,12 @@ class DayTradeWebDashboard:
 
             const tbody = document.getElementById('recommendationsTableBody');
             console.log('tbody要素取得:', tbody);
-            
+
             if (!tbody || tbody === null) {
                 console.error('recommendationsTableBody要素が見つかりません');
                 return;
             }
-            
+
             console.log('テーブル更新開始、データ件数:', data.length);
             tbody.innerHTML = data.map(rec => {
                 // 価格変動の色分けクラスを決定
@@ -4051,7 +4051,7 @@ class DayTradeWebDashboard:
                     const stopLoss = rec.opening_price * (1 - rec.stop_loss / 100);
                     const priceChange = rec.current_price - rec.opening_price;
                     const progressBar = createProgressBar(rec.current_price, rec.opening_price, profitTarget, stopLoss);
-                    
+
                     // 利確・損切距離インジケーター（始値基準の範囲内での現在価格位置）
                     const totalRange = profitTarget - stopLoss;
                     const pricePosition = (rec.current_price - stopLoss) / totalRange;
@@ -4084,7 +4084,7 @@ class DayTradeWebDashboard:
 
                 const isFavorite = favorites.includes(rec.symbol);
                 const favoriteIcon = isFavorite ? '⭐' : '☆';
-                
+
                 // 利確・損切距離に基づくグラデーション背景を計算
                 let rowBackground = 'transparent';
                 let additionalClass = '';
@@ -4093,9 +4093,9 @@ class DayTradeWebDashboard:
                     const stopLoss = rec.opening_price * (1 - rec.stop_loss / 100);
                     const totalRange = profitTarget - stopLoss;
                     const pricePosition = (rec.current_price - stopLoss) / totalRange;
-                    
+
                     rowBackground = calculatePriceDistanceGradient(rec.current_price, rec.opening_price, profitTarget, stopLoss);
-                    
+
                     // 価格位置に基づく追加クラス
                     if (pricePosition >= 0.8) {
                         additionalClass = ' profit-zone';
@@ -4119,12 +4119,12 @@ class DayTradeWebDashboard:
                     '</td>' +
                 '</tr>';
             }).join('');
-            
+
             // 初回ローディング終了処理（推奨銘柄表示完了後）
             if (isFirstLoad && data && data.length > 0) {
                 // 最終段階の進捗表示
                 updateLoadingProgress(90);
-                
+
                 setTimeout(() => {
                     updateLoadingProgress(100);
                     // 完了メッセージを少し表示してから非表示
@@ -4146,17 +4146,17 @@ class DayTradeWebDashboard:
             if (signal.includes('売り')) return 'sell';
             return 'hold';
         }
-        
+
         function calculatePriceDistanceGradient(currentPrice, openingPrice, profitTarget, stopLoss) {
             // 価格と利確・損切の距離に基づいてグラデーション色を計算
             if (!currentPrice || !profitTarget || !stopLoss) {
                 return 'transparent';
             }
-            
+
             const basePrice = openingPrice || currentPrice;
             const totalRange = profitTarget - stopLoss; // 利確から損切までの全体幅
             const pricePosition = (currentPrice - stopLoss) / totalRange; // 0(損切)～1(利確)の位置
-            
+
             // 利確に近づくほど緑、損切に近づくほど赤（大幅に強化）
             if (pricePosition >= 0.9) {
                 // 利確90%以上に近い - 非常に強い緑グラデーション
@@ -4187,7 +4187,7 @@ class DayTradeWebDashboard:
                 return 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.03) 100%)';
             }
         }
-        
+
         function getPriceDistanceIndicator(pricePosition) {
             // 価格位置に基づくビジュアルインジケーター
             if (pricePosition >= 0.9) {
@@ -4231,21 +4231,21 @@ class DayTradeWebDashboard:
             btn.disabled = true;
 
             try {
-                
+
                 // 完全な分析を実行（全API呼び出し）
                 await updateDashboard();
-                
+
                 // 追加でチャートも強制更新
                 setTimeout(async () => {
                     await updateCharts();
                 }, 1000);
-                
+
                 btn.innerHTML = '🤖 AI完全分析';
                 setTimeout(() => {
                     btn.innerHTML = '🤖 AI完全分析';
                     btn.disabled = false;
                 }, 3000);
-                
+
             } catch (error) {
                 console.error('分析実行エラー:', error);
                 console.log('分析完了');
@@ -4260,25 +4260,25 @@ class DayTradeWebDashboard:
         // 自動更新切り替え
         // 手動更新（価格データのみ更新）
         async function manualRefresh() {
-            
+
             try {
                 // 価格データのみ更新（軽量版）
-                
+
                 const recResp = await fetch('/api/recommendations', {
                     cache: 'no-cache',
                     headers: { 'Cache-Control': 'no-cache' }
                 });
                 const recData = await recResp.json();
-                
+
                 if (recData.status === 'success') {
                     // テーブルの価格データのみ更新
                     updateRecommendationsTable(recData.data || []);
                     updateLastUpdateTime();
                 } else {
                 }
-                
+
                 console.log('分析完了');
-                
+
             } catch (error) {
                 console.error('手動更新エラー:', error);
                 console.log('分析完了');
@@ -4336,7 +4336,7 @@ class DayTradeWebDashboard:
                 } else {
                     console.warn('backtestStatus要素またはバックテストデータが見つかりません');
                 }
-                
+
                 console.log('システムステータス更新完了');
 
             } catch (error) {
@@ -4358,11 +4358,11 @@ class DayTradeWebDashboard:
         // ページが完全に読み込まれた後に初期化を実行
         function initializeApp() {
             console.log('アプリ初期化開始');
-            
+
             try {
                 // 初回データロード（ローディング表示付き）
                 updateRecommendations();
-                
+
                 // 初期システムステータス取得
                 updateSystemStatus();
 
@@ -4394,7 +4394,7 @@ class DayTradeWebDashboard:
                                 console.error('初期チャート初期化エラー:', error);
                                 initTradingViewChart();
                             });
-                            
+
                         loadNews();
                         loadPerformanceHistory();
                         loadDailyHistory();
@@ -4406,7 +4406,7 @@ class DayTradeWebDashboard:
                 console.error('アプリ初期化エラー:', error);
             }
         }
-        
+
         // 複数のイベントで初期化を試行
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initializeApp);
@@ -4414,12 +4414,12 @@ class DayTradeWebDashboard:
             // 既にDOMが読み込まれている場合はすぐ初期化
             setTimeout(initializeApp, 100);
         }
-        
+
         // フォールバックとしてwindow.onloadも使用
         window.addEventListener('load', function() {
             setTimeout(initializeApp, 500);
         });
-        
+
         // 不足している関数定義
         async function updateRecommendations() {
             try {
@@ -4428,22 +4428,22 @@ class DayTradeWebDashboard:
                     document.getElementById('initialLoading').style.display = 'flex';
                     updateLoadingProgress(10); // 接続開始
                 }
-                
+
                 console.log('推奨データ更新開始');
-                
+
                 // サーバー接続段階
                 setTimeout(() => updateLoadingProgress(25), 300);
-                
+
                 const response = await fetch('/api/recommendations');
-                
-                // データ取得段階  
+
+                // データ取得段階
                 updateLoadingProgress(50);
-                
+
                 const data = await response.json();
-                
+
                 // 分析段階
                 updateLoadingProgress(75);
-                
+
                 if (data.status === 'success') {
                     updateRecommendationsTable(data.data || []);
                     updateLastUpdateTime();
@@ -4455,7 +4455,7 @@ class DayTradeWebDashboard:
                         isFirstLoad = false;
                     }
                 }
-                
+
             } catch (error) {
                 console.error('推奨データ更新エラー:', error);
                 // エラー時もローディング非表示
@@ -4465,7 +4465,7 @@ class DayTradeWebDashboard:
                 }
             }
         }
-        
+
         function refreshData() {
             try {
                 console.log('手動データ更新実行');
@@ -4478,15 +4478,15 @@ class DayTradeWebDashboard:
                 showAlert('データ更新に失敗しました', 'danger');
             }
         }
-        
+
         function exportData() {
             try {
                 console.log('データエクスポート実行');
-                
+
                 // 現在の推奨データを取得
                 const recommendations = [];
                 const rows = document.querySelectorAll('.recommendations-table tbody tr');
-                
+
                 rows.forEach(row => {
                     const cells = row.querySelectorAll('td');
                     if (cells.length >= 9) {
@@ -4502,14 +4502,14 @@ class DayTradeWebDashboard:
                         });
                     }
                 });
-                
+
                 // CSVダウンロード
                 if (recommendations.length > 0) {
                     const csv = 'ランク,シンボル,銘柄名,価格情報,シグナル,信頼度,推奨時期,ML精度\\n' +
-                        recommendations.map(rec => 
+                        recommendations.map(rec =>
                             rec.rank + ',' + rec.symbol + ',"' + rec.name + '","' + rec.price + '",' + rec.signal + ',' + rec.confidence + ',"' + rec.timing + '","' + rec.ml_accuracy + '"'
                         ).join('\\n');
-                    
+
                     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                     const link = document.createElement('a');
                     const url = URL.createObjectURL(blob);
@@ -4519,7 +4519,7 @@ class DayTradeWebDashboard:
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
-                    
+
                     showAlert('データをエクスポートしました', 'success');
                 } else {
                     showAlert('エクスポートするデータがありません', 'warning');

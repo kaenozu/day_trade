@@ -368,7 +368,7 @@ class ConfigProviderFactory:
         self, config_path: str, callback: Callable[[Dict[str, Any]], None]
     ) -> "ConfigWatcher":  # 本番実装：設定監視システム
         """設定監視システム作成"""
-        
+
         # 本番用設定監視システム（軽量実装）
         class ConfigWatcher:
             def __init__(self, config_path: str, callback: Callable, polling_interval: int = 60):
@@ -377,13 +377,13 @@ class ConfigProviderFactory:
                 self.polling_interval = polling_interval
                 self._last_modified = None
                 self._running = False
-                
+
             def start(self):
                 """監視開始"""
                 import os
                 import time
                 import threading
-                
+
                 def monitor():
                     while self._running:
                         try:
@@ -399,11 +399,11 @@ class ConfigProviderFactory:
                         except Exception as e:
                             print(f"設定監視エラー: {e}")
                         time.sleep(self.polling_interval)
-                
+
                 self._running = True
                 self._thread = threading.Thread(target=monitor, daemon=True)
                 self._thread.start()
-                
+
             def stop(self):
                 """監視停止"""
                 self._running = False
