@@ -9,18 +9,18 @@ from typing import Optional, Dict, Any
 
 class DayTradeError(Exception):
     """デイトレードシステム基底例外"""
-    
+
     def __init__(self, message: str, error_code: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
         super().__init__(message)
         self.error_code = error_code
         self.details = details or {}
         self.timestamp = self._get_timestamp()
-    
+
     def _get_timestamp(self) -> str:
         """エラー発生時刻を取得"""
         from datetime import datetime
         return datetime.now().isoformat()
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """例外情報を辞書形式で返す"""
         return {
@@ -160,31 +160,31 @@ def handle_async_exception(func):
 
 class ExceptionLogger:
     """例外ログシステム"""
-    
+
     def __init__(self):
         from daytrade_logging import get_logger
         self.logger = get_logger("exceptions")
-    
+
     def log_exception(self, exception: Exception, context: Optional[Dict[str, Any]] = None):
         """例外をログに記録"""
         if isinstance(exception, DayTradeError):
             self._log_daytrade_error(exception, context)
         else:
             self._log_general_exception(exception, context)
-    
+
     def _log_daytrade_error(self, error: DayTradeError, context: Optional[Dict[str, Any]] = None):
         """DayTradeError専用ログ"""
         log_data = error.to_dict()
         if context:
             log_data['context'] = context
-        
+
         if error.error_code and error.error_code.startswith('CRITICAL'):
             self.logger.critical(f"Critical Error: {log_data}")
         elif isinstance(error, (DataSourceError, MLPredictionError)):
             self.logger.error(f"System Error: {log_data}")
         else:
             self.logger.warning(f"Handled Error: {log_data}")
-    
+
     def _log_general_exception(self, exception: Exception, context: Optional[Dict[str, Any]] = None):
         """一般例外ログ"""
         self.logger.exception(
@@ -196,36 +196,36 @@ class ExceptionLogger:
 
 class ErrorRecoveryManager:
     """エラー回復管理システム"""
-    
+
     def __init__(self):
         from daytrade_logging import get_logger
         self.logger = get_logger("error_recovery")
         self.retry_counts = {}
         self.max_retries = 3
-    
+
     def should_retry(self, error: Exception, operation_id: str) -> bool:
         """リトライすべきかどうかを判定"""
         if not isinstance(error, (NetworkError, TimeoutError, DataSourceError)):
             return False
-        
+
         current_count = self.retry_counts.get(operation_id, 0)
         if current_count >= self.max_retries:
             self.logger.warning(f"Max retries exceeded for {operation_id}")
             return False
-        
+
         self.retry_counts[operation_id] = current_count + 1
         self.logger.info(f"Retry {current_count + 1}/{self.max_retries} for {operation_id}")
         return True
-    
+
     def reset_retry_count(self, operation_id: str):
         """リトライカウントをリセット"""
         if operation_id in self.retry_counts:
             del self.retry_counts[operation_id]
-    
+
     def get_fallback_data(self, data_type: str, symbol: Optional[str] = None) -> Any:
         """フォールバックデータを取得"""
         self.logger.info(f"Using fallback data for {data_type}, symbol: {symbol}")
-        
+
         if data_type == "price_data":
             return {
                 'price': 1000.0,
@@ -280,26 +280,26 @@ def log_and_handle_exception(exception: Exception, context: Optional[Dict[str, A
 if __name__ == "__main__":
     # テスト実行
     from daytrade_logging import setup_logging
-    
+
     setup_logging(debug=True)
-    
+
     # 各種例外のテスト
     try:
         raise YFinanceError("yfinance connection failed", error_code="YFINANCE_001")
     except DayTradeError as e:
         log_and_handle_exception(e, {'symbol': '7203', 'operation': 'price_fetch'})
-    
+
     try:
         raise MLPredictionError("Model prediction failed", error_code="ML_002")
     except DayTradeError as e:
         log_and_handle_exception(e, {'model': 'SimpleML', 'symbol': '8306'})
-    
+
     # エラー回復テスト
     recovery_manager = get_error_recovery_manager()
-    
+
     error = NetworkError("Connection timeout")
     operation_id = "price_fetch_7203"
-    
+
     for i in range(5):
         if recovery_manager.should_retry(error, operation_id):
             print(f"Retrying operation {operation_id}")
@@ -308,5 +308,5 @@ if __name__ == "__main__":
             fallback_data = recovery_manager.get_fallback_data("price_data", "7203")
             print(f"Fallback data: {fallback_data}")
             break
-    
+
     print("例外処理システムテスト完了")
