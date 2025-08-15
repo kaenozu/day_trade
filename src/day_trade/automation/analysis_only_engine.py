@@ -16,6 +16,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
+
 from ..analysis.signals import TradingSignal, TradingSignalGenerator
 from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
 from ..data.stock_fetcher import StockFetcher
@@ -310,7 +312,23 @@ class AnalysisOnlyEngine:
                     with performance_monitor.monitor(
                         f"signal_generation_{symbol}", "ml_analysis"
                     ):
-                        signal = self.signal_generator.generate_signal(historical_data)
+                        # テクニカル指標生成（簡易版）
+                        try:
+                            indicators = pd.DataFrame({
+                                'sma_20': historical_data['Close'].rolling(20).mean(),
+                                'sma_50': historical_data['Close'].rolling(50).mean() if len(historical_data) >= 50 else historical_data['Close'].rolling(min(len(historical_data), 20)).mean(),
+                                'rsi': self._calculate_rsi(historical_data['Close']),
+                                'volume_ratio': historical_data['Volume'] / historical_data['Volume'].rolling(20).mean()
+                            }, index=historical_data.index)
+
+                            # パターン生成（空の辞書で初期化）
+                            patterns = {}
+
+                            # シグナル生成
+                            signal = self.signal_generator.generate_signal(historical_data, indicators, patterns)
+                        except Exception as e:
+                            logger.warning(f"Signal generation failed for {symbol}: {e}")
+                            signal = None
 
                 # 分析結果作成（パフォーマンス監視付き）
                 with performance_monitor.monitor(
@@ -616,6 +634,28 @@ class AnalysisOnlyEngine:
     def get_latest_analysis(self, symbol: str) -> Optional[MarketAnalysis]:
         """最新の分析結果を取得"""
         return self.market_analyses.get(symbol)
+
+    def _calculate_rsi(self, prices: pd.Series, window: int = 14) -> pd.Series:
+        """RSI計算ヘルパーメソッド"""
+
+        try:
+            if len(prices) < window:
+                # データが不足している場合は最小限のRSI計算
+                return pd.Series([50.0] * len(prices), index=prices.index)
+
+            delta = prices.diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+
+            # ゼロ除算回避
+            rs = gain / loss.replace(0, 1e-10)
+            rsi = 100 - (100 / (1 + rs))
+
+            # NaN値を50で埋める
+            return rsi.fillna(50.0)
+        except Exception as e:
+            logger.warning(f"RSI計算エラー: {e}")
+            return pd.Series([50.0] * len(prices), index=prices.index)
 
     def get_all_analyses(self) -> Dict[str, MarketAnalysis]:
         """全ての分析結果を取得"""

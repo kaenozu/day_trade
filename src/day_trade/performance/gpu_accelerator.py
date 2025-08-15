@@ -14,6 +14,17 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+try:
+    from ..utils.logging_config import get_context_logger
+except ImportError:
+    import logging
+
+    def get_context_logger(name):
+        return logging.getLogger(name)
+
+
+logger = get_context_logger(__name__)
+
 # GPU関連ライブラリ（オプショナル）
 try:
     import cupy as cp
@@ -26,8 +37,12 @@ except ImportError:
 try:
     import tensorflow as tf
 
-    tf.config.experimental.set_memory_growth = True
-    TF_AVAILABLE = True
+    if hasattr(tf, 'config') and hasattr(tf.config, 'experimental') and hasattr(tf.config.experimental, 'set_memory_growth'):
+        tf.config.experimental.set_memory_growth(True)
+        TF_AVAILABLE = True
+    else:
+        TF_AVAILABLE = False
+        logger.warning("TensorFlow GPU memory growth configuration not available.")
 except ImportError:
     TF_AVAILABLE = False
 
@@ -40,17 +55,6 @@ try:
         TORCH_AVAILABLE = False
 except ImportError:
     TORCH_AVAILABLE = False
-
-try:
-    from ..utils.logging_config import get_context_logger
-except ImportError:
-    import logging
-
-    def get_context_logger(name):
-        return logging.getLogger(name)
-
-
-logger = get_context_logger(__name__)
 
 
 @dataclass

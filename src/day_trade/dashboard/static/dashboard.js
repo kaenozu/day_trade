@@ -5,12 +5,19 @@ const socket = io();
 // 接続状態管理
 let isConnected = false;
 
+// セーフモード確認
+const SAFE_MODE_ENABLED = true;
+
+
 // 初期化
 document.addEventListener('DOMContentLoaded', function() {
     initializeDashboard();
 });
 
 function initializeDashboard() {
+    // 分析専用システム確認メッセージ
+    console.log('📊 分析専用システム: データ分析・監視機能のみ有効です');
+
     // WebSocketイベントリスナー
     socket.on('connect', function() {
         isConnected = true;
@@ -165,7 +172,7 @@ function updateChart(chartType) {
 }
 
 function updateAllCharts() {
-    const chartTypes = ['comprehensive', 'portfolio', 'system', 'trading', 'risk'];
+    const chartTypes = ['comprehensive', 'portfolio', 'system', 'analysis', 'risk'];
     chartTypes.forEach(chartType => {
         updateChart(chartType);
     });

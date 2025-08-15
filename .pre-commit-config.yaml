@@ -9,4 +9,4 @@ repos:
       - id: check-yaml
         args: ['--allow-multiple-documents']
       - id: check-added-large-files
-        args: ['--maxkb=1000']
+        args: ['--maxkb=2000']

@@ -9,23 +9,11 @@ Market Time Manager - 市場時間管理システム
 
 import jpholiday
 from datetime import datetime, time, timedelta
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, List
 import logging
 from enum import Enum
-
-# Windows環境での文字化け対策
-import sys
-import os
-os.environ['PYTHONIOENCODING'] = 'utf-8'
-
-if sys.platform == 'win32':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except:
-        import codecs
-        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
-        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+import yaml
+from pathlib import Path
 
 class MarketSession(Enum):
     """市場セッション"""
@@ -50,6 +38,7 @@ class MarketTimeManager:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self._last_status: Optional[MarketStatus] = None
 
         # 東証の営業時間
         self.morning_open = time(9, 0)      # 前場開始
@@ -58,40 +47,42 @@ class MarketTimeManager:
         self.afternoon_close = time(15, 0)  # 後場終了
 
         # 特別営業日・休業日の管理
-        self.special_holidays = {
-            # 年末年始休場（通常12/31-1/3）
-            "2024-12-31": "大納会翌日",
-            "2025-01-01": "元日",
-            "2025-01-02": "年始休場",
-            "2025-01-03": "年始休場",
-            # 臨時休場など（必要に応じて追加）
-        }
+        self._load_market_calendar()
 
-        self.special_trading_days = {
-            # 振替営業日など（通常はなし）
-        }
+    def _load_market_calendar(self):
+        config_path = Path(__file__).parent / "config" / "market_calendar.yaml"
+        if not config_path.exists():
+            self.logger.warning(f"Market calendar config file not found: {config_path}. Using empty special days.")
+            self.special_holidays = {}
+            self.special_trading_days = {}
+            return
 
-    def is_market_day(self, date: datetime = None) -> bool:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+
+        self.special_holidays = {item['date']: item['name'] for item in config.get('special_holidays', [])}
+        self.special_trading_days = {item['date']: item['name'] for item in config.get('special_trading_days', [])}
+        self.logger.info(f"Market calendar loaded from {config_path}")
+
+    def is_market_day(self, date: datetime) -> bool:
         """
         指定日が市場営業日かどうか判定
 
         Args:
-            date: 判定したい日付（未指定時は今日）
+            date: 判定したい日付
 
         Returns:
             bool: 営業日かどうか
         """
-        if date is None:
-            date = datetime.now()
 
-        date_str = date.strftime('%Y-%m-%d')
+        date_obj = date.date()
 
         # 特別休場日チェック
-        if date_str in self.special_holidays:
+        if date_obj in self.special_holidays:
             return False
 
         # 特別営業日チェック
-        if date_str in self.special_trading_days:
+        if date_obj in self.special_trading_days:
             return True
 
         # 土日チェック
@@ -104,18 +95,16 @@ class MarketTimeManager:
 
         return True
 
-    def get_current_session(self, now: datetime = None) -> MarketSession:
+    def get_current_session(self, now: datetime) -> MarketSession:
         """
         現在の市場セッション取得
 
         Args:
-            now: 現在時刻（未指定時はシステム時刻）
+            now: 現在時刻
 
         Returns:
             MarketSession: 現在のセッション
         """
-        if now is None:
-            now = datetime.now()
 
         # 休場日判定
         if not self.is_market_day(now):
@@ -147,14 +136,21 @@ class MarketTimeManager:
         """
         session = self.get_current_session(now)
 
+        current_status = MarketStatus.CLOSED
         if session == MarketSession.MARKET_CLOSED:
-            return MarketStatus.CLOSED
+            current_status = MarketStatus.CLOSED
         elif session in [MarketSession.MORNING_SESSION, MarketSession.AFTERNOON_SESSION]:
-            return MarketStatus.OPEN
+            current_status = MarketStatus.OPEN
         elif session == MarketSession.PRE_MARKET:
-            return MarketStatus.PRE_OPEN
+            current_status = MarketStatus.PRE_OPEN
         else:
-            return MarketStatus.POST_CLOSE
+            current_status = MarketStatus.POST_CLOSE
+
+        if self._last_status != current_status:
+            self.logger.info(f"Market status changed from {self._last_status.value if self._last_status else 'None'} to {current_status.value}")
+            self._last_status = current_status
+
+        return current_status
 
     def is_market_open(self, now: datetime = None) -> bool:
         """
@@ -165,7 +161,7 @@ class MarketTimeManager:
         """
         return self.get_market_status(now) == MarketStatus.OPEN
 
-    def get_next_market_open(self, now: datetime = None) -> datetime:
+    def get_next_market_open(self, now: datetime) -> datetime:
         """
         次の市場開場時刻取得
 
@@ -175,8 +171,6 @@ class MarketTimeManager:
         Returns:
             datetime: 次の開場時刻
         """
-        if now is None:
-            now = datetime.now()
 
         # 現在のセッション確認
         session = self.get_current_session(now)
@@ -195,19 +189,24 @@ class MarketTimeManager:
 
         elif session in [MarketSession.AFTERNOON_SESSION, MarketSession.AFTER_MARKET]:
             # 翌営業日の前場開始
-            next_day = now + timedelta(days=1)
-            while not self.is_market_day(next_day):
-                next_day += timedelta(days=1)
-            return datetime.combine(next_day.date(), self.morning_open)
+            next_market_day = self._get_next_market_date(now)
+            return datetime.combine(next_market_day.date(), self.morning_open)
 
         else:  # MARKET_CLOSED
             # 次の営業日の前場開始
-            next_day = now + timedelta(days=1)
-            while not self.is_market_day(next_day):
-                next_day += timedelta(days=1)
-            return datetime.combine(next_day.date(), self.morning_open)
+            next_market_day = self._get_next_market_date(now)
+            return datetime.combine(next_market_day.date(), self.morning_open)
 
-    def get_next_market_close(self, now: datetime = None) -> datetime:
+    def _get_next_market_date(self, current_date: datetime) -> datetime:
+        """
+        指定された日付以降の次の市場営業日を取得します。
+        """
+        next_day = current_date + timedelta(days=1)
+        while not self.is_market_day(next_day):
+            next_day += timedelta(days=1)
+        return next_day
+
+    def get_next_market_close(self, now: datetime) -> datetime:
         """
         次の市場終了時刻取得
 
@@ -217,8 +216,6 @@ class MarketTimeManager:
         Returns:
             datetime: 次の終了時刻
         """
-        if now is None:
-            now = datetime.now()
 
         session = self.get_current_session(now)
 
@@ -235,7 +232,7 @@ class MarketTimeManager:
             next_open = self.get_next_market_open(now)
             return datetime.combine(next_open.date(), self.afternoon_close)
 
-    def get_time_until_next_event(self, now: datetime = None) -> Tuple[str, int]:
+    def get_time_until_next_event(self, now: datetime) -> Tuple[str, int]:
         """
         次のイベントまでの時間取得
 
@@ -245,8 +242,6 @@ class MarketTimeManager:
         Returns:
             Tuple[str, int]: (イベント名, 秒数)
         """
-        if now is None:
-            now = datetime.now()
 
         session = self.get_current_session(now)
 
@@ -273,7 +268,7 @@ class MarketTimeManager:
         seconds = int((next_event - now).total_seconds())
         return event_name, max(0, seconds)
 
-    def get_market_summary(self, now: datetime = None) -> Dict[str, any]:
+    def get_market_summary(self, now: Optional[datetime] = None) -> Dict[str, any]:
         """
         市場状況の総合情報取得
 
@@ -311,7 +306,7 @@ class MarketTimeManager:
             "next_close": self.get_next_market_close(now).strftime('%Y-%m-%d %H:%M:%S')
         }
 
-    def get_session_advice(self, now: datetime = None) -> str:
+    def get_session_advice(self, now: Optional[datetime] = None) -> str:
         """
         現在のセッションに応じたアドバイス生成
 

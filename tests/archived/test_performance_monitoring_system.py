@@ -26,7 +26,6 @@ try:
     from day_trade.utils.performance_monitor import (
         PerformanceMonitor,
         get_performance_monitor,
-        monitor_execution,
     )
 except ImportError as e:
     print(f"インポートエラー: {e}")
@@ -195,20 +194,23 @@ def test_decorator_functionality():
     """デコレータ機能テスト"""
     print("\n=== デコレータ機能テスト ===")
 
-    # monitor_execution デコレータのテスト
-    @monitor_execution("decorated_function", expected_time=1.0)
-    def test_decorated_function(duration: float):
-        """テスト用のデコレートされた関数"""
+    monitor = get_performance_monitor()
+
+    # monitor.monitor コンテキストマネージャのテスト
+    def test_function(duration: float):
+        """テスト用の関数"""
         time.sleep(duration)
         return duration * 2
 
     # 期待時間内の実行
-    result1 = test_decorated_function(0.5)
-    assert result1 == 1.0, "デコレートされた関数の戻り値が正しくありません"
+    with monitor.monitor("decorated_function_in_time", expected_time=1.0):
+        result1 = test_function(0.5)
+    assert result1 == 1.0, "関数の戻り値が正しくありません"
 
     # 期待時間超過の実行
-    result2 = test_decorated_function(1.5)  # アラートが出力される
-    assert result2 == 3.0, "デコレートされた関数の戻り値が正しくありません"
+    with monitor.monitor("decorated_function_over_time", expected_time=0.2):
+        result2 = test_function(0.4)  # アラートが出力される
+    assert result2 == 0.8, "関数の戻り値が正しくありません"
 
     # グローバル監視インスタンスの確認
     global_monitor = get_performance_monitor()
@@ -217,7 +219,7 @@ def test_decorator_functionality():
     ), "グローバル監視インスタンスが正しく動作していません"
 
     print(
-        "  デコレートされた関数の実行回数:",
+        "  監視された関数の実行回数:",
         len(
             [
                 m

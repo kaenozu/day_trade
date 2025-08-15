@@ -11,8 +11,10 @@ from datetime import datetime, time, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
-from src.day_trade.ml.base_models.random_forest_model import RandomForestModel
 from src.day_trade.data.fetchers.yfinance_fetcher import YFinanceFetcher
+from integrated_model_loader import IntegratedModelLoader # New import
+from model_performance_monitor import ModelPerformanceMonitor # Added import
+from ml_prediction_models import PredictionTask # Added import
 
 # 実データプロバイダー統合
 try:
@@ -66,19 +68,8 @@ class PersonalDayTradingEngine:
     """個人向けデイトレードエンジン"""
 
     def __init__(self):
-        # デイトレード向け推奨銘柄（流動性重視）
-        self.daytrading_symbols = {
-            "7203": "トヨタ自動車",     # 大型株・安定
-            "9984": "ソフトバンクG",    # ボラティリティ高
-            "6758": "ソニーG",         # テック・動きやすい
-            "8306": "三菱UFJ",         # 金融・出来高大
-            "4689": "LINEヤフー",      # IT・値動き活発
-            "7974": "任天堂",          # ゲーム・話題性
-            "8035": "東京エレクトロン", # 半導体・変動大
-            "6954": "ファナック",      # 工作機械・循環物色
-            "9437": "NTTドコモ",       # 通信・安定配当
-            "4568": "第一三共",        # 製薬・材料株
-        }
+        # 動的銘柄取得システム
+        self.daytrading_symbols = self._load_dynamic_symbols()
 
         # 市場時間管理システム初期化
         if MARKET_TIME_AVAILABLE:
@@ -98,13 +89,76 @@ class PersonalDayTradingEngine:
             self.real_data_engine = None
             self.data_mode = "DEMO"
 
-        # MLモデルの初期化とロード (仮実装)
+        # データフェッチャー初期化
         try:
-            self.ml_model = RandomForestModel() # configは後で追加
-            self.data_fetcher = YFinanceFetcher() # YFinanceFetcherの初期化
+            from src.day_trade.data.stock_fetcher import StockFetcher
+            self.data_fetcher = StockFetcher()
         except ImportError:
+            # フォールバック用の簡易データフェッチャー
+            self.data_fetcher = YFinanceFetcher()
+
+        # MLモデル初期化
+        try:
+            from src.day_trade.ml.dynamic_weighting_system import DynamicWeightingSystem
+            # デフォルトモデル名リストを指定
+            model_names = ['linear_regression', 'random_forest', 'gradient_boosting']
+            self.ml_model = DynamicWeightingSystem(model_names=model_names)
+        except ImportError:
+            # フォールバック用のダミーMLモデル
             self.ml_model = None
+
+        # MLモデルの初期化とロード
+        try:
+            self.model_loader = IntegratedModelLoader() # Use IntegratedModelLoader
+            self.data_fetcher = YFinanceFetcher() # YFinanceFetcherの初期化
+            self.model_performance_monitor = ModelPerformanceMonitor(
+                upgrade_db_path=self.model_loader.upgrade_db_path,
+                advanced_ml_db_path=self.model_loader.advanced_ml_predictions_db_path
+            )
+        except ImportError:
+            self.model_loader = None
             self.data_fetcher = None
+            self.model_performance_monitor = None
+
+    def _load_dynamic_symbols(self) -> dict:
+        """動的銘柄取得"""
+        try:
+            from src.day_trade.data.symbol_selector import DynamicSymbolSelector
+            selector = DynamicSymbolSelector()
+
+            # デイトレード向け高流動性銘柄を取得
+            symbols = selector.get_liquid_symbols(limit=20)
+
+            # 辞書形式に変換（銘柄名辞書を最優先使用）
+            symbol_dict = {}
+            for symbol in symbols:
+                # 銘柄名辞書から取得を最優先
+                try:
+                    from src.day_trade.data.symbol_names import get_symbol_name
+                    name = get_symbol_name(symbol)
+                    if name:
+                        symbol_dict[symbol] = name
+                        print(f"[DEBUG] _load_dynamic_symbols: {symbol} -> {name} (from dict)")
+                        continue
+                except Exception as e:
+                    print(f"[DEBUG] _load_dynamic_symbols: {symbol} -> exception: {e}")
+
+                # フォールバック: 簡易的な名前マッピング
+                name_map = {
+                    "7203": "トヨタ自動車", "8306": "三菱UFJ", "6758": "ソニーG",
+                    "9984": "ソフトバンクG", "4751": "サイバーエージェント", "6861": "キーエンス",
+                    "4689": "LINEヤフー", "7974": "任天堂", "8058": "三菱商事",
+                    "1605": "INPEX", "6098": "リクルート", "8001": "伊藤忠商事"
+                }
+                symbol_dict[symbol] = name_map.get(symbol, f"銘柄{symbol}")
+                print(f"[DEBUG] _load_dynamic_symbols: {symbol} -> {symbol_dict[symbol]} (fallback)")
+
+            print(f"[OK] 動的銘柄取得成功: {len(symbol_dict)}銘柄")
+            return symbol_dict
+
+        except Exception as e:
+            print(f"[ERROR] 動的銘柄取得失敗: {e}")
+            raise RuntimeError(f"デイトレード銘柄の取得に失敗しました: {e}") from e
 
     def _get_current_trading_session(self) -> TradingSession:
         """現在の取引時間帯を取得（正確な市場時間管理）"""
@@ -139,8 +193,11 @@ class PersonalDayTradingEngine:
         else:
             return TradingSession.AFTER_MARKET
 
-    async def get_today_daytrading_recommendations(self, limit: int = 5) -> List[DayTradingRecommendation]:
+    async def get_today_daytrading_recommendations(self, limit: int = 20) -> List[DayTradingRecommendation]:
         """今日のデイトレード推奨取得（実データ対応）"""
+        if self.model_performance_monitor:
+            await self.model_performance_monitor.check_and_trigger_retraining()
+
         current_session = self._get_current_trading_session()
 
         # 大引け後は翌日前場予想モードに切り替え
@@ -170,7 +227,7 @@ class PersonalDayTradingEngine:
 
         # シグナル変換
         signal_map = {
-            "★強い買い★": DayTradingSignal.STRONG_BUY,
+            "強い買い": DayTradingSignal.STRONG_BUY,
             "●買い●": DayTradingSignal.BUY,
             "△やや買い△": DayTradingSignal.BUY,
             "…待機…": DayTradingSignal.WAIT,
@@ -244,7 +301,7 @@ class PersonalDayTradingEngine:
 
     def _calculate_momentum(self, real_rec: Dict[str, any]) -> str:
         """価格モメンタム計算"""
-        change_pct = real_rec.get("change_percent", 0)
+        change_pct = real_rec.get("change_pct", 0)
         rsi = real_rec.get("rsi", 50)
 
         if change_pct > 2.0 and rsi < 70:
@@ -256,7 +313,7 @@ class PersonalDayTradingEngine:
         else:
             return "モメンタム中立"
 
-    async def get_tomorrow_premarket_forecast(self, limit: int = 5) -> List[DayTradingRecommendation]:
+    async def get_tomorrow_premarket_forecast(self, limit: int = 20) -> List[DayTradingRecommendation]:
         """翌日前場予想取得（大引け後専用）"""
         recommendations = []
         symbols = list(self.daytrading_symbols.keys())[:limit]
@@ -288,8 +345,7 @@ class PersonalDayTradingEngine:
         # predictions配列の各要素が、オーバーナイトギャップ、プレマーケットモメンタムなどの予測値に対応すると仮定
         # この部分のインデックスと意味は、実際のMLモデルの実装に依存
         # 例: predictions[0] = overnight_gap, predictions[1] = premarket_momentum など
-        # 今回は暫定的に、予測結果の最初のいくつかの要素を割り当てる
-        prediction_results = self.ml_model.predict(features)
+        prediction_results, system_used = await self.model_loader.predict(symbol, features)
 
         # predictionsとconfidenceの形状を確認し、適切に割り当てる
         # ここでは単一の予測値を想定
@@ -463,7 +519,7 @@ class PersonalDayTradingEngine:
 
     def _describe_overnight_momentum(self, gap: float, momentum: float) -> str:
         """オーバーナイト・前場モメンタム説明"""
-        gap_desc = "上ギャップ期待" if gap > 0.5 else "下ギャップ警戒" if gap < -0.5 else "ギャップなし"
+        gap_desc = "上ギャップ期待" if gap > 0.5 else "下ギャップ警戒" if gap < -0.5 else "フラット"
         momentum_desc = "強い上昇期待" if momentum > 1.0 else "上昇期待" if momentum > 0.5 else \
                        "強い下落警戒" if momentum < -1.0 else "下落警戒" if momentum < -0.5 else "横ばい"
         return f"{gap_desc}・{momentum_desc}"
@@ -500,7 +556,7 @@ class PersonalDayTradingEngine:
 
         # 3. AIモデルで予測
         # predictions配列の各要素が、日中ボラティリティ、出来高比率、価格モメンタムなどの予測値に対応すると仮定
-        prediction_results = self.ml_model.predict(features)
+        prediction_results, system_used = await self.model_loader.predict(symbol, features)
 
         predicted_values = prediction_results.predictions.flatten()
         confidence_values = prediction_results.confidence.flatten() if prediction_results.confidence is not None else np.array([0.0])
@@ -603,14 +659,14 @@ class PersonalDayTradingEngine:
             # 最新のデータを取得
             latest_data = historical_data.iloc[-1]
             # 昨日の終値 (一つ前のデータ)
-            prev_close = historical_data.iloc[-2]['終値'] if len(historical_data) >= 2 else latest_data['終値'] # Fallback if not enough data
+            prev_close = historical_data.iloc[-2]['Close'] if len(historical_data) >= 2 else latest_data['Close'] # Fallback if not enough data
 
             return {
-                "Open": latest_data.get("始値", 0),
-                "High": latest_data.get("高値", 0),
-                "Low": latest_data.get("安値", 0),
-                "Close": latest_data.get("終値", 0),
-                "Volume": latest_data.get("出来高", 0),
+                "Open": latest_data.get("Open", 0),
+                "High": latest_data.get("High", 0),
+                "Low": latest_data.get("Low", 0),
+                "Close": latest_data.get("Close", 0),
+                "Volume": latest_data.get("Volume", 0),
                 "PrevClose": prev_close,
                 "DateTime": latest_data.name # Index contains datetime
             }
@@ -827,7 +883,6 @@ class PersonalDayTradingEngine:
             TradingSession.LUNCH_BREAK: -15,
             TradingSession.AFTER_MARKET: -10
         }.get(session, 0)
-
         final_confidence = base_confidence + signal_boost + volume_boost + volatility_boost + session_boost
         return max(50, min(95, final_confidence))
 
@@ -954,11 +1009,11 @@ async def demo_daytrading_engine():
     print("今日のデイトレード推奨 TOP5:")
     print("-" * 50)
 
-    recommendations = await engine.get_today_daytrading_recommendations(limit=5)
+    recommendations = await engine.get_today_daytrading_recommendations(limit=20)
 
     for i, rec in enumerate(recommendations, 1):
         signal_icon = {
-            DayTradingSignal.STRONG_BUY: "[★強い買い★]",
+            DayTradingSignal.STRONG_BUY: "[強い買い]",
             DayTradingSignal.BUY: "[●買い●]",
             DayTradingSignal.STRONG_SELL: "[▼強い売り▼]",
             DayTradingSignal.SELL: "[▽売り▽]",

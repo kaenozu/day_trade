@@ -1,3 +1,7 @@
+from abc import ABC, abstractmethod
+from typing import Optional, Dict, Any, List
+import threading
+
 class DistributedCacheBackend(ABC):
     """分散キャッシュバックエンド抽象基底クラス"""
 
