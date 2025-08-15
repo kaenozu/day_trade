@@ -11,8 +11,10 @@ from datetime import datetime, time, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
-from src.day_trade.ml.base_models.random_forest_model import RandomForestModel
 from src.day_trade.data.fetchers.yfinance_fetcher import YFinanceFetcher
+from integrated_model_loader import IntegratedModelLoader # New import
+from model_performance_monitor import ModelPerformanceMonitor # Added import
+from ml_prediction_models import PredictionTask # Added import
 
 # 実データプロバイダー統合
 try:
@@ -105,6 +107,19 @@ class PersonalDayTradingEngine:
             # フォールバック用のダミーMLモデル
             self.ml_model = None
 
+        # MLモデルの初期化とロード
+        try:
+            self.model_loader = IntegratedModelLoader() # Use IntegratedModelLoader
+            self.data_fetcher = YFinanceFetcher() # YFinanceFetcherの初期化
+            self.model_performance_monitor = ModelPerformanceMonitor(
+                upgrade_db_path=self.model_loader.upgrade_db_path,
+                advanced_ml_db_path=self.model_loader.advanced_ml_predictions_db_path
+            )
+        except ImportError:
+            self.model_loader = None
+            self.data_fetcher = None
+            self.model_performance_monitor = None
+
     def _load_dynamic_symbols(self) -> dict:
         """動的銘柄取得"""
         try:
@@ -138,20 +153,12 @@ class PersonalDayTradingEngine:
                 symbol_dict[symbol] = name_map.get(symbol, f"銘柄{symbol}")
                 print(f"[DEBUG] _load_dynamic_symbols: {symbol} -> {symbol_dict[symbol]} (fallback)")
 
-            print(f"✅ 動的銘柄取得成功: {len(symbol_dict)}銘柄")
+            print(f"[OK] 動的銘柄取得成功: {len(symbol_dict)}銘柄")
             return symbol_dict
 
         except Exception as e:
-            print(f"❌ 動的銘柄取得失敗: {e}")
+            print(f"[ERROR] 動的銘柄取得失敗: {e}")
             raise RuntimeError(f"デイトレード銘柄の取得に失敗しました: {e}") from e
-
-        # MLモデルの初期化とロード (仮実装)
-        try:
-            self.ml_model = RandomForestModel() # configは後で追加
-            self.data_fetcher = YFinanceFetcher() # YFinanceFetcherの初期化
-        except ImportError:
-            self.ml_model = None
-            self.data_fetcher = None
 
     def _get_current_trading_session(self) -> TradingSession:
         """現在の取引時間帯を取得（正確な市場時間管理）"""
@@ -188,6 +195,9 @@ class PersonalDayTradingEngine:
 
     async def get_today_daytrading_recommendations(self, limit: int = 20) -> List[DayTradingRecommendation]:
         """今日のデイトレード推奨取得（実データ対応）"""
+        if self.model_performance_monitor:
+            await self.model_performance_monitor.check_and_trigger_retraining()
+
         current_session = self._get_current_trading_session()
 
         # 大引け後は翌日前場予想モードに切り替え
@@ -217,7 +227,7 @@ class PersonalDayTradingEngine:
 
         # シグナル変換
         signal_map = {
-            "★強い買い★": DayTradingSignal.STRONG_BUY,
+            "強い買い": DayTradingSignal.STRONG_BUY,
             "●買い●": DayTradingSignal.BUY,
             "△やや買い△": DayTradingSignal.BUY,
             "…待機…": DayTradingSignal.WAIT,
@@ -291,7 +301,7 @@ class PersonalDayTradingEngine:
 
     def _calculate_momentum(self, real_rec: Dict[str, any]) -> str:
         """価格モメンタム計算"""
-        change_pct = real_rec.get("change_percent", 0)
+        change_pct = real_rec.get("change_pct", 0)
         rsi = real_rec.get("rsi", 50)
 
         if change_pct > 2.0 and rsi < 70:
@@ -335,8 +345,7 @@ class PersonalDayTradingEngine:
         # predictions配列の各要素が、オーバーナイトギャップ、プレマーケットモメンタムなどの予測値に対応すると仮定
         # この部分のインデックスと意味は、実際のMLモデルの実装に依存
         # 例: predictions[0] = overnight_gap, predictions[1] = premarket_momentum など
-        # 今回は暫定的に、予測結果の最初のいくつかの要素を割り当てる
-        prediction_results = self.ml_model.predict(features)
+        prediction_results, system_used = await self.model_loader.predict(symbol, features)
 
         # predictionsとconfidenceの形状を確認し、適切に割り当てる
         # ここでは単一の予測値を想定
@@ -510,7 +519,7 @@ class PersonalDayTradingEngine:
 
     def _describe_overnight_momentum(self, gap: float, momentum: float) -> str:
         """オーバーナイト・前場モメンタム説明"""
-        gap_desc = "上ギャップ期待" if gap > 0.5 else "下ギャップ警戒" if gap < -0.5 else "ギャップなし"
+        gap_desc = "上ギャップ期待" if gap > 0.5 else "下ギャップ警戒" if gap < -0.5 else "フラット"
         momentum_desc = "強い上昇期待" if momentum > 1.0 else "上昇期待" if momentum > 0.5 else \
                        "強い下落警戒" if momentum < -1.0 else "下落警戒" if momentum < -0.5 else "横ばい"
         return f"{gap_desc}・{momentum_desc}"
@@ -547,7 +556,7 @@ class PersonalDayTradingEngine:
 
         # 3. AIモデルで予測
         # predictions配列の各要素が、日中ボラティリティ、出来高比率、価格モメンタムなどの予測値に対応すると仮定
-        prediction_results = self.ml_model.predict(features)
+        prediction_results, system_used = await self.model_loader.predict(symbol, features)
 
         predicted_values = prediction_results.predictions.flatten()
         confidence_values = prediction_results.confidence.flatten() if prediction_results.confidence is not None else np.array([0.0])
@@ -874,7 +883,6 @@ class PersonalDayTradingEngine:
             TradingSession.LUNCH_BREAK: -15,
             TradingSession.AFTER_MARKET: -10
         }.get(session, 0)
-
         final_confidence = base_confidence + signal_boost + volume_boost + volatility_boost + session_boost
         return max(50, min(95, final_confidence))
 
@@ -1005,7 +1013,7 @@ async def demo_daytrading_engine():
 
     for i, rec in enumerate(recommendations, 1):
         signal_icon = {
-            DayTradingSignal.STRONG_BUY: "[★強い買い★]",
+            DayTradingSignal.STRONG_BUY: "[強い買い]",
             DayTradingSignal.BUY: "[●買い●]",
             DayTradingSignal.STRONG_SELL: "[▼強い売り▼]",
             DayTradingSignal.SELL: "[▽売り▽]",

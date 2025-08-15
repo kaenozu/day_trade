@@ -18,6 +18,7 @@ from enum import Enum
 import json
 import sqlite3
 from pathlib import Path
+import joblib # Added for model saving/loading
 
 # 機械学習ライブラリ
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
@@ -351,7 +352,7 @@ class AdvancedMLPredictionSystem:
 
         return configs
 
-    async def train_advanced_models(self, symbol: str, period: str = "6mo") -> Dict[ModelType, ModelPerformance]:
+    async def train_advanced_models(self, symbol: str, period: str = "6mo", hyperparameters: Optional[Dict[ModelType, Dict[str, Any]]] = None) -> Dict[ModelType, ModelPerformance]:
         """高度モデル訓練"""
 
         self.logger.info(f"高度モデル訓練開始: {symbol}")
@@ -379,12 +380,17 @@ class AdvancedMLPredictionSystem:
                 raise ValueError("訓練データが不足しています")
 
             # 各モデル訓練
+            if hyperparameters is None:
+                hyperparameters = {}
             performances = {}
 
             for config in self.model_configs:
                 try:
+                    # ここでハイパーパラメータ最適化を呼び出す
+                    optimized_params = hyperparameters.get(config.model_type)
+
                     performance = await self._train_single_model(
-                        features, targets, config, symbol
+                        features, targets, config, symbol, optimized_params
                     )
                     performances[config.model_type] = performance
 
@@ -422,7 +428,7 @@ class AdvancedMLPredictionSystem:
         return targets.values[:-1]  # 最後の要素（NaN）を除去
 
     async def _train_single_model(self, features: pd.DataFrame, targets: np.ndarray,
-                                config: ModelConfig, symbol: str) -> ModelPerformance:
+                                config: ModelConfig, symbol: str, hyperparameters: Optional[Dict[str, Any]] = None) -> ModelPerformance:
         """単一モデル訓練"""
 
         X = features.copy()
@@ -474,6 +480,7 @@ class AdvancedMLPredictionSystem:
             'feature_columns': X.columns.tolist(),
             'performance': performance
         }
+        self.save_model(model, model_key) # Save the model
 
         return performance
 
@@ -513,16 +520,20 @@ class AdvancedMLPredictionSystem:
     def _create_model(self, config: ModelConfig):
         """モデル作成"""
 
+        params = config.hyperparameters.copy()
+        if hyperparameters:
+            params.update(hyperparameters)
+
         if config.model_type == ModelType.RANDOM_FOREST:
-            return RandomForestClassifier(**config.hyperparameters)
+            return RandomForestClassifier(**params)
         elif config.model_type == ModelType.GRADIENT_BOOSTING:
-            return GradientBoostingClassifier(**config.hyperparameters)
+            return GradientBoostingClassifier(**params)
         elif config.model_type == ModelType.LOGISTIC_REGRESSION:
-            return LogisticRegression(**config.hyperparameters)
+            return LogisticRegression(**params)
         elif config.model_type == ModelType.SVM:
-            return SVC(**config.hyperparameters)
+            return SVC(**params)
         elif config.model_type == ModelType.NEURAL_NETWORK:
-            return MLPClassifier(**config.hyperparameters)
+            return MLPClassifier(**params)
         else:
             raise ValueError(f"未サポートのモデルタイプ: {config.model_type}")
 
@@ -591,6 +602,7 @@ class AdvancedMLPredictionSystem:
             'feature_columns': X.columns.tolist(),
             'performance': performance
         }
+        self.save_model(voting_classifier, model_key) # Save the model
 
         return performance
 
@@ -644,6 +656,28 @@ class AdvancedMLPredictionSystem:
 
         except Exception as e:
             self.logger.error(f"性能保存エラー: {e}")
+
+    def save_model(self, model, model_key: str):
+        """モデルをファイルに保存する"""
+        model_path = self.db_path.parent / "trained_advanced_models" / f"{model_key}.joblib"
+        model_path.parent.mkdir(exist_ok=True)
+        try:
+            joblib.dump(model, model_path)
+            self.logger.info(f"モデルを保存しました: {model_path}")
+        except Exception as e:
+            self.logger.error(f"モデルの保存に失敗しました {model_key}: {e}")
+
+    def load_model(self, model_key: str):
+        """ファイルからモデルをロードする"""
+        model_path = self.db_path.parent / "trained_advanced_models" / f"{model_key}.joblib"
+        if model_path.exists():
+            try:
+                model = joblib.load(model_path)
+                self.logger.info(f"モデルをロードしました: {model_path}")
+                return model
+            except Exception as e:
+                self.logger.error(f"モデルのロードに失敗しました {model_key}: {e}")
+        return None
 
     async def predict_with_advanced_models(self, symbol: str) -> PredictionResult:
         """高度モデルによる予測"""

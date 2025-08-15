@@ -1,141 +1,137 @@
-import numpy as np
-from collections import deque
-import json
+import asyncio
+import sqlite3
+from datetime import datetime
 from pathlib import Path
+import logging
+from ml_model_upgrade_system import ml_upgrade_system # Added import
+from typing import Optional # Added import
+from prediction_accuracy_validator import PredictionAccuracyValidator # Added import
+
+# Windows環境での文字化け対策
+import sys
+import os
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except:
+        import codecs
+        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+
+# ロギング設定
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class ModelPerformanceMonitor:
-    """
-    モデルの予測性能をリアルタイムで監視するコンポーネント。
-    """
-    def __init__(self, window_size: int = 100):
-        """
-        コンストラクタ。
+    def __init__(self, upgrade_db_path: Optional[Path] = None, advanced_ml_db_path: Optional[Path] = None):
+        self.upgrade_db_path = upgrade_db_path or Path("ml_models_data/upgrade_system.db")
+        self.advanced_ml_db_path = advanced_ml_db_path or Path("ml_models_data/advanced_ml_predictions.db")
+        self.accuracy_validator = PredictionAccuracyValidator() # Initialize the validator
+        self.thresholds = {}
+        self._init_database() # Call to initialize database
+        self.load_thresholds()
 
-        Args:
-            window_size (int): 性能を計算するための過去のデータポイント数。
-        """
-        self.predictions = deque(maxlen=window_size)
-        self.actuals = deque(maxlen=window_size)
-        self.window_size = window_size
-        self._load_config()
+    def _init_database(self):
+        """データベース初期化"""
+        with sqlite3.connect(self.upgrade_db_path) as conn:
+            cursor = conn.cursor()
+            # 性能閾値テーブル
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS performance_thresholds (
+                    metric_name TEXT PRIMARY KEY,
+                    threshold_value REAL,
+                    last_updated TEXT
+                )
+            ''')
+            conn.commit()
 
-    def _load_config(self):
-        """
-        ml.jsonから性能監視の閾値設定を読み込みます。
-        """
-        config_path = Path(__file__).parent.parent / "config" / "ml.json"
+    def load_thresholds(self):
+        """データベースから性能閾値を読み込む"""
+        # デフォルト閾値で初期化
+        self.thresholds = {"accuracy": 0.90} # 例: 精度90%を下回ったらトリガー
+
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-            perf_config = config.get("machine_learning", {}).get("performance_monitoring", {})
-            self.enabled = perf_config.get("enabled", False)
-            self.accuracy_warning_threshold = perf_config.get("accuracy_warning_threshold", 0.85)
-            self.accuracy_retrain_threshold = perf_config.get("accuracy_retrain_threshold", 0.75)
-            self.min_samples_for_evaluation = perf_config.get("min_samples_for_evaluation", 50)
-            print(f"[OK] ModelPerformanceMonitor: 設定を読み込みました (警告閾値: {self.accuracy_warning_threshold}, 再学習閾値: {self.accuracy_retrain_threshold})")
+            with sqlite3.connect(self.upgrade_db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT metric_name, threshold_value FROM performance_thresholds")
+                for row in cursor.fetchall():
+                    self.thresholds[row[0]] = row[1] # DBの値で上書き
+            logger.info(f"性能閾値を読み込みました: {self.thresholds}")
         except Exception as e:
-            print(f"[WARNING] ModelPerformanceMonitor: 設定の読み込みに失敗しました: {e}. デフォルト値を使用します。")
-            self.enabled = False
-            self.accuracy_warning_threshold = 0.85
-            self.accuracy_retrain_threshold = 0.75
-            self.min_samples_for_evaluation = 50
+            logger.error(f"性能閾値の読み込みに失敗しました: {e}")
+            # 失敗した場合はデフォルト値がそのまま使われる
 
-    def record_prediction(self, predicted_value: float, actual_value: float):
-        """
-        予測結果と実際の値を記録します。
+    async def get_latest_model_performance(self) -> dict:
+        """最新のモデル性能を取得する (PredictionAccuracyValidatorを使用)"""
+        logger.info("PredictionAccuracyValidatorを使用して最新のモデル性能を取得します。")
+        # ここでは評価対象のシンボルを仮に設定。必要に応じて外部から与えるか、設定ファイルから読み込む
+        test_symbols = ["7203", "8306", "4751"]
+        validation_hours = 24 * 7 # 例: 過去7日間のデータで評価
 
-        Args:
-            predicted_value (float): モデルが予測した値。
-            actual_value (float): 実際の値。
-        """
-        self.predictions.append(predicted_value)
-        self.actuals.append(actual_value)
+        try:
+            metrics = await self.accuracy_validator.validate_current_system_accuracy(test_symbols, validation_hours)
+            overall_accuracy = metrics.overall_accuracy # 0-100%の値を直接使用
 
-    def get_accuracy(self) -> float:
-        """
-        現在の記録に基づいた予測精度を計算して返します。
-        バイナリ分類（0または1）を想定しています。
+            logger.info(f"PredictionAccuracyValidatorによる最新の総合精度: {overall_accuracy:.3f}")
+            return {"accuracy": overall_accuracy}
+        except Exception as e:
+            logger.error(f"PredictionAccuracyValidatorによるモデル性能の取得に失敗しました: {e}")
+            return {}
 
-        Returns:
-            float: 予測精度 (0.0から1.0)。データがない場合は0.0。
-        """
-        if not self.predictions:
-            return 0.0
+    async def check_and_trigger_retraining(self):
+        """性能をチェックし、閾値を下回ったら再学習をトリガーする"""
+        logger.info("モデル性能監視を開始します。")
+        latest_performance = await self.get_latest_model_performance()
 
-        correct_predictions = 0
-        for pred, actual in zip(self.predictions, self.actuals):
-            # 簡単のため、予測と実際の値が一致するかどうかで精度を判断
-            # 実際の取引システムでは、閾値や方向性の一致など、より複雑なロジックが必要
-            if round(pred) == round(actual): # 丸めてバイナリとして比較
-                correct_predictions += 1
-        return correct_predictions / len(self.predictions)
+        if not latest_performance:
+            logger.warning("性能データがないため、再学習トリガーチェックをスキップします。")
+            return
 
-    def get_metrics(self) -> dict:
-        """
-        現在の性能メトリクスを辞書形式で返します。
+        # 精度閾値チェック
+        if "accuracy" in self.thresholds and "accuracy" in latest_performance:
+            current_accuracy = latest_performance["accuracy"]
+            threshold_accuracy = self.thresholds["accuracy"]
 
-        Returns:
-            dict: 性能メトリクスを含む辞書。
-        """
-        accuracy = self.get_accuracy()
-        # 今後、他のメトリクス（例: Precision, Recall, F1-score, RMSEなど）を追加可能
-        return {
-            "accuracy": accuracy,
-            "num_samples": len(self.predictions)
-        }
+            logger.info(f"現在の精度: {current_accuracy:.3f}, 閾値: {threshold_accuracy:.3f}")
 
-    def check_performance_status(self) -> dict:
-        """
-        現在のモデル性能が設定された閾値を満たしているかチェックします。
-
-        Returns:
-            dict: 性能ステータスと現在のメトリクスを含む辞書。
-                  例: {"status": "OK", "current_accuracy": 0.92, "num_samples": 100}
-        """
-        if not self.enabled:
-            return {"status": "DISABLED", "current_accuracy": 0.0, "num_samples": 0}
-
-        current_metrics = self.get_metrics()
-        current_accuracy = current_metrics["accuracy"]
-        num_samples = current_metrics["num_samples"]
-
-        if num_samples < self.min_samples_for_evaluation:
-            return {"status": "INSUFFICIENT_SAMPLES", "current_accuracy": current_accuracy, "num_samples": num_samples}
-
-        if current_accuracy < self.accuracy_retrain_threshold:
-            status = "CRITICAL_RETRAIN"
-        elif current_accuracy < self.accuracy_warning_threshold:
-            status = "WARNING"
+            if current_accuracy < threshold_accuracy:
+                logger.warning(f"モデル精度が閾値を下回りました ({current_accuracy:.3f} < {threshold_accuracy:.3f})。再学習をトリガーします。")
+                await self.trigger_retraining()
+            else:
+                logger.info("モデル精度は閾値以上です。")
         else:
-            status = "OK"
+            logger.info("精度閾値または性能データが設定されていないため、精度チェックをスキップします。")
 
-        return {"status": status, "current_accuracy": current_accuracy, "num_samples": num_samples}
+    async def trigger_retraining(self):
+        """再学習プロセスをトリガーする"""
+        logger.info("再学習プロセスをトリガーしています...")
+        try:
+            report = await ml_upgrade_system.run_complete_system_upgrade()
+            integration_results = await ml_upgrade_system.integrate_best_models(report)
+            logger.info("再学習プロセスが完了しました。")
+            logger.info(f"アップグレードレポート: {report.overall_improvement:.2f}% 改善")
+            logger.info(f"統合結果: {integration_results}")
+        except Exception as e:
+            logger.error(f"再学習プロセスのトリガーに失敗しました: {e}")
 
-# 使用例 (テスト用)
+# テスト実行
+async def test_monitor():
+    monitor = ModelPerformanceMonitor()
+    # 初期閾値を設定（テスト用）
+    try:
+        with sqlite3.connect(monitor.upgrade_db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT OR REPLACE INTO performance_thresholds (metric_name, threshold_value, last_updated) VALUES (?, ?, ?)",
+                           ("accuracy", 93.0, datetime.now().isoformat()))
+            conn.commit()
+        logger.info("テスト閾値を設定しました。")
+    except Exception as e:
+            logger.error(f"テスト閾値の設定に失敗しました: {e}")
+
+    await monitor.check_and_trigger_retraining()
+
 if __name__ == "__main__":
-    monitor = ModelPerformanceMonitor(window_size=10)
-
-    # ダミーデータで記録
-    monitor.record_prediction(0.9, 1.0) # 正解
-    monitor.record_prediction(0.1, 0.0) # 正解
-    monitor.record_prediction(0.8, 0.0) # 不正解
-    monitor.record_prediction(0.6, 1.0) # 不正解
-    monitor.record_prediction(0.95, 1.0) # 正解
-    monitor.record_prediction(0.05, 0.0) # 正解
-    monitor.record_prediction(0.7, 1.0) # 不正解
-    monitor.record_prediction(0.2, 0.0) # 正解
-    monitor.record_prediction(0.85, 1.0) # 正解
-    monitor.record_prediction(0.15, 0.0) # 正解
-
-    metrics = monitor.get_metrics()
-    print(f"現在のモデル性能: {metrics}")
-    print(f"警告閾値: {monitor.accuracy_warning_threshold}")
-    print(f"再学習閾値: {monitor.accuracy_retrain_threshold}")
-    print(f"最小評価サンプル数: {monitor.min_samples_for_evaluation}")
-
-    status_report = monitor.check_performance_status()
-    print(f"性能ステータス: {status_report}")
-
-    monitor.record_prediction(0.55, 1.0) # 新しいデータ追加
-    status_report = monitor.check_performance_status()
-    print(f"新しいデータ追加後の性能ステータス: {status_report}")
+    asyncio.run(test_monitor())
