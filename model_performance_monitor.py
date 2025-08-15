@@ -3,6 +3,9 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 import logging
+from ml_model_upgrade_system import ml_upgrade_system # Added import
+from typing import Optional # Added import
+from prediction_accuracy_validator import PredictionAccuracyValidator # Added import
 
 # Windows環境での文字化け対策
 import sys
@@ -23,48 +26,59 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class ModelPerformanceMonitor:
-    def __init__(self):
-        self.upgrade_db_path = Path("ml_models_data/upgrade_system.db")
-        self.advanced_ml_db_path = Path("ml_models_data/advanced_ml_predictions.db")
+    def __init__(self, upgrade_db_path: Optional[Path] = None, advanced_ml_db_path: Optional[Path] = None):
+        self.upgrade_db_path = upgrade_db_path or Path("ml_models_data/upgrade_system.db")
+        self.advanced_ml_db_path = advanced_ml_db_path or Path("ml_models_data/advanced_ml_predictions.db")
+        self.accuracy_validator = PredictionAccuracyValidator() # Initialize the validator
         self.thresholds = {}
+        self._init_database() # Call to initialize database
         self.load_thresholds()
+
+    def _init_database(self):
+        """データベース初期化"""
+        with sqlite3.connect(self.upgrade_db_path) as conn:
+            cursor = conn.cursor()
+            # 性能閾値テーブル
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS performance_thresholds (
+                    metric_name TEXT PRIMARY KEY,
+                    threshold_value REAL,
+                    last_updated TEXT
+                )
+            ''')
+            conn.commit()
 
     def load_thresholds(self):
         """データベースから性能閾値を読み込む"""
+        # デフォルト閾値で初期化
+        self.thresholds = {"accuracy": 0.90} # 例: 精度90%を下回ったらトリガー
+
         try:
             with sqlite3.connect(self.upgrade_db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT metric_name, threshold_value FROM performance_thresholds")
                 for row in cursor.fetchall():
-                    self.thresholds[row[0]] = row[1]
+                    self.thresholds[row[0]] = row[1] # DBの値で上書き
             logger.info(f"性能閾値を読み込みました: {self.thresholds}")
         except Exception as e:
             logger.error(f"性能閾値の読み込みに失敗しました: {e}")
-            # デフォルト閾値
-            self.thresholds = {"accuracy": 0.90} # 例: 精度90%を下回ったらトリガー
+            # 失敗した場合はデフォルト値がそのまま使われる
 
     async def get_latest_model_performance(self) -> dict:
-        """最新のモデル性能を取得する"""
+        """最新のモデル性能を取得する (PredictionAccuracyValidatorを使用)"""
+        logger.info("PredictionAccuracyValidatorを使用して最新のモデル性能を取得します。")
+        # ここでは評価対象のシンボルを仮に設定。必要に応じて外部から与えるか、設定ファイルから読み込む
+        test_symbols = ["7203", "8306", "4751"]
+        validation_hours = 24 * 7 # 例: 過去7日間のデータで評価
+
         try:
-            with sqlite3.connect(self.advanced_ml_db_path) as conn:
-                cursor = conn.cursor()
-                # 最新のアンサンブルモデルの精度を取得
-                cursor.execute("""
-                    SELECT accuracy FROM advanced_model_performances
-                    WHERE model_type = 'ensemble_voting'
-                    ORDER BY created_at DESC
-                    LIMIT 1
-                """
-                )
-                result = cursor.fetchone()
-                if result:
-                    logger.info(f"最新のアンサンブルモデル精度: {result[0]}")
-                    return {"accuracy": result[0]}
-                else:
-                    logger.warning("最新のアンサンブルモデル性能が見つかりませんでした。")
-                    return {}
+            metrics = await self.accuracy_validator.validate_current_system_accuracy(test_symbols, validation_hours)
+            overall_accuracy = metrics.overall_accuracy # 0-100%の値を直接使用
+
+            logger.info(f"PredictionAccuracyValidatorによる最新の総合精度: {overall_accuracy:.3f}")
+            return {"accuracy": overall_accuracy}
         except Exception as e:
-            logger.error(f"最新モデル性能の取得に失敗しました: {e}")
+            logger.error(f"PredictionAccuracyValidatorによるモデル性能の取得に失敗しました: {e}")
             return {}
 
     async def check_and_trigger_retraining(self):
@@ -95,8 +109,8 @@ class ModelPerformanceMonitor:
         """再学習プロセスをトリガーする"""
         logger.info("再学習プロセスをトリガーしています...")
         try:
-            from ml_model_upgrade_system import ml_upgrade_system
-            report, integration_results = await ml_upgrade_system.run_complete_system_upgrade()
+            report = await ml_upgrade_system.run_complete_system_upgrade()
+            integration_results = await ml_upgrade_system.integrate_best_models(report)
             logger.info("再学習プロセスが完了しました。")
             logger.info(f"アップグレードレポート: {report.overall_improvement:.2f}% 改善")
             logger.info(f"統合結果: {integration_results}")
@@ -111,7 +125,7 @@ async def test_monitor():
         with sqlite3.connect(monitor.upgrade_db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("INSERT OR REPLACE INTO performance_thresholds (metric_name, threshold_value, last_updated) VALUES (?, ?, ?)",
-                           ("accuracy", 0.93, datetime.now().isoformat()))
+                           ("accuracy", 93.0, datetime.now().isoformat()))
             conn.commit()
         logger.info("テスト閾値を設定しました。")
     except Exception as e:

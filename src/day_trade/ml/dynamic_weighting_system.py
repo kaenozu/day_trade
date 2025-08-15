@@ -473,7 +473,7 @@ class DynamicWeightingSystem:
 
                         # アラートのトリガー (例: ログ、外部システムへの通知)
                         logger.critical(f"重大なコンセプトドリフトを検出しました！モデルの再評価を強く推奨します。理由: {drift_reason}")
-                        # TODO: Integrate with actual alert system (e.g., send email, Slack notification)
+                        # アラートはWebダッシュボードで表示（外部通知削除）
 
             # 重み更新判定
             if (self.update_counter >= self.config.update_frequency and
@@ -1350,6 +1350,8 @@ class DynamicWeightingSystem:
             logger.warning("matplotlib未インストール")
         except Exception as e:
             logger.error(f"重み変化可視化エラー: {e}")
+
+    # アラート機能は削除 - Webダッシュボード統合
 
 
 if __name__ == "__main__":

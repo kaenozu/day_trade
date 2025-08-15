@@ -31,7 +31,12 @@ from sklearn.model_selection import cross_val_score, GridSearchCV, RandomizedSea
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 
 # 技術指標ライブラリ
-import talib
+try:
+    import talib
+    TALIB_AVAILABLE = True
+except ImportError:
+    TALIB_AVAILABLE = False
+    print("WARNING: talib not available - using fallback technical indicators")
 
 # Windows環境での文字化け対策
 import sys
