@@ -1521,7 +1521,7 @@ class DayTradeWebDashboard:
 
         # 銘柄選択属性（エラー修正用）
         self.selected_symbols = []
-        
+
         self.setup_app()
 
     async def get_stock_price_data(self, symbol: str) -> Dict[str, Optional[float]]:
@@ -1532,7 +1532,7 @@ class DayTradeWebDashboard:
         try:
             import asyncio
             import concurrent.futures
-            
+
             def fetch_yfinance_data():
                 """同期版yfinanceデータ取得"""
                 yf_module, _ = get_yfinance()
@@ -1545,10 +1545,10 @@ class DayTradeWebDashboard:
                     symbol_yf = f"{symbol}.T"
 
                 ticker = yf_module.Ticker(symbol_yf)
-                
+
                 # 軽量化：1日分のデータのみ取得
                 today_data = ticker.history(period="1d")
-                
+
                 if today_data.empty:
                     # 当日データがない場合は過去5日間で最新を取得
                     recent_data = ticker.history(period="5d")
@@ -1768,12 +1768,12 @@ class DayTradeWebDashboard:
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                
+
                 # モデル性能監視ステータスを取得
                 model_perf_status = loop.run_until_complete(self.get_model_performance_status())
-                
+
                 loop.close()
-                
+
                 response_data = {
                     'ml_prediction': {
                         'available': self.use_advanced_ml,
@@ -1801,7 +1801,7 @@ class DayTradeWebDashboard:
             return {"status": "NOT_AVAILABLE", "message": "ModelPerformanceMonitor not initialized"}
 
         status_report = self.engine.performance_monitor.check_performance_status()
-        
+
         # CRITICAL_RETRAINの場合、再学習をトリガー
         if status_report['status'] == "CRITICAL_RETRAIN":
             print("[ML] CRITICAL_RETRAIN: モデルの再学習をトリガーします")
@@ -1809,16 +1809,16 @@ class DayTradeWebDashboard:
             # 現状、daytrade.pyは単一のモデルを扱っていると仮定し、
             # 簡易的に「最新の分析対象銘柄」を再学習対象とする
             # より堅牢なシステムでは、性能低下した特定のモデルを特定し、そのシンボルを渡す
-            
+
             # 仮のシンボルとして、最も最近分析されたシンボルを使用
             # または、設定ファイルからデフォルトのシンボルを取得
             # ここでは、簡易的に"7203"を対象とする
             target_symbol = "7203" # TODO: 実際の性能低下モデルのシンボルを特定するロジックを追加
-            
+
             # 再学習はバックグラウンドで実行
             asyncio.create_task(self._trigger_retraining_and_deployment(target_symbol))
             status_report['message'] = "再学習がトリガーされました"
-            
+
         return status_report
 
     async def get_analysis_data(self):
@@ -1835,40 +1835,40 @@ class DayTradeWebDashboard:
 
             # TOP10をWeb用に変換（並列処理で高速化）
             import asyncio
-            
+
             # 並列処理でデータ取得
             async def get_combined_data(rec, rank):
                 # 価格データとML予測を並列取得
                 price_task = self.get_stock_price_data(rec.symbol)
                 ml_task = self.get_ml_prediction(rec.symbol)
-                
+
                 price_data, ml_prediction = await asyncio.gather(
                     price_task, ml_task, return_exceptions=True
                 )
-                
+
                 # エラーハンドリング
                 if isinstance(price_data, Exception):
                     price_data = {'opening_price': None, 'current_price': None}
                 if isinstance(ml_prediction, Exception):
                     ml_prediction = {
-                        'signal': '●買い●', 'confidence': 75.0, 'risk_level': '中リスク', 
+                        'signal': '●買い●', 'confidence': 75.0, 'risk_level': '中リスク',
                         'score': 70.0, 'ml_source': 'fallback'
                     }
-                    
+
                 return rec, rank, price_data, ml_prediction
-            
+
             # 全銘柄の処理を並列実行
             tasks = []
             for i, rec in enumerate(recommendations[:10], 1):
                 tasks.append(get_combined_data(rec, i))
-                
+
             combined_results = await asyncio.gather(*tasks, return_exceptions=True)
-            
+
             web_data = []
             for result in combined_results:
                 if isinstance(result, Exception):
                     continue
-                    
+
                 rec, rank, price_data, ml_prediction = result
 
                 # 3. 統合データ作成
@@ -1975,7 +1975,7 @@ class DayTradeWebDashboard:
             # optimized_resultsは {ModelType.value}_{PredictionTask.value}: OptimizationResult の形式
             # ml_prediction_models.train_models は optimized_params: Dict[str, Dict[str, Any]] を期待
             # 例: {"Random Forest": {"価格方向予測": {...}}, "XGBoost": {...}}
-            
+
             # optimized_paramsを構築
             optimized_params_for_training = {}
             for key, opt_result in optimized_results.items():
@@ -2901,12 +2901,12 @@ class DayTradeWebDashboard:
                 {name: 'マネックス証券', url: "https://info.monex.co.jp/domestic-stock/detail/" + symbol + ".html"}
             ];
 
-            let message = symbol + " " + name + " の注文画面を開きますか?\\n\\n";
+            let message = symbol + " " + name + " Order page?\\n\\n";
             brokers.forEach(function(broker, index) {
                 message += (index + 1) + ". " + broker.name + "\\n";
             });
 
-            const choice = prompt(message + '\n番号を入力してください (1-3):');
+            const choice = prompt(message + '\\nPlease enter number (1-3):');
             if (choice && choice >= 1 && choice <= 3) {
                 window.open(brokers[choice - 1].url, '_blank');
             }
@@ -2919,7 +2919,7 @@ class DayTradeWebDashboard:
                 return;
             }
 
-            const targetPrice = prompt(symbol + " " + name + " のアラート価格を入力してください\\n(現在価格: ¥" + currentPrice.toFixed(0) + ")");
+            const targetPrice = prompt(symbol + " " + name + " Alert price:\\n(Current: ¥" + currentPrice.toFixed(0) + ")");
             if (targetPrice && !isNaN(targetPrice)) {
                 priceAlerts[symbol] = {
                     name: name,
@@ -2992,10 +2992,10 @@ class DayTradeWebDashboard:
             const index = favorites.indexOf(symbol);
             if (index > -1) {
                 favorites.splice(index, 1);
-                showAlert(`${symbol} をお気に入りから削除しました`, 'success');
+                showAlert(symbol + ' をお気に入りから削除しました', 'success');
             } else {
                 favorites.push(symbol);
-                showAlert(`${symbol} をお気に入りに追加しました`, 'success');
+                showAlert(symbol + ' をお気に入りに追加しました', 'success');
             }
             localStorage.setItem('favorites', JSON.stringify(favorites));
 
