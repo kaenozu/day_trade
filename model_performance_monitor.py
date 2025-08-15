@@ -25,23 +25,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 # 共通ユーティリティのインポート
-try:
-    from src.day_trade.utils.encoding_utils import setup_windows_encoding
-except ImportError:
-    def setup_windows_encoding():
-        """Windows環境でのエンコーディング設定"""
-        import sys
-        import os
-        os.environ['PYTHONIOENCODING'] = 'utf-8'
-
-        if sys.platform == 'win32':
-            try:
-                sys.stdout.reconfigure(encoding='utf-8')
-                sys.stderr.reconfigure(encoding='utf-8')
-            except Exception:
-                import codecs
-                sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
-                sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+from src.day_trade.utils.encoding_fix import apply_windows_encoding_fix
 
 # 既存システムとの連携
 try:
@@ -61,7 +45,7 @@ except ImportError:
     SYMBOL_SELECTOR_AVAILABLE = False
 
 # Windows環境対応
-setup_windows_encoding()
+apply_windows_encoding_fix()
 
 # ロギング設定
 logger = logging.getLogger(__name__)
@@ -134,7 +118,9 @@ class EnhancedPerformanceConfigManager:
     """改善版性能設定管理クラス"""
 
     def __init__(self, config_path: Optional[Path] = None):
-        self.config_path = config_path or Path("config/performance_monitoring.yaml")
+        self.config_path = (
+            config_path or Path("config/performance_monitoring.yaml")
+        )
         self.config = {}
         self.last_loaded = None
         self._load_configuration()
@@ -185,7 +171,9 @@ class EnhancedPerformanceConfigManager:
         try:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.config_path, 'w', encoding='utf-8') as f:
-                yaml.dump(default_config, f, default_flow_style=False, allow_unicode=True)
+                yaml.dump(
+                    default_config, f, default_flow_style=False, allow_unicode=True
+                )
             logger.info(f"デフォルト設定ファイルを作成: {self.config_path}")
             self.config = default_config
         except Exception as e:
@@ -227,7 +215,9 @@ class EnhancedPerformanceConfigManager:
         # 銘柄別閾値チェック
         if symbol and 'symbol_specific' in thresholds:
             symbol_category = self._categorize_symbol(symbol)
-            symbol_thresholds = thresholds['symbol_specific'].get(symbol_category, {})
+            symbol_thresholds = thresholds['symbol_specific'].get(
+                symbol_category, {}
+            )
             if metric in symbol_thresholds:
                 return symbol_thresholds[metric]
 
@@ -253,7 +243,9 @@ class EnhancedPerformanceConfigManager:
         """設定ファイルが更新されていれば再読み込み"""
         try:
             if self.config_path.exists():
-                file_mtime = datetime.fromtimestamp(self.config_path.stat().st_mtime)
+                file_mtime = datetime.fromtimestamp(
+                    self.config_path.stat().st_mtime
+                )
                 if self.last_loaded is None or file_mtime > self.last_loaded:
                     self._load_configuration()
         except Exception as e:
@@ -282,15 +274,17 @@ class DynamicSymbolManager:
         monitoring_config = self.config_manager.get_monitoring_config()
 
         # 基本監視銘柄
-        base_symbols = set(monitoring_config.get('default_symbols', ["7203", "8306", "4751"]))
+        default_symbols = ["7203", "8306", "4751"]
+        base_symbols = set(monitoring_config.get('default_symbols', default_symbols))
 
         # 動的監視が有効な場合
-        if monitoring_config.get('dynamic_monitoring', {}).get('enabled', False):
+        dynamic_config = monitoring_config.get('dynamic_monitoring', {})
+        if dynamic_config.get('enabled', False):
             dynamic_symbols = self._get_dynamic_symbols()
             base_symbols.update(dynamic_symbols)
 
             # 最大銘柄数制限
-            max_symbols = monitoring_config.get('dynamic_monitoring', {}).get('max_symbols', 10)
+            max_symbols = dynamic_config.get('max_symbols', 10)
             if len(base_symbols) > max_symbols:
                 # 優先度順にソート（将来的にはより高度な選択ロジック）
                 base_symbols = set(list(base_symbols)[:max_symbols])
@@ -304,11 +298,15 @@ class DynamicSymbolManager:
         try:
             if self.symbol_selector:
                 # symbol_selectorから活発な銘柄を取得
-                active_symbols = self.symbol_selector.get_recommended_symbols(limit=5)
+                active_symbols = self.symbol_selector.get_recommended_symbols(
+                    limit=5
+                )
                 dynamic_symbols.update(active_symbols)
 
                 # 高ボラティリティ銘柄を追加
-                volatile_symbols = self.symbol_selector.get_high_volatility_symbols(limit=3)
+                volatile_symbols = self.symbol_selector.get_high_volatility_symbols(
+                    limit=3
+                )
                 dynamic_symbols.update(volatile_symbols)
 
         except Exception as e:
@@ -441,7 +439,9 @@ class EnhancedModelPerformanceMonitor:
         self.retraining_manager = GranularRetrainingManager(self.config_manager)
 
         # データベースパス
-        self.upgrade_db_path = upgrade_db_path or Path("ml_models_data/upgrade_system.db")
+        self.upgrade_db_path = (
+            upgrade_db_path or Path("ml_models_data/upgrade_system.db")
+        )
         self.advanced_ml_db_path = (
             advanced_ml_db_path or Path("ml_models_data/advanced_ml_predictions.db")
         )
@@ -461,7 +461,9 @@ class EnhancedModelPerformanceMonitor:
         self._init_database()
 
         # ログレベル設定
-        log_level = self.config_manager.config.get('system', {}).get('log_level', 'INFO')
+        log_level = self.config_manager.config.get(
+            'system', {}
+        ).get('log_level', 'INFO')
         logger.setLevel(getattr(logging, log_level))
 
         logger.info("Enhanced Model Performance Monitor initialized")
@@ -573,15 +575,20 @@ class EnhancedModelPerformanceMonitor:
             for symbol in symbols:
                 try:
                     # 個別銘柄の性能評価
-                    metrics = await self.accuracy_validator.validate_current_system_accuracy(
-                        [symbol], validation_hours)
+                    metrics = await self.accuracy_validator.validate_current_system_accuracy(  # noqa: E501
+                        [symbol], validation_hours
+                    )
 
                     performance = PerformanceMetrics(
                         symbol=symbol,
                         accuracy=metrics.overall_accuracy,
-                        prediction_accuracy=getattr(metrics, 'prediction_accuracy', 0.0),
+                        prediction_accuracy=getattr(
+                            metrics, 'prediction_accuracy', 0.0
+                        ),
                         return_prediction=getattr(metrics, 'return_prediction', 0.0),
-                        volatility_prediction=getattr(metrics, 'volatility_prediction', 0.0),
+                        volatility_prediction=getattr(
+                            metrics, 'volatility_prediction', 0.0
+                        ),
                         sample_count=getattr(metrics, 'sample_count', 0),
                         source='enhanced_validator'
                     )
@@ -618,7 +625,9 @@ class EnhancedModelPerformanceMonitor:
         # 1時間以内なら有効
         return elapsed.total_seconds() < 3600
 
-    async def _record_enhanced_performance_history(self, performance: PerformanceMetrics):
+    async def _record_enhanced_performance_history(
+        self, performance: PerformanceMetrics
+    ):
         """改善版性能履歴記録"""
         try:
             with sqlite3.connect(self.upgrade_db_path) as conn:
@@ -634,11 +643,16 @@ class EnhancedModelPerformanceMonitor:
                 }
 
                 for metric_name, value in metrics.items():
-                    threshold = self.config_manager.get_threshold(metric_name, performance.symbol)
+                    threshold = self.config_manager.get_threshold(
+                        metric_name, performance.symbol
+                    )
 
                     cursor.execute('''
                         INSERT INTO enhanced_performance_history
-                        (symbol, metric_name, value, threshold, sample_count, timestamp, source)
+                        (
+                            symbol, metric_name, value, threshold,
+                            sample_count, timestamp, source
+                        )
                         VALUES (?, ?, ?, ?, ?, ?, ?)
                     ''', (performance.symbol, metric_name, value, threshold,
                           performance.sample_count, timestamp, performance.source))
@@ -658,7 +672,9 @@ class EnhancedModelPerformanceMonitor:
         }
 
         for metric_name, value in metrics_to_check.items():
-            threshold = self.config_manager.get_threshold(metric_name, performance.symbol)
+            threshold = self.config_manager.get_threshold(
+                metric_name, performance.symbol
+            )
 
             if value < threshold:
                 # アラートレベル決定
@@ -740,7 +756,9 @@ class EnhancedModelPerformanceMonitor:
             )
 
         # 再学習スコープ決定
-        retraining_scope = self.retraining_manager.determine_retraining_scope(symbol_performances)
+        retraining_scope = self.retraining_manager.determine_retraining_scope(
+            symbol_performances
+        )
 
         if retraining_scope == RetrainingScope.NONE:
             logger.info("性能は閾値以上です。再学習は不要です")
@@ -760,7 +778,9 @@ class EnhancedModelPerformanceMonitor:
             )
 
         # 再学習の実行
-        result = await self._execute_enhanced_retraining(retraining_scope, symbol_performances)
+        result = await self._execute_enhanced_retraining(
+            retraining_scope, symbol_performances
+        )
 
         # 結果をデータベースに記録
         await self._record_enhanced_retraining_result(
