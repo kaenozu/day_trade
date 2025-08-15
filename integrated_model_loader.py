@@ -76,7 +76,7 @@ class IntegratedModelLoader:
             else:
                 logger.warning(f"高度システムモデル {model_key} が見つかりませんでした。オリジナルシステムを試行します。")
                 preferred_system = "original_system" # フォールバック
-        
+
         if preferred_system == "original_system":
             ml_system = await self._get_ml_prediction_models_instance()
             # MLPredictionModelsはRandomForest, XGBoost, LightGBMを持つ
@@ -91,7 +91,7 @@ class IntegratedModelLoader:
             else:
                 logger.warning(f"オリジナルシステムモデル {model_key} が見つかりませんでした。")
                 return None, None
-        
+
         return None, None
 
     async def predict(self, symbol: str, features: pd.DataFrame) -> Tuple[Any, str]:
@@ -100,7 +100,7 @@ class IntegratedModelLoader:
         統合設定に基づいて適切なモデルシステムを使用する。
         """
         preferred_system = self.model_integration_config.get(symbol, "original_system")
-        
+
         if preferred_system == "advanced_system":
             ml_system = await self._get_advanced_ml_prediction_system_instance()
             # AdvancedMLPredictionSystemのpredict_with_advanced_modelsを呼び出す

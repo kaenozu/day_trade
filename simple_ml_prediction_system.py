@@ -129,9 +129,10 @@ class SimpleMLPredictionSystem:
                     model_consensus[model_name] = np.random.randint(0, 2)
                     confidences.append(0.6)
 
-            # 最終予測（多数決）
+            # 最終予測（純粋なモデル多数決）
             predictions = list(model_consensus.values())
-            final_prediction = 1 if sum(predictions) > len(predictions) / 2 else 0
+            prediction_sum = sum(predictions)
+            final_prediction = 1 if prediction_sum > len(predictions) / 2 else 0
 
             # 平均信頼度
             avg_confidence = np.mean(confidences) if confidences else 0.7
@@ -149,13 +150,13 @@ class SimpleMLPredictionSystem:
 
         except Exception as e:
             self.logger.error(f"Prediction failed for {symbol}: {e}")
-            # フォールバック
+            # フォールバック（安全な待機シグナル）
             return SimplePredictionResult(
                 symbol=symbol,
-                prediction=np.random.randint(0, 2),
-                confidence=0.6,
-                model_consensus={'fallback': 1},
-                feature_values={'volatility': 0.5, 'trend': 0.0, 'volume': 1.0}
+                prediction=0,  # 常に売り/待機で安全
+                confidence=0.0,  # 低信頼度で判断を回避
+                model_consensus={'error': 0},
+                feature_values={'volatility': 0.0, 'trend': 0.0, 'volume': 0.0}
             )
 
     def _generate_features(self, symbol: str) -> Dict[str, float]:
@@ -294,17 +295,28 @@ class SimpleMLPredictionSystem:
     def _generate_training_data(self, n_samples: int = 1000) -> Tuple[np.ndarray, np.ndarray]:
         """訓練データ生成"""
         # 実際の実装では過去の価格データから生成
-        np.random.seed(42)
+        # ランダムシードを変更してよりバランスの取れたデータを生成
+        np.random.seed(int(datetime.now().timestamp()) % 1000)
 
         # 特徴量生成
         X = np.random.randn(n_samples, 7)  # 7つの特徴量
 
-        # ターゲット生成（特徴量に基づく簡単なルール）
+        # ターゲット生成（よりバランスの取れたルール）
         y = np.zeros(n_samples)
         for i in range(n_samples):
-            # 簡単な規則：価格変動 + ボラティリティ + トレンド強度
-            score = X[i, 0] + X[i, 2] * 0.5 + X[i, 5] * 0.3
-            y[i] = 1 if score > 0 else 0
+            # 改善された規則：複数の指標を組み合わせてよりリアルな予測
+            trend_score = X[i, 0] * 0.4 + X[i, 1] * 0.3  # トレンド指標
+            momentum_score = X[i, 2] * 0.6 + X[i, 3] * 0.2  # モメンタム指標
+            volume_score = X[i, 4] * 0.3  # 出来高指標
+            volatility_score = X[i, 5] * -0.2  # ボラティリティ（高いとマイナス）
+
+            total_score = trend_score + momentum_score + volume_score + volatility_score
+            # バランスを調整して上昇：下降 = 60:40 程度に
+            y[i] = 1 if total_score > -0.2 else 0
+
+        # バランス確認と調整
+        upward_ratio = np.mean(y)
+        print(f"Training data - Upward predictions: {upward_ratio:.1%}")
 
         return X, y.astype(int)
 
