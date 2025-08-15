@@ -57,18 +57,16 @@ class MarketTimeManager:
             "2025-01-04": "臨時営業日", # For testing purposes
         }
 
-    def is_market_day(self, date: datetime = None) -> bool:
+    def is_market_day(self, date: datetime) -> bool:
         """
         指定日が市場営業日かどうか判定
 
         Args:
-            date: 判定したい日付（未指定時は今日）
+            date: 判定したい日付
 
         Returns:
             bool: 営業日かどうか
         """
-        if date is None:
-            date = datetime.now()
 
         date_str = date.strftime('%Y-%m-%d')
 
@@ -90,18 +88,16 @@ class MarketTimeManager:
 
         return True
 
-    def get_current_session(self, now: datetime = None) -> MarketSession:
+    def get_current_session(self, now: datetime) -> MarketSession:
         """
         現在の市場セッション取得
 
         Args:
-            now: 現在時刻（未指定時はシステム時刻）
+            now: 現在時刻
 
         Returns:
             MarketSession: 現在のセッション
         """
-        if now is None:
-            now = datetime.now()
 
         # 休場日判定
         if not self.is_market_day(now):
@@ -151,7 +147,7 @@ class MarketTimeManager:
         """
         return self.get_market_status(now) == MarketStatus.OPEN
 
-    def get_next_market_open(self, now: datetime = None) -> datetime:
+    def get_next_market_open(self, now: datetime) -> datetime:
         """
         次の市場開場時刻取得
 
@@ -161,8 +157,6 @@ class MarketTimeManager:
         Returns:
             datetime: 次の開場時刻
         """
-        if now is None:
-            now = datetime.now()
 
         # 現在のセッション確認
         session = self.get_current_session(now)
@@ -181,19 +175,24 @@ class MarketTimeManager:
 
         elif session in [MarketSession.AFTERNOON_SESSION, MarketSession.AFTER_MARKET]:
             # 翌営業日の前場開始
-            next_day = now + timedelta(days=1)
-            while not self.is_market_day(next_day):
-                next_day += timedelta(days=1)
-            return datetime.combine(next_day.date(), self.morning_open)
+            next_market_day = self._get_next_market_date(now)
+            return datetime.combine(next_market_day.date(), self.morning_open)
 
         else:  # MARKET_CLOSED
             # 次の営業日の前場開始
-            next_day = now + timedelta(days=1)
-            while not self.is_market_day(next_day):
-                next_day += timedelta(days=1)
-            return datetime.combine(next_day.date(), self.morning_open)
+            next_market_day = self._get_next_market_date(now)
+            return datetime.combine(next_market_day.date(), self.morning_open)
 
-    def get_next_market_close(self, now: datetime = None) -> datetime:
+    def _get_next_market_date(self, current_date: datetime) -> datetime:
+        """
+        指定された日付以降の次の市場営業日を取得します。
+        """
+        next_day = current_date + timedelta(days=1)
+        while not self.is_market_day(next_day):
+            next_day += timedelta(days=1)
+        return next_day
+
+    def get_next_market_close(self, now: datetime) -> datetime:
         """
         次の市場終了時刻取得
 
@@ -203,8 +202,6 @@ class MarketTimeManager:
         Returns:
             datetime: 次の終了時刻
         """
-        if now is None:
-            now = datetime.now()
 
         session = self.get_current_session(now)
 
@@ -221,7 +218,7 @@ class MarketTimeManager:
             next_open = self.get_next_market_open(now)
             return datetime.combine(next_open.date(), self.afternoon_close)
 
-    def get_time_until_next_event(self, now: datetime = None) -> Tuple[str, int]:
+    def get_time_until_next_event(self, now: datetime) -> Tuple[str, int]:
         """
         次のイベントまでの時間取得
 
@@ -231,8 +228,6 @@ class MarketTimeManager:
         Returns:
             Tuple[str, int]: (イベント名, 秒数)
         """
-        if now is None:
-            now = datetime.now()
 
         session = self.get_current_session(now)
 
@@ -259,7 +254,7 @@ class MarketTimeManager:
         seconds = int((next_event - now).total_seconds())
         return event_name, max(0, seconds)
 
-    def get_market_summary(self, now: datetime = None) -> Dict[str, any]:
+    def get_market_summary(self, now: Optional[datetime] = None) -> Dict[str, any]:
         """
         市場状況の総合情報取得
 
@@ -297,7 +292,7 @@ class MarketTimeManager:
             "next_close": self.get_next_market_close(now).strftime('%Y-%m-%d %H:%M:%S')
         }
 
-    def get_session_advice(self, now: datetime = None) -> str:
+    def get_session_advice(self, now: Optional[datetime] = None) -> str:
         """
         現在のセッションに応じたアドバイス生成
 
