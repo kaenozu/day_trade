@@ -39,7 +39,7 @@ class PerformanceTracker:
         pnl_values = [t.profit_loss for t in trades if t.profit_loss is not None]
         total_pnl = sum(pnl_values)
         daily_returns = pd.Series(pnl_values, index=[t.exit_date for t in trades]).resample('D').sum()
-        
+
         # Metrics calculation
         total_trades = len(trades)
         winning_trades = len([t for t in trades if t.profit_loss > 0])
@@ -51,7 +51,7 @@ class PerformanceTracker:
         # Risk & Return metrics
         volatility = daily_returns.std() * np.sqrt(365) # Annualized
         sharpe_ratio = (daily_returns.mean() * 365) / volatility if volatility > 0 else 0
-        
+
         # Drawdown
         cumulative_returns = (1 + daily_returns).cumprod()
         running_max = cumulative_returns.cummax()
