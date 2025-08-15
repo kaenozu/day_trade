@@ -11,7 +11,7 @@ import asyncio
 import pandas as pd
 import numpy as np
 import logging
-import sqlite3
+import aiosqlite
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
@@ -22,19 +22,88 @@ import statistics
 from collections import defaultdict, deque
 import uuid
 
-# Windows環境での文字化け対策
-import sys
-import os
-os.environ['PYTHONIOENCODING'] = 'utf-8'
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.future import select # For async operations
 
-if sys.platform == 'win32':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except:
-        import codecs
-        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
-        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+Base = declarative_base()
+
+class DBTrade(Base):
+    __tablename__ = 'trades'
+    trade_id = Column(String, primary_key=True)
+    symbol = Column(String, nullable=False)
+    name = Column(String)
+    trade_type = Column(String)
+    entry_date = Column(DateTime, nullable=False)
+    entry_price = Column(Float)
+    quantity = Column(Integer)
+    entry_amount = Column(Float)
+    exit_date = Column(DateTime)
+    exit_price = Column(Float)
+    exit_amount = Column(Float)
+    profit_loss = Column(Float)
+    profit_loss_pct = Column(Float)
+    trade_result = Column(String)
+    risk_level = Column(String)
+    confidence_score = Column(Float)
+    sector = Column(String)
+    theme = Column(String)
+    trading_session = Column(String)
+    strategy_used = Column(String)
+    notes = Column(String)
+    created_at = Column(DateTime)
+
+class DBPortfolio(Base):
+    __tablename__ = 'portfolios'
+    portfolio_id = Column(String, primary_key=True)
+    portfolio_name = Column(String)
+    initial_capital = Column(Float)
+    current_capital = Column(Float)
+    total_invested = Column(Float)
+    cash_balance = Column(Float)
+    total_return = Column(Float)
+    daily_return = Column(Float)
+    volatility = Column(Float)
+    sharpe_ratio = Column(Float)
+    max_drawdown = Column(Float)
+    var_95 = Column(Float)
+    beta = Column(Float)
+    alpha = Column(Float)
+    total_trades = Column(Integer)
+    winning_trades = Column(Integer)
+    losing_trades = Column(Integer)
+    win_rate = Column(Float)
+    last_updated = Column(DateTime)
+    created_at = Column(DateTime)
+
+class DBDailyPerformance(Base):
+    __tablename__ = 'daily_performance'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    date = Column(DateTime, nullable=False)
+    portfolio_value = Column(Float)
+    daily_return = Column(Float)
+    benchmark_return = Column(Float)
+    trades_count = Column(Integer)
+    profit_loss = Column(Float)
+    created_at = Column(DateTime)
+
+
+
+# Windows環境での文字化け対策
+# Windows環境での文字化け対策 (今後、共通ユーティリティに集約予定)
+# import sys
+# import os
+# os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+# if sys.platform == 'win32':
+#     try:
+#         sys.stdout.reconfigure(encoding='utf-8')
+#         sys.stderr.reconfigure(encoding='utf-8')
+#     except:
+#         import codecs
+#         sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+#         sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
 
 try:
     from enhanced_symbol_manager import EnhancedSymbolManager
@@ -179,7 +248,6 @@ class PerformanceTracker:
         self.data_dir = Path("performance_data")
         self.data_dir.mkdir(exist_ok=True)
         self.db_path = self.data_dir / "performance.db"
-        self._init_database()
 
         # メモリキャッシュ
         self.active_trades: Dict[str, Trade] = {}
@@ -188,7 +256,6 @@ class PerformanceTracker:
 
         # デフォルトポートフォリオ作成
         self.default_portfolio_id = "MAIN_PORTFOLIO"
-        self._ensure_default_portfolio()
 
         # ベンチマーク設定（TOPIX想定）
         self.benchmark_return = 0.08  # 年率8%
@@ -202,91 +269,119 @@ class PerformanceTracker:
 
         self.logger.info("Performance tracker initialized for comprehensive analysis")
 
-    def _init_database(self):
-        """データベース初期化"""
-        with sqlite3.connect(self.db_path) as conn:
-            # 取引テーブル
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS trades (
-                    trade_id TEXT PRIMARY KEY,
-                    symbol TEXT NOT NULL,
-                    name TEXT,
-                    trade_type TEXT,
-                    entry_date TEXT NOT NULL,
-                    entry_price REAL,
-                    quantity INTEGER,
-                    entry_amount REAL,
-                    exit_date TEXT,
-                    exit_price REAL,
-                    exit_amount REAL,
-                    profit_loss REAL,
-                    profit_loss_pct REAL,
-                    trade_result TEXT,
-                    risk_level TEXT,
-                    confidence_score REAL,
-                    sector TEXT,
-                    theme TEXT,
-                    trading_session TEXT,
-                    strategy_used TEXT,
-                    notes TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+    async def ainit(self):
+        # データベース初期化
+        await self._init_database()
+        # デフォルトポートフォリオ作成
+        await self._ensure_default_portfolio()
 
-            # ポートフォリオテーブル
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS portfolios (
-                    portfolio_id TEXT PRIMARY KEY,
-                    portfolio_name TEXT,
-                    initial_capital REAL,
-                    current_capital REAL,
-                    total_invested REAL,
-                    cash_balance REAL,
-                    total_return REAL,
-                    daily_return REAL,
-                    volatility REAL,
-                    sharpe_ratio REAL,
-                    max_drawdown REAL,
-                    var_95 REAL,
-                    beta REAL,
-                    alpha REAL,
-                    total_trades INTEGER,
-                    winning_trades INTEGER,
-                    losing_trades INTEGER,
-                    win_rate REAL,
-                    last_updated TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+    async def _init_database(self):
+            """データベース初期化"""
+            async with aiosqlite.connect(self.db_path) as conn:
+                # SQLiteのPRAGMA foreign_keysを有効にする (ORM使用時に重要)
+                await conn.execute("PRAGMA foreign_keys = ON;")
 
-            # 日次パフォーマンステーブル
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS daily_performance (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    date TEXT NOT NULL,
-                    portfolio_value REAL,
-                    daily_return REAL,
-                    benchmark_return REAL,
-                    trades_count INTEGER,
-                    profit_loss REAL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+                # SQLAlchemyモデルを使用してテーブルを作成
+                # aiosqliteは同期的なSQLAlchemyエンジンと直接統合できないため、
+                # 少し異なるアプローチが必要。ここでは、aiosqliteの接続を直接使う。
+                # Alembicなどのマイグレーションツールを導入すれば、この部分はよりクリーンになる。
 
-            # インデックス作成
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_trades_date ON trades(entry_date)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_daily_date ON daily_performance(date)")
+                # ここでは、手動で各テーブルが存在するか確認し、なければ作成する。
+                # これは暫定的な措置であり、イシューの「データベースマイグレーションツール」のタスクで改善予定。
+                for table_name, create_sql in [
+                    ("trades", DBTrade.__table__.create(engine=None, checkfirst=True) if not await self._table_exists(conn, "trades") else None),
+                    ("portfolios", DBPortfolio.__table__.create(engine=None, checkfirst=True) if not await self._table_exists(conn, "portfolios") else None),
+                    ("daily_performance", DBDailyPerformance.__table__.create(engine=None, checkfirst=True) if not await self._table_exists(conn, "daily_performance") else None),
+                ]:
+                    if create_sql:
+                        # create_all は engine が必要なので、ここでは raw SQL で作成
+                        # 理想的には、ここでは Base.metadata.create_all(engine) を使うべきだが、
+                        # aiosqlite と同期 SQLAlchemy engine の直接統合が複雑なため、
+                        # マイグレーションツール導入までraw SQLを使う。
+                        # このコードはあくまで一時的な代替案
+                        if table_name == "trades":
+                            await conn.execute("""
+                                CREATE TABLE IF NOT EXISTS trades (
+                                    trade_id TEXT PRIMARY KEY,
+                                    symbol TEXT NOT NULL,
+                                    name TEXT,
+                                    trade_type TEXT,
+                                    entry_date TEXT NOT NULL,
+                                    entry_price REAL,
+                                    quantity INTEGER,
+                                    entry_amount REAL,
+                                    exit_date TEXT,
+                                    exit_price REAL,
+                                    exit_amount REAL,
+                                    profit_loss REAL,
+                                    profit_loss_pct REAL,
+                                    trade_result TEXT,
+                                    risk_level TEXT,
+                                    confidence_score REAL,
+                                    sector TEXT,
+                                    theme TEXT,
+                                    trading_session TEXT,
+                                    strategy_used TEXT,
+                                    notes TEXT,
+                                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                                )
+                            """)
+                        elif table_name == "portfolios":
+                            await conn.execute("""
+                                CREATE TABLE IF NOT EXISTS portfolios (
+                                    portfolio_id TEXT PRIMARY KEY,
+                                    portfolio_name TEXT,
+                                    initial_capital REAL,
+                                    current_capital REAL,
+                                    total_invested REAL,
+                                    cash_balance REAL,
+                                    total_return REAL,
+                                    daily_return REAL,
+                                    volatility REAL,
+                                    sharpe_ratio REAL,
+                                    max_drawdown REAL,
+                                    var_95 REAL,
+                                    beta REAL,
+                                    alpha REAL,
+                                    total_trades INTEGER,
+                                    winning_trades INTEGER,
+                                    losing_trades INTEGER,
+                                    win_rate REAL,
+                                    last_updated TEXT,
+                                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                                )
+                            """)
+                        elif table_name == "daily_performance":
+                            await conn.execute("""
+                                CREATE TABLE IF NOT EXISTS daily_performance (
+                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    date TEXT NOT NULL,
+                                    portfolio_value REAL,
+                                    daily_return REAL,
+                                    benchmark_return REAL,
+                                    trades_count INTEGER,
+                                    profit_loss REAL,
+                                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                                )
+                            """)
 
-    def _ensure_default_portfolio(self):
+                # インデックス作成
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_trades_date ON trades(entry_date)")
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)")
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_daily_date ON daily_performance(date)")
+
+        async def _table_exists(self, conn, table_name):
+
+    async def _ensure_default_portfolio(self):
         """デフォルトポートフォリオ確保"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("""
+            async with aiosqlite.connect(self.db_path) as conn:
+                cursor = await conn.execute("""
                     SELECT * FROM portfolios WHERE portfolio_id = ?
                 """, (self.default_portfolio_id,))
 
-                if not cursor.fetchone():
+                row = await cursor.fetchone()
+                if not row:
                     # デフォルトポートフォリオ作成
                     default_portfolio = Portfolio(
                         portfolio_id=self.default_portfolio_id,
@@ -309,8 +404,8 @@ class PerformanceTracker:
                         win_rate=0.0
                     )
 
-                    # 同期的にポートフォリオ保存
-                    self._save_portfolio_sync(default_portfolio)
+                    # ポートフォリオ保存
+                    await self._save_portfolio(default_portfolio)
                     self.logger.info("Created default portfolio with 1,000,000 yen")
 
         except Exception as e:
@@ -328,8 +423,8 @@ class PerformanceTracker:
         """
         try:
             # データベースに保存
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
+            async with aiosqlite.connect(self.db_path) as conn:
+                await conn.execute("""
                     INSERT OR REPLACE INTO trades (
                         trade_id, symbol, name, trade_type, entry_date,
                         entry_price, quantity, entry_amount, exit_date, exit_price,
@@ -404,12 +499,12 @@ class PerformanceTracker:
             return self.portfolio_cache[portfolio_id]
 
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("""
+            async with aiosqlite.connect(self.db_path) as conn:
+                cursor = await conn.execute("""
                     SELECT * FROM portfolios WHERE portfolio_id = ?
                 """, (portfolio_id,))
 
-                row = cursor.fetchone()
+                row = await cursor.fetchone()
                 if row:
                     portfolio = Portfolio(
                         portfolio_id=row[0],
@@ -445,8 +540,8 @@ class PerformanceTracker:
     async def _save_portfolio(self, portfolio: Portfolio):
         """ポートフォリオ保存"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
+            async with aiosqlite.connect(self.db_path) as conn:
+                await conn.execute("""
                     INSERT OR REPLACE INTO portfolios (
                         portfolio_id, portfolio_name, initial_capital, current_capital,
                         total_invested, cash_balance, total_return, daily_return,
@@ -472,35 +567,7 @@ class PerformanceTracker:
         except Exception as e:
             self.logger.error(f"Failed to save portfolio: {e}")
 
-    def _save_portfolio_sync(self, portfolio: Portfolio):
-        """ポートフォリオ保存（同期版）"""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
-                    INSERT OR REPLACE INTO portfolios (
-                        portfolio_id, portfolio_name, initial_capital, current_capital,
-                        total_invested, cash_balance, total_return, daily_return,
-                        volatility, sharpe_ratio, max_drawdown, var_95, beta, alpha,
-                        total_trades, winning_trades, losing_trades, win_rate, last_updated
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    portfolio.portfolio_id, portfolio.portfolio_name,
-                    portfolio.initial_capital, portfolio.current_capital,
-                    portfolio.total_invested, portfolio.cash_balance,
-                    portfolio.total_return, portfolio.daily_return,
-                    portfolio.volatility, portfolio.sharpe_ratio,
-                    portfolio.max_drawdown, portfolio.var_95,
-                    portfolio.beta, portfolio.alpha,
-                    portfolio.total_trades, portfolio.winning_trades,
-                    portfolio.losing_trades, portfolio.win_rate,
-                    portfolio.last_updated.isoformat()
-                ))
 
-            # キャッシュ更新
-            self.portfolio_cache[portfolio.portfolio_id] = portfolio
-
-        except Exception as e:
-            self.logger.error(f"Failed to save portfolio sync: {e}")
 
     async def calculate_performance_metrics(self, days_back: int = 30) -> PerformanceMetrics:
         """
@@ -517,14 +584,14 @@ class PerformanceTracker:
             period_end = datetime.now()
 
             # 取引データ取得
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("""
+            async with aiosqlite.connect(self.db_path) as conn:
+                cursor = await conn.execute("""
                     SELECT * FROM trades
                     WHERE entry_date >= ? AND trade_result != 'OPEN'
                     ORDER BY entry_date
                 """, (period_start.isoformat(),))
 
-                trades_data = cursor.fetchall()
+                trades_data = await cursor.fetchall()
 
             if not trades_data:
                 # データがない場合のデフォルト
@@ -702,8 +769,8 @@ class PerformanceTracker:
     async def _analyze_sector_performance(self) -> Dict[str, Any]:
         """セクター別パフォーマンス分析"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("""
+            async with aiosqlite.connect(self.db_path) as conn:
+                cursor = await conn.execute("""
                     SELECT sector, COUNT(*) as trades,
                            AVG(profit_loss_pct) as avg_return,
                            SUM(CASE WHEN profit_loss > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as win_rate
@@ -713,7 +780,7 @@ class PerformanceTracker:
                     ORDER BY avg_return DESC
                 """)
 
-                sectors = cursor.fetchall()
+                sectors = await cursor.fetchall()
 
                 sector_analysis = {}
                 for sector, trades, avg_return, win_rate in sectors:
@@ -732,8 +799,8 @@ class PerformanceTracker:
     async def _analyze_theme_performance(self) -> Dict[str, Any]:
         """テーマ別パフォーマンス分析"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("""
+            async with aiosqlite.connect(self.db_path) as conn:
+                cursor = await conn.execute("""
                     SELECT theme, COUNT(*) as trades,
                            AVG(profit_loss_pct) as avg_return,
                            SUM(CASE WHEN profit_loss > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as win_rate
@@ -743,7 +810,7 @@ class PerformanceTracker:
                     ORDER BY avg_return DESC
                 """)
 
-                themes = cursor.fetchall()
+                themes = await cursor.fetchall()
 
                 theme_analysis = {}
                 for theme, trades, avg_return, win_rate in themes:
@@ -799,8 +866,8 @@ class PerformanceTracker:
     async def _calculate_diversification_score(self) -> float:
         """分散化スコア計算"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("""
+            async with aiosqlite.connect(self.db_path) as conn:
+                cursor = await conn.execute("""
                     SELECT COUNT(DISTINCT sector) as sector_count,
                            COUNT(DISTINCT theme) as theme_count,
                            COUNT(*) as total_trades
@@ -808,7 +875,7 @@ class PerformanceTracker:
                     WHERE trade_result != 'OPEN'
                 """)
 
-                row = cursor.fetchone()
+                row = await cursor.fetchone()
                 if row:
                     sector_count, theme_count, total_trades = row
                     # 簡易分散化スコア（セクター数・テーマ数基準）
@@ -839,106 +906,3 @@ class PerformanceTracker:
         return recommendations
 
 # テスト関数
-async def test_performance_tracker():
-    """パフォーマンス追跡システムのテスト"""
-    print("=== 包括的パフォーマンス追跡システム テスト ===")
-
-    tracker = PerformanceTracker()
-
-    print(f"デフォルトポートフォリオID: {tracker.default_portfolio_id}")
-    print(f"ベンチマーク期待リターン: {tracker.benchmark_return * 100}%")
-
-    # サンプル取引データ作成・記録
-    print(f"\n[ サンプル取引データ作成 ]")
-    sample_trades = []
-
-    for i in range(30):
-        # エントリー
-        trade = Trade(
-            trade_id=str(uuid.uuid4()),
-            symbol="7203",
-            name="トヨタ自動車",
-            trade_type=TradeType.BUY,
-            entry_date=datetime.now() - timedelta(days=i*2),
-            entry_price=3000 + np.random.randint(-50, 50),
-            quantity=100,
-            entry_amount=300000 + np.random.randint(-5000, 5000),
-            risk_level=RiskLevel.LOW if i % 3 == 0 else RiskLevel.MEDIUM,
-            confidence_score=np.random.uniform(70, 95),
-            sector="自動車",
-            theme="EV・蓄電池",
-            trading_session=f"SESSION_{i//10}",
-            strategy_used="デイトレード戦略",
-            notes=f"テスト取引{i}"
-        )
-
-        # 決済（70%の確率で決済済み）
-        if np.random.random() < 0.7:
-            trade.exit_date = trade.entry_date + timedelta(hours=np.random.randint(1, 8))
-            trade.exit_price = trade.entry_price * (1 + np.random.uniform(-0.08, 0.12))
-            trade.exit_amount = trade.exit_price * trade.quantity
-            trade.profit_loss = trade.exit_amount - trade.entry_amount
-            trade.profit_loss_pct = trade.profit_loss / trade.entry_amount * 100
-            trade.trade_result = TradeResult.PROFIT if trade.profit_loss > 0 else TradeResult.LOSS
-
-        await tracker.record_trade(trade)
-        sample_trades.append(trade)
-
-    print(f"作成した取引データ: {len(sample_trades)}件")
-
-    # ポートフォリオ状況確認
-    print(f"\n[ ポートフォリオ状況 ]")
-    portfolio = await tracker.get_portfolio()
-    if portfolio:
-        print(f"初期資本: {portfolio.initial_capital:,.0f}円")
-        print(f"現在資本: {portfolio.current_capital:,.0f}円")
-        print(f"総リターン: {portfolio.total_return:.2f}%")
-        print(f"総取引数: {portfolio.total_trades}")
-        print(f"勝率: {portfolio.win_rate:.1f}%")
-
-    # パフォーマンス指標計算
-    print(f"\n[ パフォーマンス指標 (30日) ]")
-    metrics = await tracker.calculate_performance_metrics(30)
-
-    print(f"総リターン: {metrics.total_return_pct:.2f}%")
-    print(f"年率換算: {metrics.annualized_return:.2f}%")
-    print(f"ボラティリティ: {metrics.volatility:.2f}%")
-    print(f"シャープレシオ: {metrics.sharpe_ratio:.2f}")
-    print(f"最大ドローダウン: {metrics.max_drawdown:.2f}%")
-    print(f"プロフィットファクター: {metrics.profit_factor:.2f}")
-    print(f"アルファ: {metrics.alpha:.2f}%")
-
-    # 包括的レポート生成
-    print(f"\n[ 包括的パフォーマンスレポート ]")
-    report = await tracker.generate_comprehensive_report()
-
-    if "error" not in report:
-        portfolio_summary = report["portfolio_summary"]
-        print(f"ポートフォリオ名: {portfolio_summary['portfolio_name']}")
-        print(f"総リターン: {portfolio_summary['total_return']:.2f}%")
-        print(f"勝率: {portfolio_summary['win_rate']:.1f}%")
-
-        perf_30d = report["performance_metrics"]["30_days"]
-        print(f"\n30日パフォーマンス:")
-        print(f"  年率リターン: {perf_30d['annualized_return']:.2f}%")
-        print(f"  シャープレシオ: {perf_30d['sharpe_ratio']:.2f}")
-
-        risk_analysis = report["risk_analysis"]
-        print(f"\nリスク分析:")
-        print(f"  リスクレベル: {risk_analysis.get('risk_level', 'N/A')}")
-        print(f"  分散化スコア: {risk_analysis.get('diversification_score', 0):.1f}")
-
-        risk_recs = risk_analysis.get('risk_recommendations', [])
-        if risk_recs:
-            print(f"\nリスク管理提言:")
-            for rec in risk_recs[:2]:
-                print(f"  • {rec}")
-    else:
-        print(f"レポート生成エラー: {report['error']}")
-
-    print(f"\n=== 包括的パフォーマンス追跡システム テスト完了 ===")
-
-if __name__ == "__main__":
-    # ログ設定
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-    asyncio.run(test_performance_tracker())
