@@ -768,7 +768,7 @@ class MLPredictionModels:
                     performances[task] = performance
 
             except Exception as e:
-                self.logger.error(f"XGBoost training failed for {task.value}: {e}
+                self.logger.error(f"XGBoost training failed for {task.value}: {e}")
 
     async def _train_lightgbm(self, X: pd.DataFrame, targets: Dict[PredictionTask, pd.Series],
                             symbol: str, valid_idx: pd.Index, optimized_params: Optional[Dict[str, Any]] = None) -> Dict[PredictionTask, ModelPerformance]:
@@ -1194,4 +1194,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
     # テスト実行
-    asyncio.run(test_ml_prediction_models()))
+    asyncio.run(test_ml_prediction_models())

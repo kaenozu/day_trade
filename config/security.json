@@ -1,0 +1,19 @@
+{
+  "rate_limits": {
+    "api_requests_per_minute": 60,
+    "login_attempts_per_hour": 5,
+    "data_requests_per_hour": 1000
+  },
+  "detection_rules": {
+    "enable_sql_injection_detection": true,
+    "enable_xss_detection": true,
+    "enable_suspicious_user_agent_detection": true,
+    "enable_geo_blocking": false
+  },
+  "blocked_countries": [],
+  "alert_thresholds": {
+    "critical_events_per_hour": 5,
+    "failed_logins_per_ip": 3,
+    "suspicious_patterns_per_day": 10
+  }
+}
