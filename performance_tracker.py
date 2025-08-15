@@ -285,7 +285,7 @@ class PerformanceTracker:
                 # aiosqliteは同期的なSQLAlchemyエンジンと直接統合できないため、
                 # 少し異なるアプローチが必要。ここでは、aiosqliteの接続を直接使う。
                 # Alembicなどのマイグレーションツールを導入すれば、この部分はよりクリーンになる。
-                
+
                 # ここでは、手動で各テーブルが存在するか確認し、なければ作成する。
                 # これは暫定的な措置であり、イシューの「データベースマイグレーションツール」のタスクで改善予定。
                 for table_name, create_sql in [
@@ -567,7 +567,7 @@ class PerformanceTracker:
         except Exception as e:
             self.logger.error(f"Failed to save portfolio: {e}")
 
-    
+
 
     async def calculate_performance_metrics(self, days_back: int = 30) -> PerformanceMetrics:
         """

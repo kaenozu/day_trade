@@ -25,7 +25,7 @@ class TestIntegrationRetraining(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.test_dir = Path("test_integration_data")
         self.test_dir.mkdir(exist_ok=True)
-        
+
         # 各テストメソッドでユニークなDBファイル名を使用
         test_id = self.id().split('.')[-1] # テストメソッド名を取得
         self.upgrade_db_path = self.test_dir / f"test_upgrade_system_{test_id}.db"
@@ -145,7 +145,7 @@ class TestIntegrationRetraining(unittest.IsolatedAsyncioTestCase):
                     os.remove(db_path)
                 except PermissionError:
                     pass # ファイルが使用中の場合はスキップ
-        
+
         if self.test_dir.exists() and not list(self.test_dir.iterdir()): # ディレクトリが空の場合のみ削除
             os.rmdir(self.test_dir)
 
