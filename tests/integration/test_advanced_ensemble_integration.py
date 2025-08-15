@@ -20,8 +20,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from src.day_trade.testing.base_test import BaseTestCase, TestResult
-from src.day_trade.testing.fixtures import DataFixture, ModelFixture
+from src.day_trade.testing.framework import BaseTestCase, TestResult
+from src.day_trade.testing.fixtures import TestDataManager, MockDataGenerator
 from src.day_trade.ensemble.advanced_ensemble import AdvancedEnsembleSystem, create_and_train_ensemble
 from src.day_trade.ensemble import (
     AdaptiveWeightingEngine, MetaLearnerEngine, EnsembleOptimizer, EnsembleAnalyzer
@@ -42,8 +42,7 @@ class AdvancedEnsembleIntegrationTest(BaseTestCase):
         )
 
         # テストデータ
-        self.data_fixture = DataFixture()
-        self.model_fixture = ModelFixture()
+        self.data_manager = TestDataManager()
 
         # テスト設定
         self.test_config = {
@@ -59,31 +58,18 @@ class AdvancedEnsembleIntegrationTest(BaseTestCase):
         np.random.seed(42)
 
         # テストデータ生成
-        self.train_data, self.test_data = self._generate_test_data()
+        all_features, all_targets = self.data_manager.get_feature_data(
+            samples=self.test_config['n_samples'],
+            features=self.test_config['n_features'],
+            target_type="regression"
+        )
+        
+        # Split data into train and test based on train_ratio
+        split_idx = int(self.test_config['n_samples'] * self.test_config['train_ratio'])
+        self.train_data = (all_features[:split_idx], all_targets[:split_idx])
+        self.test_data = (all_features[split_idx:], all_targets[split_idx:])
+
         logger.info(f"Generated test data: train={self.train_data[0].shape}, test={self.test_data[0].shape}")
-
-    def _generate_test_data(self) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
-        """テストデータ生成"""
-        n_samples = self.test_config['n_samples']
-        n_features = self.test_config['n_features']
-        noise_level = self.test_config['noise_level']
-
-        # 特徴量生成
-        X = np.random.randn(n_samples, n_features)
-
-        # 非線形関係の目標変数生成
-        true_weights = np.random.randn(n_features, 1)
-        interaction_terms = X[:, [0, 1, 2]].prod(axis=1, keepdims=True) * 0.5
-        y = X @ true_weights + interaction_terms + np.random.randn(n_samples, 1) * noise_level
-        y = y.flatten()
-
-        # 訓練・テスト分割
-        split_idx = int(n_samples * self.test_config['train_ratio'])
-
-        train_data = (X[:split_idx], y[:split_idx])
-        test_data = (X[split_idx:], y[split_idx:])
-
-        return train_data, test_data
 
     async def _test_system_initialization(self, results: Dict) -> None:
         """システム初期化テスト"""

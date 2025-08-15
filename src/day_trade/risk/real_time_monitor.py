@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
-from ..data.stock_fetcher_v2 import StockFetcherV2
+from ..data.stock_fetcher_v2 import StockFetcher
 from ..realtime.alert_system import AlertLevel, AlertManager
 
 # プロジェクト内インポート

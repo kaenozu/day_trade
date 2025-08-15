@@ -41,7 +41,7 @@ try:
         SelectionCriteria
     )
     from src.day_trade.ml.ensemble_system import EnsembleSystem, EnsembleConfig
-    from src.day_trade.data_fetcher import DataFetcher
+    from src.day_trade.data.stock_fetcher import StockFetcher # Corrected import
 
 except ImportError as e:
     print(f"統合テスト用インポートエラー: {e}")

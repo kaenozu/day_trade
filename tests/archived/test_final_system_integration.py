@@ -39,6 +39,7 @@ try:
         VolatilityPredictionSystem,
     )
     from src.day_trade.topix.topix500_analysis_system import TOPIX500AnalysisSystem
+    from src.day_trade.data.stock_fetcher_v2 import StockFetcher # Corrected import
 
     # 可視化・アラート (オプション)
     # from src.day_trade.core.alerts import AlertsManager

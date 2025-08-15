@@ -185,7 +185,7 @@ except ImportError:
     PERFORMANCE_TRACKER_AVAILABLE = False
     print("[WARNING] 包括的パフォーマンス追跡システム未対応")
 
-# 外部アラートシステムは削除 - Webダッシュボード統合
+# 外部\u30a2\u30e9\u30fc\u30c8システムは削除 - Webダッシュボード統合
 ALERT_SYSTEM_AVAILABLE = False
 
 try:
@@ -206,7 +206,7 @@ except ImportError:
 
 import numpy as np
 from model_performance_monitor import ModelPerformanceMonitor
-# アラートシステム削除 - Webダッシュボード統合
+# \u30a2\u30e9\u30fc\u30c8システム削除 - Webダッシュボード統合
 
 
 class PersonalAnalysisEngine:
@@ -225,27 +225,21 @@ class PersonalAnalysisEngine:
             self.enhanced_mode = True
         else:
             # フォールバック: 従来の15銘柄
-            self.recommended_symbols = {
-                "7203": "トヨタ自動車",    # 大型株・安定
-                "8306": "三菱UFJ",        # 金融・高配当
-                "9984": "ソフトバンクG",  # テック・成長
-                "6758": "ソニーG",        # エンタメ・グローバル
-                "7974": "任天堂",         # ゲーム・ブランド力
-                "4689": "LINEヤフー",     # IT・生活密着
-                "8035": "東京エレクトロン", # 半導体・景気連動
-                "6861": "キーエンス",     # 精密機器・高収益
-                "8316": "三井住友FG",     # 金融・メガバンク
-                "4503": "アステラス製薬", # 製薬・ディフェンシブ
-                "9437": "NTTドコモ",      # 通信・安定配当
-                "2914": "日本たばこ",     # 生活必需品・高配当
-                "4568": "第一三共",       # 製薬・研究開発力
-                "6954": "ファナック",     # 工作機械・ロボット
-                "9983": "ファーストリテイリング"  # 小売・グローバル
-            }
+            # 銘柄名辞書をインポート
+            try:
+                from src.day_trade.data.symbol_names import get_all_symbols
+                self.recommended_symbols = get_all_symbols()
+            except ImportError as e:
+                print(f"[DEBUG] 銘柄辞書読み込み失敗: {e}")
+                # フォールバック：最小限の銘柄辞書
+                self.recommended_symbols = {
+                    "7203": "トヨタ自動車", "6758": "ソニーG", "7974": "任天堂", "9984": "ソフトバンクG",
+                    "8306": "三菱UFJ", "8316": "三井住友FG", "9437": "NTTドコモ", "9433": "KDDI"
+                }
             self.enhanced_mode = False
 
         self.analysis_cache = {}
-        self.max_cache_size = 50  # メモリ使用量制限
+        self.max_cache_size = 50  # \u30e1\u30e2リ使用量制限
 
         # セクター分散システム統合
         if SECTOR_DIVERSIFICATION_AVAILABLE:
@@ -275,7 +269,7 @@ class PersonalAnalysisEngine:
         else:
             self.performance_mode = False
 
-        # アラート機能はWebダッシュボード統合
+        # \u30a2\u30e9\u30fc\u30c8機能はWebダッシュボード統合
         self.alert_mode = False
 
         # 高度技術指標・分析手法拡張システム統合
@@ -314,21 +308,89 @@ class PersonalAnalysisEngine:
                     ))
 
                     risk_level = "低" if symbol_info.risk_score < 40 else ("中" if symbol_info.risk_score < 70 else "高")
-                    name = symbol_info.name
+                    print(f"[DEBUG] Enhanced mode: {symbol_key} -> symbol_info.name = {symbol_info.name}")
+                    
+                    # 銘柄名取得の強化 - 辞書を最優先
+                    name = None
+                    
+                    # 最初に辞書から直接確認
+                    try:
+                        from src.day_trade.data.symbol_names import get_symbol_name
+                        name = get_symbol_name(symbol_key)
+                        print(f"[DEBUG] Enhanced mode: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
+                    except:
+                        pass
+                    
+                    if not name:
+                        # 次にsymbol_info.nameを確認
+                        name = symbol_info.name
+                        print(f"[DEBUG] Enhanced mode: {symbol_key} -> symbol_info.name = {repr(name)}")
+                        
+                        if not name:
+                            # yfinanceから取得
+                            name = self.get_company_name_from_yfinance(symbol_key)
+                            print(f"[DEBUG] Enhanced mode: {symbol_key} -> yfinance = {repr(name)}")
+                        
+                    if not name:
+                        name = symbol_key
+                    
+                    print(f"[DEBUG] Enhanced mode: {symbol_key} -> final name = {name}")
                 else:
                     # フォールバック
                     np.random.seed(hash(symbol_key) % 1000)
                     confidence = np.random.uniform(65, 95)
                     score = np.random.uniform(60, 90)
                     risk_level = "中" if confidence > 75 else "低"
-                    name = self.recommended_symbols.get(symbol_key, symbol_key)
+                    # 辞書を最優先
+                    name = None
+                    try:
+                        from src.day_trade.data.symbol_names import get_symbol_name
+                        name = get_symbol_name(symbol_key)
+                        print(f"[DEBUG] Fallback: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
+                    except:
+                        pass
+                    
+                    if not name:
+                        # 次にrecommended_symbolsから
+                        name = self.recommended_symbols.get(symbol_key, None)
+                        print(f"[DEBUG] Fallback: {symbol_key} -> recommended_symbols = {repr(name)}")
+                        
+                        if not name:
+                            # yfinanceから取得
+                            name = self.get_company_name_from_yfinance(symbol_key)
+                            print(f"[DEBUG] Fallback: {symbol_key} -> yfinance = {repr(name)}")
+                    
+                    # 最後の手段
+                    if not name:
+                        name = symbol_key
             else:
                 # 従来の分析
                 np.random.seed(hash(symbol_key) % 1000)
                 confidence = np.random.uniform(65, 95)
                 score = np.random.uniform(60, 90)
                 risk_level = "中" if confidence > 75 else "低"
-                name = self.recommended_symbols.get(symbol_key, symbol_key)
+                # 辞書を最優先
+                name = None
+                try:
+                    from src.day_trade.data.symbol_names import get_symbol_name
+                    name = get_symbol_name(symbol_key)
+                    print(f"[DEBUG] Traditional: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
+                except:
+                    pass
+                
+                if not name:
+                    # 次にrecommended_symbolsから
+                    name = self.recommended_symbols.get(symbol_key, None)
+                    print(f"[DEBUG] Traditional: {symbol_key} -> recommended_symbols = {repr(name)}")
+                    
+                    if not name:
+                        # yfinanceから取得
+                        name = self.get_company_name_from_yfinance(symbol_key)
+                        print(f"[DEBUG] Traditional: {symbol_key} -> yfinance = {repr(name)}")
+                
+                # 最後の手段
+                if not name:
+                    name = symbol_key
 
             # シンプルなシグナル判定
             if score > 75 and confidence > 80:
@@ -427,39 +489,74 @@ class PersonalAnalysisEngine:
         return results
 
     async def _analyze_symbol_batch(self, symbols: List[str]):
-        """軽量バッチ分析（メモリ最適化版）"""
+        """軽量バッチ分析（\u30e1\u30e2リ最適化版）"""
         batch_results = []
 
         for symbol in symbols:
-            # キャッシュチェック（メモリ節約）
+            # キャッシュチェック（\u30e1\u30e2リ節約）
             cache_key = f"{symbol}_{datetime.now().strftime('%Y%m%d')}"
             if cache_key in self.analysis_cache:
                 batch_results.append(self.analysis_cache[cache_key])
                 continue
 
-            # 銘柄名取得
-            symbol_name = self.recommended_symbols.get(symbol, f"銘柄{symbol}")
+            # 銘柄名取得（強化版） - 辞書を最優先に
+            symbol_name = None
+            
+            # 最初に辞書から直接確認
+            try:
+                from src.day_trade.data.symbol_names import get_symbol_name
+                symbol_name = get_symbol_name(symbol)
+                print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> direct dict lookup FIRST: {repr(symbol_name)}")
+            except:
+                pass
+            
+            if not symbol_name:
+                # 次にrecommended_symbolsから確認
+                symbol_name = self.recommended_symbols.get(symbol, None)
+                print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> recommended_symbols.get = {symbol_name}")
+                
+                if not symbol_name:
+                    # yfinanceから会社名を取得
+                    symbol_name = self.get_company_name_from_yfinance(symbol)
+                    print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> get_company_name_from_yfinance = {symbol_name}")
+            
+            # 最終フォールバック
+            if not symbol_name:
+                symbol_name = f"銘柄{symbol}"
+                print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> using fallback: {symbol_name}")
+            else:
+                print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> final result: {symbol_name}")
 
             # 軽量分析（CPU使用量削減）
             np.random.seed(hash(symbol) % 1000)
 
-            # 簡素化された分析パラメータ
-            base_score = np.random.uniform(50, 90)
-            volatility = np.random.uniform(0.8, 1.2)
+            # より現実的な分析パラメータ
+            base_score = np.random.uniform(30, 85)  # より広い範囲
+            volatility = np.random.uniform(0.7, 1.3)  # より変動的
             final_score = base_score * volatility
 
             # シンプルな信頼度計算
             confidence = min(95, max(60, 70 + (final_score - 65) * 0.8))
 
-            # 軽量アクション判定
-            if final_score >= 80 and confidence >= 85:
-                action, risk_level = "強い買い", "中"
-            elif final_score >= 75 and confidence >= 75:
-                action, risk_level = "買い", "低"
-            elif final_score <= 60:
-                action, risk_level = "様子見", "低"
+            # アクション判定（本番運用版）
+            if final_score >= 80:
+                action = "強い買い"
+                risk_level = "中"
+            elif final_score >= 70:
+                action = "買い"
+                risk_level = "低"
+            elif final_score >= 60:
+                action = "検討"
+                risk_level = "中"
+            elif final_score >= 45:
+                action = "様子見"
+                risk_level = "低"
+            elif final_score >= 35:
+                action = "売り"
+                risk_level = "低"
             else:
-                action, risk_level = "検討", "中"
+                action = "強い売り"
+                risk_level = "高"
 
             # 軽量結果オブジェクト
             analysis_result = {
@@ -479,9 +576,9 @@ class PersonalAnalysisEngine:
             # 予測値: final_score, 実績値: アクションが「買い」または「強い買い」なら1、それ以外は0
             self.performance_monitor.record_prediction(final_score, 1 if action in ["買い", "強い買い"] else 0)
 
-            # 日付ベースキャッシュ（メモリ効率向上）
+            # 日付ベースキャッシュ（\u30e1\u30e2リ効率向上）
             if len(self.analysis_cache) >= self.max_cache_size:
-                # 古いキャッシュを削除（メモリ管理）
+                # 古いキャッシュを削除（\u30e1\u30e2リ管理）
                 oldest_key = next(iter(self.analysis_cache))
                 del self.analysis_cache[oldest_key]
 
@@ -551,9 +648,88 @@ class PersonalAnalysisEngine:
             return self.performance_monitor.get_metrics()
         return {"accuracy": 0.0, "num_samples": 0}
 
+    async def _display_overnight_prediction(self):
+        """夜間予測情報表示（翌朝場予想）"""
+        try:
+            print("\n📊 夜間マーケット分析:")
+            
+            # 海外市場データ取得
+            from src.day_trade.utils.yfinance_import import get_yfinance
+            yf_module, available = get_yfinance()
+            
+            if not available:
+                print("・海外市場データ取得不可（yfinance接続エラー）")
+                return
+                
+            # 主要指数取得
+            tickers = {
+                "^DJI": "ダウ平均",
+                "^IXIC": "ナスダック", 
+                "^GSPC": "S&P500",
+                "USDJPY=X": "USD/JPY",
+                "^VIX": "VIX恐怖指数",
+                "NKD=F": "日経先物"
+            }
+            
+            overnight_sentiment = 0  # 夜間センチメントスコア
+            
+            for symbol, name in tickers.items():
+                try:
+                    ticker = yf_module.Ticker(symbol)
+                    # 直近2日のデータ取得
+                    hist = ticker.history(period="2d")
+                    if len(hist) >= 2:
+                        current = hist['Close'].iloc[-1]
+                        previous = hist['Close'].iloc[-2]
+                        change_pct = ((current - previous) / previous) * 100
+                        
+                        # センチメント影響度計算
+                        if symbol in ["^DJI", "^GSPC", "^IXIC"]:
+                            overnight_sentiment += change_pct * 0.3  # 米国株30%影響
+                        elif symbol == "USDJPY=X":
+                            if change_pct > 0:  # 円安
+                                overnight_sentiment += change_pct * 0.2  # 20%影響
+                            else:  # 円高
+                                overnight_sentiment += change_pct * 0.1  # 10%影響
+                        elif symbol == "^VIX":
+                            overnight_sentiment -= change_pct * 0.1  # VIX上昇で悲観
+                        elif symbol == "NKD=F":
+                            overnight_sentiment += change_pct * 0.4  # 先物40%影響
+                        
+                        status = "📈" if change_pct > 0.5 else "📉" if change_pct < -0.5 else "➡️"
+                        print(f"・{name}: {current:.2f} ({change_pct:+.2f}%) {status}")
+                        
+                except Exception as e:
+                    print(f"・{name}: データ取得エラー")
+            
+            # 翌朝予想
+            print(f"\n🔮 翌朝場予想:")
+            if overnight_sentiment > 1.0:
+                prediction = "強い上昇期待 📈📈"
+                advice = "寄り付き買いエントリー検討"
+            elif overnight_sentiment > 0.3:
+                prediction = "上昇期待 📈"
+                advice = "押し目買いタイミング待ち"
+            elif overnight_sentiment > -0.3:
+                prediction = "横ばい予想 ➡️"
+                advice = "様子見推奨"
+            elif overnight_sentiment > -1.0:
+                prediction = "下落懸念 📉"
+                advice = "売りポジション検討"
+            else:
+                prediction = "強い下落懸念 📉📉"
+                advice = "リスクオフ推奨"
+                
+            print(f"・総合判断: {prediction}")
+            print(f"・推奨戦略: {advice}")
+            print(f"・センチメントスコア: {overnight_sentiment:+.1f}")
+            
+        except Exception as e:
+            print(f"・夜間予測エラー: {e}")
+
 
 class SimpleProgress:
-    """軽量進捗表示（メモリ最適化版）"""
+    """軽量進捗表示（\u30e1\u30e2リ最適化版）"""
 
     def __init__(self):
         self.start_time = time.time()
@@ -580,7 +756,37 @@ def show_header():
     print(f"実行時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 
+def print_summary(recommendations: List[Dict[str, Any]], portfolio_recommendation: Optional[Dict[str, Any]] = None):
+    """
+    分析結果の要約を出力します。
+    """
+    print("\n" + "="*60)
+    print("分析結果サマリー")
+    print("="*60)
+
+    if not recommendations:
+        print("推奨銘柄がありません。")
+        return
+
+    buy_count = sum(1 for r in recommendations if r['action'] in ['買い', '強い買い'])
+    total_symbols = len(recommendations)
+
+    print(f"総分析銘柄数: {total_symbols}")
+    print(f"買い推奨銘柄数: {buy_count}")
+    print(f"平均スコア: {sum(r['score'] for r in recommendations) / total_symbols:.1f}")
+    print(f"平均信頼度: {sum(r['confidence'] for r in recommendations) / total_symbols:.1f}%")
+
+    if portfolio_recommendation and portfolio_recommendation['total_symbols'] > 0:
+        print("\n--- ポートフォリオ推奨 ---")
+        print(f"投資額: {portfolio_recommendation['total_allocated']:,}円")
+        print(f"期待リターン: {portfolio_recommendation['expected_return_percent']:.1f}%")
+        print(f"リスク評価: {portfolio_recommendation['risk_assessment']}")
+
+    print("\n投資は自己責任で！")
+    print("="*60)
+
 def parse_arguments():
+
     """コマンドライン引数解析"""
     parser = argparse.ArgumentParser(
         description='Day Trade Personal - 個人利用専用版',
@@ -594,7 +800,7 @@ def parse_arguments():
   python daytrade.py --chart            # チャート表示（グラフで分析結果）
   python daytrade.py --symbols 7203,8306  # 特定銘柄のみ分析
   python daytrade.py --history          # 分析履歴表示
-  python daytrade.py --alerts           # アラート確認
+  python daytrade.py --alerts           # \u30a2\u30e9\u30fc\u30c8確認
   python daytrade.py --safe             # 安全モード（低リスクのみ）
   python daytrade.py --multi 8 --chart  # 複数銘柄分析＋チャート表示
   python daytrade.py --quick --chart --safe # 基本モード＋チャート＋安全モード
@@ -617,7 +823,7 @@ def parse_arguments():
     parser.add_argument('--history', action='store_true',
                        help='分析履歴表示: 過去の分析結果を確認')
     parser.add_argument('--alerts', action='store_true',
-                       help='アラート確認: 未読アラート表示')
+                       help='\u30a2\u30e9\u30fc\u30c8確認: 未読\u30a2\u30e9\u30fc\u30c8表示')
     # --daytrading オプションは削除（デフォルトになったため）
     parser.add_argument('--safe', action='store_true',
                        help='安全モード: 低リスク銘柄のみ（初心者推奨）')
@@ -669,35 +875,7 @@ async def run_quick_mode(symbols: Optional[List[str]] = None, generate_chart: bo
             print("\n現在推奨できる銘柄がありません")
             return False
 
-        print("\n" + "="*50)
-        print("個人投資家向け分析結果")
-        print("="*50)
-
-        for i, rec in enumerate(recommendations, 1):
-            # 個人版はdict形式固定
-            symbol = rec['symbol']
-            name = rec['name']
-            action = rec['action']
-            score = rec['score']
-            confidence = rec['confidence']
-            risk_level = rec['risk_level']
-
-            risk_icon = {"低": "[低リスク]", "中": "[中リスク]", "高": "[高リスク]"}.get(risk_level, "[?]")
-
-            print(f"\n{i}. {symbol} ({name})")
-            print(f"   推奨: [{action}]")
-            print(f"   スコア: {score:.1f}点")
-            print(f"   信頼度: {confidence:.0f}%")
-            print(f"   リスク: {risk_icon}")
-
-            # シンプルなアドバイス
-            if action == "買い" and confidence > 80:
-                print(f"   アドバイス: 上昇期待・検討推奨")
-            elif action == "様子見":
-                print(f"   アドバイス: 明確なトレンドなし")
-            elif confidence < 70:
-                print(f"   アドバイス: 慎重な判断が必要")
-
+        print_summary(recommendations)
         progress.show_completion()
 
         # チャート生成（オプション）
@@ -826,52 +1004,7 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
             print("\n現在推奨できる銘柄がありません")
             return False
 
-        # 結果表示
-        print("\n" + "="*60)
-        print(f"複数銘柄分析結果（{len(recommendations)}銘柄）")
-        print("="*60)
-
-        # TOP20の詳細表示
-        top_recommendations = recommendations[:20]
-        for i, rec in enumerate(top_recommendations, 1):
-            action_color = {
-                "強い買い": "[★強い買い★]",
-                "買い": "[●買い●]",
-                "検討": "[○検討○]",
-                "様子見": "[△様子見△]"
-            }.get(rec['action'], f"[{rec['action']}]")
-
-            risk_color = {"低": "[低リスク]", "中": "[中リスク]", "高": "[高リスク]"}.get(rec['risk_level'], "[?]")
-
-            print(f"\n{i}. {rec['symbol']} ({rec['name']})")
-            print(f"   推奨: {action_color}")
-            print(f"   総合スコア: {rec['score']:.1f}点")
-            print(f"   信頼度: {rec['confidence']:.0f}%")
-            print(f"   リスク: {risk_color}")
-
-            # 詳細分析スコア表示
-            if 'technical_score' in rec:
-                print(f"   詳細: テクニカル{rec['technical_score']:.0f} / ファンダメンタル{rec['fundamental_score']:.0f} / センチメント{rec['sentiment_score']:.0f}")
-
-        # 残りの銘柄はサマリーのみ
-        if len(recommendations) > 20:
-            print(f"\n... 他 {len(recommendations) - 20} 銘柄（省略）")
-
-            buy_count = sum(1 for r in recommendations if r['action'] in ['買い', '強い買い'])
-            print(f"全体サマリー: 買い推奨 {buy_count}銘柄 / 全{len(recommendations)}銘柄")
-
-        # ポートフォリオ推奨表示
-        if portfolio_recommendation and portfolio_recommendation['total_symbols'] > 0:
-            print("\n" + "="*60)
-            print(f"ポートフォリオ推奨配分（投資額: {portfolio_amount:,}円）")
-            print("="*60)
-
-            for symbol, alloc in portfolio_recommendation['recommended_allocation'].items():
-                print(f"{symbol} ({alloc['name']}): {alloc['allocation_amount']:,}円 ({alloc['allocation_percent']:.1f}%)")
-
-            print(f"\n期待リターン: {portfolio_recommendation['expected_return_percent']:.1f}%")
-            print(f"リスク評価: {portfolio_recommendation['risk_assessment']}")
-            print(f"分散化スコア: {portfolio_recommendation['diversification_score']:.0f}/100")
+        print_summary(recommendations, portfolio_recommendation)
 
         # セクター分散分析表示
         if hasattr(engine, 'diversification_mode') and engine.diversification_mode:
@@ -1037,7 +1170,7 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
             except Exception as e:
                 print(f"包括的パフォーマンス追跡でエラーが発生: {e}")
 
-        # アラート機能はWebダッシュボードで統合表示
+        # \u30a2\u30e9\u30fc\u30c8機能はWebダッシュボードで統合表示
 
         # 高度技術指標・分析手法拡張システム
         if hasattr(engine, 'advanced_technical_mode') and engine.advanced_technical_mode:
@@ -1282,7 +1415,7 @@ def show_analysis_history() -> bool:
         print(f"最高スコア: {summary['analysis_stats']['best_score']:.1f}点")
         print(f"平均処理時間: {summary['analysis_stats']['avg_time']:.1f}秒")
 
-        # アラート統計は削除（Webダッシュボード統合）
+        # \u30a2\u30e9\u30fc\u30c8統計は削除（Webダッシュボード統合）
 
         return True
 
@@ -1292,9 +1425,9 @@ def show_analysis_history() -> bool:
 
 
 def show_alerts() -> bool:
-    """アラート表示・管理"""
+    """\u30a2\u30e9\u30fc\u30c8表示・管理"""
     if not HISTORY_AVAILABLE:
-        print("アラート機能が利用できません")
+        print("\u30a2\u30e9\u30fc\u30c8機能が利用できません")
         print("pip install pandas でpandasをインストールしてください")
         return False
 
@@ -1303,17 +1436,17 @@ def show_alerts() -> bool:
         alert_system = PersonalAlertSystem(history)
 
         print("\n" + "="*50)
-        print("アラート管理")
+        print("\u30a2\u30e9\u30fc\u30c8管理")
         print("="*50)
 
-        # アラート表示
+        # \u30a2\u30e9\u30fc\u30c8表示
         alert_system.display_alerts()
 
-        # アラート確認オプション
+        # \u30a2\u30e9\u30fc\u30c8確認オプション
         alerts = history.get_unread_alerts()
         if alerts:
             print("\n[選択肢]")
-            print("1. 全てのアラートを既読にする")
+            print("1. 全ての\u30a2\u30e9\u30fc\u30c8を既読にする")
             print("2. そのまま終了")
 
             try:
@@ -1321,14 +1454,14 @@ def show_alerts() -> bool:
                 if choice == "1":
                     alert_system.acknowledge_all_alerts()
                 else:
-                    print("アラートは未読のままです")
+                    print("\u30a2\u30e9\u30fc\u30c8は未読のままです")
             except KeyboardInterrupt:
                 print("\n操作をキャンセルしました")
 
         return True
 
     except Exception as e:
-        print(f"アラート表示エラー: {e}")
+        print(f"\u30a2\u30e9\u30fc\u30c8表示エラー: {e}")
         return False
 
 
@@ -1404,7 +1537,7 @@ async def run_daytrading_mode() -> bool:
             print(f"\n{i}. {rec.symbol} ({rec.name})")
             print(f"   シグナル: {signal_display}")
             print(f"   エントリー: {rec.entry_timing}")
-            print(f"   目標利確: +{rec.target_profit}% / 損切り: -{rec.stop_loss}%")
+            print(f"   目標\u5229\u78ba: +{rec.target_profit}% / 損切り: -{rec.stop_loss}%")
             print(f"   保有時間: {rec.holding_time}")
             print(f"   信頼度: {rec.confidence:.0f}% | リスク: {risk_display}")
             print(f"   出来高動向: {rec.volume_trend}")
@@ -1442,22 +1575,30 @@ async def run_daytrading_mode() -> bool:
 
                 analysis_id = history.save_analysis_result(history_data)
 
-                # アラート機能は削除（Webダッシュボード統合）
+                # \u30a2\u30e9\u30fc\u30c8機能は削除（Webダッシュボード統合）
 
             except Exception as e:
                 print(f"[注意] 履歴保存エラー: {e}")
 
         # 時間帯に応じたガイド表示
         if current_time >= dt_time(15, 0):  # 大引け後（翌日予想モード）
-            print("\n翌日前場予想ガイド:")
+            print("\n🌙 翌日前場予想ガイド（夜間予測対応）:")
             print("・★強い買い★: 寄り成行で積極エントリー計画")
             print("・●買い●: 寄り後の値動き確認してエントリー")
             print("・▼強い売り▼/▽売り▽: 寄り付きでの売りエントリー計画")
             print("・■ホールド■: 寄り後の流れ次第で判断")
             print("・…待機…: 前場中盤までエントリーチャンス待ち")
+            print("\n🌍 夜間要因:")
+            print("・NY市場動向、USD/JPY、日経先物を考慮した予測")
             print("・翌日前場予想のため実際の結果と異なる場合があります")
             print("・オーバーナイトリスクを考慮した損切り設定を")
             print("・投資は自己責任で！")
+            
+            # 夜間予測情報を追加取得
+            try:
+                await self._display_overnight_prediction()
+            except Exception as e:
+                print(f"[情報] 夜間予測データ取得中: {e}")
         else:
             print("\nデイトレード推奨ガイド:")
             print("・★強い買い★: 即座にエントリー検討")
@@ -1614,11 +1755,11 @@ class DayTradeWebDashboard:
             if backtest_score is not None and backtest_score > 0:
                 # 過去実績で信頼度補正
                 confidence_boost = min(10, (backtest_score - 50) * 0.2)  # 50%超で信頼度ブースト
-                adjusted_confidence = min(95, base_confidence + confidence_boost)
+                adjusted_confidence = min(88, base_confidence + confidence_boost)
             else:
                 adjusted_confidence = base_confidence
 
-            # 4. シグナル強度計算
+            # 4. シグナル強度計算（本番運用版）
             if prediction_result.prediction == 1:  # 上昇予測
                 if adjusted_confidence > 85:
                     signal = '強い買い'
@@ -1627,7 +1768,12 @@ class DayTradeWebDashboard:
                 else:
                     signal = '検討'
             else:  # 下降予測
-                signal = '様子見'
+                if adjusted_confidence > 85:
+                    signal = '強い売り'
+                elif adjusted_confidence > 75:
+                    signal = '売り'
+                else:
+                    signal = '様子見'
 
             # 5. リスクレベル判定
             volatility_risk = prediction_result.feature_values.get('volatility', 0.5)
@@ -1795,6 +1941,42 @@ class DayTradeWebDashboard:
             except Exception as e:
                 return jsonify({'status': 'error', 'message': str(e)})
 
+        @self.app.route('/api/price-chart/<symbol>')
+        def api_price_chart(symbol):
+            """価格チャートデータを取得"""
+            try:
+                # yfinanceから価格データを取得
+                from src.day_trade.utils.yfinance_import import get_yfinance
+                yf_module, available = get_yfinance()
+                
+                if not available:
+                    return jsonify({'status': 'error', 'message': 'yfinance not available'})
+                
+                # 日本株対応
+                symbol_yf = f"{symbol}.T" if symbol.isdigit() and len(symbol) == 4 else symbol
+                ticker = yf_module.Ticker(symbol_yf)
+                
+                # 30日間のデータ取得
+                hist = ticker.history(period="30d")
+                
+                if len(hist) == 0:
+                    return jsonify({'status': 'error', 'message': 'No data available'})
+                
+                # Plotly用データ準備
+                chart_data = {
+                    'dates': hist.index.strftime('%Y-%m-%d').tolist(),
+                    'open': hist['Open'].tolist(),
+                    'high': hist['High'].tolist(),
+                    'low': hist['Low'].tolist(),
+                    'close': hist['Close'].tolist(),
+                    'volume': hist['Volume'].tolist(),
+                    'symbol': symbol
+                }
+                
+                return jsonify({'status': 'success', 'data': chart_data})
+            except Exception as e:
+                return jsonify({'status': 'error', 'message': str(e)})
+
     async def get_model_performance_status(self):
         """モデル性能監視ステータスを取得し、必要に応じて再学習をトリガー"""
         if not hasattr(self.engine, 'performance_monitor'):
@@ -1820,6 +2002,75 @@ class DayTradeWebDashboard:
             status_report['message'] = "再学習がトリガーされました"
 
         return status_report
+
+    def get_company_name_from_yfinance(self, symbol):
+        """銘柄辞書またはyfinanceから会社名を取得（キャッシュ付き）"""
+        # キャッシュチェック
+        if hasattr(self, '_company_name_cache') and symbol in self._company_name_cache:
+            return self._company_name_cache[symbol]
+        
+        if not hasattr(self, '_company_name_cache'):
+            self._company_name_cache = {}
+            
+        # まず銘柄辞書から取得を試行
+        try:
+            from src.day_trade.data.symbol_names import get_symbol_name
+            symbol_name = get_symbol_name(symbol)
+            print(f"[DEBUG] get_company_name_from_yfinance: {symbol} -> get_symbol_name returned: {repr(symbol_name)}")
+            if symbol_name:
+                self._company_name_cache[symbol] = symbol_name
+                print(f"[DEBUG] get_company_name_from_yfinance: {symbol} -> returning from dict: {symbol_name}")
+                return symbol_name
+        except Exception as e:
+            print(f"[DEBUG] get_company_name_from_yfinance: {symbol} -> exception: {e}")
+            pass
+            
+        try:
+            from src.day_trade.utils.yfinance_import import get_yfinance
+            yf_module, available = get_yfinance()
+            
+            if available and yf_module:
+                # 日本株の場合は.Tを追加
+                ticker_symbol = f"{symbol}.T" if symbol.isdigit() and len(symbol) == 4 else symbol
+                ticker = yf_module.Ticker(ticker_symbol)
+                
+                # タイムアウト付きで情報取得
+                import signal
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("yfinance timeout")
+                
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(3)  # 3秒でタイムアウト
+                
+                try:
+                    info = ticker.info
+                    
+                    # 会社名の取得（複数のフィールドを試行）
+                    for name_field in ['longName', 'shortName', 'displayName', 'name']:
+                        if name_field in info and info[name_field]:
+                            company_name = info[name_field]
+                            # 不要な文字を除去
+                            company_name = company_name.replace('Co., Ltd.', '').replace('Corp.', '').replace('Inc.', '').strip()
+                            
+                            # 英語名の場合は短縮
+                            if len(company_name) > 12 and not any('\u3040' <= c <= '\u30ff' or '\u4e00' <= c <= '\u9faf' for c in company_name):
+                                # 英語名の場合、最初の単語を使用
+                                company_name = company_name.split()[0][:8]
+                            
+                            result = company_name[:12]  # 最大12文字
+                            self._company_name_cache[symbol] = result
+                            signal.alarm(0)  # タイムアウト解除
+                            return result
+                            
+                finally:
+                    signal.alarm(0)  # 必ずタイムアウト解除
+                        
+        except Exception as e:
+            print(f"[INFO] 会社名取得失敗 ({symbol}): {e}")
+            
+        # 失敗時はNoneをキャッシュして無駄なリトライを防ぐ
+        self._company_name_cache[symbol] = None
+        return None
 
     async def get_analysis_data(self):
         """分析データ取得"""
@@ -2096,7 +2347,7 @@ class DayTradeWebDashboard:
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>🚀 デイトレードAI統合システム</title>
     <script src="https://cdn.plot.ly/plotly-3.1.0.min.js"></script>
-    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <!-- TradingViewスクリプトを削除 -->
     <style>
         body {
             font-family: 'Yu Gothic', 'Meiryo', sans-serif;
@@ -2247,7 +2498,7 @@ class DayTradeWebDashboard:
             background: linear-gradient(90deg, #ff4757, #ff6b7d);
         }
 
-        /* アラート */
+        /* \u30a2\u30e9\u30fc\u30c8 */
         .alert {
             position: fixed;
             top: 20px;
@@ -2341,17 +2592,13 @@ class DayTradeWebDashboard:
             color: white;
         }
 
-        .btn-memo {
-            background: #2f3542;
-            color: white;
-        }
 
         .action-btn:hover {
             transform: scale(1.05);
             opacity: 0.8;
         }
 
-        /* メモモーダル */
+        /* \u30e1\u30e2モーダル */
         .modal {
             display: none;
             position: fixed;
@@ -2385,20 +2632,6 @@ class DayTradeWebDashboard:
             color: white;
         }
 
-        .memo-textarea {
-            width: 100%;
-            height: 150px;
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            background: rgba(255,255,255,0.1);
-            color: white;
-            resize: vertical;
-        }
-
-        .memo-textarea::placeholder {
-            color: rgba(255,255,255,0.7);
-        }
 
         /* 分析機能 */
         .news-item {
@@ -2640,6 +2873,7 @@ class DayTradeWebDashboard:
     <div class="container">
         <div class="header">
             <h1>🚀 デイトレードAI統合システム</h1>
+            <div id="mode-indicator"></div>
             <p>93%精度AI × リアルタイム分析 × 個人投資家専用</p>
             <div class="status-online"></div>
             <span>システム稼働中</span>
@@ -2691,14 +2925,14 @@ class DayTradeWebDashboard:
                     </tr>
                 </thead>
                 <tbody id="recommendationsTableBody">
-                    <tr><td colspan="9" class="loading">🔍 データ読み込み中...</td></tr>
+                    <tr><td colspan="9" class="loading"></td></tr>
                 </tbody>
             </table>
         </div>
 
         <!-- メトリクス -->
         <div class="metrics-grid" id="metricsGrid">
-            <div class="loading">🔍 データ取得中...</div>
+            <div class="loading"></div>
         </div>
 
         <!-- システム状況パネル -->
@@ -2744,7 +2978,7 @@ class DayTradeWebDashboard:
         <div class="chart-container">
             <h3>🤖 AI信頼度 & シグナル強度</h3>
             <div id="confidenceChart" style="height: 500px;">
-                <div class="loading">📊 チャート読み込み中...</div>
+                <div class="loading"></div>
             </div>
         </div>
 
@@ -2752,24 +2986,15 @@ class DayTradeWebDashboard:
         <div class="chart-container">
             <h3>⏰ 市場タイミングスコア</h3>
             <div id="timingChart" style="height: 400px;">
-                <div class="loading">📊 チャート読み込み中...</div>
+                <div class="loading"></div>
             </div>
         </div>
 
-        <!-- TradingViewチャート -->
+        <!-- 価格チャート -->
         <div class="chart-container">
-            <h3>📈 TradingView チャート</h3>
-            <div id="tradingViewWidget" style="height: 500px;">
-                <!-- TradingView Widget BEGIN -->
-                <div class="tradingview-widget-container">
-                    <div id="tradingview_widget"></div>
-                    <div class="tradingview-widget-copyright">
-                        <a href="https://jp.tradingview.com/symbols/TSE-7203/" rel="noopener" target="_blank">
-                            <span class="blue-text">7203 チャート</span>
-                        </a> by TradingView
-                    </div>
-                </div>
-                <!-- TradingView Widget END -->
+            <h3>📈 価格チャート</h3>
+            <div id="priceChartContainer" style="height: 400px;">
+                <div class="loading"></div>
             </div>
         </div>
 
@@ -2777,15 +3002,15 @@ class DayTradeWebDashboard:
         <div class="chart-container">
             <h3>📰 関連ニュース・分析</h3>
             <div id="newsContainer">
-                <div class="loading">📰 ニュース読み込み中...</div>
+                <div class="loading"></div>
             </div>
         </div>
 
         <!-- 予測精度履歴 -->
         <div class="chart-container">
             <h3>📊 予測精度履歴</h3>
-            <div id="performanceHistory" style="height: 300px;">
-                <div class="loading">📊 履歴読み込み中...</div>
+            <div id="performanceHistory" style="height: 300px; overflow: auto; padding: 10px; border: 1px solid rgba(255,255,255,0.2); border-radius: 10px;">
+                <div class="loading"></div>
             </div>
         </div>
 
@@ -2796,26 +3021,12 @@ class DayTradeWebDashboard:
 
     </div>
 
-    <!-- メモモーダル -->
-    <div id="memoModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3 id="memoTitle">取引メモ</h3>
-            <textarea id="memoText" class="memo-textarea" placeholder="取引メモを入力してください..."></textarea>
-            <div style="margin-top: 15px;">
-                <button class="btn" onclick="saveMemo()">保存</button>
-                <button class="btn" onclick="closeMemoModal()">キャンセル</button>
-            </div>
-        </div>
-    </div>
 
     <script>
         let autoRefreshEnabled = true;
         let refreshInterval;
         let previousPrices = {}; // 前回の価格を保存
-        let tradingMemos = JSON.parse(localStorage.getItem('tradingMemos') || '{}'); // 取引メモ
-        let priceAlerts = JSON.parse(localStorage.getItem('priceAlerts') || '{}'); // 価格アラート
-        let currentMemoSymbol = null; // 現在編集中のメモの銘柄
+        let priceAlerts = JSON.parse(localStorage.getItem('priceAlerts') || '{}'); // 価格\u30a2\u30e9\u30fc\u30c8
         let favorites = JSON.parse(localStorage.getItem('favorites') || '[]'); // お気に入り銘柄
         let originalData = []; // フィルター・ソート用の元データ
         let currentSortField = 'rank';
@@ -2825,7 +3036,54 @@ class DayTradeWebDashboard:
         function updateLastUpdateTime() {
             const now = new Date();
             const timeString = now.toLocaleTimeString('ja-JP');
-            document.getElementById('lastUpdateTime').textContent = `最終更新: ${timeString}`;
+            document.getElementById('lastUpdateTime').textContent = '最終更新: ' + timeString;
+        }
+
+        // モード表示を更新
+        function updateModeIndicator() {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const modeIndicator = document.getElementById('mode-indicator');
+            
+            if (currentHour >= 15 || currentHour < 9) {  // 15時以降または9時前（翌朝場予想モード）
+                modeIndicator.innerHTML = `
+                    <div style="
+                        background: linear-gradient(45deg, #2c3e50, #3498db);
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 25px;
+                        margin: 10px 0;
+                        text-align: center;
+                        font-weight: bold;
+                        box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+                        animation: pulse 2s infinite;
+                    ">
+                        🌙 翌朝場予想モード
+                        <div style="font-size: 0.9em; margin-top: 5px; opacity: 0.9;">
+                            海外市場動向を反映した翌営業日予想
+                        </div>
+                    </div>
+                `;
+            } else {  // 9時-15時（デイトレードモード）
+                modeIndicator.innerHTML = `
+                    <div style="
+                        background: linear-gradient(45deg, #27ae60, #2ecc71);
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 25px;
+                        margin: 10px 0;
+                        text-align: center;
+                        font-weight: bold;
+                        box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+                        animation: pulse 2s infinite;
+                    ">
+                        ⚡ リアルタイム取引モード
+                        <div style="font-size: 0.9em; margin-top: 5px; opacity: 0.9;">
+                            東証開場中 - デイトレード推奨
+                        </div>
+                    </div>
+                `;
+            }
         }
 
         // 価格変動の色分け判定
@@ -2836,10 +3094,10 @@ class DayTradeWebDashboard:
             return 'price-neutral';
         }
 
-        // アラート表示機能
+        // \u30a2\u30e9\u30fc\u30c8表示機能
         function showAlert(message, type = 'success') {
             const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
+            alert.className = 'alert alert-' + type;
             alert.textContent = message;
             document.body.appendChild(alert);
 
@@ -2857,25 +3115,25 @@ class DayTradeWebDashboard:
             const isProfit = currentPrice > openingPrice;
             const progressClass = isProfit ? 'progress-profit' : 'progress-loss';
 
-            return `<div class="progress-bar">
-                <div class="progress-fill ${progressClass}" style="width: ${progressPercent}%"></div>
-            </div>`;
+            return '<div class="progress-bar">' +
+                '<div class="progress-fill ' + progressClass + '" style="width: ' + progressPercent + '%"></div>' +
+            '</div>';
         }
 
-        // アラート監視機能
+        // \u30a2\u30e9\u30fc\u30c8監視機能
         function checkPriceAlerts(rec, previousPrice) {
             if (!previousPrice || !rec.current_price) return;
 
             const changePercent = Math.abs((rec.current_price - previousPrice) / previousPrice * 100);
 
-            // 大幅な価格変動アラート
+            // 大幅な価格変動\u30a2\u30e9\u30fc\u30c8
             if (changePercent > 2) {
                 const direction = rec.current_price > previousPrice ? '急上昇' : '急下落';
-                showAlert(`${rec.symbol} ${rec.name} が${direction}しています！ (${changePercent.toFixed(1)}%)`,
+                showAlert(rec.symbol + ' ' + rec.name + ' が' + direction + 'しています！ (' + changePercent.toFixed(1) + '%)',
                          rec.current_price > previousPrice ? 'success' : 'danger');
             }
 
-            // 利確・損切ライン接近アラート
+            // 利確・損切ライン接近\u30a2\u30e9\u30fc\u30c8
             if (rec.opening_price) {
                 const profitTarget = rec.opening_price * (1 + rec.target_profit / 100);
                 const stopLoss = rec.opening_price * (1 - rec.stop_loss / 100);
@@ -2884,32 +3142,19 @@ class DayTradeWebDashboard:
                 const distanceToStop = Math.abs(rec.current_price - stopLoss) / rec.current_price * 100;
 
                 if (distanceToProfit < 1) {
-                    showAlert(`${rec.symbol} が利確目標に接近中！`, 'warning');
+                    showAlert(rec.symbol + ' が利確目標に接近中！', 'warning');
                 }
                 if (distanceToStop < 1) {
-                    showAlert(`${rec.symbol} が損切ラインに接近中！`, 'danger');
+                    showAlert(rec.symbol + ' が損切ラインに接近中！', 'danger');
                 }
             }
         }
 
         // 取引支援機能
         function openOrderLink(symbol, name) {
-            // 複数の証券会社リンクを表示
-            const brokers = [
-                {name: 'SBI証券', url: "https://site2.sbisec.co.jp/ETGate/?_ControlID=WPLETsmR001Control&_PageID=WPLETsmR001Bdl20&_DataStoreID=DSWPLETsmR001Control&_ActionID=DefaultAID&getFlg=on&burl=search_home&cat1=home&cat2=none&dir=info&file=home_info.html&OutSide=on&search=" + symbol},
-                {name: '楽天証券', url: "https://www.rakuten-sec.co.jp/web/domestic/search/result/?Keyword=" + symbol},
-                {name: 'マネックス証券', url: "https://info.monex.co.jp/domestic-stock/detail/" + symbol + ".html"}
-            ];
-
-            let message = symbol + " " + name + " Order page?\\n\\n";
-            brokers.forEach(function(broker, index) {
-                message += (index + 1) + ". " + broker.name + "\\n";
-            });
-
-            const choice = prompt(message + '\\nPlease enter number (1-3):');
-            if (choice && choice >= 1 && choice <= 3) {
-                window.open(brokers[choice - 1].url, '_blank');
-            }
+            // 楽天証券の銘柄情報ページに移動（銘柄コード指定）
+            const rakutenUrl = "https://www.rakuten-sec.co.jp/web/market/search/quote.html?ric=" + symbol + ".T";
+            window.open(rakutenUrl, '_blank');
         }
 
         function setAlert(symbol, name) {
@@ -2928,59 +3173,19 @@ class DayTradeWebDashboard:
                     timestamp: new Date().toISOString()
                 };
                 localStorage.setItem('priceAlerts', JSON.stringify(priceAlerts));
-                showAlert(symbol + " のアラートを設定しました (¥" + targetPrice + ")", 'success');
+                showAlert(symbol + " の\u30a2\u30e9\u30fc\u30c8を設定しました (¥" + targetPrice + ")", 'success');
             }
         }
 
-        function openMemo(symbol, name) {
-            currentMemoSymbol = symbol;
-            document.getElementById('memoTitle').textContent = `${symbol} ${name} - 取引メモ`;
-            document.getElementById('memoText').value = tradingMemos[symbol] || '';
-            document.getElementById('memoModal').style.display = 'block';
-        }
 
-        function saveMemo() {
-            if (currentMemoSymbol) {
-                const memoText = document.getElementById('memoText').value;
-                if (memoText.trim()) {
-                    tradingMemos[currentMemoSymbol] = memoText;
-                    localStorage.setItem('tradingMemos', JSON.stringify(tradingMemos));
-                    showAlert(`${currentMemoSymbol} のメモを保存しました`, 'success');
-                } else {
-                    delete tradingMemos[currentMemoSymbol];
-                    localStorage.setItem('tradingMemos', JSON.stringify(tradingMemos));
-                }
-                closeMemoModal();
-            }
-        }
-
-        function closeMemoModal() {
-            document.getElementById('memoModal').style.display = 'none';
-            currentMemoSymbol = null;
-        }
-
-        // モーダルクリックイベント
-        document.addEventListener('DOMContentLoaded', function() {
-            const modal = document.getElementById('memoModal');
-            const closeBtn = document.querySelector('.close');
-
-            closeBtn.onclick = closeMemoModal;
-
-            window.onclick = function(event) {
-                if (event.target === modal) {
-                    closeMemoModal();
-                }
-            };
-        });
-
-        // 価格アラートチェック機能を拡張
+        // 価格\u30a2\u30e9\u30fc\u30c8チェック機能を拡張
         function checkCustomAlerts() {
             Object.keys(priceAlerts).forEach(function(symbol) {
                 const alert = priceAlerts[symbol];
                 const currentPrice = previousPrices[symbol];
 
                 if (currentPrice && Math.abs(currentPrice - alert.targetPrice) <= alert.targetPrice * 0.01) {
-                    showAlert(`${symbol} ${alert.name} がアラート価格に到達！ (目標: ¥${alert.targetPrice.toFixed(0)}, 現在: ¥${currentPrice.toFixed(0)})`, 'warning');
+                    showAlert(symbol + ' ' + alert.name + ' が\u30a2\u30e9\u30fc\u30c8価格に到達！ (目標: ¥' + alert.targetPrice.toFixed(0) + ', \u73fe\u5728: ¥' + currentPrice.toFixed(0) + ')', 'warning');
                     delete priceAlerts[symbol];
                     localStorage.setItem('priceAlerts', JSON.stringify(priceAlerts));
                 }
@@ -3103,7 +3308,7 @@ class DayTradeWebDashboard:
                 new TradingView.widget({
                     "width": "100%",
                     "height": 500,
-                    "symbol": `TSE:${symbol}`,
+                    "symbol": 'TSE:' + symbol,
                     "interval": "D",
                     "timezone": "Asia/Tokyo",
                     "theme": "dark",
@@ -3142,13 +3347,13 @@ class DayTradeWebDashboard:
             ];
 
             const newsContainer = document.getElementById('newsContainer');
-            newsContainer.innerHTML = sampleNews.map(function(news) { return `
-                <div class="news-item">
-                    <div class="news-title">${news.title}</div>
-                    <div class="news-content">${news.content}</div>
-                    <div class="news-meta">${news.time} | ${news.source}</div>
-                </div>
-            `).join('');
+            newsContainer.innerHTML = sampleNews.map(function(news) {
+                return '<div class="news-item">' +
+                    '<div class="news-title">' + news.title + '</div>' +
+                    '<div class="news-content">' + news.content + '</div>' +
+                    '<div class="news-meta">' + news.time + ' | ' + news.source + '</div>' +
+                    '</div>';
+            }).join('');
         }
 
         // 予測精度履歴表示
@@ -3167,37 +3372,38 @@ class DayTradeWebDashboard:
             const totalProfit = historyData.reduce(function(sum, day) { return sum + day.profit; }, 0);
 
             const performanceContainer = document.getElementById('performanceHistory');
-            performanceContainer.innerHTML = `
-                <div class="performance-summary" style="margin-bottom: 20px;">
-                    <div class="performance-metric">
-                        <span class="metric-name">平均予測精度 (5日間)</span>
-                        <span class="metric-value">${avgAccuracy.toFixed(1)}%</span>
-                    </div>
-                    <div class="performance-metric">
-                        <span class="metric-name">総取引数</span>
-                        <span class="metric-value">${totalTrades}回</span>
-                    </div>
-                    <div class="performance-metric">
-                        <span class="metric-name">累計収益率</span>
-                        <span class="metric-value">+${totalProfit.toFixed(1)}%</span>
-                    </div>
-                </div>
-                <div class="history-details">
-                    ${historyData.map(function(day) { return `
-                        <div class="performance-metric">
-                            <span class="metric-name">${day.date}</span>
-                            <span class="metric-value">精度:${day.accuracy}% 取引:${day.trades}回 収益:+${day.profit}%</span>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+            performanceContainer.innerHTML = 
+                '<div class="performance-summary" style="margin-bottom: 20px;">' +
+                    '<div class="performance-metric">' +
+                        '<span class="metric-name">平均予測精度 (5日間)</span>' +
+                        '<span class="metric-value">' + avgAccuracy.toFixed(1) + '%</span>' +
+                    '</div>' +
+                    '<div class="performance-metric">' +
+                        '<span class="metric-name">総取引数</span>' +
+                        '<span class="metric-value">' + totalTrades + '回</span>' +
+                    '</div>' +
+                    '<div class="performance-metric">' +
+                        '<span class="metric-name">累計収益率</span>' +
+                        '<span class="metric-value">+' + totalProfit.toFixed(1) + '%</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="history-details">' +
+                    historyData.map(function(day) {
+                        return '<div class="performance-metric">' +
+                            '<span class="metric-name">' + day.date + '</span>' +
+                            '<span class="metric-value">精度:' + day.accuracy + '% 取引:' + day.trades + '回 収益:+' + day.profit + '%</span>' +
+                        '</div>';
+                    }).join('') +
+                '</div>';
         }
 
         // ダッシュボード更新
         async function updateDashboard() {
             try {
-                // 更新中表示
-                document.body.classList.add('updating');
+                // モード表示を更新
+                updateModeIndicator();
+                // 更新中表示を無効化
+                // document.body.classList.add('updating');
                 // 推奨データ更新
                 const recResp = await fetch('/api/recommendations');
                 const recData = await recResp.json();
@@ -3222,11 +3428,63 @@ class DayTradeWebDashboard:
                 // 最終更新時刻を更新
                 updateLastUpdateTime();
 
-                // 更新中表示を解除
-                document.body.classList.remove('updating');
+                // 更新中表示を解除（無効化）
+                // document.body.classList.remove('updating');
             } catch (error) {
                 console.error('データ更新エラー:', error);
-                document.body.classList.remove('updating');
+                // document.body.classList.remove('updating');
+            }
+        }
+
+        // 価格チャート描画
+        async function drawPriceChart(symbol = '7203') {
+            try {
+                const response = await fetch(`/api/price-chart/${symbol}`);
+                const chartData = await response.json();
+                
+                if (chartData.status !== 'success') {
+                    console.error('チャートデータエラー:', chartData.message);
+                    return;
+                }
+                
+                const data = chartData.data;
+                
+                // ローソク足チャート
+                const candlestickTrace = {
+                    x: data.dates,
+                    open: data.open,
+                    high: data.high,
+                    low: data.low,
+                    close: data.close,
+                    type: 'candlestick',
+                    name: `${symbol} 価格`,
+                    increasing: {line: {color: '#e74c3c'}},
+                    decreasing: {line: {color: '#3498db'}}
+                };
+                
+                const layout = {
+                    title: `${symbol} - 30日チャート`,
+                    xaxis: {
+                        title: '日付',
+                        rangeslider: {visible: false}
+                    },
+                    yaxis: {
+                        title: '価格 (円)'
+                    },
+                    template: 'plotly_white',
+                    height: 380,
+                    margin: {l: 50, r: 50, t: 50, b: 50}
+                };
+                
+                const config = {
+                    displayModeBar: true,
+                    displaylogo: false,
+                    modeBarButtonsToRemove: ['pan2d', 'lasso2d']
+                };
+                
+                Plotly.newPlot('priceChartContainer', [candlestickTrace], layout, config);
+            } catch (error) {
+                console.error('チャート描画エラー:', error);
             }
         }
 
@@ -3236,24 +3494,23 @@ class DayTradeWebDashboard:
 
             const metricsGrid = document.getElementById('metricsGrid');
             const summary = data.summary;
-            metricsGrid.innerHTML = `
-                <div class="metric-card">
-                    <div class="metric-value strong-buy">${summary.strong_buy_count}</div>
-                    <div class="metric-label">★強い買い★</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value buy">${summary.buy_count}</div>
-                    <div class="metric-label">●買い●</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value sell">${summary.sell_count}</div>
-                    <div class="metric-label">▽売り▽</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value hold">${summary.hold_count}</div>
-                    <div class="metric-label">■待機/ホールド■</div>
-                </div>
-            `;
+            metricsGrid.innerHTML = 
+                '<div class="metric-card">' +
+                    '<div class="metric-value strong-buy">' + summary.strong_buy_count + '</div>' +
+                    '<div class="metric-label">★強い買い★</div>' +
+                '</div>' +
+                '<div class="metric-card">' +
+                    '<div class="metric-value buy">' + summary.buy_count + '</div>' +
+                    '<div class="metric-label">●買い●</div>' +
+                '</div>' +
+                '<div class="metric-card">' +
+                    '<div class="metric-value sell">' + summary.sell_count + '</div>' +
+                    '<div class="metric-label">▽売り▽</div>' +
+                '</div>' +
+                '<div class="metric-card">' +
+                    '<div class="metric-value hold">' + summary.hold_count + '</div>' +
+                    '<div class="metric-label">■待機/ホールド■</div>' +
+                '</div>';
         }
 
         // 推奨テーブル更新
@@ -3271,7 +3528,7 @@ class DayTradeWebDashboard:
                 const previousPrice = previousPrices[rec.symbol];
                 const priceChangeClass = getPriceChangeClass(rec.current_price, previousPrice);
 
-                // アラートチェック
+                // \u30a2\u30e9\u30fc\u30c8チェック
                 checkPriceAlerts(rec, previousPrice);
                 checkCustomAlerts();
 
@@ -3287,17 +3544,15 @@ class DayTradeWebDashboard:
                     const priceChange = rec.current_price - rec.opening_price;
                     const progressBar = createProgressBar(rec.current_price, rec.opening_price, profitTarget, stopLoss);
 
-                    const hasMemo = tradingMemos[rec.symbol] ? '📝' : '';
                     priceInfo = '<div class="price-info">' +
-                        '<div><small>始値:</small> ¥' + rec.opening_price.toFixed(0) + '</div>' +
-                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + ' (' + (priceChange >= 0 ? '+' : '') + priceChange.toFixed(0) + ')</div>' +
+                        '<div><small>\u59cb\u5024:</small> \u00a5' + rec.opening_price.toFixed(0) + '</div>' +
+                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>\u73fe\u5728:</strong> \u00a5' + rec.current_price.toFixed(0) + ' (' + (priceChange >= 0 ? '+' : '') + priceChange.toFixed(0) + ')</div>' +
                         progressBar +
-                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
-                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
+                        '<div class="profit-target"><small>\u5229\u78ba:</small> \u00a5' + profitTarget.toFixed(0) + '</div>' +
+                        '<div class="stop-loss"><small>\u640d\u5207:</small> \u00a5' + stopLoss.toFixed(0) + '</div>' +
                         '<div class="trading-actions">' +
-                            '<button class="action-btn btn-order" onclick="openOrderLink(\'' + rec.symbol + '\', \'' + rec.name + '\')">注文</button>' +
-                            '<button class="action-btn btn-alert" onclick="setAlert(\'' + rec.symbol + '\', \'' + rec.name + '\')">アラート</button>' +
-                            '<button class="action-btn btn-memo" onclick="openMemo(\'' + rec.symbol + '\', \'' + rec.name + '\')">' + hasMemo + 'メモ</button>' +
+                            '<button class="action-btn btn-order" onclick="openOrderLink(\\'' + rec.symbol.replace(/'/g, '&#39;') + '\\', \\'' + rec.name.replace(/'/g, '&#39;') + '\\')">楽天で注文</button>' +
+                            '<button class="action-btn btn-alert" onclick="setAlert(\\'' + rec.symbol.replace(/'/g, '&#39;') + '\\', \\'' + rec.name.replace(/'/g, '&#39;') + '\\')">\u30a2\u30e9\u30fc\u30c8</button>' +
                         '</div>' +
                         '</div>';
                 } else if (rec.current_price) {
@@ -3305,16 +3560,14 @@ class DayTradeWebDashboard:
                     const stopLoss = rec.current_price * (1 - rec.stop_loss / 100);
                     const progressBar = createProgressBar(rec.current_price, rec.current_price, profitTarget, stopLoss);
 
-                    const hasMemo = tradingMemos[rec.symbol] ? '📝' : '';
                     priceInfo = '<div class="price-info">' +
-                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + '</div>' +
+                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>\u73fe\u5728:</strong> ¥' + rec.current_price.toFixed(0) + '</div>' +
                         progressBar +
-                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
-                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
+                        '<div class="profit-target"><small>\u5229\u78ba:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
+                        '<div class="stop-loss"><small>\u640d\u5207:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
                         '<div class="trading-actions">' +
-                            '<button class="action-btn btn-order" onclick="openOrderLink(\'' + rec.symbol + '\', \'' + rec.name + '\')">注文</button>' +
-                            '<button class="action-btn btn-alert" onclick="setAlert(\'' + rec.symbol + '\', \'' + rec.name + '\')">アラート</button>' +
-                            '<button class="action-btn btn-memo" onclick="openMemo(\'' + rec.symbol + '\', \'' + rec.name + '\')">' + hasMemo + 'メモ</button>' +
+                            '<button class="action-btn btn-order" onclick="openOrderLink(\\'' + rec.symbol.replace(/'/g, '&#39;') + '\\', \\'' + rec.name.replace(/'/g, '&#39;') + '\\')">楽天で注文</button>' +
+                            '<button class="action-btn btn-alert" onclick="setAlert(\\'' + rec.symbol.replace(/'/g, '&#39;') + '\\', \\'' + rec.name.replace(/'/g, '&#39;') + '\\')">\u30a2\u30e9\u30fc\u30c8</button>' +
                         '</div>' +
                         '</div>';
                 } else {
@@ -3325,7 +3578,7 @@ class DayTradeWebDashboard:
                 const favoriteIcon = isFavorite ? '⭐' : '☆';
 
                 return '<tr>' +
-                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(\'' + rec.symbol + '\')">' + favoriteIcon + '</span></td>' +
+                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(\\'' + rec.symbol.replace(/'/g, '&#39;') + '\\')">' + favoriteIcon + '</span></td>' +
                     '<td><strong>' + rec.rank + '</strong></td>' +
                     '<td><strong>' + rec.symbol + '</strong></td>' +
                     '<td>' + rec.name + '</td>' +
@@ -3406,7 +3659,9 @@ class DayTradeWebDashboard:
             autoRefreshBtn.innerHTML = autoRefreshEnabled ? '⏱️ 自動更新ON' : '⏸️ 自動更新OFF';
 
             // 初回更新実行
+            updateModeIndicator();  // モード表示を初期化
             updateDashboard();
+            drawPriceChart('7203');  // トヨタチャートを初期表示
 
             // システムステータス更新関数
         async function updateSystemStatus() {
@@ -3418,33 +3673,33 @@ class DayTradeWebDashboard:
                 const mlStatus = document.getElementById('mlStatus');
                 if (mlStatus) {
                     mlStatus.textContent = statusData.ml_prediction.status;
-                    mlStatus.className = `status-value ${statusData.ml_prediction.available ? 'active' : 'inactive'}`;
+                    mlStatus.className = 'status-value ' + (statusData.ml_prediction.available ? 'active' : 'inactive');
                 }
 
                 // バックテスト統合ステータス更新
                 const backtestStatus = document.getElementById('backtestStatus');
                 if (backtestStatus) {
                     backtestStatus.textContent = statusData.backtest_integration.status;
-                    backtestStatus.className = `status-value ${statusData.backtest_integration.available ? 'active' : 'inactive'}`;
+                    backtestStatus.className = 'status-value ' + (statusData.backtest_integration.available ? 'active' : 'inactive');
                 }
 
                 // モデル性能監視ステータス更新 (Issue #827)
                 const modelPerformanceStatusElement = document.getElementById('modelPerformanceStatus');
                 if (modelPerformanceStatusElement && statusData.model_performance_monitor) {
                     const perfStatus = statusData.model_performance_monitor;
-                    let displayStatus = `精度: ${perfStatus.current_accuracy.toFixed(2)} (${perfStatus.num_samples}件)`;
+                    let displayStatus = '精度: ' + (perfStatus.current_accuracy ? perfStatus.current_accuracy.toFixed(2) : 'N/A') + ' (' + (perfStatus.num_samples || 0) + '件)';
                     let statusClass = 'status-ok';
 
                     if (perfStatus.status === 'WARNING') {
-                        displayStatus = `⚠️ 警告: ${displayStatus}`;
+                        displayStatus = '⚠️ 警告: ' + displayStatus;
                         statusClass = 'status-warning';
-                        showAlert(`モデル性能が低下しています: ${perfStatus.current_accuracy.toFixed(2)}`, 'warning');
+                        showAlert('モデル性能が低下しています: ' + (perfStatus.current_accuracy ? perfStatus.current_accuracy.toFixed(2) : 'N/A'), 'warning');
                     } else if (perfStatus.status === 'CRITICAL_RETRAIN') {
-                        displayStatus = `🚨 再学習必要: ${displayStatus}`;
+                        displayStatus = '🚨 再学習必要: ' + displayStatus;
                         statusClass = 'status-error';
-                        showAlert(`モデル性能が著しく低下！再学習を開始します。`, 'danger');
+                        showAlert('モデル性能が著しく低下！再学習を開始します。', 'danger');
                     } else if (perfStatus.status === 'INSUFFICIENT_SAMPLES') {
-                        displayStatus = `📊 サンプル不足: ${displayStatus}`;
+                        displayStatus = '📊 サンプル不足: ' + displayStatus;
                         statusClass = 'status-warning';
                     }
 
@@ -3454,7 +3709,7 @@ class DayTradeWebDashboard:
                     if (parentStatusItem) {
                         const indicator = parentStatusItem.querySelector('.status-indicator');
                         if (indicator) {
-                            indicator.className = `status-indicator ${statusClass}`;
+                            indicator.className = 'status-indicator ' + statusClass;
                         }
                     }
                 }
@@ -3477,7 +3732,7 @@ class DayTradeWebDashboard:
         setInterval(updateSystemStatus, 30000);
 
         // 分析機能の初期化
-        setTimeout(() => {
+        setTimeout(function() {
             initTradingViewChart();
             loadNews();
             loadPerformanceHistory();
@@ -3552,7 +3807,7 @@ async def main():
         # 履歴表示モード
         if args.history:
             success = show_analysis_history()
-        # アラート表示モード
+        # \u30a2\u30e9\u30fc\u30c8表示モード
         elif args.alerts:
             success = show_alerts()
         # 複数銘柄分析モード
