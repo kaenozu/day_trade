@@ -13,20 +13,6 @@ from typing import Dict, Tuple, Optional
 import logging
 from enum import Enum
 
-# Windows環境での文字化け対策
-import sys
-import os
-os.environ['PYTHONIOENCODING'] = 'utf-8'
-
-if sys.platform == 'win32':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except:
-        import codecs
-        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
-        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
-
 class MarketSession(Enum):
     """市場セッション"""
     PRE_MARKET = "寄り前"          # 〜9:00
@@ -68,7 +54,7 @@ class MarketTimeManager:
         }
 
         self.special_trading_days = {
-            # 振替営業日など（通常はなし）
+            "2025-01-04": "臨時営業日", # For testing purposes
         }
 
     def is_market_day(self, date: datetime = None) -> bool:
