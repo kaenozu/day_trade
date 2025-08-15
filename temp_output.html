@@ -1076,7 +1076,7 @@
             const totalProfit = historyData.reduce(function(sum, day) { return sum + day.profit; }, 0);
 
             const performanceContainer = document.getElementById('performanceHistory');
-            performanceContainer.innerHTML = 
+            performanceContainer.innerHTML =
                 '<div class="performance-summary" style="margin-bottom: 20px;">' +
                     '<div class="performance-metric">' +
                         '<span class="metric-name">平均予測精度 (5日間)</span>' +
@@ -1144,7 +1144,7 @@
 
             const metricsGrid = document.getElementById('metricsGrid');
             const summary = data.summary;
-            metricsGrid.innerHTML = 
+            metricsGrid.innerHTML =
                 '<div class="metric-card">' +
                     '<div class="metric-value strong-buy">' + summary.strong_buy_count + '</div>' +
                     '<div class="metric-label">★強い買い★</div>' +

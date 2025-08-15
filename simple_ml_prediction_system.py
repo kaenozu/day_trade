@@ -309,7 +309,7 @@ class SimpleMLPredictionSystem:
             momentum_score = X[i, 2] * 0.6 + X[i, 3] * 0.2  # モメンタム指標
             volume_score = X[i, 4] * 0.3  # 出来高指標
             volatility_score = X[i, 5] * -0.2  # ボラティリティ（高いとマイナス）
-            
+
             total_score = trend_score + momentum_score + volume_score + volatility_score
             # バランスを調整して上昇：下降 = 60:40 程度に
             y[i] = 1 if total_score > -0.2 else 0
@@ -317,7 +317,7 @@ class SimpleMLPredictionSystem:
         # バランス確認と調整
         upward_ratio = np.mean(y)
         print(f"Training data - Upward predictions: {upward_ratio:.1%}")
-        
+
         return X, y.astype(int)
 
     async def _save_prediction(self, symbol: str, prediction: int, confidence: float):

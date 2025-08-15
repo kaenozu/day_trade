@@ -10,7 +10,7 @@ Windows、Mac、Linux全対応で簡単に横展開できます。
 
 ### ✅ 対応OS
 - **Windows 10/11** (メイン開発環境)
-- **macOS 10.15+** 
+- **macOS 10.15+**
 - **Ubuntu 20.04+**
 - **CentOS 8+**
 - **Docker環境**

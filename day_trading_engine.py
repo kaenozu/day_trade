@@ -88,7 +88,7 @@ class PersonalDayTradingEngine:
         else:
             self.real_data_engine = None
             self.data_mode = "DEMO"
-        
+
         # データフェッチャー初期化
         try:
             from src.day_trade.data.stock_fetcher import StockFetcher
@@ -96,7 +96,7 @@ class PersonalDayTradingEngine:
         except ImportError:
             # フォールバック用の簡易データフェッチャー
             self.data_fetcher = YFinanceFetcher()
-        
+
         # MLモデル初期化
         try:
             from src.day_trade.ml.dynamic_weighting_system import DynamicWeightingSystem
@@ -142,7 +142,7 @@ class PersonalDayTradingEngine:
                         continue
                 except Exception as e:
                     print(f"[DEBUG] _load_dynamic_symbols: {symbol} -> exception: {e}")
-                
+
                 # フォールバック: 簡易的な名前マッピング
                 name_map = {
                     "7203": "トヨタ自動車", "8306": "三菱UFJ", "6758": "ソニーG",

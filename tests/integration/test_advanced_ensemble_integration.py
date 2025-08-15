@@ -63,7 +63,7 @@ class AdvancedEnsembleIntegrationTest(BaseTestCase):
             features=self.test_config['n_features'],
             target_type="regression"
         )
-        
+
         # Split data into train and test based on train_ratio
         split_idx = int(self.test_config['n_samples'] * self.test_config['train_ratio'])
         self.train_data = (all_features[:split_idx], all_targets[:split_idx])

@@ -311,10 +311,10 @@ class PersonalAnalysisEngine:
 
                     risk_level = "低" if symbol_info.risk_score < 40 else ("中" if symbol_info.risk_score < 70 else "高")
                     print(f"[DEBUG] Enhanced mode: {symbol_key} -> symbol_info.name = {symbol_info.name}")
-                    
+
                     # 銘柄名取得の強化 - 辞書を最優先
                     name = None
-                    
+
                     # 最初に辞書から直接確認
                     try:
                         from src.day_trade.data.symbol_names import get_symbol_name
@@ -322,20 +322,20 @@ class PersonalAnalysisEngine:
                         print(f"[DEBUG] Enhanced mode: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
                     except:
                         pass
-                    
+
                     if not name:
                         # 次にsymbol_info.nameを確認
                         name = symbol_info.name
                         print(f"[DEBUG] Enhanced mode: {symbol_key} -> symbol_info.name = {repr(name)}")
-                        
+
                         if not name:
                             # yfinanceから取得
                             name = self.get_company_name_from_yfinance(symbol_key)
                             print(f"[DEBUG] Enhanced mode: {symbol_key} -> yfinance = {repr(name)}")
-                        
+
                     if not name:
                         name = symbol_key
-                    
+
                     print(f"[DEBUG] Enhanced mode: {symbol_key} -> final name = {name}")
                 else:
                     # フォールバック
@@ -351,17 +351,17 @@ class PersonalAnalysisEngine:
                         print(f"[DEBUG] Fallback: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
                     except:
                         pass
-                    
+
                     if not name:
                         # 次にrecommended_symbolsから
                         name = self.recommended_symbols.get(symbol_key, None)
                         print(f"[DEBUG] Fallback: {symbol_key} -> recommended_symbols = {repr(name)}")
-                        
+
                         if not name:
                             # yfinanceから取得
                             name = self.get_company_name_from_yfinance(symbol_key)
                             print(f"[DEBUG] Fallback: {symbol_key} -> yfinance = {repr(name)}")
-                    
+
                     # 最後の手段
                     if not name:
                         name = symbol_key
@@ -379,17 +379,17 @@ class PersonalAnalysisEngine:
                     print(f"[DEBUG] Traditional: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
                 except:
                     pass
-                
+
                 if not name:
                     # 次にrecommended_symbolsから
                     name = self.recommended_symbols.get(symbol_key, None)
                     print(f"[DEBUG] Traditional: {symbol_key} -> recommended_symbols = {repr(name)}")
-                    
+
                     if not name:
                         # yfinanceから取得
                         name = self.get_company_name_from_yfinance(symbol_key)
                         print(f"[DEBUG] Traditional: {symbol_key} -> yfinance = {repr(name)}")
-                
+
                 # 最後の手段
                 if not name:
                     name = symbol_key
@@ -503,7 +503,7 @@ class PersonalAnalysisEngine:
 
             # 銘柄名取得（強化版） - 辞書を最優先に
             symbol_name = None
-            
+
             # 最初に辞書から直接確認
             try:
                 from src.day_trade.data.symbol_names import get_symbol_name
@@ -511,17 +511,17 @@ class PersonalAnalysisEngine:
                 print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> direct dict lookup FIRST: {repr(symbol_name)}")
             except:
                 pass
-            
+
             if not symbol_name:
                 # 次にrecommended_symbolsから確認
                 symbol_name = self.recommended_symbols.get(symbol, None)
                 print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> recommended_symbols.get = {symbol_name}")
-                
+
                 if not symbol_name:
                     # yfinanceから会社名を取得
                     symbol_name = self.get_company_name_from_yfinance(symbol)
                     print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> get_company_name_from_yfinance = {symbol_name}")
-            
+
             # 最終フォールバック
             if not symbol_name:
                 symbol_name = f"銘柄{symbol}"
@@ -654,27 +654,27 @@ class PersonalAnalysisEngine:
         """夜間予測情報表示（翌朝場予想）"""
         try:
             print("\n📊 夜間マーケット分析:")
-            
+
             # 海外市場データ取得
             from src.day_trade.utils.yfinance_import import get_yfinance
             yf_module, available = get_yfinance()
-            
+
             if not available:
                 print("・海外市場データ取得不可（yfinance接続エラー）")
                 return
-                
+
             # 主要指数取得
             tickers = {
                 "^DJI": "ダウ平均",
-                "^IXIC": "ナスダック", 
+                "^IXIC": "ナスダック",
                 "^GSPC": "S&P500",
                 "USDJPY=X": "USD/JPY",
                 "^VIX": "VIX恐怖指数",
                 "NKD=F": "日経先物"
             }
-            
+
             overnight_sentiment = 0  # 夜間センチメントスコア
-            
+
             for symbol, name in tickers.items():
                 try:
                     ticker = yf_module.Ticker(symbol)
@@ -684,7 +684,7 @@ class PersonalAnalysisEngine:
                         current = hist['Close'].iloc[-1]
                         previous = hist['Close'].iloc[-2]
                         change_pct = ((current - previous) / previous) * 100
-                        
+
                         # センチメント影響度計算
                         if symbol in ["^DJI", "^GSPC", "^IXIC"]:
                             overnight_sentiment += change_pct * 0.3  # 米国株30%影響
@@ -697,13 +697,13 @@ class PersonalAnalysisEngine:
                             overnight_sentiment -= change_pct * 0.1  # VIX上昇で悲観
                         elif symbol == "NKD=F":
                             overnight_sentiment += change_pct * 0.4  # 先物40%影響
-                        
+
                         status = "📈" if change_pct > 0.5 else "📉" if change_pct < -0.5 else "➡️"
                         print(f"・{name}: {current:.2f} ({change_pct:+.2f}%) {status}")
-                        
+
                 except Exception as e:
                     print(f"・{name}: データ取得エラー")
-            
+
             # 翌朝予想
             print(f"\n🔮 翌朝場予想:")
             if overnight_sentiment > 1.0:
@@ -721,11 +721,11 @@ class PersonalAnalysisEngine:
             else:
                 prediction = "強い下落懸念 📉📉"
                 advice = "リスクオフ推奨"
-                
+
             print(f"・総合判断: {prediction}")
             print(f"・推奨戦略: {advice}")
             print(f"・センチメントスコア: {overnight_sentiment:+.1f}")
-            
+
         except Exception as e:
             print(f"・夜間予測エラー: {e}")
 
@@ -1599,7 +1599,7 @@ async def run_daytrading_mode() -> bool:
             print("・翌日前場予想のため実際の結果と異なる場合があります")
             print("・オーバーナイトリスクを考慮した損切り設定を")
             print("・投資は自己責任で！")
-            
+
             # 夜間予測情報を追加取得
             try:
                 await self._display_overnight_prediction()
@@ -1954,20 +1954,20 @@ class DayTradeWebDashboard:
                 # yfinanceから価格データを取得
                 from src.day_trade.utils.yfinance_import import get_yfinance
                 yf_module, available = get_yfinance()
-                
+
                 if not available:
                     return jsonify({'status': 'error', 'message': 'yfinance not available'})
-                
+
                 # 日本株対応
                 symbol_yf = f"{symbol}.T" if symbol.isdigit() and len(symbol) == 4 else symbol
                 ticker = yf_module.Ticker(symbol_yf)
-                
+
                 # 30日間のデータ取得
                 hist = ticker.history(period="30d")
-                
+
                 if len(hist) == 0:
                     return jsonify({'status': 'error', 'message': 'No data available'})
-                
+
                 # Plotly用データ準備
                 chart_data = {
                     'dates': hist.index.strftime('%Y-%m-%d').tolist(),
@@ -1978,7 +1978,7 @@ class DayTradeWebDashboard:
                     'volume': hist['Volume'].tolist(),
                     'symbol': symbol
                 }
-                
+
                 return jsonify({'status': 'success', 'data': chart_data})
             except Exception as e:
                 return jsonify({'status': 'error', 'message': str(e)})
@@ -2014,10 +2014,10 @@ class DayTradeWebDashboard:
         # キャッシュチェック
         if hasattr(self, '_company_name_cache') and symbol in self._company_name_cache:
             return self._company_name_cache[symbol]
-        
+
         if not hasattr(self, '_company_name_cache'):
             self._company_name_cache = {}
-            
+
         # まず銘柄辞書から取得を試行
         try:
             from src.day_trade.data.symbol_names import get_symbol_name
@@ -2030,50 +2030,50 @@ class DayTradeWebDashboard:
         except Exception as e:
             print(f"[DEBUG] get_company_name_from_yfinance: {symbol} -> exception: {e}")
             pass
-            
+
         try:
             from src.day_trade.utils.yfinance_import import get_yfinance
             yf_module, available = get_yfinance()
-            
+
             if available and yf_module:
                 # 日本株の場合は.Tを追加
                 ticker_symbol = f"{symbol}.T" if symbol.isdigit() and len(symbol) == 4 else symbol
                 ticker = yf_module.Ticker(ticker_symbol)
-                
+
                 # タイムアウト付きで情報取得
                 import signal
                 def timeout_handler(signum, frame):
                     raise TimeoutError("yfinance timeout")
-                
+
                 signal.signal(signal.SIGALRM, timeout_handler)
                 signal.alarm(3)  # 3秒でタイムアウト
-                
+
                 try:
                     info = ticker.info
-                    
+
                     # 会社名の取得（複数のフィールドを試行）
                     for name_field in ['longName', 'shortName', 'displayName', 'name']:
                         if name_field in info and info[name_field]:
                             company_name = info[name_field]
                             # 不要な文字を除去
                             company_name = company_name.replace('Co., Ltd.', '').replace('Corp.', '').replace('Inc.', '').strip()
-                            
+
                             # 英語名の場合は短縮
                             if len(company_name) > 12 and not any('\u3040' <= c <= '\u30ff' or '\u4e00' <= c <= '\u9faf' for c in company_name):
                                 # 英語名の場合、最初の単語を使用
                                 company_name = company_name.split()[0][:8]
-                            
+
                             result = company_name[:12]  # 最大12文字
                             self._company_name_cache[symbol] = result
                             signal.alarm(0)  # タイムアウト解除
                             return result
-                            
+
                 finally:
                     signal.alarm(0)  # 必ずタイムアウト解除
-                        
+
         except Exception as e:
             print(f"[INFO] 会社名取得失敗 ({symbol}): {e}")
-            
+
         # 失敗時はNoneをキャッシュして無駄なリトライを防ぐ
         self._company_name_cache[symbol] = None
         return None
@@ -3050,7 +3050,7 @@ class DayTradeWebDashboard:
             const now = new Date();
             const currentHour = now.getHours();
             const modeIndicator = document.getElementById('mode-indicator');
-            
+
             if (currentHour >= 15 || currentHour < 9) {  // 15時以降または9時前（翌朝場予想モード）
                 modeIndicator.innerHTML = `
                     <div style="
@@ -3378,7 +3378,7 @@ class DayTradeWebDashboard:
             const totalProfit = historyData.reduce(function(sum, day) { return sum + day.profit; }, 0);
 
             const performanceContainer = document.getElementById('performanceHistory');
-            performanceContainer.innerHTML = 
+            performanceContainer.innerHTML =
                 '<div class="performance-summary" style="margin-bottom: 20px;">' +
                     '<div class="performance-metric">' +
                         '<span class="metric-name">平均予測精度 (5日間)</span>' +
@@ -3447,14 +3447,14 @@ class DayTradeWebDashboard:
             try {
                 const response = await fetch(`/api/price-chart/${symbol}`);
                 const chartData = await response.json();
-                
+
                 if (chartData.status !== 'success') {
                     console.error('チャートデータエラー:', chartData.message);
                     return;
                 }
-                
+
                 const data = chartData.data;
-                
+
                 // ローソク足チャート
                 const candlestickTrace = {
                     x: data.dates,
@@ -3467,7 +3467,7 @@ class DayTradeWebDashboard:
                     increasing: {line: {color: '#e74c3c'}},
                     decreasing: {line: {color: '#3498db'}}
                 };
-                
+
                 const layout = {
                     title: `${symbol} - 30日チャート`,
                     xaxis: {
@@ -3481,13 +3481,13 @@ class DayTradeWebDashboard:
                     height: 380,
                     margin: {l: 50, r: 50, t: 50, b: 50}
                 };
-                
+
                 const config = {
                     displayModeBar: true,
                     displaylogo: false,
                     modeBarButtonsToRemove: ['pan2d', 'lasso2d']
                 };
-                
+
                 Plotly.newPlot('priceChartContainer', [candlestickTrace], layout, config);
             } catch (error) {
                 console.error('チャート描画エラー:', error);
@@ -3500,7 +3500,7 @@ class DayTradeWebDashboard:
 
             const metricsGrid = document.getElementById('metricsGrid');
             const summary = data.summary;
-            metricsGrid.innerHTML = 
+            metricsGrid.innerHTML =
                 '<div class="metric-card">' +
                     '<div class="metric-value strong-buy">' + summary.strong_buy_count + '</div>' +
                     '<div class="metric-label">★強い買い★</div>' +

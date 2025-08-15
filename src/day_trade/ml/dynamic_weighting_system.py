@@ -1352,21 +1352,21 @@ class DynamicWeightingSystem:
             logger.error(f"重み変化可視化エラー: {e}")
 
     # アラート機能は削除 - Webダッシュボード統合
-    
+
     def predict(self, features: Union[np.ndarray, List[float], Dict[str, float]]) -> Any:
         """
         予測メソッド - PersonalDayTradingEngineとの互換性のため
-        
+
         Args:
             features: 入力特徴量
-            
+
         Returns:
             予測結果オブジェクト（predictionsとconfidence属性を持つ）
         """
         try:
             # ダミーの予測結果を返す（実際のMLモデルは別途実装）
             from .base_models.base_model_interface import ModelPrediction
-            
+
             # 入力特徴量を正規化
             if isinstance(features, dict):
                 feature_values = list(features.values())
@@ -1374,16 +1374,16 @@ class DynamicWeightingSystem:
                 feature_values = features
             else:
                 feature_values = [features]
-            
+
             # 現在の重みに基づいてダミー予測を生成
             current_weights = self.get_current_weights()
-            
+
             # より現実的なランダム予測値を生成（テスト用）
             import random
             # -2.0から2.0の範囲でランダムな予測値を生成
             base_prediction = random.uniform(-2.0, 2.0)
             predictions = np.array([base_prediction])
-            
+
             # 重みの平均値を信頼度として使用
             weight_values = list(current_weights.values())
             if weight_values:
@@ -1391,14 +1391,14 @@ class DynamicWeightingSystem:
             else:
                 confidence_value = 0.33  # デフォルト信頼度
             confidence = np.array([confidence_value])
-            
+
             # ModelPrediction形式で返す
             return ModelPrediction(
                 predictions=predictions,
                 confidence=confidence,
                 model_name="dynamic_weighting_ensemble"
             )
-            
+
         except Exception as e:
             logger.error(f"予測エラー: {e}")
             # エラー時はデフォルト値を返す

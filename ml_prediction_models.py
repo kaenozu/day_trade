@@ -574,7 +574,7 @@ class MLPredictionModels:
                     model_key = f"{symbol}_{task.value}_{ModelType.RANDOM_FOREST.value}"
                     self.trained_models[model_key] = model
                     self.label_encoders[model_key] = le
-                    self._save_model(model, model_key, le) 
+                    self._save_model(model, model_key, le)
 
                     performance = ModelPerformance(
                         model_name=f"RandomForest_{task.value}",
@@ -597,7 +597,7 @@ class MLPredictionModels:
                     # 回帰モデル
                     model_params = self.model_configs[ModelType.RANDOM_FOREST]['regressor_params']
                     if optimized_params and ModelType.RANDOM_FOREST.value in optimized_params:
-                        model_params.update(optimized_params[ModelType.RANDOM_FOREST.value].get(task.value, {})) 
+                        model_params.update(optimized_params[ModelType.RANDOM_FOREST.value].get(task.value, {}))
                     model = RandomForestRegressor(**model_params)
 
                     model.fit(X_train, y_train)
@@ -618,7 +618,7 @@ class MLPredictionModels:
                     # モデル保存
                     model_key = f"{symbol}_{task.value}_{ModelType.RANDOM_FOREST.value}"
                     self.trained_models[model_key] = model
-                    self._save_model(model, model_key) 
+                    self._save_model(model, model_key)
 
                     performance = ModelPerformance(
                         model_name=f"RandomForest_{task.value}",
