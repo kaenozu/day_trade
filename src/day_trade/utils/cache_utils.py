@@ -691,13 +691,31 @@ def _normalize_arguments(
             if len(seen_objects) < CacheConstants.DEFAULT_MAX_RECURSION_DEPTH * 2:
                 seen_objects.add(obj_id)
             else:
-                # セットが大きくなりすぎた場合は警告
-                if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(
-                    logging.WARNING
-                ):
-                    logger.warning(
-                        f"Circular reference detection set is too large ({len(seen_objects)}), skipping detection for {type(args).__name__}"
-                    )
+                # セットが大きくなりすぎた場合は警告（頻度を制限）
+                # 警告の頻度を制限するためのカウンター（スレッドローカル）
+                if not hasattr(threading.current_thread(), '_cache_warning_count'):
+                    threading.current_thread()._cache_warning_count = 0
+                    threading.current_thread()._last_warning_time = 0
+                
+                current_time = time.time()
+                thread = threading.current_thread()
+                
+                # 5秒に1回だけ警告を出力
+                if current_time - thread._last_warning_time > 5.0:
+                    if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(
+                            f"Circular reference detection set is large ({len(seen_objects)}), optimizing for {type(args).__name__}"
+                        )
+                    thread._last_warning_time = current_time
+                    thread._cache_warning_count += 1
+                    
+                    # 100回警告した場合は検出を無効化
+                    if thread._cache_warning_count > 100:
+                        return tuple(args), tuple(kwargs.items())
+                
+                # セットをクリアして継続
+                seen_objects.clear()
+                seen_objects.add(obj_id)
 
     except Exception as e:
         # id()の取得に失敗した場合はデバッグログに記録
