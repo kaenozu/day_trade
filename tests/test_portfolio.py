@@ -9,12 +9,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pandas as pd
 import pytest
 
-from src.day_trade.core.portfolio import (
-    PerformanceReport,
-    PortfolioAnalyzer,
-    PortfolioMetrics,
-    SectorAllocation,
-)
+from src.day_trade.hft.microsecond_monitor import PerformanceReport
 from src.day_trade.core.trade_manager import TradeManager, TradeType
 
 

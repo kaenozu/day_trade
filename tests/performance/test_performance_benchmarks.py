@@ -23,17 +23,10 @@ from pathlib import Path
 
 # テスト対象システム
 from src.day_trade.inference import OptimizedInferenceSystem, create_optimized_inference_system
-from src.day_trade.analysis.ml_models import UnifiedMLEngine
+from src.day_trade.analysis.ml_models import MLModelManager
 
 # テストフレームワーク
-from src.day_trade.testing import (
-    TestFramework,
-    TestConfig,
-    PerformanceAssertions,
-    TestDataManager,
-    BaseTestCase,
-    TestResult
-)
+from src.day_trade.testing.framework import TestFramework, TestConfig, TestResult, BaseTestCase
 
 # ログ設定
 logger = logging.getLogger(__name__)

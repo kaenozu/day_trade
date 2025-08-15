@@ -1202,9 +1202,9 @@
                         '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
                         '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
                         '<div class="trading-actions">' +
-                            '<button class="action-btn btn-order" onclick="openOrderLink('' + rec.symbol + '', '' + rec.name + '')">注文</button>' +
-                            '<button class="action-btn btn-alert" onclick="setAlert('' + rec.symbol + '', '' + rec.name + '')">アラート</button>' +
-                            '<button class="action-btn btn-memo" onclick="openMemo('' + rec.symbol + '', '' + rec.name + '')">' + hasMemo + 'メモ</button>' +
+                            '<button class="action-btn btn-order" onclick="openOrderLink(&quot;' + rec.symbol + '&quot;, &quot;' + rec.name + '&quot;)">注文</button>' +
+                            '<button class="action-btn btn-alert" onclick="setAlert(&quot;' + rec.symbol + '&quot;, &quot;' + rec.name + '&quot;)">アラート</button>' +
+                            '<button class="action-btn btn-memo" onclick="openMemo(&quot;' + rec.symbol + '&quot;, &quot;' + rec.name + '&quot;)">' + hasMemo + 'メモ</button>' +
                         '</div>' +
                         '</div>';
                 } else if (rec.current_price) {
@@ -1219,9 +1219,9 @@
                         '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
                         '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
                         '<div class="trading-actions">' +
-                            '<button class="action-btn btn-order" onclick="openOrderLink('' + rec.symbol + '', '' + rec.name + '')">注文</button>' +
-                            '<button class="action-btn btn-alert" onclick="setAlert('' + rec.symbol + '', '' + rec.name + '')">アラート</button>' +
-                            '<button class="action-btn btn-memo" onclick="openMemo('' + rec.symbol + '', '' + rec.name + '')">' + hasMemo + 'メモ</button>' +
+                            '<button class="action-btn btn-order" onclick="openOrderLink(&quot;' + rec.symbol + '&quot;, &quot;' + rec.name + '&quot;)">注文</button>' +
+                            '<button class="action-btn btn-alert" onclick="setAlert(&quot;' + rec.symbol + '&quot;, &quot;' + rec.name + '&quot;)">アラート</button>' +
+                            '<button class="action-btn btn-memo" onclick="openMemo(&quot;' + rec.symbol + '&quot;, &quot;' + rec.name + '&quot;)">' + hasMemo + 'メモ</button>' +
                         '</div>' +
                         '</div>';
                 } else {
@@ -1232,7 +1232,7 @@
                 const favoriteIcon = isFavorite ? '⭐' : '☆';
 
                 return '<tr>' +
-                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite('' + rec.symbol + '')">' + favoriteIcon + '</span></td>' +
+                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(&quot;' + rec.symbol + '&quot;)">' + favoriteIcon + '</span></td>' +
                     '<td><strong>' + rec.rank + '</strong></td>' +
                     '<td><strong>' + rec.symbol + '</strong></td>' +
                     '<td>' + rec.name + '</td>' +
@@ -1339,13 +1339,13 @@
                 const modelPerformanceStatusElement = document.getElementById('modelPerformanceStatus');
                 if (modelPerformanceStatusElement && statusData.model_performance_monitor) {
                     const perfStatus = statusData.model_performance_monitor;
-                    let displayStatus = '精度: ' + perfStatus.current_accuracy.toFixed(2) + ' (' + perfStatus.num_samples + '件)';
+                    let displayStatus = '精度: ' + (perfStatus.current_accuracy ? perfStatus.current_accuracy.toFixed(2) : 'N/A') + ' (' + (perfStatus.num_samples || 0) + '件)';
                     let statusClass = 'status-ok';
 
                     if (perfStatus.status === 'WARNING') {
                         displayStatus = '⚠️ 警告: ' + displayStatus;
                         statusClass = 'status-warning';
-                        showAlert('モデル性能が低下しています: ' + perfStatus.current_accuracy.toFixed(2), 'warning');
+                        showAlert('モデル性能が低下しています: ' + (perfStatus.current_accuracy ? perfStatus.current_accuracy.toFixed(2) : 'N/A'), 'warning');
                     } else if (perfStatus.status === 'CRITICAL_RETRAIN') {
                         displayStatus = '🚨 再学習必要: ' + displayStatus;
                         statusClass = 'status-error';

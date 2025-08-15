@@ -89,6 +89,24 @@ class PersonalDayTradingEngine:
             self.real_data_engine = None
             self.data_mode = "DEMO"
 
+        # データフェッチャー初期化
+        try:
+            from src.day_trade.data.stock_fetcher import StockFetcher
+            self.data_fetcher = StockFetcher()
+        except ImportError:
+            # フォールバック用の簡易データフェッチャー
+            self.data_fetcher = YFinanceFetcher()
+
+        # MLモデル初期化
+        try:
+            from src.day_trade.ml.dynamic_weighting_system import DynamicWeightingSystem
+            # デフォルトモデル名リストを指定
+            model_names = ['linear_regression', 'random_forest', 'gradient_boosting']
+            self.ml_model = DynamicWeightingSystem(model_names=model_names)
+        except ImportError:
+            # フォールバック用のダミーMLモデル
+            self.ml_model = None
+
         # MLモデルの初期化とロード
         try:
             self.model_loader = IntegratedModelLoader() # Use IntegratedModelLoader
@@ -111,10 +129,21 @@ class PersonalDayTradingEngine:
             # デイトレード向け高流動性銘柄を取得
             symbols = selector.get_liquid_symbols(limit=20)
 
-            # 辞書形式に変換（名前は簡易版）
+            # 辞書形式に変換（銘柄名辞書を最優先使用）
             symbol_dict = {}
             for symbol in symbols:
-                # 簡易的な名前マッピング（本来はDBから取得すべき）
+                # 銘柄名辞書から取得を最優先
+                try:
+                    from src.day_trade.data.symbol_names import get_symbol_name
+                    name = get_symbol_name(symbol)
+                    if name:
+                        symbol_dict[symbol] = name
+                        print(f"[DEBUG] _load_dynamic_symbols: {symbol} -> {name} (from dict)")
+                        continue
+                except Exception as e:
+                    print(f"[DEBUG] _load_dynamic_symbols: {symbol} -> exception: {e}")
+
+                # フォールバック: 簡易的な名前マッピング
                 name_map = {
                     "7203": "トヨタ自動車", "8306": "三菱UFJ", "6758": "ソニーG",
                     "9984": "ソフトバンクG", "4751": "サイバーエージェント", "6861": "キーエンス",
@@ -122,6 +151,7 @@ class PersonalDayTradingEngine:
                     "1605": "INPEX", "6098": "リクルート", "8001": "伊藤忠商事"
                 }
                 symbol_dict[symbol] = name_map.get(symbol, f"銘柄{symbol}")
+                print(f"[DEBUG] _load_dynamic_symbols: {symbol} -> {symbol_dict[symbol]} (fallback)")
 
             print(f"[OK] 動的銘柄取得成功: {len(symbol_dict)}銘柄")
             return symbol_dict
@@ -629,14 +659,14 @@ class PersonalDayTradingEngine:
             # 最新のデータを取得
             latest_data = historical_data.iloc[-1]
             # 昨日の終値 (一つ前のデータ)
-            prev_close = historical_data.iloc[-2]['終値'] if len(historical_data) >= 2 else latest_data['終値'] # Fallback if not enough data
+            prev_close = historical_data.iloc[-2]['Close'] if len(historical_data) >= 2 else latest_data['Close'] # Fallback if not enough data
 
             return {
-                "Open": latest_data.get("始値", 0),
-                "High": latest_data.get("高値", 0),
-                "Low": latest_data.get("安値", 0),
-                "Close": latest_data.get("終値", 0),
-                "Volume": latest_data.get("出来高", 0),
+                "Open": latest_data.get("Open", 0),
+                "High": latest_data.get("High", 0),
+                "Low": latest_data.get("Low", 0),
+                "Close": latest_data.get("Close", 0),
+                "Volume": latest_data.get("Volume", 0),
                 "PrevClose": prev_close,
                 "DateTime": latest_data.name # Index contains datetime
             }

@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 
 from ..utils.logging_config import get_context_logger
 
-logger = get_logger(__name__)
+logger = get_context_logger(__name__)
 
 
 class CacheConstants:

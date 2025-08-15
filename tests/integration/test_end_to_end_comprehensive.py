@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
     # データ取得システム
-    from src.day_trade.data_fetcher import DataFetcher
+    from src.day_trade.data.stock_fetcher import StockFetcher # Corrected import
 
     # スマート銘柄選択システム
     from src.day_trade.automation.smart_symbol_selector import (
@@ -43,7 +43,7 @@ try:
     from src.day_trade.ml.ensemble_system import (
         EnsembleSystem,
         EnsembleConfig,
-        EnsemblePredictions
+        EnsemblePrediction # Corrected from EnsemblePredictions
     )
 
     # 実行スケジューラシステム
@@ -67,7 +67,7 @@ class TestCompleteSystemIntegration(unittest.TestCase):
     def setUp(self):
         """テスト環境セットアップ"""
         # システムコンポーネント初期化
-        self.data_fetcher = DataFetcher()
+        self.data_fetcher = StockFetcher() # Corrected instantiation
         self.smart_selector = SmartSymbolSelector()
         self.ensemble_system = EnsembleSystem()
         self.execution_scheduler = ExecutionScheduler()
@@ -86,17 +86,22 @@ class TestCompleteSystemIntegration(unittest.TestCase):
             self.execution_scheduler.stop()
 
     @patch('yfinance.Ticker')
-    def test_full_pipeline_integration(self, mock_ticker):
+    @patch('src.day_trade.data.stock_fetcher.StockFetcher.bulk_get_historical_data') # Corrected patch target
+    def test_full_pipeline_integration(self, mock_fetch_data, mock_ticker):
         """完全パイプライン統合テスト"""
         # yfinanceモック設定
         self._setup_yfinance_mock(mock_ticker)
+
+        # DataFetcherのモック設定
+        mock_fetch_data.return_value = {s: self._create_mock_market_data() for s in self.test_symbols[:3]} # Mock bulk_get_historical_data
 
         # パイプライン実行結果記録
         pipeline_results = {}
 
         # Step 1: データ取得テスト
         self.logger.info("Step 1: データ取得開始")
-        market_data = self.data_fetcher.fetch_data(self.test_symbols[:3])
+        market_data_dict = self.data_fetcher.bulk_get_historical_data(self.test_symbols[:3]) # Corrected call
+        market_data = pd.concat(market_data_dict.values()) if market_data_dict else pd.DataFrame()
 
         self.assertIsNotNone(market_data)
         pipeline_results['data_fetch'] = {
@@ -147,7 +152,7 @@ class TestCompleteSystemIntegration(unittest.TestCase):
             self.ensemble_system.fit(X_train, y_train)
             predictions = self.ensemble_system.predict(X_test)
 
-            self.assertIsInstance(predictions, EnsemblePredictions)
+            self.assertIsInstance(predictions, EnsemblePrediction) # Corrected from EnsemblePredictions
             self.assertEqual(len(predictions.final_predictions), len(selected_symbols))
 
             pipeline_results['ensemble_prediction'] = {
@@ -205,6 +210,26 @@ class TestCompleteSystemIntegration(unittest.TestCase):
         }, index=dates)
 
         mock_ticker.return_value = mock_ticker_instance
+
+    def _create_mock_market_data(self) -> pd.DataFrame:
+        """モック市場データ作成"""
+        dates = pd.date_range('2023-01-01', periods=60, freq='D')
+        symbols = ['7203.T', '6758.T', '9984.T', '4519.T', '8316.T']
+
+        data = []
+        for symbol in symbols:
+            for date in dates:
+                data.append({
+                    'Symbol': symbol,
+                    'Date': date,
+                    'Open': np.random.uniform(1000, 1100),
+                    'High': np.random.uniform(1100, 1200),
+                    'Low': np.random.uniform(900, 1000),
+                    'Close': np.random.uniform(1000, 1100),
+                    'Volume': np.random.randint(2000000, 4000000)
+                })
+
+        return pd.DataFrame(data)
 
     def test_concurrent_pipeline_execution(self):
         """並行パイプライン実行テスト"""
@@ -355,7 +380,6 @@ class TestCompleteSystemIntegration(unittest.TestCase):
             max_retries=4
         )
 
-        # エラー回復実行
         self.execution_scheduler.add_task(error_recovery_task)
         self.execution_scheduler._execute_task(error_recovery_task)
 
@@ -452,10 +476,10 @@ class TestSystemPerformanceIntegration(unittest.TestCase):
             X_single = np.random.randn(1, 20)
             prediction = ensemble.predict(X_single)
 
+            self.assertIsNotNone(prediction.final_predictions)
+
             prediction_time = time.time() - start_time
             prediction_times.append(prediction_time)
-
-            self.assertIsNotNone(prediction.final_predictions)
 
             # 高頻度要件確認（1秒以下）
             self.assertLess(prediction_time, 1.0,
