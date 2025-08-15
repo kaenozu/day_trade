@@ -31,7 +31,7 @@ import Animated, {
 
 // Components
 import { KPICard } from '../components/dashboard/KPICard';
-import { TradeCard } from '../components/trading/TradeCard';
+import { AnalysisCard } from '../components/analysis/AnalysisCard';
 import { AlertCard } from '../components/alerts/AlertCard';
 import { MarketOverview } from '../components/market/MarketOverview';
 import { ConnectionStatus } from '../components/ui/ConnectionStatus';
@@ -150,46 +150,6 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [refetch]);
 
-  // 緊急取引実行
-  const handleEmergencyTrade = useCallback(async () => {
-    try {
-      // 生体認証
-      if (isBiometricAvailable) {
-        const authResult = await authenticateWithBiometric();
-        if (!authResult.success) {
-          Alert.alert('認証失敗', '取引実行には生体認証が必要です');
-          return;
-        }
-      }
-
-      Alert.alert(
-        '緊急取引',
-        '緊急取引を実行しますか？',
-        [
-          { text: 'キャンセル', style: 'cancel' },
-          {
-            text: '実行',
-            style: 'destructive',
-            onPress: () => {
-              // 取引実行ロジック
-              showNotification({
-                type: 'success',
-                title: '緊急取引実行',
-                message: '緊急取引が実行されました',
-              });
-            },
-          },
-        ]
-      );
-    } catch (err) {
-      console.error('Emergency trade error:', err);
-      showNotification({
-        type: 'error',
-        title: 'エラー',
-        message: '緊急取引の実行に失敗しました',
-      });
-    }
-  }, [isBiometricAvailable, authenticateWithBiometric, showNotification]);
 
   // アニメーションスタイル
   const fadeStyle = useAnimatedStyle(() => {
@@ -290,7 +250,7 @@ export const DashboardScreen: React.FC = () => {
               style={styles.kpiCard}
             />
             <KPICard
-              title="取引実行数"
+              title="分析実行数"
               value={dashboardData?.kpis?.trades || 0}
               unit="件"
               format="number"
@@ -358,15 +318,15 @@ export const DashboardScreen: React.FC = () => {
           style={styles.marketCard}
         />
 
-        {/* 最近の取引 */}
-        <Card style={styles.tradesCard}>
-          <Card.Title title="最近の取引" subtitle="最新5件" />
+        {/* 最近の分析 */}
+        <Card style={styles.analysesCard}>
+          <Card.Title title="最近の分析" subtitle="最新5件" />
           <Card.Content>
-            {dashboardData?.recentTrades?.slice(0, 5).map((trade) => (
-              <TradeCard
-                key={trade.id}
-                trade={trade}
-                style={styles.tradeItem}
+            {dashboardData?.recentAnalyses?.slice(0, 5).map((analysis) => (
+              <AnalysisCard
+                key={analysis.id}
+                analysis={analysis}
+                style={styles.analysisItem}
               />
             ))}
           </Card.Content>
@@ -399,12 +359,6 @@ export const DashboardScreen: React.FC = () => {
           visible
           icon={quickActionVisible ? 'close' : 'plus'}
           actions={[
-            {
-              icon: 'lightning-bolt',
-              label: '緊急取引',
-              onPress: handleEmergencyTrade,
-              color: colors.error,
-            },
             {
               icon: 'refresh',
               label: '更新',
@@ -484,12 +438,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 20,
   },
-  tradesCard: {
+  analysesCard: {
     marginHorizontal: 20,
     marginBottom: 20,
     borderRadius: 12,
   },
-  tradeItem: {
+  analysisItem: {
     marginBottom: 8,
   },
   alertsCard: {

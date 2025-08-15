@@ -3,6 +3,16 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Image files (temporary charts)
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Profile files
+*.pstat
+*.prof
+
 # C extensions
 *.so
 

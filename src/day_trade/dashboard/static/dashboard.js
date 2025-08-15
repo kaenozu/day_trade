@@ -8,28 +8,6 @@ let isConnected = false;
 // セーフモード確認
 const SAFE_MODE_ENABLED = true;
 
-// 自動取引機能完全無効化
-function blockTradingFunctions() {
-    // 取引関連の関数を無効化
-    window.executeTrade = function() {
-        alert('⚠️ エラー: 自動取引機能は無効化されています。このシステムは分析専用です。');
-        return false;
-    };
-
-    window.placeOrder = function() {
-        alert('⚠️ エラー: 注文実行機能は無効化されています。このシステムは分析専用です。');
-        return false;
-    };
-
-    // フォームの提出を防ぐ
-    document.addEventListener('submit', function(e) {
-        if (e.target.action && (e.target.action.includes('/trading/') || e.target.action.includes('/order/'))) {
-            e.preventDefault();
-            alert('⚠️ エラー: 取引関連の操作は無効化されています。');
-            return false;
-        }
-    });
-}
 
 // 初期化
 document.addEventListener('DOMContentLoaded', function() {
@@ -37,11 +15,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeDashboard() {
-    // セーフモード機能を有効化
-    blockTradingFunctions();
-
-    // セーフモード確認メッセージ
-    console.log('🛡️ セーフモード有効: 自動取引・注文実行機能は完全に無効化されています');
+    // 分析専用システム確認メッセージ
+    console.log('📊 分析専用システム: データ分析・監視機能のみ有効です');
 
     // WebSocketイベントリスナー
     socket.on('connect', function() {

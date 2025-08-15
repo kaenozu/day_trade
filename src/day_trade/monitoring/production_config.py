@@ -568,8 +568,16 @@ def load_config(
         with open(config_file, encoding="utf-8") as f:
             file_config = json.load(f)
 
-        # TODO: ファイル設定をconfigにマージ
-        # 実装は必要に応じて追加
+        # ファイル設定をconfigにマージ（本番実装）
+        if file_config:
+            # 既存設定を上書き（優先度: ファイル設定 > デフォルト設定）
+            config.monitoring_enabled = file_config.get('monitoring_enabled', config.monitoring_enabled)
+            if 'log_level' in file_config:
+                config.log_level = file_config['log_level']
+            if 'metrics' in file_config:
+                config.metrics.update(file_config['metrics'])
+            if 'alerts' in file_config:
+                config.alerts.update(file_config['alerts'])
 
     # 設定の妥当性チェック
     validation_errors = config.validate()
