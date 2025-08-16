@@ -28,16 +28,32 @@ try:
     from src.day_trade.utils.encoding_utils import setup_windows_encoding
     setup_windows_encoding()
 except ImportError:
-    # フォールバック: 簡易Windows対応
+    # フォールバック: 統合Windows環境対応
     import sys
     import os
-    if sys.platform == 'win32':
-        os.environ['PYTHONIOENCODING'] = 'utf-8'
-        try:
-            sys.stdout.reconfigure(encoding='utf-8')
-            sys.stderr.reconfigure(encoding='utf-8')
-        except:
-            pass
+
+    def setup_windows_encoding():
+        """Windows環境でのエンコーディング設定（統合版）"""
+        if sys.platform == 'win32':
+            # 環境変数設定
+            os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+            try:
+                # Python 3.7+の場合
+                sys.stdout.reconfigure(encoding='utf-8')
+                sys.stderr.reconfigure(encoding='utf-8')
+            except (AttributeError, OSError):
+                # フォールバック：codecs使用
+                try:
+                    import codecs
+                    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+                    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+                except Exception:
+                    # 最終フォールバック：何もしない
+                    pass
+
+    # Windows環境設定を実行
+    setup_windows_encoding()
 
 # 機械学習ライブラリ
 try:
@@ -74,6 +90,11 @@ try:
     REAL_DATA_PROVIDER_AVAILABLE = True
 except ImportError:
     REAL_DATA_PROVIDER_AVAILABLE = False
+
+# ハイパーパラメータ最適化は循環インポートのため一時的に無効化
+HYPERPARAMETER_OPTIMIZER_AVAILABLE = False
+# 注意: hyperparameter_optimizerはModelType, PredictionTaskをインポートしている
+# 必要時に動的インポートで対応
 
 class ModelType(Enum):
     """モデルタイプ"""
@@ -166,6 +187,59 @@ class EnsemblePrediction:
     consensus_strength: float
     disagreement_score: float
 
+class BaseModelTrainer:
+    """モデル訓練の基底クラス（抽象化）"""
+
+    def __init__(self, logger=None):
+        self.logger = logger or logging.getLogger(__name__)
+
+    def prepare_data(self, X: pd.DataFrame, y: pd.Series, test_size: float = 0.2,
+                    random_state: int = 42, stratify: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+        """データ分割の共通処理"""
+        return train_test_split(
+            X, y, test_size=test_size, random_state=random_state,
+            stratify=y if stratify else None
+        )
+
+    def validate_data_quality(self, X: pd.DataFrame, y: pd.Series, task_type: str) -> Tuple[bool, str]:
+        """データ品質検証の共通処理"""
+        try:
+            if X.empty or y.empty:
+                return False, "データが空です"
+
+            min_samples = 50 if task_type == "classification" else 30
+            if len(X) < min_samples:
+                return False, f"サンプル数不足: {len(X)} < {min_samples}"
+
+            return True, "OK"
+        except Exception as e:
+            return False, f"検証エラー: {e}"
+
+    def calculate_metrics(self, y_true, y_pred, task_type: str) -> Dict[str, float]:
+        """性能指標計算の共通処理"""
+        metrics = {}
+
+        if task_type == "classification":
+            from sklearn.metrics import precision_score, recall_score, f1_score
+            metrics['accuracy'] = accuracy_score(y_true, y_pred)
+            metrics['precision'] = precision_score(y_true, y_pred, average='weighted', zero_division=0)
+            metrics['recall'] = recall_score(y_true, y_pred, average='weighted', zero_division=0)
+            metrics['f1_score'] = f1_score(y_true, y_pred, average='weighted', zero_division=0)
+        else:  # regression
+            metrics['r2_score'] = r2_score(y_true, y_pred)
+            metrics['mse'] = mean_squared_error(y_true, y_pred)
+            metrics['rmse'] = np.sqrt(metrics['mse'])
+
+        return metrics
+
+    def cross_validate(self, model, X: pd.DataFrame, y: pd.Series,
+                      cv_folds: int = 5, task_type: str = "classification") -> np.ndarray:
+        """クロスバリデーションの共通処理"""
+        scoring = 'accuracy' if task_type == "classification" else 'r2'
+        cv_strategy = TimeSeriesSplit(n_splits=cv_folds)
+        return cross_val_score(model, X, y, cv=cv_strategy, scoring=scoring)
+
+
 class MLPredictionModels:
     """機械学習予測モデルシステム"""
 
@@ -174,6 +248,9 @@ class MLPredictionModels:
 
         if not SKLEARN_AVAILABLE:
             raise ImportError("Scikit-learn is required")
+
+        # BaseModelTrainerの初期化
+        self.base_trainer = BaseModelTrainer(self.logger)
 
         # データディレクトリ初期化
         self.data_dir = Path("ml_models_data")
@@ -393,6 +470,51 @@ class MLPredictionModels:
         except Exception as e:
             self.logger.error(f"Failed to save model with metadata {model_key}: {e}")
 
+    def _validate_training_data(self, X: pd.DataFrame, y: pd.Series, task: PredictionTask) -> Tuple[bool, str]:
+        """訓練データの品質チェック"""
+        try:
+            # 基本チェック
+            if X.empty or y.empty:
+                return False, "データが空です"
+
+            if len(X) != len(y):
+                return False, f"特徴量とターゲットのサイズが不一致: {len(X)} vs {len(y)}"
+
+            # 最小サンプル数チェック
+            min_samples = 50 if task == PredictionTask.PRICE_DIRECTION else 30
+            if len(X) < min_samples:
+                return False, f"サンプル数が不足: {len(X)} < {min_samples}"
+
+            # 欠損値チェック
+            missing_features = X.isnull().sum().sum()
+            missing_targets = y.isnull().sum()
+
+            if missing_features > len(X) * 0.1:  # 10%以上の欠損値
+                return False, f"特徴量の欠損値が多すぎます: {missing_features}"
+
+            if missing_targets > len(y) * 0.05:  # 5%以上の欠損値
+                return False, f"ターゲットの欠損値が多すぎます: {missing_targets}"
+
+            # 分類タスクの場合のクラス分布チェック
+            if task == PredictionTask.PRICE_DIRECTION:
+                class_counts = y.value_counts()
+                min_class_size = len(y) * 0.05  # 各クラス最低5%
+
+                if (class_counts < min_class_size).any():
+                    return False, f"クラス分布が不均衡すぎます: {class_counts.to_dict()}"
+
+            # 特徴量の分散チェック
+            numeric_features = X.select_dtypes(include=[np.number])
+            zero_variance_features = (numeric_features.var() == 0).sum()
+
+            if zero_variance_features > len(numeric_features.columns) * 0.5:
+                return False, f"分散がゼロの特徴量が多すぎます: {zero_variance_features}"
+
+            return True, "データ品質OK"
+
+        except Exception as e:
+            return False, f"データ検証エラー: {e}"
+
     def _train_model_common(self, model_type: ModelType, task: PredictionTask,
                            X: pd.DataFrame, targets: Dict[PredictionTask, pd.Series],
                            symbol: str, valid_idx: pd.Index, config: TrainingConfig,
@@ -400,8 +522,17 @@ class MLPredictionModels:
         """共通のモデル訓練ロジック"""
 
         start_time = datetime.now()
-        y = targets[task].loc[valid_idx]
+        y = targets[task].loc[valid_idx].dropna()
         X_clean = X.loc[y.index]
+
+        # データ品質チェック
+        is_valid, message = self._validate_training_data(X_clean, y, task)
+        if not is_valid:
+            self.logger.warning(f"データ品質チェック失敗 ({task.value}): {message}")
+            # 品質チェック失敗時のフォールバック
+            raise ValueError(f"訓練データの品質が不十分です: {message}")
+
+        self.logger.info(f"データ品質チェック成功 ({task.value}): {message}")
 
         # データ分割
         X_train, X_test, y_train, y_test = train_test_split(
@@ -1465,5 +1596,15 @@ except Exception:
     ml_prediction_models = None
 
 if __name__ == "__main__":
-    # 基本動作確認は別ファイルに分離済み
-    pass
+    # テストコードはtests/test_ml_prediction_models.pyに分離
+    # 直接実行時は基本的な動作確認のみ
+    print("ML Prediction Models - 機械学習予測モデルシステム")
+    print("テストを実行するには: pytest tests/test_ml_prediction_models.py")
+
+    try:
+        models = MLPredictionModels()
+        print(f"✓ 初期化成功: モデルディレクトリ = {models.data_dir}")
+        print(f"✓ データベース: {models.db_path}")
+        print(f"✓ 利用可能モデル: {list(models.model_configs.keys())}")
+    except Exception as e:
+        print(f"✗ 初期化エラー: {e}")
