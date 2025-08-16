@@ -23,19 +23,37 @@ import warnings
 warnings.filterwarnings('ignore')
 import joblib # Added for model saving/loading
 
-# Windows環境での文字化け対策
-import sys
-import os
-os.environ['PYTHONIOENCODING'] = 'utf-8'
+# 共通ユーティリティ
+try:
+    from src.day_trade.utils.encoding_utils import setup_windows_encoding
+    setup_windows_encoding()
+except ImportError:
+    # フォールバック: 統合Windows環境対応
+    import sys
+    import os
 
-if sys.platform == 'win32':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except:
-        import codecs
-        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
-        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+    def setup_windows_encoding():
+        """Windows環境でのエンコーディング設定（統合版）"""
+        if sys.platform == 'win32':
+            # 環境変数設定
+            os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+            try:
+                # Python 3.7+の場合
+                sys.stdout.reconfigure(encoding='utf-8')
+                sys.stderr.reconfigure(encoding='utf-8')
+            except (AttributeError, OSError):
+                # フォールバック：codecs使用
+                try:
+                    import codecs
+                    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+                    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+                except Exception:
+                    # 最終フォールバック：何もしない
+                    pass
+
+    # Windows環境設定を実行
+    setup_windows_encoding()
 
 # 機械学習ライブラリ
 try:
@@ -72,6 +90,11 @@ try:
     REAL_DATA_PROVIDER_AVAILABLE = True
 except ImportError:
     REAL_DATA_PROVIDER_AVAILABLE = False
+
+# ハイパーパラメータ最適化は循環インポートのため一時的に無効化
+HYPERPARAMETER_OPTIMIZER_AVAILABLE = False
+# 注意: hyperparameter_optimizerはModelType, PredictionTaskをインポートしている
+# 必要時に動的インポートで対応
 
 class ModelType(Enum):
     """モデルタイプ"""
@@ -118,6 +141,41 @@ class ModelPerformance:
     validation_metrics: Dict[str, float] = field(default_factory=dict)
 
 @dataclass
+class ModelMetadata:
+    """モデルメタデータ"""
+    model_type: ModelType
+    task: PredictionTask
+    version: str
+    created_at: datetime
+    feature_names: List[str]
+    target_columns: List[str]
+    training_period: str
+    training_samples: int
+    hyperparameters: Dict[str, Any]
+    preprocessing_info: Dict[str, Any]
+    performance_metrics: Dict[str, float]
+    is_classifier: bool
+    model_size_mb: float
+    python_version: str
+    sklearn_version: str
+
+    def __post_init__(self):
+        if isinstance(self.created_at, str):
+            self.created_at = datetime.fromisoformat(self.created_at)
+
+@dataclass
+class TrainingConfig:
+    """訓練設定"""
+    test_size: float = 0.2
+    random_state: int = 42
+    cv_folds: int = 5
+    enable_cross_validation: bool = True
+    save_model: bool = True
+    use_optimized_params: bool = True
+    feature_selection: bool = False
+    preprocessing: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
 class PredictionResult:
     """予測結果"""
     symbol: str
@@ -144,818 +202,56 @@ class EnsemblePrediction:
     disagreement_score: float
 
 class BaseModelTrainer:
-    """基底モデル訓練クラス"""
+    """モデル訓練の基底クラス（抽象化）"""
 
-    def __init__(self, model_type: ModelType, config: Dict[str, Any]):
-        self.model_type = model_type
-        self.config = config
-        self.logger = logging.getLogger(f"{__name__}.{model_type.value}")
+    def __init__(self, logger=None):
+        self.logger = logger or logging.getLogger(__name__)
 
-    def create_classifier(self, params: Dict[str, Any]):
-        """分類器作成（サブクラスで実装）"""
-        raise NotImplementedError
-
-    def create_regressor(self, params: Dict[str, Any]):
-        """回帰器作成（サブクラスで実装）"""
-        raise NotImplementedError
-
-    async def train_model(self, X: pd.DataFrame, y: pd.Series, task: PredictionTask,
-                         symbol: str, optimized_params: Optional[Dict[str, Any]] = None) -> Optional[ModelPerformance]:
-        """統一されたモデル訓練インターフェース"""
-
-        start_time = datetime.now()
-
-        # データ検証
-        if len(y) < 20:
-            self.logger.warning(f"Insufficient samples for {task.value}: {len(y)} < 20")
-            return None
-
-        # 訓練・テスト分割
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=42,
-            stratify=y if task == PredictionTask.PRICE_DIRECTION else None
+    def prepare_data(self, X: pd.DataFrame, y: pd.Series, test_size: float = 0.2,
+                    random_state: int = 42, stratify: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+        """データ分割の共通処理"""
+        return train_test_split(
+            X, y, test_size=test_size, random_state=random_state,
+            stratify=y if stratify else None
         )
 
+    def validate_data_quality(self, X: pd.DataFrame, y: pd.Series, task_type: str) -> Tuple[bool, str]:
+        """データ品質検証の共通処理"""
         try:
-            # パラメータ準備
-            params = self._get_model_params(task, optimized_params)
+            if X.empty or y.empty:
+                return False, "データが空です"
 
-            # モデル作成・訓練
-            if task == PredictionTask.PRICE_DIRECTION:
-                model, le, performance = await self._train_classifier(X_train, X_test, y_train, y_test, params)
-            else:
-                model, le, performance = await self._train_regressor(X_train, X_test, y_train, y_test, params)
+            min_samples = 50 if task_type == "classification" else 30
+            if len(X) < min_samples:
+                return False, f"サンプル数不足: {len(X)} < {min_samples}"
 
-            if model is None:
-                return None
-
-            # モデルID生成
-            model_id = f"{symbol}_{task.value}_{self.model_type.value}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-
-            # 性能情報更新
-            performance.model_id = model_id
-            performance.training_time = (datetime.now() - start_time).total_seconds()
-
-            # 特徴量重要度
-            if hasattr(model, 'feature_importances_'):
-                performance.feature_importance = dict(zip(X_train.columns, model.feature_importances_))
-
-            return performance
-
+            return True, "OK"
         except Exception as e:
-            self.logger.error(f"Training failed for {task.value}: {e}")
-            return None
-
-    def _get_model_params(self, task: PredictionTask, optimized_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """モデルパラメータ取得"""
-        param_key = 'classifier_params' if task == PredictionTask.PRICE_DIRECTION else 'regressor_params'
-        params = self.config.get(param_key, {}).copy()
-
-        if optimized_params and self.model_type.value in optimized_params:
-            params.update(optimized_params[self.model_type.value].get(task.value, {}))
-
-        return params
-
-    async def _train_classifier(self, X_train, X_test, y_train, y_test, params) -> Tuple[Any, Any, ModelPerformance]:
-        """分類器訓練"""
-        # ラベルエンコーダー
-        le = LabelEncoder()
-        y_train_encoded = le.fit_transform(y_train)
-        y_test_encoded = le.transform(y_test)
-
-        # モデル作成・訓練
-        model = self.create_classifier(params)
-        model.fit(X_train, y_train_encoded)
-        y_pred = model.predict(X_test)
-
-        # 性能計算
-        accuracy = accuracy_score(y_test_encoded, y_pred)
-        report = classification_report(y_test_encoded, y_pred, output_dict=True)
-        cm = confusion_matrix(y_test_encoded, y_pred)
-
-        # クロスバリデーション
-        cv_scores = cross_val_score(model, X_train, y_train_encoded,
-                                  cv=TimeSeriesSplit(n_splits=5), scoring='accuracy')
-
-        performance = ModelPerformance(
-            model_id="",  # 後で設定
-            accuracy=accuracy,
-            precision=report['weighted avg']['precision'],
-            recall=report['weighted avg']['recall'],
-            f1_score=report['weighted avg']['f1-score'],
-            cross_val_mean=cv_scores.mean(),
-            cross_val_std=cv_scores.std(),
-            feature_importance={},  # 後で設定
-            confusion_matrix=cm,
-            training_time=0.0,  # 後で設定
-            prediction_time=0.0
-        )
-
-        return model, le, performance
-
-    async def _train_regressor(self, X_train, X_test, y_train, y_test, params) -> Tuple[Any, Any, ModelPerformance]:
-        """回帰器訓練"""
-        # モデル作成・訓練
-        model = self.create_regressor(params)
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-
-        # 性能計算
-        mse = mean_squared_error(y_test, y_pred)
-        rmse = np.sqrt(mse)
-        r2 = r2_score(y_test, y_pred)
-
-        # クロスバリデーション
-        cv_scores = cross_val_score(model, X_train, y_train,
-                                  cv=TimeSeriesSplit(n_splits=5), scoring='r2')
-
-        performance = ModelPerformance(
-            model_id="",  # 後で設定
-            accuracy=r2,  # 回帰ではR²を精度として使用
-            precision=1.0 - (rmse / y_test.std()) if y_test.std() > 0 else 0.0,
-            recall=0.0,
-            f1_score=0.0,
-            cross_val_mean=cv_scores.mean(),
-            cross_val_std=cv_scores.std(),
-            feature_importance={},  # 後で設定
-            confusion_matrix=np.array([]),
-            training_time=0.0,  # 後で設定
-            prediction_time=0.0,
-            validation_metrics={'mse': mse, 'rmse': rmse, 'r2': r2}
-        )
-
-        return model, None, performance
-
-class RandomForestTrainer(BaseModelTrainer):
-    """Random Forest訓練クラス"""
-
-    def create_classifier(self, params: Dict[str, Any]):
-        return RandomForestClassifier(**params)
-
-    def create_regressor(self, params: Dict[str, Any]):
-        return RandomForestRegressor(**params)
-
-class XGBoostTrainer(BaseModelTrainer):
-    """XGBoost訓練クラス"""
-
-    def create_classifier(self, params: Dict[str, Any]):
-        return xgb.XGBClassifier(**params)
-
-    def create_regressor(self, params: Dict[str, Any]):
-        return xgb.XGBRegressor(**params)
-
-class LightGBMTrainer(BaseModelTrainer):
-    """LightGBM訓練クラス"""
-
-    def create_classifier(self, params: Dict[str, Any]):
-        return lgb.LGBMClassifier(**params)
-
-    def create_regressor(self, params: Dict[str, Any]):
-        return lgb.LGBMRegressor(**params)
-
-class ModelMetadataManager:
-    """モデルメタデータ管理クラス"""
-
-    def __init__(self, db_path: Path):
-        self.db_path = db_path
-        self.logger = logging.getLogger(f"{__name__}.MetadataManager")
-        self._init_metadata_tables()
-
-    def _init_metadata_tables(self):
-        """改良されたメタデータテーブル初期化"""
-        with sqlite3.connect(self.db_path) as conn:
-            # モデルメタデータテーブル（拡張）
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS model_metadata (
-                    model_id TEXT PRIMARY KEY,
-                    model_type TEXT NOT NULL,
-                    task TEXT NOT NULL,
-                    symbol TEXT NOT NULL,
-                    version TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    parameters TEXT,
-                    feature_columns TEXT,
-                    target_info TEXT,
-                    training_samples INTEGER,
-                    status TEXT DEFAULT 'active',
-                    last_trained TEXT,
-                    hyperparameter_hash TEXT,
-                    data_fingerprint TEXT
-                )
-            """)
-
-            # モデル性能履歴テーブル（拡張）
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS model_performance_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    model_id TEXT NOT NULL,
-                    accuracy REAL,
-                    precision_score REAL,
-                    recall_score REAL,
-                    f1_score REAL,
-                    cross_val_mean REAL,
-                    cross_val_std REAL,
-                    training_time REAL,
-                    validation_metrics TEXT,
-                    quality_score REAL,
-                    stability_score REAL,
-                    feature_importance TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (model_id) REFERENCES model_metadata (model_id)
-                )
-            """)
-
-            # アンサンブル予測履歴テーブル（新規）
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS ensemble_prediction_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    symbol TEXT NOT NULL,
-                    timestamp TEXT NOT NULL,
-                    task TEXT NOT NULL,
-                    final_prediction TEXT NOT NULL,
-                    confidence REAL NOT NULL,
-                    consensus_strength REAL NOT NULL,
-                    disagreement_score REAL NOT NULL,
-                    model_count INTEGER NOT NULL,
-                    avg_model_quality REAL,
-                    confidence_variance REAL,
-                    prediction_stability REAL,
-                    model_predictions TEXT,
-                    model_weights TEXT,
-                    quality_metrics TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            # モデル重み履歴テーブル（新規）
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS model_weight_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    symbol TEXT NOT NULL,
-                    task TEXT NOT NULL,
-                    model_type TEXT NOT NULL,
-                    static_weight REAL,
-                    dynamic_weight REAL,
-                    quality_contribution REAL,
-                    confidence_contribution REAL,
-                    performance_trend REAL,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            # 予測精度追跡テーブル（新規）
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS prediction_accuracy_tracking (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    prediction_id TEXT NOT NULL,
-                    symbol TEXT NOT NULL,
-                    predicted_value TEXT NOT NULL,
-                    actual_value TEXT,
-                    prediction_date TEXT NOT NULL,
-                    verification_date TEXT,
-                    accuracy_score REAL,
-                    confidence_at_prediction REAL,
-                    model_used TEXT,
-                    task TEXT NOT NULL
-                )
-            """)
-
-            # インデックス作成
-            indexes = [
-                "CREATE INDEX IF NOT EXISTS idx_model_metadata_symbol_task ON model_metadata (symbol, task)",
-                "CREATE INDEX IF NOT EXISTS idx_performance_history_model_created ON model_performance_history (model_id, created_at)",
-                "CREATE INDEX IF NOT EXISTS idx_ensemble_predictions_symbol_timestamp ON ensemble_prediction_history (symbol, timestamp)",
-                "CREATE INDEX IF NOT EXISTS idx_weight_history_symbol_task ON model_weight_history (symbol, task, updated_at)",
-                "CREATE INDEX IF NOT EXISTS idx_accuracy_tracking_symbol_date ON prediction_accuracy_tracking (symbol, prediction_date)"
-            ]
-
-            for index_sql in indexes:
-                conn.execute(index_sql)
-
-    def save_model_metadata(self, metadata: ModelMetadata) -> bool:
-        """モデルメタデータ保存"""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
-                    INSERT OR REPLACE INTO model_metadata
-                    (model_id, model_type, task, symbol, version, created_at,
-                     parameters, feature_columns, target_info, training_samples)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    metadata.model_id,
-                    metadata.model_type.value,
-                    metadata.task.value,
-                    metadata.symbol,
-                    metadata.version,
-                    metadata.created_at.isoformat(),
-                    json.dumps(metadata.parameters),
-                    json.dumps(metadata.feature_columns),
-                    json.dumps(metadata.target_info),
-                    metadata.training_samples
-                ))
-                return True
-        except Exception as e:
-            self.logger.error(f"Failed to save model metadata: {e}")
-            return False
-
-    def save_model_performance(self, performance: ModelPerformance) -> bool:
-        """モデル性能保存"""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
-                    INSERT INTO model_performance_history
-                    (model_id, accuracy, precision_score, recall_score, f1_score,
-                     cross_val_mean, cross_val_std, training_time, validation_metrics)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    performance.model_id,
-                    performance.accuracy,
-                    performance.precision,
-                    performance.recall,
-                    performance.f1_score,
-                    performance.cross_val_mean,
-                    performance.cross_val_std,
-                    performance.training_time,
-                    json.dumps(performance.validation_metrics)
-                ))
-                return True
-        except Exception as e:
-            self.logger.error(f"Failed to save model performance: {e}")
-            return False
-
-    def get_model_metadata(self, model_id: str) -> Optional[ModelMetadata]:
-        """モデルメタデータ取得"""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("""
-                    SELECT model_id, model_type, task, symbol, version, created_at,
-                           parameters, feature_columns, target_info, training_samples
-                    FROM model_metadata WHERE model_id = ?
-                """, (model_id,))
-
-                row = cursor.fetchone()
-                if row:
-                    return ModelMetadata(
-                        model_id=row[0],
-                        model_type=ModelType(row[1]),
-                        task=PredictionTask(row[2]),
-                        symbol=row[3],
-                        version=row[4],
-                        created_at=datetime.fromisoformat(row[5]),
-                        parameters=json.loads(row[6]) if row[6] else {},
-                        feature_columns=json.loads(row[7]) if row[7] else [],
-                        target_info=json.loads(row[8]) if row[8] else {},
-                        training_samples=row[9]
-                    )
-        except Exception as e:
-            self.logger.error(f"Failed to get model metadata: {e}")
-        return None
-
-    def list_models(self, symbol: str = None, model_type: ModelType = None,
-                   task: PredictionTask = None) -> List[ModelMetadata]:
-        """モデル一覧取得"""
-        try:
-            query = "SELECT model_id FROM model_metadata WHERE status = 'active'"
-            params = []
-
-            if symbol:
-                query += " AND symbol = ?"
-                params.append(symbol)
-            if model_type:
-                query += " AND model_type = ?"
-                params.append(model_type.value)
-            if task:
-                query += " AND task = ?"
-                params.append(task.value)
-
-            query += " ORDER BY created_at DESC"
-
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(query, params)
-                model_ids = [row[0] for row in cursor.fetchall()]
-
-                return [self.get_model_metadata(mid) for mid in model_ids if self.get_model_metadata(mid)]
-        except Exception as e:
-            self.logger.error(f"Failed to list models: {e}")
-            return []
-
-class DataPreparationPipeline:
-    """データ準備パイプライン"""
-
-    def __init__(self):
-        self.logger = logging.getLogger(f"{__name__}.DataPipeline")
-        self.feature_cache = {}
-
-    async def prepare_training_data(self, symbol: str, period: str = "1y",
-                                  force_refresh: bool = False) -> Tuple[pd.DataFrame, Dict[PredictionTask, pd.Series]]:
-        """統合された訓練データ準備"""
-
-        self.logger.info(f"Preparing training data for {symbol} ({period})")
-
-        # キャッシュキー
-        cache_key = f"{symbol}_{period}"
-        if not force_refresh and cache_key in self.feature_cache:
-            self.logger.info("Using cached features")
-            return self.feature_cache[cache_key]
-
-        try:
-            # データ取得
-            raw_data = await self._fetch_market_data(symbol, period)
-
-            # データ品質検証
-            validated_data = self._validate_and_clean_data(raw_data)
-
-            # 特徴量エンジニアリング
-            features = await self._engineer_features(symbol, validated_data)
-
-            # ターゲット変数作成
-            targets = self._create_robust_targets(validated_data)
-
-            # 最終検証
-            features, targets = self._final_validation(features, targets)
-
-            # キャッシュに保存
-            result = (features, targets)
-            self.feature_cache[cache_key] = result
-
-            self.logger.info(f"Data preparation completed: Features {features.shape}, Targets: {len(targets)}")
-            return result
-
-        except Exception as e:
-            self.logger.error(f"Data preparation failed for {symbol}: {e}")
-            # フォールバックで基本データを返す
-            return await self._fallback_data_preparation(symbol, period)
-
-    async def _fetch_market_data(self, symbol: str, period: str) -> pd.DataFrame:
-        """市場データ取得"""
-        if REAL_DATA_PROVIDER_AVAILABLE:
-            try:
-                data = await real_data_provider.get_stock_data(symbol, period)
-                if not data.empty:
-                    return data
-            except Exception as e:
-                self.logger.warning(f"Real data provider failed: {e}")
-
-        # フォールバック: ダミーデータ生成
-        return self._generate_synthetic_data(symbol, period)
-
-    def _generate_synthetic_data(self, symbol: str, period: str) -> pd.DataFrame:
-        """シンセティックデータ生成"""
-
-        # 期間に応じたデータポイント数を計算
-        period_days = {
-            '1mo': 30, '3mo': 90, '6mo': 180,
-            '1y': 365, '2y': 730, '5y': 1825
-        }
-        days = period_days.get(period, 365)
-
-        dates = pd.date_range(end=datetime.now(), periods=days, freq='D')
-        np.random.seed(hash(symbol) % 2**32)  # シンボル固有のシード
-
-        # よりリアルな価格変動をシミュレート
-        base_price = 1000 + (hash(symbol) % 5000)  # シンボル固有の基準価格
-        prices = [base_price]
-
-        for i in range(len(dates)-1):
-            # トレンド、ボラティリティ、ランダムウォークを組み合わせ
-            trend = 0.0001 * np.sin(i / 30)  # 季節性トレンド
-            volatility = 0.02 * (1 + 0.5 * np.sin(i / 10))  # 可変ボラティリティ
-            random_change = np.random.normal(trend, volatility)
-
-            new_price = prices[-1] * (1 + random_change)
-            prices.append(max(new_price, 10))  # 最低価格制限
-
-        # OHLCVデータ作成
-        data = pd.DataFrame({
-            'Open': [p * np.random.uniform(0.995, 1.005) for p in prices],
-            'High': [p * np.random.uniform(1.01, 1.05) for p in prices],
-            'Low': [p * np.random.uniform(0.95, 0.99) for p in prices],
-            'Close': prices,
-            'Volume': np.random.lognormal(10, 1, len(dates)).astype(int)
-        }, index=dates)
-
-        # 現実的な制約を適用
-        data['High'] = np.maximum(data['High'], np.maximum(data['Open'], data['Close']))
-        data['Low'] = np.minimum(data['Low'], np.minimum(data['Open'], data['Close']))
-
-        return data
-
-    def _validate_and_clean_data(self, data: pd.DataFrame) -> pd.DataFrame:
-        """データ品質検証とクリーニング"""
-
-        if data.empty:
-            raise ValueError("Empty dataset provided")
-
-        # 必要な列の確認
-        required_columns = ['Open', 'High', 'Low', 'Close']
-        missing_columns = [col for col in required_columns if col not in data.columns]
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
-
-        # データ型の確認と変換
-        for col in required_columns:
-            data[col] = pd.to_numeric(data[col], errors='coerce')
-
-        if 'Volume' in data.columns:
-            data['Volume'] = pd.to_numeric(data['Volume'], errors='coerce')
-        else:
-            data['Volume'] = 1000000  # デフォルト出来高
-
-        # 非現実的な値の修正
-        data = data[(data['High'] >= data['Low']) &
-                   (data['High'] >= data['Open']) &
-                   (data['High'] >= data['Close']) &
-                   (data['Low'] <= data['Open']) &
-                   (data['Low'] <= data['Close'])]
-
-        # 異常値の除去（極端な価格変動）
-        for col in ['Open', 'High', 'Low', 'Close']:
-            pct_change = data[col].pct_change().abs()
-            outliers = pct_change > 0.5  # 50%以上の変動
-            if outliers.any():
-                self.logger.warning(f"Removing {outliers.sum()} outliers from {col}")
-                data = data[~outliers]
-
-        # 欠損値の前方補間
-        data = data.fillna(method='ffill').dropna()
-
-        if len(data) < 50:
-            raise ValueError(f"Insufficient data after cleaning: {len(data)} rows")
-
-        return data
-
-    async def _engineer_features(self, symbol: str, data: pd.DataFrame) -> pd.DataFrame:
-        """特徴量エンジニアリング"""
-
-        try:
-            if FEATURE_ENGINEERING_AVAILABLE:
-                # 高度な特徴量エンジニアリングを試みる
-                feature_set = await enhanced_feature_engineer.extract_comprehensive_features(symbol, data)
-
-                if hasattr(feature_set, 'to_dataframe'):
-                    features = feature_set.to_dataframe()
-                else:
-                    features = self._convert_featureset_to_dataframe(feature_set, data)
-
-                # 特徴量の品質チェック
-                if not features.empty and len(features.columns) >= 10:
-                    return self._enhance_basic_features(features, data)
-                else:
-                    self.logger.warning("Enhanced feature engineering insufficient, using basic features")
-
-        except Exception as e:
-            self.logger.warning(f"Enhanced feature engineering failed: {e}")
-
-        # 基本特徴量にフォールバック
-        return self._extract_comprehensive_basic_features(data)
-
-    def _extract_comprehensive_basic_features(self, data: pd.DataFrame) -> pd.DataFrame:
-        """包括的な基本特徴量抽出"""
-
-        features = pd.DataFrame(index=data.index)
-
-        # 価格関連特徴量
-        features['returns'] = data['Close'].pct_change()
-        features['log_returns'] = np.log(data['Close'] / data['Close'].shift(1))
-        features['price_range'] = (data['High'] - data['Low']) / data['Close']
-        features['upper_shadow'] = (data['High'] - np.maximum(data['Open'], data['Close'])) / data['Close']
-        features['lower_shadow'] = (np.minimum(data['Open'], data['Close']) - data['Low']) / data['Close']
-        features['body_size'] = abs(data['Close'] - data['Open']) / data['Close']
-
-        # 移動平均と偏差
-        for window in [5, 10, 20, 50, 100]:
-            if len(data) > window:
-                ma = data['Close'].rolling(window).mean()
-                features[f'sma_{window}'] = ma
-                features[f'sma_ratio_{window}'] = data['Close'] / ma
-                features[f'sma_distance_{window}'] = (data['Close'] - ma) / ma
-                features[f'volatility_{window}'] = features['returns'].rolling(window).std()
-
-        # テクニカル指標
-        features = self._add_technical_indicators(features, data)
-
-        # 出来高特徴量
-        if 'Volume' in data.columns:
-            features['volume_ma'] = data['Volume'].rolling(20).mean()
-            features['volume_ratio'] = data['Volume'] / features['volume_ma']
-            features['volume_price_trend'] = features['returns'] * np.log(data['Volume'] + 1)
-
-        # 時系列特徴量
-        features = self._add_time_series_features(features, data)
-
-        # 欠損値処理
-        features = features.fillna(method='ffill').fillna(0)
-
-        # 無限大やNaNのチェック
-        features = features.replace([np.inf, -np.inf], np.nan).fillna(0)
-
-        return features
-
-    def _add_technical_indicators(self, features: pd.DataFrame, data: pd.DataFrame) -> pd.DataFrame:
-        """テクニカル指標を追加"""
-
-        # RSI
-        delta = data['Close'].diff()
-        gain = delta.where(delta > 0, 0)
-        loss = -delta.where(delta < 0, 0)
-
-        for period in [14, 30]:
-            if len(data) > period:
-                avg_gain = gain.rolling(period).mean()
-                avg_loss = loss.rolling(period).mean()
-                rs = avg_gain / avg_loss
-                features[f'rsi_{period}'] = 100 - (100 / (1 + rs))
-
-        # MACD
-        ema12 = data['Close'].ewm(span=12).mean()
-        ema26 = data['Close'].ewm(span=26).mean()
-        features['macd'] = ema12 - ema26
-        features['macd_signal'] = features['macd'].ewm(span=9).mean()
-        features['macd_histogram'] = features['macd'] - features['macd_signal']
-
-        # ボリンジャーバンド
-        sma20 = data['Close'].rolling(20).mean()
-        std20 = data['Close'].rolling(20).std()
-        features['bb_upper'] = sma20 + (std20 * 2)
-        features['bb_lower'] = sma20 - (std20 * 2)
-        features['bb_width'] = (features['bb_upper'] - features['bb_lower']) / sma20
-        features['bb_position'] = (data['Close'] - features['bb_lower']) / (features['bb_upper'] - features['bb_lower'])
-
-        # ストキャスティック
-        if len(data) > 14:
-            low_14 = data['Low'].rolling(14).min()
-            high_14 = data['High'].rolling(14).max()
-            features['stoch_k'] = 100 * (data['Close'] - low_14) / (high_14 - low_14)
-            features['stoch_d'] = features['stoch_k'].rolling(3).mean()
-
-        return features
-
-    def _add_time_series_features(self, features: pd.DataFrame, data: pd.DataFrame) -> pd.DataFrame:
-        """時系列特徴量を追加"""
-
-        # ラグ特徴量
-        for lag in [1, 2, 3, 5, 10]:
-            if len(data) > lag:
-                features[f'returns_lag_{lag}'] = features['returns'].shift(lag)
-                features[f'volume_lag_{lag}'] = data['Volume'].shift(lag) if 'Volume' in data.columns else 0
-
-        # ローリング統計
-        for window in [5, 10, 20]:
-            if len(data) > window:
-                features[f'returns_mean_{window}'] = features['returns'].rolling(window).mean()
-                features[f'returns_std_{window}'] = features['returns'].rolling(window).std()
-                features[f'returns_skew_{window}'] = features['returns'].rolling(window).skew()
-                features[f'returns_kurt_{window}'] = features['returns'].rolling(window).kurt()
-
-        # モメンタム特徴量
-        for window in [10, 20]:
-            if len(data) > window:
-                features[f'momentum_{window}'] = data['Close'] / data['Close'].shift(window) - 1
-
-        return features
-
-    def _create_robust_targets(self, data: pd.DataFrame) -> Dict[PredictionTask, pd.Series]:
-        """頑健なターゲット変数作成"""
-
-        targets = {}
-
-        # 価格方向予測（改善版）
-        returns = data['Close'].pct_change().shift(-1)  # 翌日のリターン
-
-        # 閾値をデータ依存に調整
-        volatility = returns.rolling(20).std()
-        threshold_up = volatility.quantile(0.7)  # 上位30%のボラティリティ
-        threshold_down = -threshold_up
-
-        direction = pd.Series(index=data.index, dtype='int')
-        direction[returns > threshold_up] = 1      # 上昇
-        direction[returns < threshold_down] = -1   # 下落
-        direction[(returns >= threshold_down) & (returns <= threshold_up)] = 0  # 横ばい
-
-        targets[PredictionTask.PRICE_DIRECTION] = direction
-
-        # 価格回帰予測
-        targets[PredictionTask.PRICE_REGRESSION] = data['Close'].shift(-1)
-
-        # ボラティリティ予測
-        high_low_range = (data['High'] - data['Low']) / data['Close']
-        targets[PredictionTask.VOLATILITY] = high_low_range.shift(-1)
-
-        # トレンド強度予測
-        trend_strength = abs(returns.rolling(5).mean()) / returns.rolling(5).std()
-        targets[PredictionTask.TREND_STRENGTH] = trend_strength.shift(-1)
-
-        return targets
-
-    def _final_validation(self, features: pd.DataFrame, targets: Dict[PredictionTask, pd.Series]) -> Tuple[pd.DataFrame, Dict[PredictionTask, pd.Series]]:
-        """最終検証とクリーニング"""
-
-        # 特徴量のフィルタリング
-        # 分散がゼロの特徴量を除去
-        feature_variance = features.var()
-        valid_features = feature_variance[feature_variance > 1e-10].index
-        features = features[valid_features]
-
-        # 相関が高すぎる特徴量を除去（簡易版）
-        correlation_matrix = features.corr().abs()
-        high_corr_pairs = np.where(np.triu(correlation_matrix, k=1) > 0.95)
-        features_to_drop = set()
-
-        for i, j in zip(high_corr_pairs[0], high_corr_pairs[1]):
-            # より多くの特徴量と相関が高い方を除去
-            col_i_corr_count = (correlation_matrix.iloc[i] > 0.8).sum()
-            col_j_corr_count = (correlation_matrix.iloc[j] > 0.8).sum()
-
-            if col_i_corr_count > col_j_corr_count:
-                features_to_drop.add(features.columns[i])
-            else:
-                features_to_drop.add(features.columns[j])
-
-        if features_to_drop:
-            self.logger.info(f"Removing {len(features_to_drop)} highly correlated features")
-            features = features.drop(columns=list(features_to_drop))
-
-        # ターゲットのクリーニング
-        cleaned_targets = {}
-        for task, target in targets.items():
-            # 最後の一つの値は不明なので除去
-            clean_target = target[:-1].dropna()
-
-            if len(clean_target) > 50:  # 十分なサンプル数がある場合のみ
-                cleaned_targets[task] = clean_target
-            else:
-                self.logger.warning(f"Insufficient samples for {task.value}: {len(clean_target)}")
-
-        return features, cleaned_targets
-
-    async def _fallback_data_preparation(self, symbol: str, period: str) -> Tuple[pd.DataFrame, Dict[PredictionTask, pd.Series]]:
-        """フォールバックデータ準備"""
-
-        # 最小限のデータで続行
-        try:
-            synthetic_data = self._generate_synthetic_data(symbol, period)
-            basic_features = self._extract_comprehensive_basic_features(synthetic_data)
-            basic_targets = self._create_robust_targets(synthetic_data)
-
-            return self._final_validation(basic_features, basic_targets)
-
-        except Exception as e:
-            self.logger.error(f"Fallback data preparation also failed: {e}")
-            raise ValueError(f"Cannot prepare any data for {symbol}")
-
-    def _convert_featureset_to_dataframe(self, feature_set, data: pd.DataFrame) -> pd.DataFrame:
-        """FeatureSetをDataFrameに変換（簡易版）"""
-        try:
-            if isinstance(feature_set, list):
-                # 複数のFeatureSetのリスト（時系列）の場合
-                feature_rows = []
-                timestamps = []
-
-                for fs in feature_set:
-                    row_features = {}
-                    # 各カテゴリの特徴量を統合
-                    for category in ['price_features', 'technical_features', 'volume_features',
-                                   'momentum_features', 'volatility_features', 'pattern_features',
-                                   'market_features', 'statistical_features']:
-                        if hasattr(fs, category):
-                            features_dict = getattr(fs, category)
-                            if isinstance(features_dict, dict):
-                                row_features.update(features_dict)
-
-                    if row_features:
-                        feature_rows.append(row_features)
-                        timestamps.append(fs.timestamp)
-
-                if feature_rows:
-                    features_df = pd.DataFrame(feature_rows, index=timestamps)
-                else:
-                    features_df = self._extract_comprehensive_basic_features(data)
-
-            else:
-                # 単一のFeatureSetの場合
-                all_features = {}
-                for category in ['price_features', 'technical_features', 'volume_features',
-                               'momentum_features', 'volatility_features', 'pattern_features',
-                               'market_features', 'statistical_features']:
-                    if hasattr(feature_set, category):
-                        features_dict = getattr(feature_set, category)
-                        if isinstance(features_dict, dict):
-                            all_features.update(features_dict)
-
-                if all_features:
-                    features_df = pd.DataFrame([all_features], index=[feature_set.timestamp])
-                else:
-                    features_df = self._extract_comprehensive_basic_features(data)
-
-            # 欠損値処理
-            features_df = features_df.fillna(method='ffill').fillna(0)
-
-            return features_df
-
-        except Exception as e:
-            self.logger.error(f"Failed to convert FeatureSet to DataFrame: {e}")
-            # フォールバック：基本特徴量を使用
-            return self._extract_comprehensive_basic_features(data)
+            return False, f"検証エラー: {e}"
+
+    def calculate_metrics(self, y_true, y_pred, task_type: str) -> Dict[str, float]:
+        """性能指標計算の共通処理"""
+        metrics = {}
+
+        if task_type == "classification":
+            from sklearn.metrics import precision_score, recall_score, f1_score
+            metrics['accuracy'] = accuracy_score(y_true, y_pred)
+            metrics['precision'] = precision_score(y_true, y_pred, average='weighted', zero_division=0)
+            metrics['recall'] = recall_score(y_true, y_pred, average='weighted', zero_division=0)
+            metrics['f1_score'] = f1_score(y_true, y_pred, average='weighted', zero_division=0)
+        else:  # regression
+            metrics['r2_score'] = r2_score(y_true, y_pred)
+            metrics['mse'] = mean_squared_error(y_true, y_pred)
+            metrics['rmse'] = np.sqrt(metrics['mse'])
+
+        return metrics
+
+    def cross_validate(self, model, X: pd.DataFrame, y: pd.Series,
+                      cv_folds: int = 5, task_type: str = "classification") -> np.ndarray:
+        """クロスバリデーションの共通処理"""
+        scoring = 'accuracy' if task_type == "classification" else 'r2'
+        cv_strategy = TimeSeriesSplit(n_splits=cv_folds)
+        return cross_val_score(model, X, y, cv=cv_strategy, scoring=scoring)
 
 class MLPredictionModels:
     """機械学習予測モデルシステム"""
@@ -965,6 +261,9 @@ class MLPredictionModels:
 
         if not SKLEARN_AVAILABLE:
             raise ImportError("Scikit-learn is required")
+
+        # BaseModelTrainerの初期化
+        self.base_trainer = BaseModelTrainer(self.logger)
 
         # データディレクトリ初期化
         self.data_dir = Path("ml_models_data")
@@ -1141,6 +440,350 @@ class MLPredictionModels:
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+
+    def _create_model_metadata(self, model_type: ModelType, task: PredictionTask,
+                              feature_names: List[str], target_columns: List[str],
+                              training_period: str, training_samples: int,
+                              hyperparameters: Dict[str, Any], performance_metrics: Dict[str, float],
+                              is_classifier: bool) -> ModelMetadata:
+        """モデルメタデータを作成"""
+        import sklearn
+        import sys
+
+        return ModelMetadata(
+            model_type=model_type,
+            task=task,
+            version=f"{model_type.value}_{task.value}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            created_at=datetime.now(),
+            feature_names=feature_names,
+            target_columns=target_columns,
+            training_period=training_period,
+            training_samples=training_samples,
+            hyperparameters=hyperparameters,
+            preprocessing_info={'scaler': 'StandardScaler', 'encoding': 'LabelEncoder'},
+            performance_metrics=performance_metrics,
+            is_classifier=is_classifier,
+            model_size_mb=0.0,  # 実際のファイルサイズで更新
+            python_version=sys.version,
+            sklearn_version=sklearn.__version__
+        )
+
+    def _save_model_with_metadata(self, model, model_key: str, metadata: ModelMetadata,
+                                 label_encoder=None):
+        """メタデータ付きでモデルを保存"""
+        file_path = self.models_dir / f"{model_key}.joblib"
+        metadata_path = self.models_dir / f"{model_key}_metadata.json"
+
+        try:
+            # モデル保存
+            model_data = {'model': model, 'metadata': metadata}
+            if label_encoder:
+                model_data['label_encoder'] = label_encoder
+            joblib.dump(model_data, file_path)
+
+            # ファイルサイズ更新
+            file_size_mb = file_path.stat().st_size / (1024 * 1024)
+            metadata.model_size_mb = file_size_mb
+
+            # メタデータ保存（JSON形式）
+            metadata_dict = {
+                'model_type': metadata.model_type.value,
+                'task': metadata.task.value,
+                'version': metadata.version,
+                'created_at': metadata.created_at.isoformat(),
+                'feature_names': metadata.feature_names,
+                'target_columns': metadata.target_columns,
+                'training_period': metadata.training_period,
+                'training_samples': metadata.training_samples,
+                'hyperparameters': metadata.hyperparameters,
+                'preprocessing_info': metadata.preprocessing_info,
+                'performance_metrics': metadata.performance_metrics,
+                'is_classifier': metadata.is_classifier,
+                'model_size_mb': metadata.model_size_mb,
+                'python_version': metadata.python_version,
+                'sklearn_version': metadata.sklearn_version
+            }
+
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata_dict, f, indent=2, ensure_ascii=False)
+
+            self.logger.info(f"Saved model with metadata: {model_key}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to save model with metadata {model_key}: {e}")
+
+    def _validate_training_data(self, X: pd.DataFrame, y: pd.Series, task: PredictionTask) -> Tuple[bool, str]:
+        """訓練データの品質チェック"""
+        try:
+            # 基本チェック
+            if X.empty or y.empty:
+                return False, "データが空です"
+
+            if len(X) != len(y):
+                return False, f"特徴量とターゲットのサイズが不一致: {len(X)} vs {len(y)}"
+
+            # 最小サンプル数チェック
+            min_samples = 50 if task == PredictionTask.PRICE_DIRECTION else 30
+            if len(X) < min_samples:
+                return False, f"サンプル数が不足: {len(X)} < {min_samples}"
+
+            # 欠損値チェック
+            missing_features = X.isnull().sum().sum()
+            missing_targets = y.isnull().sum()
+
+            if missing_features > len(X) * 0.1:  # 10%以上の欠損値
+                return False, f"特徴量の欠損値が多すぎます: {missing_features}"
+
+            if missing_targets > len(y) * 0.05:  # 5%以上の欠損値
+                return False, f"ターゲットの欠損値が多すぎます: {missing_targets}"
+
+            # 分類タスクの場合のクラス分布チェック
+            if task == PredictionTask.PRICE_DIRECTION:
+                class_counts = y.value_counts()
+                min_class_size = len(y) * 0.05  # 各クラス最低5%
+
+                if (class_counts < min_class_size).any():
+                    return False, f"クラス分布が不均衡すぎます: {class_counts.to_dict()}"
+
+            # 特徴量の分散チェック
+            numeric_features = X.select_dtypes(include=[np.number])
+            zero_variance_features = (numeric_features.var() == 0).sum()
+
+            if zero_variance_features > len(numeric_features.columns) * 0.5:
+                return False, f"分散がゼロの特徴量が多すぎます: {zero_variance_features}"
+
+            return True, "データ品質OK"
+
+        except Exception as e:
+            return False, f"データ検証エラー: {e}"
+
+    def _train_model_common(self, model_type: ModelType, task: PredictionTask,
+                           X: pd.DataFrame, targets: Dict[PredictionTask, pd.Series],
+                           symbol: str, valid_idx: pd.Index, config: TrainingConfig,
+                           optimized_params: Optional[Dict[str, Any]] = None) -> ModelPerformance:
+        """共通のモデル訓練ロジック"""
+
+        start_time = datetime.now()
+        y = targets[task].loc[valid_idx].dropna()
+        X_clean = X.loc[y.index]
+
+        # データ品質チェック
+        is_valid, message = self._validate_training_data(X_clean, y, task)
+        if not is_valid:
+            self.logger.warning(f"データ品質チェック失敗 ({task.value}): {message}")
+            # 品質チェック失敗時のフォールバック
+            raise ValueError(f"訓練データの品質が不十分です: {message}")
+
+        self.logger.info(f"データ品質チェック成功 ({task.value}): {message}")
+
+        # データ分割
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_clean, y, test_size=config.test_size,
+            random_state=config.random_state, stratify=y if task == PredictionTask.PRICE_DIRECTION else None
+        )
+
+        # モデル初期化
+        is_classifier = task == PredictionTask.PRICE_DIRECTION
+        model = self._create_model_instance(model_type, is_classifier, optimized_params)
+
+        # ラベルエンコーダー（分類の場合）
+        label_encoder = None
+        if is_classifier:
+            label_encoder = LabelEncoder()
+            y_train_encoded = label_encoder.fit_transform(y_train)
+            y_test_encoded = label_encoder.transform(y_test)
+        else:
+            y_train_encoded = y_train
+            y_test_encoded = y_test
+
+        # モデル訓練
+        model.fit(X_train, y_train_encoded)
+
+        # 予測と評価
+        y_pred = model.predict(X_test)
+        performance_metrics = self._calculate_performance_metrics(
+            y_test_encoded, y_pred, is_classifier, model, X_test
+        )
+
+        # クロスバリデーション
+        if config.enable_cross_validation:
+            cv_scores = self._perform_cross_validation(
+                model, X_clean, y_train_encoded if is_classifier else y,
+                config.cv_folds, is_classifier
+            )
+            performance_metrics.update({
+                'cross_val_mean': np.mean(cv_scores),
+                'cross_val_std': np.std(cv_scores)
+            })
+
+        # モデル保存
+        if config.save_model:
+            model_key = f"{symbol}_{model_type.value}_{task.value}"
+
+            # メタデータ作成
+            metadata = self._create_model_metadata(
+                model_type, task, list(X_clean.columns), [task.value],
+                "training_period", len(X_clean),
+                optimized_params or {}, performance_metrics, is_classifier
+            )
+
+            # 保存
+            self._save_model_with_metadata(model, model_key, metadata, label_encoder)
+
+            # メモリに保存
+            self.trained_models[model_key] = model
+            if label_encoder:
+                self.label_encoders[model_key] = label_encoder
+
+        # 特徴量重要度
+        feature_importance = self._get_feature_importance(model, X_clean.columns)
+
+        training_time = (datetime.now() - start_time).total_seconds()
+
+        return ModelPerformance(
+            model_name=f"{model_type.value}_{task.value}",
+            task=task,
+            accuracy=performance_metrics.get('accuracy', 0.0),
+            precision=performance_metrics.get('precision', 0.0),
+            recall=performance_metrics.get('recall', 0.0),
+            f1_score=performance_metrics.get('f1_score', 0.0),
+            cross_val_mean=performance_metrics.get('cross_val_mean', 0.0),
+            cross_val_std=performance_metrics.get('cross_val_std', 0.0),
+            feature_importance=feature_importance,
+            confusion_matrix=performance_metrics.get('confusion_matrix', np.array([])),
+            training_time=training_time,
+            prediction_time=0.0
+        )
+
+    def _create_model_instance(self, model_type: ModelType, is_classifier: bool,
+                              optimized_params: Optional[Dict[str, Any]] = None):
+        """モデルインスタンスを作成"""
+        params = optimized_params or {}
+
+        if model_type == ModelType.RANDOM_FOREST:
+            base_params = self.model_configs[ModelType.RANDOM_FOREST]
+            base_params = base_params['classifier_params' if is_classifier else 'regressor_params']
+            final_params = {**base_params, **params}
+
+            if is_classifier:
+                return RandomForestClassifier(**final_params)
+            else:
+                return RandomForestRegressor(**final_params)
+
+        elif model_type == ModelType.XGBOOST and XGBOOST_AVAILABLE:
+            base_params = self.model_configs[ModelType.XGBOOST]
+            base_params = base_params['classifier_params' if is_classifier else 'regressor_params']
+            final_params = {**base_params, **params}
+
+            if is_classifier:
+                return xgb.XGBClassifier(**final_params)
+            else:
+                return xgb.XGBRegressor(**final_params)
+
+        elif model_type == ModelType.LIGHTGBM and LIGHTGBM_AVAILABLE:
+            base_params = self.model_configs[ModelType.LIGHTGBM]
+            base_params = base_params['classifier_params' if is_classifier else 'regressor_params']
+            final_params = {**base_params, **params}
+
+            if is_classifier:
+                return lgb.LGBMClassifier(**final_params)
+            else:
+                return lgb.LGBMRegressor(**final_params)
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+    def _calculate_performance_metrics(self, y_true, y_pred, is_classifier: bool,
+                                     model, X_test) -> Dict[str, Any]:
+        """性能指標を計算"""
+        metrics = {}
+
+        if is_classifier:
+            from sklearn.metrics import precision_score, recall_score, f1_score
+            metrics['accuracy'] = accuracy_score(y_true, y_pred)
+            metrics['precision'] = precision_score(y_true, y_pred, average='weighted', zero_division=0)
+            metrics['recall'] = recall_score(y_true, y_pred, average='weighted', zero_division=0)
+            metrics['f1_score'] = f1_score(y_true, y_pred, average='weighted', zero_division=0)
+            metrics['confusion_matrix'] = confusion_matrix(y_true, y_pred)
+        else:
+            metrics['r2_score'] = r2_score(y_true, y_pred)
+            metrics['mse'] = mean_squared_error(y_true, y_pred)
+            metrics['rmse'] = np.sqrt(metrics['mse'])
+            metrics['mae'] = np.mean(np.abs(y_true - y_pred))
+
+        return metrics
+
+    def _perform_cross_validation(self, model, X, y, cv_folds: int, is_classifier: bool) -> np.ndarray:
+        """クロスバリデーション実行"""
+        scoring = 'accuracy' if is_classifier else 'r2'
+        cv_strategy = TimeSeriesSplit(n_splits=cv_folds)
+        return cross_val_score(model, X, y, cv=cv_strategy, scoring=scoring)
+
+    def _get_feature_importance(self, model, feature_names) -> Dict[str, float]:
+        """特徴量重要度を取得"""
+        try:
+            if hasattr(model, 'feature_importances_'):
+                importance_scores = model.feature_importances_
+                return dict(zip(feature_names, importance_scores))
+            else:
+                return {}
+        except Exception as e:
+            self.logger.warning(f"Failed to get feature importance: {e}")
+            return {}
+
+    def _estimate_regression_confidence(self, model, features: pd.DataFrame,
+                                      prediction: float, task: PredictionTask) -> float:
+        """回帰モデルの信頼度推定"""
+        try:
+            # 方法1: 予測値の安定性チェック（特徴量を少し変動させて予測の一貫性を確認）
+            if len(features) > 0:
+                feature_variations = []
+                base_features = features.copy()
+
+                # 特徴量を少し変動させた予測を複数回実行
+                for i in range(5):
+                    varied_features = base_features.copy()
+                    # 各特徴量に小さなノイズを追加（1%以下）
+                    noise_factor = 0.01 * (i + 1)
+                    for col in varied_features.columns:
+                        if varied_features[col].dtype in ['float64', 'int64']:
+                            varied_features[col] *= (1 + np.random.normal(0, noise_factor))
+
+                    try:
+                        varied_pred = model.predict(varied_features)[0]
+                        feature_variations.append(varied_pred)
+                    except:
+                        continue
+
+                if feature_variations:
+                    # 予測値の分散を信頼度に変換
+                    pred_std = np.std(feature_variations)
+                    pred_mean = np.mean(feature_variations)
+
+                    # 相対標準偏差を信頼度に変換（低い分散 = 高い信頼度）
+                    if pred_mean != 0:
+                        cv = abs(pred_std / pred_mean)  # 変動係数
+                        confidence = max(0.1, min(0.95, 1.0 - cv))
+                    else:
+                        confidence = 0.5
+                else:
+                    confidence = 0.5
+
+            else:
+                confidence = 0.5
+
+            # 方法2: モデルタイプに基づく基準信頼度調整
+            if hasattr(model, 'n_estimators'):  # Random Forest, XGBoost
+                # アンサンブルモデルは一般的に高い信頼度
+                confidence *= 1.1
+
+            # 信頼度を0.1-0.95の範囲に制限
+            confidence = max(0.1, min(0.95, confidence))
+
+            return float(confidence)
+
+        except Exception as e:
+            self.logger.warning(f"Failed to estimate regression confidence: {e}")
+            return 0.6  # デフォルト値
 
     async def prepare_training_data(self, symbol: str, period: str = "1y") -> Tuple[pd.DataFrame, Dict[PredictionTask, pd.Series]]:
         """訓練データの準備"""
@@ -1395,20 +1038,25 @@ class MLPredictionModels:
 
                 self.ensemble_weights[symbol][task] = dict(zip(model_names, weights))
 
-    async def predict(self, symbol: str, features: pd.DataFrame) -> List[EnsemblePrediction]:
-        """予測実行"""
+    async def predict(self, symbol: str, features: pd.DataFrame) -> Dict[PredictionTask, EnsemblePrediction]:
+        """統一された予測インターフェース"""
 
-        predictions = []
+        predictions = {}
 
         for task in [PredictionTask.PRICE_DIRECTION, PredictionTask.PRICE_REGRESSION]:
             try:
                 ensemble_pred = await self._make_ensemble_prediction(symbol, features, task)
                 if ensemble_pred:
-                    predictions.append(ensemble_pred)
+                    predictions[task] = ensemble_pred
             except Exception as e:
                 self.logger.error(f"Prediction failed for {task.value}: {e}")
 
         return predictions
+
+    async def predict_list(self, symbol: str, features: pd.DataFrame) -> List[EnsemblePrediction]:
+        """リスト形式での予測（後方互換性のため）"""
+        predictions_dict = await self.predict(symbol, features)
+        return list(predictions_dict.values())
 
     async def _make_ensemble_prediction(self, symbol: str, features: pd.DataFrame,
                                       task: PredictionTask) -> Optional[EnsemblePrediction]:
@@ -1451,8 +1099,10 @@ class MLPredictionModels:
                     # 回帰予測の改良
                     pred_value = model.predict(features)[0]
 
-                    # 回帰信頼度計算（特徴量の不確実性を考慮）
-                    confidence = self._calculate_regression_confidence(model, features, quality_score)
+                    # 回帰信頼度推定（予測区間ベース）
+                    confidence = self._estimate_regression_confidence(
+                        model, features, pred_value, task
+                    )
 
                     model_predictions[model_type.value] = pred_value
                     model_confidences[model_type.value] = confidence
@@ -1918,7 +1568,33 @@ class MLPredictionModels:
                 'recent_predictions': []
             }
 
-# グローバルインスタンス
-ml_prediction_models = MLPredictionModels()
+# ファクトリー関数
+def create_ml_prediction_models() -> MLPredictionModels:
+    """
+    MLPredictionModelsインスタンスの作成
 
-# このファイルは本体コードのみ。テストはtest_ml_prediction_models.pyにて実行。
+    Returns:
+        MLPredictionModelsインスタンス
+    """
+    return MLPredictionModels()
+
+# グローバルインスタンス（後方互換性のため）
+try:
+    ml_prediction_models = MLPredictionModels()
+except Exception:
+    # 初期化に失敗した場合のフォールバック
+    ml_prediction_models = None
+
+if __name__ == "__main__":
+    # テストコードはtests/test_ml_prediction_models.pyに分離
+    # 直接実行時は基本的な動作確認のみ
+    print("ML Prediction Models - 機械学習予測モデルシステム")
+    print("テストを実行するには: pytest tests/test_ml_prediction_models.py")
+
+    try:
+        models = MLPredictionModels()
+        print(f"✓ 初期化成功: モデルディレクトリ = {models.data_dir}")
+        print(f"✓ データベース: {models.db_path}")
+        print(f"✓ 利用可能モデル: {list(models.model_configs.keys())}")
+    except Exception as e:
+        print(f"✗ 初期化エラー: {e}")
