@@ -164,19 +164,19 @@ class ProductionSetup:
         logger.info(f"プロダクション設定ファイル作成: {config_file}")
 
         # 環境別設定ファイル
+        import copy
+
         env_configs = {
-            "development": {
-                **self.production_config,
-                "optimization_level": "standard",
-                "monitoring": {"enable_detailed_logging": True},
-            },
-            "staging": {
-                **self.production_config,
-                "optimization_level": "optimized",
-                "batch_size": 1000,
-            },
+            "development": copy.deepcopy(self.production_config),
+            "staging": copy.deepcopy(self.production_config),
             "production": self.production_config,
         }
+        # development用の上書き
+        env_configs["development"]["optimization_level"] = "standard"
+        env_configs["development"]["monitoring"] = {"enable_detailed_logging": True}
+        # staging用の上書き
+        env_configs["staging"]["optimization_level"] = "optimized"
+        env_configs["staging"]["batch_size"] = 1000
 
         for env_name, env_config in env_configs.items():
             env_config_file = (
