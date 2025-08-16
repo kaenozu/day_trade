@@ -153,14 +153,16 @@ class EnhancedHyperparameterOptimizer:
         self.data_dir.mkdir(exist_ok=True)
 
         # 設定読み込み
-        self.config = {}
         self.hyperparameter_spaces = HyperparameterSpaceConfig()
         self.optimization_configs = {}
         self.baseline_configs = {}
         self._load_configuration()
 
         # データベース初期化
-        self.db_path = self.data_dir / "optimization_results.db"
+        db_path = self.config.get('storage', {}).get('database_path',
+                                                  'hyperparameter_optimization/optimization_results.db')
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_database()
 
         # 最適化履歴
@@ -356,11 +358,6 @@ class EnhancedHyperparameterOptimizer:
                              method: OptimizationMethod = OptimizationMethod.RANDOM) -> OptimizationResult:
         """
         改善版モデル最適化実行
-
-        Issue #856の修正：
-        1. RandomizedSearchCVを正しく使用
-        2. 適切なベースラインスコア計算
-        3. 改善されたパラメータ重要度分析
         """
 
         self.logger.info(f"Optimizing {model_type.value} for {task.value} using {method.value}")
@@ -455,6 +452,9 @@ class EnhancedHyperparameterOptimizer:
                 scoring = 'r2'
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
+
+        if not param_space:
+            raise ValueError(f"パラメータ空間が定義されていません: {model_type.value}")
 
         return model, param_space, scoring
 
@@ -596,6 +596,11 @@ class EnhancedHyperparameterOptimizer:
                 # 重み付き平均
                 combined_score = (cv_score * 0.4 + corr_score * 0.4 + dev_score * 0.2)
                 importance_scores[param] = combined_score
+
+            # 上位N個のパラメータのみ保持（ノイズ除去）
+            if len(importance_scores) > 5:
+                sorted_params = sorted(importance_scores.items(), key=lambda x: x[1], reverse=True)
+                importance_scores = dict(sorted_params[:5])
 
         except Exception as e:
             self.logger.warning(f"パラメータ重要度計算エラー: {e}")
@@ -805,7 +810,7 @@ class EnhancedHyperparameterOptimizer:
                     FROM enhanced_optimization_results
                     ORDER BY created_at DESC
                     LIMIT 10
-                """)
+                ")
                 recent_results = cursor.fetchall()
 
                 # パラメータ重要度統計
@@ -816,7 +821,7 @@ class EnhancedHyperparameterOptimizer:
                     GROUP BY parameter_name
                     ORDER BY avg_importance DESC
                     LIMIT 10
-                """)
+                ")
                 param_importance_stats = cursor.fetchall()
 
                 return {
