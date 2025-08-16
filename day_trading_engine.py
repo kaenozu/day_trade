@@ -388,21 +388,15 @@ class PersonalDayTradingEngine:
         """翌日前場機会分析"""
         symbol_name = self.daytrading_symbols[symbol]
 
-        # AIモデルによる予測に置き換え
-        # 1. 予測に必要な市場データを取得
+        # AIモデルによる予測
         market_data = self._fetch_mock_market_data(symbol, tomorrow_str)
-
-        # 2. 取得したデータから特徴量を生成
         features = self._prepare_features_for_prediction(market_data)
+        prediction_results, _ = await self.model_loader.predict(symbol, features)
 
-        # 3. AIモデルで予測
-        # predictions配列の各要素が、オーバーナイトギャップ、プレマーケットモメンタムなどの予測値に対応すると仮定
-        # この部分のインデックスと意味は、実際のMLモデルの実装に依存
-        # 例: predictions[0] = overnight_gap, predictions[1] = premarket_momentum など
-        prediction_results, system_used = await self.model_loader.predict(symbol, features)
+        return self._build_tomorrow_recommendation_from_prediction(symbol, symbol_name, prediction_results)
 
-        # predictionsとconfidenceの形状を確認し、適切に割り当てる
-        # ここでは単一の予測値を想定
+    def _build_tomorrow_recommendation_from_prediction(self, symbol: str, symbol_name: str, prediction_results: Any) -> DayTradingRecommendation:
+        """AIの予測結果から翌日の推奨を構築する"""
         predicted_values = prediction_results.predictions.flatten()
         confidence_values = prediction_results.confidence.flatten() if prediction_results.confidence is not None else np.array([0.0])
 
@@ -411,45 +405,25 @@ class PersonalDayTradingEngine:
         volume_expectation = predicted_values[2] if len(predicted_values) > 2 else 0.0
         volatility_forecast = predicted_values[3] if len(predicted_values) > 3 else 0.0
 
-        # 信頼度を考慮した上で、ランダム性を残すか、完全にAI予測に置き換えるかを検討する
-        # ここではAI予測を優先
-        confidence = 75.0 # AIモデルの信頼度をここに反映させる
-
-        # 翌日前場シグナル判定
         signal = self._determine_tomorrow_premarket_signal(
             overnight_gap, premarket_momentum, volume_expectation, volatility_forecast
         )
-
-        # 寄り付き戦略
         entry_timing = self._get_tomorrow_entry_strategy(signal, overnight_gap)
-
-        # 翌日用利確・損切り設定
         target_profit, stop_loss = self._calculate_premarket_profit_stop_levels(
             signal, volatility_forecast
         )
-
-        # 前場推奨保有時間
         holding_time = self._get_premarket_holding_time(signal)
 
-        # 翌日予想信頼度 (AIモデルの信頼度を使用)
-        # prediction_results.confidenceが存在し、かつ値が1つ以上ある場合、その平均値を使用
-        # 存在しない場合、または値がない場合は、以前の計算ロジックをフォールバックとして使用するか、固定値を割り当てる
         if confidence_values.size > 0:
-            confidence = np.mean(confidence_values) * 100 # %表示にするため
+            confidence = np.mean(confidence_values) * 100
         else:
-            # フォールバックとして以前のロジックを使用
             confidence = self._calculate_premarket_confidence(
                 signal, volatility_forecast, volume_expectation
             )
 
-        # リスク評価（オーバーナイト考慮）
         risk_level = self._assess_premarket_risk(volatility_forecast, overnight_gap)
-
-        # 市場動向説明
         volume_trend = self._describe_volume_trend(volume_expectation)
         momentum_desc = self._describe_overnight_momentum(overnight_gap, premarket_momentum)
-
-        # 翌日タイミングスコア
         market_timing_score = self._calculate_premarket_timing_score(
             signal, volatility_forecast, volume_expectation
         )
@@ -601,17 +575,14 @@ class PersonalDayTradingEngine:
         """デイトレード機会分析"""
         symbol_name = self.daytrading_symbols[symbol]
 
-        # AIモデルによる予測に置き換え
-        # 1. 予測に必要な市場データを取得
-        market_data = self._fetch_mock_market_data(symbol, str(datetime.now().date()).replace('-', '')) # YYYYMMDD形式に変換
-
-        # 2. 取得したデータから特徴量を生成
+        market_data = self._fetch_mock_market_data(symbol, str(datetime.now().date()).replace('-', ''))
         features = self._prepare_features_for_prediction(market_data)
+        prediction_results, _ = await self.model_loader.predict(symbol, features)
 
-        # 3. AIモデルで予測
-        # predictions配列の各要素が、日中ボラティリティ、出来高比率、価格モメンタムなどの予測値に対応すると仮定
-        prediction_results, system_used = await self.model_loader.predict(symbol, features)
+        return self._build_daytrading_recommendation_from_prediction(symbol, symbol_name, session, prediction_results)
 
+    def _build_daytrading_recommendation_from_prediction(self, symbol: str, symbol_name: str, session: TradingSession, prediction_results: Any) -> DayTradingRecommendation:
+        """AIの予測結果から当日の推奨を構築する"""
         predicted_values = prediction_results.predictions.flatten()
         confidence_values = prediction_results.confidence.flatten() if prediction_results.confidence is not None else np.array([0.0])
 
@@ -619,46 +590,31 @@ class PersonalDayTradingEngine:
         volume_ratio = predicted_values[1] if len(predicted_values) > 1 else 0.0
         price_momentum = predicted_values[2] if len(predicted_values) > 2 else 0.0
 
-        # 時間帯別補正
         session_multiplier = self._get_session_multiplier(session)
         adjusted_volatility = intraday_volatility * session_multiplier
 
-        # シグナル判定
         signal = self._determine_daytrading_signal(
             volatility=adjusted_volatility,
             momentum=price_momentum,
             volume=volume_ratio,
             session=session
         )
-
-        # エントリータイミング
         entry_timing = self._get_entry_timing(signal, session)
-
-        # 利確・損切りライン設定
         target_profit, stop_loss = self._calculate_profit_stop_levels(
             signal, adjusted_volatility
         )
-
-        # 推奨保有時間
         holding_time = self._get_recommended_holding_time(signal, session)
 
-        # 信頼度計算（AIモデルの信頼度を使用）
         if confidence_values.size > 0:
-            confidence = np.mean(confidence_values) * 100 # %表示にするため
+            confidence = np.mean(confidence_values) * 100
         else:
-            # フォールバックとして以前のロジックを使用
             confidence = self._calculate_daytrading_confidence(
                 signal, adjusted_volatility, volume_ratio, session
             )
 
-        # リスクレベル
         risk_level = self._assess_daytrading_risk(adjusted_volatility, signal)
-
-        # 出来高・価格動向の文字化
         volume_trend = self._describe_volume_trend(volume_ratio)
         momentum_desc = self._describe_price_momentum(price_momentum)
-
-        # 市場タイミングスコア（デイトレード適性度）
         market_timing_score = self._calculate_market_timing_score(
             signal, adjusted_volatility, volume_ratio, session
         )
