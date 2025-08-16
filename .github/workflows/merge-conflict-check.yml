@@ -1,0 +1,304 @@
+# マージコンフリクト検知システム
+# Issue #883対応: CIでコンフリクト検知する
+name: Merge Conflict Detection
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  conflict-detection:
+    runs-on: ubuntu-latest
+    name: "🔍 マージコンフリクト検知"
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          # PRブランチをチェックアウト
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch target branch
+        run: |
+          echo "🔄 ターゲットブランチの取得..."
+          git fetch origin ${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Check for merge conflicts
+        id: conflict-check
+        run: |
+          echo "🔍 マージコンフリクトの検知を開始..."
+
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
+          PR_SHA="${{ github.event.pull_request.head.sha }}"
+
+          echo "ターゲットブランチ: $TARGET_BRANCH"
+          echo "PRブランチ: $PR_BRANCH"
+          echo "PR SHA: $PR_SHA"
+
+          # ターゲットブランチとの差分確認
+          echo "📊 ターゲットブランチとの差分確認..."
+          CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH..HEAD | wc -l)
+          echo "変更ファイル数: $CHANGED_FILES"
+
+          # テストマージを実行
+          echo "🧪 テストマージの実行..."
+
+          # 現在のブランチを保存
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+          # ターゲットブランチにチェックアウト
+          git checkout origin/$TARGET_BRANCH
+
+          # テストマージを試行
+          MERGE_SUCCESS=true
+          CONFLICT_FILES=""
+          MERGE_OUTPUT=""
+
+          if ! MERGE_OUTPUT=$(git merge --no-commit --no-ff $PR_SHA 2>&1); then
+            MERGE_SUCCESS=false
+            echo "❌ マージコンフリクトが検出されました"
+
+            # コンフリクトファイルの取得
+            CONFLICT_FILES=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
+
+            echo "コンフリクトファイル: $CONFLICT_FILES"
+
+            # 詳細なコンフリクト情報の収集
+            echo "📋 詳細なコンフリクト情報:"
+            for file in $(git diff --name-only --diff-filter=U); do
+              echo "ファイル: $file"
+              echo "--- コンフリクト内容 ---"
+              git show ":1:$file" > /tmp/base_file 2>/dev/null || echo "ベースファイルなし"
+              git show ":2:$file" > /tmp/target_file 2>/dev/null || echo "ターゲットファイルなし"
+              git show ":3:$file" > /tmp/pr_file 2>/dev/null || echo "PRファイルなし"
+
+              # コンフリクトマーカーの行数をカウント
+              CONFLICT_MARKERS=$(grep -c "^<<<<<<<\|^=======\|^>>>>>>>" "$file" 2>/dev/null || echo "0")
+              echo "コンフリクトマーカー数: $CONFLICT_MARKERS"
+            done
+
+            # マージを中止
+            git merge --abort
+          else
+            echo "✅ マージコンフリクトなし - 自動マージ可能"
+            # テストマージをクリーンアップ
+            git reset --hard HEAD
+          fi
+
+          # 結果を環境変数に設定
+          echo "merge_success=$MERGE_SUCCESS" >> $GITHUB_OUTPUT
+          echo "conflict_files=$CONFLICT_FILES" >> $GITHUB_OUTPUT
+          echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+
+          # マージ出力をファイルに保存（後でコメントに使用）
+          echo "$MERGE_OUTPUT" > merge_output.txt
+
+          # 元のブランチに戻る
+          git checkout $CURRENT_BRANCH
+
+      - name: Generate conflict analysis report
+        if: steps.conflict-check.outputs.merge_success == 'false'
+        id: analysis
+        run: |
+          echo "📋 コンフリクト分析レポートの生成..."
+
+          CONFLICT_FILES="${{ steps.conflict-check.outputs.conflict_files }}"
+
+          # コンフリクトの種類分析
+          CONFLICT_TYPES=""
+
+          for file in $CONFLICT_FILES; do
+            if [[ "$file" == *.py ]]; then
+              CONFLICT_TYPES="$CONFLICT_TYPES Python,"
+            elif [[ "$file" == *.yaml ]] || [[ "$file" == *.yml ]]; then
+              CONFLICT_TYPES="$CONFLICT_TYPES YAML設定,"
+            elif [[ "$file" == *.md ]]; then
+              CONFLICT_TYPES="$CONFLICT_TYPES ドキュメント,"
+            elif [[ "$file" == *.json ]]; then
+              CONFLICT_TYPES="$CONFLICT_TYPES JSON設定,"
+            else
+              CONFLICT_TYPES="$CONFLICT_TYPES その他,"
+            fi
+          done
+
+          # 重複を削除
+          CONFLICT_TYPES=$(echo "$CONFLICT_TYPES" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+
+          echo "conflict_types=$CONFLICT_TYPES" >> $GITHUB_OUTPUT
+
+          # 解決推奨手順の生成
+          RESOLUTION_STEPS=""
+
+          if echo "$CONFLICT_FILES" | grep -q "\.py$"; then
+            RESOLUTION_STEPS="$RESOLUTION_STEPS
+          - **Pythonファイル**: インポート文や関数定義の重複確認"
+          fi
+
+          if echo "$CONFLICT_FILES" | grep -q "\.ya?ml$"; then
+            RESOLUTION_STEPS="$RESOLUTION_STEPS
+          - **YAML設定**: 設定キーの重複や構造変更の確認"
+          fi
+
+          if echo "$CONFLICT_FILES" | grep -q "requirements\.txt\|pyproject\.toml"; then
+            RESOLUTION_STEPS="$RESOLUTION_STEPS
+          - **依存関係**: パッケージバージョンの整合性確認"
+          fi
+
+          echo "resolution_steps<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESOLUTION_STEPS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create check run for conflict detection
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const mergeSuccess = '${{ steps.conflict-check.outputs.merge_success }}' === 'true';
+            const conflictFiles = '${{ steps.conflict-check.outputs.conflict_files }}';
+            const changedFiles = '${{ steps.conflict-check.outputs.changed_files }}';
+
+            const conclusion = mergeSuccess ? 'success' : 'failure';
+            const title = mergeSuccess ?
+              '✅ マージコンフリクトなし' :
+              '❌ マージコンフリクトを検出';
+
+            const summary = mergeSuccess ?
+              `このPRは **${{ github.event.pull_request.base.ref }}** ブランチと自動マージ可能です。\n\n変更ファイル数: ${changedFiles}` :
+              `このPRは **${{ github.event.pull_request.base.ref }}** ブランチとマージ時にコンフリクトが発生します。\n\nコンフリクトファイル: ${conflictFiles}\n変更ファイル数: ${changedFiles}`;
+
+            // Check runを作成
+            const checkRun = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Merge Conflict Detection',
+              head_sha: '${{ github.event.pull_request.head.sha }}',
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: title,
+                summary: summary
+              }
+            });
+
+            console.log(`Check run created: ${checkRun.data.html_url}`);
+
+      - name: Comment on PR with conflict details
+        if: steps.conflict-check.outputs.merge_success == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const conflictFiles = '${{ steps.conflict-check.outputs.conflict_files }}';
+            const conflictTypes = '${{ steps.analysis.outputs.conflict_types }}';
+            const resolutionSteps = `${{ steps.analysis.outputs.resolution_steps }}`;
+
+            const body = `## ⚠️ マージコンフリクトが検出されました
+
+            このPRは \`${{ github.event.pull_request.base.ref }}\` ブランチとマージ時にコンフリクトが発生します。
+
+            ### 📁 コンフリクトファイル
+            \`\`\`
+            ${conflictFiles.split(' ').join('\n')}
+            \`\`\`
+
+            ### 🏷️ コンフリクトの種類
+            ${conflictTypes}
+
+            ### 🔧 解決手順
+
+            **1. ローカルでコンフリクトを解決:**
+            \`\`\`bash
+            # 最新のターゲットブランチを取得
+            git fetch origin ${{ github.event.pull_request.base.ref }}
+
+            # PRブランチにチェックアウト
+            git checkout ${{ github.event.pull_request.head.ref }}
+
+            # ターゲットブランチをマージ
+            git merge origin/${{ github.event.pull_request.base.ref }}
+
+            # コンフリクトを手動解決（エディタで<<<<<<< =======  >>>>>>>を修正）
+            # 以下のファイルを編集してコンフリクトを解決:
+            ${conflictFiles.split(' ').map(f => `#   - ${f}`).join('\n')}
+
+            # 解決後、変更をステージング
+            git add .
+
+            # マージコミット
+            git commit -m "Resolve merge conflicts with ${{ github.event.pull_request.base.ref }}"
+
+            # プッシュ
+            git push
+            \`\`\`
+
+            **2. 推奨解決アプローチ:**${resolutionSteps}
+
+            ### 🚀 コンフリクト解決後
+            - このワークフローが自動的に再実行されます
+            - コンフリクトが解決されていることを確認します
+            - その他のCIチェックも通過することを確認してください
+
+            ### 💡 コンフリクト予防のヒント
+            - 定期的に \`${{ github.event.pull_request.base.ref }}\` ブランチから最新変更を取り込む
+            - 機能ブランチでの作業期間を短くする
+            - 大規模な変更は複数の小さなPRに分割する
+
+            ---
+            🤖 *この分析は自動生成されました - [Merge Conflict Detection Workflow]*
+            `;
+
+            // 既存のコンフリクトコメントを検索
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const existingComment = comments.data.find(comment =>
+              comment.user.login === 'github-actions[bot]' &&
+              comment.body.includes('マージコンフリクトが検出されました')
+            );
+
+            if (existingComment) {
+              // 既存のコメントを更新
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body
+              });
+            } else {
+              // 新しいコメントを作成
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Success notification
+        if: steps.conflict-check.outputs.merge_success == 'true'
+        run: |
+          echo "✅ マージコンフリクト検知チェック完了 - コンフリクトなし"
+          echo "このPRは自動マージ可能です"
+
+      - name: Upload conflict analysis artifacts
+        if: steps.conflict-check.outputs.merge_success == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: conflict-analysis-${{ github.run_number }}
+          path: |
+            merge_output.txt
+          retention-days: 7

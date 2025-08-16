@@ -1,0 +1,299 @@
+# Enhanced Web Dashboard Configuration
+# Issue #871対応：ウェブダッシュボード機能拡張設定
+
+# 基本設定
+theme: "financial"  # light, dark, financial, custom
+update_frequency: "medium"  # real_time, high, medium, low, manual
+auto_refresh: true
+port: 8080
+debug_mode: false
+
+# 表示設定
+display:
+  default_symbols: ["7203", "8306", "9984", "6758", "4689"]
+  charts_per_row: 2
+  show_volume: true
+  show_indicators: true
+  max_symbols_displayed: 20
+
+  # チャート設定
+  chart_height: 500
+  chart_theme: "plotly_white"  # plotly_white, plotly_dark
+  default_timeframe: "1d"
+
+  # レイアウト設定
+  sidebar_enabled: true
+  header_enabled: true
+  footer_enabled: true
+  responsive_design: true
+
+# データ設定
+data:
+  retention_days: 30
+  cache_duration_minutes: 5
+  max_cache_size_mb: 100
+
+  # リアルタイム更新設定
+  real_time:
+    enabled: true
+    websocket_enabled: true
+    max_concurrent_connections: 100
+    heartbeat_interval: 30
+
+  # データソース優先度
+  data_sources:
+    primary: "yahoo_finance"
+    fallback: ["stooq", "alpha_vantage"]
+
+  # 履歴データ設定
+  historical:
+    default_period: "1y"
+    max_period: "5y"
+    min_data_points: 50
+
+# 通知・アラート設定
+alerts:
+  enabled: true
+  max_alerts_per_user: 50
+
+  # 通知方法
+  notifications:
+    browser: true
+    email: false
+    webhook: false
+    sound: true
+
+  # アラートタイプ
+  alert_types:
+    - price_threshold
+    - price_change_percent
+    - volume_spike
+    - technical_indicator
+    - prediction_change
+    - system_alert
+
+  # クールダウン設定
+  cooldown_minutes: 5
+  max_daily_alerts: 100
+
+# 分析・予測設定
+analysis:
+  ml_predictions_enabled: true
+  technical_analysis_enabled: true
+  fundamental_analysis_enabled: false
+
+  # 技術指標設定
+  technical_indicators:
+    default: ["SMA_20", "SMA_50", "RSI", "MACD", "BB"]
+    available: ["SMA", "EMA", "RSI", "MACD", "BB", "STOCH", "ADX", "CCI"]
+
+  # 予測設定
+  predictions:
+    horizon_days: 7
+    confidence_intervals: true
+    model_ensemble: true
+    update_frequency: "daily"
+
+  # パフォーマンス監視
+  performance_monitoring:
+    enabled: true
+    metrics: ["accuracy", "precision", "recall", "f1", "auc"]
+    drift_detection: true
+    model_comparison: true
+
+# ユーザー設定
+user_management:
+  multi_user_support: true
+  session_timeout_minutes: 60
+  max_sessions_per_user: 3
+
+  # ユーザー設定保存
+  settings_persistence: true
+  custom_layouts: true
+  watchlist_support: true
+
+  # 権限設定
+  permissions:
+    view_data: true
+    create_alerts: true
+    export_data: true
+    system_settings: false
+
+# カスタマイズ設定
+customization:
+  themes:
+    light:
+      primary_color: "#007bff"
+      secondary_color: "#6c757d"
+      background_color: "#ffffff"
+      text_color: "#000000"
+
+    dark:
+      primary_color: "#0d6efd"
+      secondary_color: "#6c757d"
+      background_color: "#212529"
+      text_color: "#ffffff"
+
+    financial:
+      primary_color: "#28a745"
+      secondary_color: "#dc3545"
+      background_color: "#f8f9fa"
+      text_color: "#212529"
+
+  # カスタムレイアウト
+  layout_templates:
+    - name: "trading_focused"
+      description: "取引に特化したレイアウト"
+      components: ["price_chart", "volume", "orderbook", "alerts"]
+
+    - name: "analysis_focused"
+      description: "分析に特化したレイアウト"
+      components: ["technical_chart", "indicators", "predictions", "performance"]
+
+    - name: "monitoring_focused"
+      description: "監視に特化したレイアウト"
+      components: ["watchlist", "alerts", "system_status", "data_quality"]
+
+# セキュリティ設定
+security:
+  api_rate_limiting: true
+  cors_enabled: true
+  ssl_enabled: false
+
+  # レート制限
+  rate_limits:
+    api_calls_per_minute: 60
+    websocket_messages_per_minute: 120
+    data_requests_per_hour: 1000
+
+  # セッションセキュリティ
+  session_security:
+    secure_cookies: true
+    http_only: true
+    same_site: "strict"
+
+# パフォーマンス設定
+performance:
+  # キャッシュ設定
+  caching:
+    enabled: true
+    redis_enabled: false
+    memory_cache_size_mb: 50
+
+  # 圧縮設定
+  compression:
+    enabled: true
+    gzip_level: 6
+
+  # 最適化設定
+  optimization:
+    lazy_loading: true
+    image_optimization: true
+    minify_assets: true
+    cdn_enabled: false
+
+# ログ設定
+logging:
+  level: "INFO"
+  access_log: true
+  error_log: true
+  performance_log: true
+
+  # ログファイル設定
+  log_files:
+    access: "logs/dashboard_access.log"
+    error: "logs/dashboard_error.log"
+    performance: "logs/dashboard_performance.log"
+
+  # ログローテーション
+  rotation:
+    max_size_mb: 10
+    backup_count: 5
+
+# データベース設定
+database:
+  path: "enhanced_dashboard.db"
+
+  # テーブル設定
+  tables:
+    user_preferences: true
+    alert_history: true
+    access_log: true
+    performance_metrics: true
+
+  # バックアップ設定
+  backup:
+    enabled: true
+    interval_hours: 24
+    retention_days: 30
+
+# 統合設定
+integrations:
+  # 外部システム
+  external_systems:
+    prediction_enhancer:
+      enabled: true
+      api_endpoint: null
+
+    performance_monitor:
+      enabled: true
+      api_endpoint: null
+
+    symbol_selector:
+      enabled: true
+      api_endpoint: null
+
+    data_provider:
+      enabled: true
+      api_endpoint: null
+
+  # API設定
+  api_integration:
+    rest_api: true
+    graphql_api: false
+    websocket_api: true
+
+  # 外部データソース
+  external_data:
+    financial_apis: ["yahoo_finance", "alpha_vantage"]
+    news_apis: []
+    social_sentiment: false
+
+# 実験的機能
+experimental:
+  features:
+    ai_insights: false
+    voice_commands: false
+    ar_visualization: false
+    predictive_alerts: true
+
+  # A/Bテスト設定
+  ab_testing:
+    enabled: false
+    variants: []
+
+# エラーハンドリング
+error_handling:
+  graceful_degradation: true
+  fallback_mode: true
+  error_reporting: true
+
+  # 自動復旧
+  auto_recovery:
+    enabled: true
+    max_retries: 3
+    backoff_strategy: "exponential"
+
+  # エラー通知
+  error_notifications:
+    admin_email: null
+    webhook_url: null
+    slack_channel: null
+
+# 国際化
+internationalization:
+  default_language: "ja"
+  supported_languages: ["ja", "en"]
+  currency_display: "JPY"
+  date_format: "YYYY-MM-DD"
+  number_format: "japanese"
