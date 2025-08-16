@@ -66,31 +66,31 @@ class TestResult:
 
 class DeploymentAutomationSystem:
     """デプロイメント自動化システム"""
-    
+
     def __init__(self, config_file: str = "config/deployment.json"):
         self.config_file = Path(config_file)
         self.config_file.parent.mkdir(exist_ok=True)
-        
+
         # 設定読み込み
         self.config = self._load_deployment_config()
-        
+
         # デプロイメント履歴
         self.deployment_history = []
         self.current_deployment = None
-        
+
         # バックアップディレクトリ
         self.backup_dir = Path("backups")
         self.backup_dir.mkdir(exist_ok=True)
-        
+
         # ログ設定
         from daytrade_logging import get_logger
         self.logger = get_logger("deployment_automation")
-        
+
         # 初期化
         self._load_deployment_history()
-        
+
         self.logger.info("Deployment Automation System initialized")
-    
+
     def _load_deployment_config(self) -> Dict[str, Any]:
         """デプロイメント設定を読み込み"""
         default_config = {
