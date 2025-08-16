@@ -245,4 +245,137 @@ These are preserved for reference but no longer execute.
 3. **Platform Testing**: Add Windows/macOS runners
 4. **Deployment**: Implement actual deployment logic
 5. **Notifications**: Add Slack/Teams integration
+## Merge Conflict Detection System (Issue #883)
+
+### Overview
+The merge conflict detection system automatically identifies potential merge conflicts before they reach the main branch, providing early warning and resolution guidance.
+
+### Workflows
+
+#### `merge-conflict-detection.yml`
+Dedicated workflow for detecting merge conflicts and high-risk changes.
+
+**Features:**
+- 🔍 **Automatic Conflict Detection**: Tests merge compatibility with base branch
+- 🚨 **High-Risk Change Analysis**: Identifies changes to critical system areas
+- 📋 **Detailed Reporting**: Provides conflict details and resolution steps
+- 💬 **Auto-commenting**: Posts guidance directly on pull requests
+- 📊 **Pattern Analysis**: Detects residual conflict markers in code
+
+**Trigger Conditions:**
+- Pull requests targeting `main` or `develop`
+- Push to `main` or `develop` branches
+- Manual workflow dispatch
+
+#### `comprehensive-ci.yml`
+Integrated CI/CD pipeline with conflict detection as Phase 2.
+
+**Includes:**
+1. Basic validation and change detection
+2. **Merge conflict detection** (new)
+3. Code quality checks
+4. Testing suite
+5. Configuration validation
+6. Build readiness check
+7. Final status report
+
+### Custom Action: `conflict-detector`
+
+Located in `.github/actions/conflict-detector/`, this reusable action provides:
+
+**Inputs:**
+- `base-branch`: Branch to check conflicts against (default: 'main')
+- `current-branch`: Branch to check for conflicts
+- `config-file`: Configuration file path
+- `github-token`: GitHub API token
+- `enable-auto-comment`: Enable automatic PR commenting
+
+**Outputs:**
+- `conflicts-detected`: Whether conflicts were found
+- `conflicted-files`: List of files with conflicts
+- `high-risk-changes`: Whether high-risk changes detected
+- `risk-categories`: Categories of risky changes
+
+### Configuration
+
+#### `conflict-detection-config.yml`
+Central configuration file for customizing detection behavior:
+
+- **Exclude patterns**: Files/directories to skip during detection
+- **High-risk patterns**: Patterns that trigger additional scrutiny
+- **Notification settings**: Control automatic commenting behavior
+- **Performance settings**: Optimization parameters
+
+### High-Risk Change Categories
+
+The system automatically detects changes in critical areas:
+
+1. **Configuration Files**: `.yml`, `.yaml`, `.json`, `.ini`, `.cfg`, `.conf`, `.toml`
+2. **Database Files**: Migration files, schema changes, SQL files
+3. **CI/CD Files**: `.github/`, `Dockerfile`, `docker-compose` files
+4. **Core System Files**: `main.py`, `core/`, `daytrade.py`, etc.
+5. **Security Files**: Authentication, permissions, requirements
+
+### Usage Examples
+
+#### Manual Action Usage
+```yaml
+- name: Check for conflicts
+  uses: ./.github/actions/conflict-detector
+  with:
+    base-branch: 'main'
+    current-branch: ${{ github.head_ref }}
+    enable-auto-comment: 'true'
+```
+
+#### Custom Configuration
+```yaml
+# .github/conflict-detection-config.yml
+detection:
+  enabled: true
+  check_all_branches: true
+  auto_comment: true
+
+high_risk_patterns:
+  custom_patterns:
+    - "critical_module/*.py"
+    - "production_config/*"
+```
+
+### Automatic PR Comments
+
+When conflicts or high-risk changes are detected, the system automatically posts detailed comments with:
+
+1. **Conflict Resolution Steps**: Step-by-step git commands
+2. **File Lists**: Specific files affected by conflicts
+3. **Risk Analysis**: Categories of high-risk changes detected
+4. **Resolution Guidance**: Best practices for safe resolution
+
+### Benefits
+
+- **Early Detection**: Catch conflicts before merge attempts
+- **Automated Guidance**: Reduce manual conflict resolution time
+- **Risk Assessment**: Identify changes requiring extra review attention
+- **Quality Assurance**: Prevent broken main branch merges
+- **Developer Productivity**: Clear, actionable resolution instructions
+
+### Troubleshooting
+
+#### Common Issues
+1. **False positives**: Adjust exclude patterns in config
+2. **Missing conflicts**: Check branch fetch-depth settings
+3. **Performance issues**: Optimize file size limits and timeout settings
+
+#### Debug Information
+- Check workflow logs for detailed merge attempt output
+- Review uploaded conflict reports in artifacts
+- Examine change detection patterns in validation phase
+
+### Future Enhancements
+
+1. **Smart Conflict Resolution**: Suggest automatic resolution for simple conflicts
+2. **Integration with IDEs**: VS Code extension for pre-commit conflict checking
+3. **Historical Analysis**: Track conflict patterns over time
+4. **Machine Learning**: Predict likely conflict areas based on change patterns
+
 # GitHub Actions troubleshooting
