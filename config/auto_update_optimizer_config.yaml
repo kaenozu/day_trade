@@ -1,0 +1,335 @@
+# 自動更新最適化システム設定
+# Issue #881対応：自動更新の更新時間を考える
+
+# 基本設定
+system_name: "自動更新最適化システム"
+version: "1.0.0"
+debug_mode: false
+
+# 更新頻度最適化設定
+update_frequency_optimization:
+  # 動的更新頻度調整
+  adaptive_frequency:
+    enabled: true
+    algorithm: "load_aware"  # load_aware, time_based, hybrid
+    base_frequency_seconds: 60
+    min_frequency_seconds: 30
+    max_frequency_seconds: 300
+
+  # 市場開閉時間考慮
+  market_hours_aware:
+    enabled: true
+    trading_hours:
+      start: "09:00"
+      end: "15:00"
+      timezone: "Asia/Tokyo"
+
+    # 市場時間内外の更新頻度
+    frequencies:
+      market_open: 30      # 30秒間隔
+      market_close: 120    # 2分間隔
+      pre_market: 60       # 1分間隔
+      after_hours: 180     # 3分間隔
+      weekend: 600         # 10分間隔
+
+  # システム負荷ベース調整
+  load_based_adjustment:
+    enabled: true
+    cpu_threshold_high: 80    # CPU使用率80%以上で頻度を下げる
+    cpu_threshold_low: 50     # CPU使用率50%以下で頻度を上げる
+    memory_threshold_mb: 1000 # メモリ使用量1GB以上で頻度を下げる
+
+    # 負荷レベル別更新頻度
+    frequency_multipliers:
+      low_load: 0.8      # 通常の80%間隔（高頻度）
+      normal_load: 1.0   # 通常間隔
+      high_load: 1.5     # 通常の150%間隔（低頻度）
+      critical_load: 2.0 # 通常の200%間隔（最低頻度）
+
+# 対象銘柄拡張設定
+symbol_expansion:
+  # 基本設定
+  max_symbols: 100           # 最大対象銘柄数（現在20から拡張）
+  batch_size: 10             # 一括処理単位
+  parallel_processing: true  # 並列処理有効化
+
+  # 銘柄選択戦略
+  selection_strategy:
+    method: "dynamic_scoring"  # fixed, top_volume, dynamic_scoring, ml_based
+
+    # 動的スコアリング基準
+    scoring_criteria:
+      volume_weight: 0.3       # 出来高
+      volatility_weight: 0.2   # ボラティリティ
+      price_change_weight: 0.2 # 価格変動率
+      market_cap_weight: 0.1   # 時価総額
+      prediction_accuracy_weight: 0.2 # 予測精度履歴
+
+    # 更新間隔
+    update_interval_hours: 24  # 24時間毎に銘柄リスト更新
+
+    # 最小基準
+    minimum_criteria:
+      daily_volume_min: 1000000      # 最小日次出来高
+      price_min: 100                 # 最小株価
+      market_cap_min_billion: 10     # 最小時価総額（十億円）
+      prediction_samples_min: 30     # 最小予測サンプル数
+
+  # 銘柄カテゴリ分類
+  categories:
+    high_priority:
+      count: 20
+      update_frequency: 30  # 30秒
+      description: "主要銘柄・高頻度更新"
+
+    medium_priority:
+      count: 40
+      update_frequency: 60  # 1分
+      description: "準主要銘柄・中頻度更新"
+
+    low_priority:
+      count: 40
+      update_frequency: 120 # 2分
+      description: "その他銘柄・低頻度更新"
+
+# 予測精度向上設定
+prediction_accuracy_enhancement:
+  # 多重モデル統合
+  ensemble_models:
+    enabled: true
+    models: ["RandomForest", "XGBoost", "LightGBM", "LSTM"]
+    voting_strategy: "weighted"  # simple, weighted, stacking
+
+  # アンサンブル重み最適化
+  weight_optimization:
+    method: "performance_based"  # equal, performance_based, bayesian
+    update_frequency_hours: 6    # 6時間毎に重み更新
+    lookback_days: 30           # 過去30日の性能で評価
+
+  # 特徴量強化
+  feature_enhancement:
+    external_factors:
+      enabled: true
+      sources: ["market_sentiment", "news_analysis", "technical_indicators"]
+
+    technical_indicators:
+      advanced_indicators: ["Ichimoku", "Fibonacci", "Elliott_Wave"]
+      custom_indicators: true
+
+  # リアルタイム学習
+  online_learning:
+    enabled: true
+    adaptation_rate: 0.01        # 学習率
+    concept_drift_detection: true
+    retraining_threshold: 0.1    # 性能低下10%で再訓練
+
+# 進捗バー・ステータス表示設定
+progress_display:
+  # 進捗バー設定
+  progress_bar:
+    enabled: true
+    style: "detailed"  # simple, detailed, advanced
+    position: "header" # header, sidebar, modal, overlay
+
+    # 表示要素
+    elements:
+      overall_progress: true      # 全体進捗
+      current_task: true          # 現在のタスク
+      time_remaining: true        # 残り時間
+      completion_rate: true       # 完了率
+      error_count: true          # エラー数
+      success_rate: true         # 成功率
+
+  # ステータス表示
+  status_display:
+    real_time_updates: true
+    update_interval_seconds: 5  # 5秒毎に更新
+
+    # 表示情報
+    information:
+      current_symbol: true        # 現在処理中銘柄
+      processing_stage: true      # 処理ステージ
+      queue_size: true           # 待機キューサイズ
+      active_workers: true       # アクティブワーカー数
+      average_processing_time: true # 平均処理時間
+      estimated_completion: true  # 完了予定時刻
+
+  # 通知システム
+  notifications:
+    enabled: true
+    types: ["browser", "sound", "desktop"]
+
+    # 通知条件
+    conditions:
+      completion: true           # 完了時
+      error_threshold: 5         # エラー5回で通知
+      long_processing: 300       # 5分以上の処理で通知
+      high_load: true           # 高負荷時
+
+# パフォーマンス最適化設定
+performance_optimization:
+  # メモリ管理
+  memory_management:
+    max_memory_usage_mb: 2000   # 最大メモリ使用量
+    garbage_collection: true     # ガベージコレクション有効
+    cache_optimization: true     # キャッシュ最適化
+
+  # 並列処理最適化
+  parallel_processing:
+    max_workers: 8              # 最大ワーカー数
+    worker_pool_type: "thread"  # thread, process
+    load_balancing: true        # 負荷分散
+
+  # データベース最適化
+  database_optimization:
+    connection_pooling: true     # コネクションプール
+    batch_operations: true      # バッチ操作
+    index_optimization: true    # インデックス最適化
+    query_caching: true         # クエリキャッシュ
+
+  # ネットワーク最適化
+  network_optimization:
+    connection_reuse: true      # コネクション再利用
+    request_batching: true      # リクエストバッチ処理
+    timeout_optimization: true # タイムアウト最適化
+    retry_strategy: "exponential_backoff" # 再試行戦略
+
+# データ品質・信頼性設定
+data_quality:
+  # データ検証
+  validation:
+    enabled: true
+    real_time_checks: true
+
+    # 検証項目
+    checks:
+      completeness: true         # 完全性チェック
+      consistency: true          # 一貫性チェック
+      timeliness: true          # 適時性チェック
+      accuracy: true            # 正確性チェック
+
+  # 異常検知
+  anomaly_detection:
+    enabled: true
+    algorithms: ["isolation_forest", "one_class_svm"]
+    sensitivity: "medium"       # low, medium, high
+
+  # データ修復
+  data_repair:
+    auto_correction: true       # 自動修正
+    interpolation: true         # 欠損値補間
+    outlier_handling: "clip"    # clip, remove, flag
+
+# ユーザーインターフェース設定
+user_interface:
+  # ダッシュボード統合
+  dashboard_integration:
+    enabled: true
+    real_time_sync: true
+
+    # 表示パネル
+    panels:
+      system_status: true        # システムステータス
+      progress_monitor: true     # 進捗モニター
+      performance_metrics: true # パフォーマンス指標
+      error_log: true           # エラーログ
+      configuration: true       # 設定パネル
+
+  # カスタマイズ機能
+  customization:
+    layout_options: ["compact", "detailed", "advanced"]
+    color_themes: ["default", "dark", "high_contrast"]
+    update_preferences: true   # 更新設定のカスタマイズ
+    notification_preferences: true # 通知設定
+
+# ログ・監視設定
+logging_monitoring:
+  # ログ設定
+  logging:
+    level: "INFO"
+    detailed_performance_logs: true
+    error_tracking: true
+
+    # ログファイル
+    log_files:
+      system: "logs/auto_update_system.log"
+      performance: "logs/auto_update_performance.log"
+      errors: "logs/auto_update_errors.log"
+
+  # メトリクス収集
+  metrics:
+    enabled: true
+    collection_interval: 60    # 1分間隔
+
+    # 収集メトリクス
+    collected_metrics:
+      - update_frequency_actual
+      - processing_time_per_symbol
+      - memory_usage
+      - cpu_usage
+      - error_rate
+      - success_rate
+      - data_quality_score
+
+  # アラート設定
+  alerts:
+    enabled: true
+
+    # アラート条件
+    conditions:
+      high_error_rate: 0.1      # エラー率10%以上
+      slow_processing: 300      # 処理時間5分以上
+      memory_exhaustion: 0.9    # メモリ使用率90%以上
+      data_quality_drop: 0.8    # データ品質80%以下
+
+# 実験的機能
+experimental_features:
+  # AI駆動最適化
+  ai_optimization:
+    enabled: false
+    ml_based_scheduling: false
+    adaptive_learning: false
+
+  # 予測的メンテナンス
+  predictive_maintenance:
+    enabled: false
+    failure_prediction: false
+    proactive_optimization: false
+
+  # 自動スケーリング
+  auto_scaling:
+    enabled: false
+    cloud_integration: false
+    container_orchestration: false
+
+# バックアップ・復旧設定
+backup_recovery:
+  # バックアップ
+  backup:
+    enabled: true
+    frequency_hours: 6         # 6時間毎
+    retention_days: 7          # 7日間保持
+
+  # 復旧設定
+  recovery:
+    auto_recovery: true        # 自動復旧
+    fallback_mode: true       # フォールバックモード
+    graceful_degradation: true # グレースフルデグラデーション
+
+# セキュリティ設定
+security:
+  # アクセス制御
+  access_control:
+    authentication_required: false # 開発環境では無効
+    role_based_access: false
+
+  # データ保護
+  data_protection:
+    encryption_at_rest: false   # 開発環境では無効
+    secure_transmission: true   # 通信の暗号化
+
+  # 監査ログ
+  audit_logging:
+    enabled: true
+    user_actions: true
+    system_changes: true
