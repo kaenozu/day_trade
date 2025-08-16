@@ -54,3 +54,20 @@ system:
 
   # バックアップ閾値データ
   backup_enabled: true
+
+# symbol_selector連携設定
+symbol_selector:
+  # 動的銘柄選択の有効化
+  enabled: false
+
+  # 使用する戦略
+  strategy: "liquid_trading"
+
+  # 追加取得銘柄数
+  limit: 10
+
+  # symbol_selectorの設定ファイルパス
+  config_path: "config/symbol_selection_config.yaml"
+
+  # symbol_selectorのデータベースパス
+  db_path: "data/topix500_master.db"

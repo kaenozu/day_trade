@@ -56,7 +56,7 @@ class PersonalRiskManager:
         self.logger = logging.getLogger(__name__)
         self.data_provider = data_provider
         self.settings = self._load_settings(settings_profile, settings_file)
-        
+
         # Database management
         self.db_manager = DatabaseManager(db_path)
         self.db_manager.connect()
@@ -80,10 +80,10 @@ class PersonalRiskManager:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
-            
+
             if profile is None:
                 profile = config.get('default_profile', 'Moderate')
-            
+
             settings_data = config['profiles'][profile]
             self.logger.info(f"Loaded risk settings profile '{profile}'")
             return RiskSettings(**settings_data)
@@ -397,7 +397,7 @@ class PersonalRiskManager:
             recommended_action=action
         )
         self.alerts.append(alert)
-        
+
         log_level_map = {
             AlertLevel.INFO: logging.INFO,
             AlertLevel.WARNING: logging.WARNING,
@@ -442,7 +442,7 @@ class PersonalRiskManager:
             0.0,
             "System stop"
         )
-    
+
     def close(self):
         """Clean up resources"""
         self.db_manager.close()

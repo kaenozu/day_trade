@@ -24,90 +24,90 @@ except ImportError:
 
 class DayTradeWebServer:
     """Webダッシュボードサーバー"""
-    
+
     def __init__(self, port: int = 8000, debug: bool = False):
         if not WEB_AVAILABLE:
             raise ImportError("Web機能の依存関係が不足しています")
-            
+
         self.port = port
         self.debug = debug
         self.app = Flask(__name__)
         self.logger = logging.getLogger(__name__)
-        
+
         # 分析エンジンの初期化
         self._init_analysis_engines()
-        
+
         # ルートの設定
         self._setup_routes()
-    
+
     def _init_analysis_engines(self):
         """分析エンジンの初期化"""
         try:
             from enhanced_personal_analysis_engine import get_analysis_engine
             from ml_accuracy_improvement_system import get_accuracy_system
-            
+
             self.analysis_engine = get_analysis_engine()
             self.accuracy_system = get_accuracy_system()
-            
+
         except ImportError as e:
             self.logger.error(f"分析エンジンの初期化に失敗: {e}")
             self.trading_engine = None
             self.ml_system = None
-    
+
     def _setup_routes(self):
         """APIルートの設定"""
-        
+
         @self.app.route('/')
         def dashboard():
             """メインダッシュボード"""
             return self._render_dashboard()
-        
+
         @self.app.route('/api/analysis')
         def api_analysis():
             """分析データAPI"""
             return jsonify(self._get_analysis_data())
-        
+
         @self.app.route('/api/symbols')
         def api_symbols():
             """銘柄データAPI"""
             symbols = request.args.get('symbols', '7203,8306,9984,6758').split(',')
             return jsonify(self._get_symbols_data(symbols))
-        
+
         @self.app.route('/api/chart/<symbol>')
         def api_chart(symbol):
             """チャートデータAPI"""
             return jsonify(self._get_chart_data(symbol))
-        
+
         @self.app.route('/api/prediction/<symbol>')
         def api_prediction(symbol):
             """予測データAPI"""
             return jsonify(self._get_prediction_data(symbol))
-        
+
         @self.app.route('/api/ml-details')
         def api_ml_details():
             """ML詳細情報API"""
             return jsonify(self._get_ml_details())
-        
+
         @self.app.route('/api/data-quality')
         def api_data_quality():
             """データ品質監視API"""
             return jsonify(self._get_data_quality_status())
-        
+
         @self.app.route('/api/risk-monitoring')
         def api_risk_monitoring():
             """リスク監視API"""
             return jsonify(self._get_risk_monitoring_data())
-        
+
         @self.app.route('/api/accuracy-trends')
         def api_accuracy_trends():
             """精度トレンドAPI"""
             return jsonify(self._get_accuracy_trends())
-        
+
         @self.app.route('/static/<path:filename>')
         def static_files(filename):
             """静的ファイル配信"""
             return send_from_directory('static', filename)
-    
+
     def _render_dashboard(self) -> str:
         """ダッシュボードHTMLの生成"""
         # 現在は最小限のHTMLを返す
@@ -170,22 +170,22 @@ class DayTradeWebServer:
             </div>
             <script>
                 let currentTab = 'overview';
-                
+
                 // タブ切り替え
                 function showTab(tabName) {
                     currentTab = tabName;
                     // タブボタンのアクティブ状態更新
                     document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                     event.target.classList.add('active');
-                    
+
                     // タブ内容の更新
                     loadTabContent(tabName);
                 }
-                
+
                 // タブ内容の読み込み
                 async function loadTabContent(tabName) {
                     document.getElementById('dashboard').innerHTML = '<div class="loading">読み込み中...</div>';
-                    
+
                     try {
                         let data;
                         switch(tabName) {
@@ -207,11 +207,11 @@ class DayTradeWebServer:
                                 break;
                         }
                     } catch (error) {
-                        document.getElementById('dashboard').innerHTML = 
+                        document.getElementById('dashboard').innerHTML =
                             '<p style="color: red;">データの読み込みに失敗しました</p>';
                     }
                 }
-                
+
                 // 概要タブ
                 function renderOverview(data) {
                     const html = `
@@ -231,7 +231,7 @@ class DayTradeWebServer:
                     `;
                     document.getElementById('dashboard').innerHTML = html;
                 }
-                
+
                 // ML詳細タブ
                 function renderMLDetails(data) {
                     const modelsHtml = data.models ? data.models.map(model => `
@@ -242,7 +242,7 @@ class DayTradeWebServer:
                             <p>最終訓練: ${model.last_training}</p>
                         </div>
                     `).join('') : '<p>MLモデル情報なし</p>';
-                    
+
                     const html = `
                         <div class="grid">
                             <div class="card">
@@ -263,7 +263,7 @@ class DayTradeWebServer:
                     `;
                     document.getElementById('dashboard').innerHTML = html;
                 }
-                
+
                 // データ品質タブ
                 function renderDataQuality(data) {
                     const providersHtml = data.providers ? Object.entries(data.providers).map(([name, status]) => `
@@ -273,7 +273,7 @@ class DayTradeWebServer:
                             <span class="provider-info">${status.last_success || 'N/A'}</span>
                         </div>
                     `).join('') : '<p>プロバイダー情報なし</p>';
-                    
+
                     const html = `
                         <div class="grid">
                             <div class="card">
@@ -295,7 +295,7 @@ class DayTradeWebServer:
                     `;
                     document.getElementById('dashboard').innerHTML = html;
                 }
-                
+
                 // リスク監視タブ
                 function renderRiskMonitoring(data) {
                     const alertsHtml = data.alerts ? data.alerts.map(alert => `
@@ -304,7 +304,7 @@ class DayTradeWebServer:
                             <span class="alert-time">${alert.timestamp}</span>
                         </div>
                     `).join('') : '<p>アラートなし</p>';
-                    
+
                     const html = `
                         <div class="grid">
                             <div class="card">
@@ -326,17 +326,17 @@ class DayTradeWebServer:
                     `;
                     document.getElementById('dashboard').innerHTML = html;
                 }
-                
+
                 // 定期更新
                 setInterval(() => loadTabContent(currentTab), 30000);
-                
+
                 // 初回読み込み
                 loadTabContent('overview');
             </script>
         </body>
         </html>
         '''
-    
+
     def _get_analysis_data(self) -> Dict[str, Any]:
         """分析データの取得"""
         try:
@@ -355,7 +355,7 @@ class DayTradeWebServer:
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def _get_symbols_data(self, symbols: List[str]) -> Dict[str, Any]:
         """銘柄データの取得"""
         try:
@@ -369,7 +369,7 @@ class DayTradeWebServer:
                     'change': 0.5,
                     'signal': 'HOLD'
                 })
-            
+
             return {
                 'status': 'success',
                 'data': symbols_data
@@ -380,7 +380,7 @@ class DayTradeWebServer:
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def _get_chart_data(self, symbol: str) -> Dict[str, Any]:
         """チャートデータの取得"""
         try:
@@ -399,7 +399,7 @@ class DayTradeWebServer:
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def _get_prediction_data(self, symbol: str) -> Dict[str, Any]:
         """予測データの取得"""
         try:
@@ -428,7 +428,7 @@ class DayTradeWebServer:
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def _get_ml_details(self) -> Dict[str, Any]:
         """ML詳細情報の取得"""
         try:
@@ -436,7 +436,7 @@ class DayTradeWebServer:
             try:
                 from ml_accuracy_improvement_system import get_accuracy_system
                 accuracy_system = get_accuracy_system()
-                
+
                 # モデル性能情報
                 models = [
                     {
@@ -452,10 +452,10 @@ class DayTradeWebServer:
                         'last_training': '2024-01-15 12:15:00'
                     }
                 ]
-                
+
                 # 精度トレンドを取得
                 trends = accuracy_system.get_accuracy_trends('SimpleML', 30)
-                
+
                 return {
                     'status': 'success',
                     'models': models,
@@ -464,7 +464,7 @@ class DayTradeWebServer:
                     'today_predictions': 23,
                     'trends': trends
                 }
-                
+
             except ImportError:
                 # フォールバックデータ
                 return {
@@ -482,14 +482,14 @@ class DayTradeWebServer:
                     'today_predictions': 0,
                     'trends': {'model_name': 'Basic ML', 'trends': {}, 'period_days': 30}
                 }
-                
+
         except Exception as e:
             self.logger.error(f"ML詳細情報取得エラー: {e}")
             return {
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def _get_data_quality_status(self) -> Dict[str, Any]:
         """データ品質状況の取得"""
         try:
@@ -497,17 +497,17 @@ class DayTradeWebServer:
             try:
                 from enhanced_data_provider import get_data_provider
                 from fallback_notification_system import get_notification_system
-                
+
                 data_provider = get_data_provider()
                 notification_system = get_notification_system()
-                
+
                 # プロバイダー状況
                 provider_status = data_provider.get_provider_status()
-                
+
                 # 通知システム状況
                 notification_summary = notification_system.get_session_summary()
                 dashboard_status = notification_system.get_dashboard_status()
-                
+
                 return {
                     'status': 'success',
                     'providers': provider_status,
@@ -517,7 +517,7 @@ class DayTradeWebServer:
                     'notification_status': dashboard_status,
                     'active_notifications': notification_summary['total_notifications']
                 }
-                
+
             except ImportError:
                 # フォールバックデータ
                 return {
@@ -534,14 +534,14 @@ class DayTradeWebServer:
                     'notification_status': '正常',
                     'active_notifications': 0
                 }
-                
+
         except Exception as e:
             self.logger.error(f"データ品質状況取得エラー: {e}")
             return {
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def _get_risk_monitoring_data(self) -> Dict[str, Any]:
         """リスク監視データの取得"""
         try:
@@ -554,7 +554,7 @@ class DayTradeWebServer:
                     'timestamp': '2024-01-15 14:30:00'
                 }
             ]
-            
+
             return {
                 'status': 'success',
                 'risk_level': 'low',
@@ -564,14 +564,14 @@ class DayTradeWebServer:
                 'quality_threshold': 80,
                 'response_time': 245
             }
-            
+
         except Exception as e:
             self.logger.error(f"リスク監視データ取得エラー: {e}")
             return {
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def _get_accuracy_trends(self) -> Dict[str, Any]:
         """精度トレンドデータの取得"""
         try:
@@ -579,9 +579,9 @@ class DayTradeWebServer:
             try:
                 from ml_accuracy_improvement_system import get_accuracy_system
                 accuracy_system = get_accuracy_system()
-                
+
                 trends = accuracy_system.get_accuracy_trends('SimpleML', 90)
-                
+
                 return {
                     'status': 'success',
                     'trends': trends,
@@ -590,7 +590,7 @@ class DayTradeWebServer:
                         'y': [91.2, 92.5, 93.2]
                     }
                 }
-                
+
             except ImportError:
                 # フォールバックデータ
                 return {
@@ -601,14 +601,14 @@ class DayTradeWebServer:
                         'y': [75.0, 75.0, 75.0]
                     }
                 }
-                
+
         except Exception as e:
             self.logger.error(f"精度トレンドデータ取得エラー: {e}")
             return {
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def _get_system_health(self) -> Dict[str, Any]:
         """システム健全性の取得"""
         try:
@@ -617,7 +617,7 @@ class DayTradeWebServer:
                 from system_performance_monitor import get_system_monitor
                 monitor = get_system_monitor()
                 health = monitor.get_current_health()
-                
+
                 return {
                     'status': 'success',
                     'overall_status': health.overall_status,
@@ -627,7 +627,7 @@ class DayTradeWebServer:
                     'recommendations': health.recommendations,
                     'uptime_hours': health.uptime_hours
                 }
-                
+
             except ImportError:
                 # フォールバックデータ
                 return {
@@ -639,14 +639,14 @@ class DayTradeWebServer:
                     'recommendations': [],
                     'uptime_hours': 1.0
                 }
-                
+
         except Exception as e:
             self.logger.error(f"システム健全性取得エラー: {e}")
             return {
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def _get_performance_metrics(self) -> Dict[str, Any]:
         """パフォーマンスメトリクスの取得"""
         try:
@@ -654,10 +654,10 @@ class DayTradeWebServer:
             try:
                 from performance_optimization_system import get_performance_system
                 system = get_performance_system()
-                
+
                 metrics = system.get_current_metrics()
                 report = system.get_performance_report()
-                
+
                 return {
                     'status': 'success',
                     'cpu_percent': metrics.cpu_percent,
@@ -670,7 +670,7 @@ class DayTradeWebServer:
                     'auto_optimization': report['optimization_status']['auto_optimization_enabled'],
                     'last_optimization': report['optimization_status']['last_optimization']
                 }
-                
+
             except ImportError:
                 # フォールバックデータ
                 return {
@@ -685,14 +685,14 @@ class DayTradeWebServer:
                     'auto_optimization': True,
                     'last_optimization': datetime.now().isoformat()
                 }
-                
+
         except Exception as e:
             self.logger.error(f"パフォーマンスメトリクス取得エラー: {e}")
             return {
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def _get_user_preferences(self) -> Dict[str, Any]:
         """ユーザー設定の取得"""
         try:
@@ -707,26 +707,26 @@ class DayTradeWebServer:
                 'auto_optimization': True,
                 'debug_logs': False
             }
-            
+
             # 設定ファイルから読み込み（実装簡略化）
             preferences_file = Path("config/user_preferences.json")
             if preferences_file.exists():
                 with open(preferences_file, 'r', encoding='utf-8') as f:
                     saved_preferences = json.load(f)
                     default_preferences.update(saved_preferences)
-            
+
             return {
                 'status': 'success',
                 **default_preferences
             }
-            
+
         except Exception as e:
             self.logger.error(f"ユーザー設定取得エラー: {e}")
             return {
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def _save_user_preferences(self, preferences: Dict[str, Any]) -> Dict[str, Any]:
         """ユーザー設定の保存"""
         try:
@@ -736,16 +736,16 @@ class DayTradeWebServer:
                 # 新しい設定で更新
                 del current_prefs['status']  # statusキーを除去
                 current_prefs.update(preferences)
-                
+
                 # ファイルに保存
                 preferences_file = Path("config/user_preferences.json")
                 preferences_file.parent.mkdir(exist_ok=True)
-                
+
                 with open(preferences_file, 'w', encoding='utf-8') as f:
                     json.dump(current_prefs, f, indent=2, ensure_ascii=False)
-                
+
                 self.logger.info(f"User preferences saved: {list(preferences.keys())}")
-                
+
                 return {
                     'status': 'success',
                     'message': '設定を保存しました'
@@ -755,14 +755,14 @@ class DayTradeWebServer:
                     'status': 'error',
                     'message': '現在の設定の取得に失敗しました'
                 }
-                
+
         except Exception as e:
             self.logger.error(f"ユーザー設定保存エラー: {e}")
             return {
                 'status': 'error',
                 'message': str(e)
             }
-    
+
     def run(self) -> int:
         """Webサーバーの起動"""
         try:
@@ -770,7 +770,7 @@ class DayTradeWebServer:
             print(f"🔗 URL: http://localhost:{self.port}")
             print("📊 93% 精度AI予測システム")
             print("⏹  停止: Ctrl+C")
-            
+
             self.app.run(
                 host='0.0.0.0',
                 port=self.port,
@@ -778,7 +778,7 @@ class DayTradeWebServer:
                 use_reloader=False
             )
             return 0
-            
+
         except Exception as e:
             self.logger.error(f"Webサーバー起動エラー: {e}")
             return 1
