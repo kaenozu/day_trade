@@ -696,10 +696,10 @@ def _normalize_arguments(
                 if not hasattr(threading.current_thread(), '_cache_warning_count'):
                     threading.current_thread()._cache_warning_count = 0
                     threading.current_thread()._last_warning_time = 0
-                
+
                 current_time = time.time()
                 thread = threading.current_thread()
-                
+
                 # 5秒に1回だけ警告を出力
                 if current_time - thread._last_warning_time > 5.0:
                     if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.DEBUG):
@@ -708,11 +708,11 @@ def _normalize_arguments(
                         )
                     thread._last_warning_time = current_time
                     thread._cache_warning_count += 1
-                    
+
                     # 100回警告した場合は検出を無効化
                     if thread._cache_warning_count > 100:
                         return tuple(args), tuple(kwargs.items())
-                
+
                 # セットをクリアして継続
                 seen_objects.clear()
                 seen_objects.add(obj_id)
