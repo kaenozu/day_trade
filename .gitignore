@@ -176,3 +176,13 @@ pr_body_*.md
 
 # Node modules
 node_modules/
+
+# Model files
+*.pkl
+*.joblib
+
+# Backup files
+*.backup*
+
+# Other temporary files
+temp_*
