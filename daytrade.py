@@ -705,7 +705,7 @@ class PersonalAnalysisEngine:
             else:
                 prediction_text = f"📉 下落確率: {prob_down:.1f}%"
                 advice = "寄り付きでの売りまたは様子見を検討"
-            
+
             print(f"  - 予測: {prediction_text}")
             print(f"  - 推奨戦略: {advice}")
 
@@ -791,7 +791,7 @@ def parse_arguments():
   python daytrade.py --multi 8 --chart  # 複数銘柄分析＋チャート表示
   python daytrade.py --quick --chart --safe # 基本モード＋チャート＋安全モード
   python daytrade.py --train-overnight-model # 【開発者用】翌朝場予測モデルの再学習
-  
+
   # Issue #882対応: マルチタイムフレーム予測機能（デフォルト化）
   python daytrade.py --symbol 7203.T # マルチタイムフレーム予測（新デフォルト）
   python daytrade.py --symbol ^N225 --timeframe weekly # 週足予測のみ
@@ -831,9 +831,9 @@ def parse_arguments():
     parser.add_argument('--version', action='version', version='Day Trade Personal v1.0')
     parser.add_argument('--train-overnight-model', action='store_true',
                        help='【開発者用】翌朝場予測の機械学習モデルを再学習します')
-    
+
     # Issue #882対応: マルチタイムフレーム予測機能（デフォルト化）
-    parser.add_argument('--symbol', type=str, metavar='SYMBOL', 
+    parser.add_argument('--symbol', type=str, metavar='SYMBOL',
                        help='銘柄コード指定でマルチタイムフレーム予測（新デフォルト動作）')
     parser.add_argument('--timeframe', type=str, choices=['daily', 'weekly', 'monthly', 'quarterly'],
                        help='特定期間予測（daily/weekly/monthly/quarterly）- 指定時はその期間のみ予測')
@@ -1310,8 +1310,8 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
 
         # チャート生成（オプション）
         if generate_chart:
-            print() 
-            print() 
+            print()
+            print()
             print("[チャート] 複数銘柄分析グラフ生成中...")
             print()
             print()
@@ -2157,26 +2157,26 @@ async def run_single_symbol_quick_mode(symbol: str, generate_chart: bool = False
     """単一銘柄の従来デイトレード予測（高速モード）"""
     print(f"\n⚡ 高速デイトレード予測: {symbol}")
     print("=" * 50)
-    
+
     try:
         # 従来のシンプル分析を実行
         daytrader = PersonalDayTrader()
         result = await daytrader.get_single_symbol_analysis(symbol)
-        
+
         if result:
             print(f"\n📊 {result['name']} ({result['symbol']})")
             print(f"   推奨アクション: {result['action']}")
             print(f"   信頼度: {result['confidence']:.1f}%")
             print(f"   リスクレベル: {result['risk_level']}")
-            
+
             if generate_chart and CHART_AVAILABLE:
                 await daytrader.generate_simple_chart(symbol)
-                
+
             return True
         else:
             print(f"❌ {symbol}の分析に失敗しました")
             return False
-            
+
     except Exception as e:
         print(f"❌ 高速予測エラー: {e}")
         return False
@@ -2186,38 +2186,38 @@ async def run_portfolio_analysis_mode(args) -> bool:
     if not MULTI_TIMEFRAME_AVAILABLE:
         print("❌ ポートフォリオ分析機能が利用できません")
         return False
-        
+
     symbols = []
     if hasattr(args, 'symbols') and args.symbols:
         symbols = [s.strip() for s in args.symbols.split(',')]
     else:
         # デフォルト銘柄を使用
         symbols = ['7203.T', '6758.T', '9984.T', '8306.T', '4751.T']
-        
+
     print(f"\n📈 ポートフォリオ分析: {len(symbols)}銘柄")
     print("=" * 50)
-    
+
     try:
         engine = MultiTimeframePredictionEngine()
         results = []
-        
+
         for symbol in symbols:
             print(f"   分析中: {symbol}")
             prediction = await engine.generate_multi_timeframe_prediction(symbol)
             if prediction:
                 results.append(prediction)
-                
+
         if results:
             print_portfolio_analysis_summary(results)
-            
+
             if args.output_json:
                 output_portfolio_analysis_json(results)
-                
+
             return True
         else:
             print("❌ ポートフォリオ分析に失敗しました")
             return False
-            
+
     except Exception as e:
         print(f"❌ ポートフォリオ分析エラー: {e}")
         return False
@@ -2231,25 +2231,25 @@ async def run_multi_timeframe_mode(args) -> bool:
             print("必要なライブラリをインストールしてください:")
             print("pip install lightgbm scikit-learn yfinance")
             return False
-            
+
         print("\n🚀 マルチタイムフレーム予測機能 - Issue #882対応")
         print("デイトレード以外の取引サポート: 1週間・1ヶ月・3ヶ月予測")
         print("=" * 60)
-        
+
         # エンジン初期化
         engine = MultiTimeframePredictionEngine()
-        
+
         # 単一銘柄マルチタイムフレーム予測
         symbol = args.symbol
         print(f"\n🔍 {symbol} のマルチタイムフレーム予測分析")
-        
+
         # 特定期間予測モード
         if args.timeframe:
             return await run_single_timeframe_prediction(engine, symbol, args.timeframe, args.output_json)
         else:
             # 全期間統合予測モード（デフォルト）
             return await run_full_multi_timeframe_prediction(engine, symbol, args.output_json)
-        
+
     except Exception as e:
         print(f"❌ マルチタイムフレーム予測エラー: {e}")
         return False
@@ -2260,10 +2260,10 @@ async def run_single_timeframe_prediction(engine, symbol: str, timeframe: str, o
     try:
         tf_enum = getattr(PredictionTimeframe, timeframe.upper())
         print(f"📊 {tf_enum.value}予測実行中...")
-        
+
         # 予測実行
         prediction = await engine.predict_timeframe(symbol, tf_enum)
-        
+
         if prediction:
             if output_json:
                 output_single_prediction_json(prediction)
@@ -2273,7 +2273,7 @@ async def run_single_timeframe_prediction(engine, symbol: str, timeframe: str, o
         else:
             print(f"❌ {symbol}の{tf_enum.value}予測に失敗しました")
             return False
-            
+
     except Exception as e:
         print(f"❌ {timeframe}予測エラー: {e}")
         return False
@@ -2282,10 +2282,10 @@ async def run_full_multi_timeframe_prediction(engine, symbol: str, output_json: 
     """全期間統合マルチタイムフレーム予測"""
     try:
         print("📊 全期間統合予測実行中...")
-        
+
         # マルチタイムフレーム予測実行
         prediction = await engine.generate_multi_timeframe_prediction(symbol)
-        
+
         if prediction:
             if output_json:
                 output_multi_prediction_json(prediction)
@@ -2295,7 +2295,7 @@ async def run_full_multi_timeframe_prediction(engine, symbol: str, output_json: 
         else:
             print(f"❌ {symbol}のマルチタイムフレーム予測に失敗しました")
             return False
-            
+
     except Exception as e:
         print(f"❌ マルチタイムフレーム予測エラー: {e}")
         return False
@@ -2313,18 +2313,18 @@ def print_multi_prediction_summary(prediction):
     """マルチタイムフレーム予測結果の表示"""
     print(f"\n【マルチタイムフレーム予測サマリー】{prediction.symbol}")
     print("=" * 60)
-    
+
     print("\n【統合予測】")
     print(f"  方向性: {prediction.consensus_direction}")
     print(f"  信頼度: {prediction.consensus_confidence:.1f}%")
     print(f"  推奨戦略: {prediction.recommended_strategy}")
     print(f"  最適期間: {prediction.best_timeframe.value}")
-    
+
     print("\n【期間別予測】")
     for timeframe, pred in prediction.predictions.items():
         print(f"  {timeframe.value}: {pred.prediction_direction} ({pred.confidence:.1f}%) "
               f"期待リターン: {pred.expected_return:.1f}%")
-    
+
     print(f"\n【リスク評価】")
     risk = prediction.risk_assessment
     print(f"  総合リスク: {risk.get('overall_risk', 'N/A')}")
@@ -2335,15 +2335,15 @@ def print_portfolio_analysis_summary(results):
     """ポートフォリオ分析結果の表示"""
     print("\n【ポートフォリオ分析サマリー】")
     print("=" * 60)
-    
+
     total_symbols = len(results)
     up_symbols = sum(1 for r in results if r.consensus_direction == "UP")
-    
+
     print(f"\n【全体概況】")
     print(f"  分析銘柄数: {total_symbols}")
     print(f"  上昇予想: {up_symbols}銘柄 ({up_symbols/total_symbols*100:.1f}%)")
     print(f"  下落予想: {total_symbols-up_symbols}銘柄 ({(total_symbols-up_symbols)/total_symbols*100:.1f}%)")
-    
+
     print(f"\n【推奨銘柄ランキング】")
     sorted_results = sorted(results, key=lambda x: x.consensus_confidence, reverse=True)
     for i, result in enumerate(sorted_results[:5], 1):
@@ -2442,7 +2442,7 @@ def output_portfolio_json(results):
             "predictions": {}
         }
     }
-    
+
     for symbol, prediction in results.items():
         portfolio_result["portfolio_analysis"]["predictions"][symbol] = {
             "consensus_direction": prediction.consensus_direction,
@@ -2451,7 +2451,7 @@ def output_portfolio_json(results):
             "recommended_strategy": prediction.recommended_strategy,
             "risk_assessment": prediction.risk_assessment
         }
-    
+
     print(json.dumps(portfolio_result, indent=2, ensure_ascii=False))
 
 
