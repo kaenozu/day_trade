@@ -531,8 +531,6 @@ class EnhancedModelPerformanceMonitor:
             logger.error(f"データベース初期化に失敗しました: {e}")
             raise
 
-
->>>>>>> origin/main
     async def get_latest_model_performance(self,
                                            symbols: Optional[List[str]] = None,
                                            force_refresh: bool = False
@@ -811,7 +809,6 @@ class EnhancedModelPerformanceMonitor:
 
         return result
 
-<<<<<<< HEAD
     def _determine_retraining_scope(self, performance: PerformanceMetrics) -> str:
         """再学習の範囲を決定"""
         accuracy = performance.accuracy
@@ -905,13 +902,6 @@ class EnhancedModelPerformanceMonitor:
     async def _execute_retraining(self, scope: str, symbols: List[str],
                                 performance: PerformanceMetrics) -> RetrainingResult:
         """再学習の実行"""
-=======
-    async def _execute_enhanced_retraining(
-            self, scope: RetrainingScope,
-            symbol_performances: Dict[str, PerformanceMetrics]
-    ) -> RetrainingResult:
-        """改善版再学習の実行"""
->>>>>>> origin/main
         if not ml_upgrade_system:
             return RetrainingResult(
                 triggered=False,
