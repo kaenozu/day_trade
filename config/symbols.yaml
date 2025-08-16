@@ -1,0 +1,15 @@
+api_settings:
+  cache_duration: 60
+  max_requests_per_minute: 60
+  request_interval: 0.5
+symbols:
+  4063.T: 信越化学
+  4689.T: LINEヤフー
+  6098.T: リクルートHD
+  6501.T: 日立製作所
+  6758.T: ソニーG
+  7203.T: トヨタ自動車
+  8058.T: 三菱商事
+  8306.T: 三菱UFJ
+  9432.T: NTT
+  9984.T: ソフトバンクG
