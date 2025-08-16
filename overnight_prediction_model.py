@@ -44,7 +44,7 @@ class OvernightPredictionModel:
         self.target_ticker = '^N225'
         self.model = None
         self.feature_importance = None
-        
+
         # リスク管理パラメータ
         self.confidence_threshold = 0.65  # 高信頼度予測の閾値
         self.volatility_adjustment = True  # ボラティリティ調整機能
@@ -91,12 +91,12 @@ class OvernightPredictionModel:
         y_pred = self.model.predict(X_test)
         y_pred_proba = self.model.predict_proba(X_test)
         accuracy = accuracy_score(y_test, y_pred)
-        
+
         print(f"\nモデルの評価 (テストデータ):")
         print(f"  - 正解率 (Accuracy): {accuracy:.4f}")
         print("\n分類レポート:")
         print(classification_report(y_test, y_pred, target_names=['Down', 'Up']))
-        
+
         print(f"\n特徴量重要度 (Top 10):")
         for idx, row in self.feature_importance.head(10).iterrows():
             print(f"  {row['feature']}: {row['importance']:.4f}")
@@ -135,15 +135,15 @@ class OvernightPredictionModel:
 
         # 最後の行のデータを予測に使用
         latest_features = data.drop('target_up', axis=1).iloc[[-1]]
-        
+
         print("\n最新データで翌朝場を予測します...")
         # 各クラスに属する確率を予測
         prediction_proba = self.model.predict_proba(latest_features)
-        
+
         # 信頼度とリスク評価
         confidence = max(prediction_proba[0])
         is_high_confidence = confidence >= self.confidence_threshold
-        
+
         # ボラティリティ評価（VIXベース）
         vix_features = [col for col in latest_features.columns if 'VIX' in col]
         market_volatility = "Normal"
@@ -153,12 +153,12 @@ class OvernightPredictionModel:
                 market_volatility = "High"
             elif vix_change < -5:
                 market_volatility = "Low"
-        
+
         # リスク管理推奨
         risk_recommendation = self._generate_risk_management(
             prediction_proba[0], confidence, market_volatility
         ) if enable_risk_management else None
-        
+
         # 予測結果を整形
         prediction_result = {
             'prediction_datetime_utc': datetime.utcnow(),
@@ -178,18 +178,18 @@ class OvernightPredictionModel:
         print(f"  下降確率: {prediction_result['probability_down']:.1%}")
         print(f"  信頼度: {confidence:.1%} ({'高' if is_high_confidence else '低'})")
         print(f"  市場ボラティリティ: {market_volatility}")
-        
+
         if risk_recommendation:
             print("\nリスク管理推奨:")
             for key, value in risk_recommendation.items():
                 print(f"  {key}: {value}")
-        
+
         return prediction_result
-    
+
     def _generate_risk_management(self, probabilities, confidence, volatility):
         """リスク管理推奨を生成"""
         prob_up = probabilities[1]
-        
+
         # ポジションサイズ推奨
         if confidence >= 0.8:
             position_size = "中程度 (資金の15-25%)"
@@ -197,7 +197,7 @@ class OvernightPredictionModel:
             position_size = "小程度 (資金の10-15%)"
         else:
             position_size = "最小限 (資金の5%以下)"
-        
+
         # 損切り水準
         if volatility == "High":
             stop_loss = "2-3%"
@@ -205,7 +205,7 @@ class OvernightPredictionModel:
             stop_loss = "1-2%"
         else:
             stop_loss = "2%"
-        
+
         # 利確水準
         if prob_up > 0.7:
             take_profit = "3-5%"
@@ -213,7 +213,7 @@ class OvernightPredictionModel:
             take_profit = "2-3%"
         else:
             take_profit = "1-2%"
-        
+
         return {
             "推奨ポジションサイズ": position_size,
             "損切り水準": stop_loss,
@@ -229,7 +229,7 @@ class OvernightPredictionModel:
         try:
             all_tickers = list(self.feature_tickers.keys())
             data = yf.download(all_tickers, period=period, progress=False)['Close']
-            
+
             if data.empty:
                 print("[Error] yfinanceからデータを取得できませんでした。")
                 return pd.DataFrame()
@@ -250,7 +250,7 @@ class OvernightPredictionModel:
 
             full_data = pd.concat([features, target], axis=1)
             full_data = full_data.dropna()
-            
+
             print("データ準備が完了しました。")
             return full_data
 
@@ -261,53 +261,53 @@ class OvernightPredictionModel:
     async def backtest(self, start_date=None, end_date=None, initial_capital=1000000):
         """バックテスト環境：過去の予測精度と収益性を検証"""
         print("=== 翌朝場予測モデル バックテスト ===")
-        
+
         # バックテスト用データ準備
         data = await self._prepare_data(period="3y")
         if data.empty:
             print("[Error] バックテストデータの準備に失敗しました。")
             return None
-        
+
         # 日付フィルタリング
         if start_date:
             data = data[data.index >= start_date]
         if end_date:
             data = data[data.index <= end_date]
-            
+
         if len(data) < 100:
             print("[Error] バックテストには最低100日分のデータが必要です。")
             return None
-        
+
         # バックテスト実行
         results = []
         capital = initial_capital
         position = 0  # 0: ノーポジション, 1: ロング
         win_trades = 0
         total_trades = 0
-        
+
         # 訓練期間とテスト期間を分割（最初の70%を訓練、残りをテスト）
         split_idx = int(len(data) * 0.7)
         train_data = data.iloc[:split_idx]
         test_data = data.iloc[split_idx:]
-        
+
         print(f"バックテスト期間: {test_data.index[0].strftime('%Y-%m-%d')} ～ {test_data.index[-1].strftime('%Y-%m-%d')}")
         print(f"テスト期間: {len(test_data)}日")
-        
+
         # 簡易バックテスト（実際の予測をシミュレート）
         for i in range(1, len(test_data)):
             current_data = test_data.iloc[:i]
             if len(current_data) < 25:  # 移動平均計算に必要な期間
                 continue
-                
+
             # 予測シミュレート（前日のデータで翌日を予測）
             features = current_data.drop('target_up', axis=1).iloc[[-1]]
             actual_target = test_data.iloc[i]['target_up']
-            
+
             # 仮想予測（実際にはモデルを使用するが、ここでは簡易版）
             # より複雑な特徴量から予測を行う
             prediction_prob = self._simulate_prediction(features)
             prediction = 1 if prediction_prob > 0.5 else 0
-            
+
             # トレード実行シミュレーション
             if position == 0 and prediction == 1 and prediction_prob > 0.6:  # エントリー
                 entry_price = 1.0  # 正規化
@@ -317,12 +317,12 @@ class OvernightPredictionModel:
                 exit_price = 1.01 if actual_target == 1 else 0.99  # 簡易リターン
                 trade_return = (exit_price - entry_price) / entry_price
                 capital *= (1 + trade_return)
-                
+
                 if trade_return > 0:
                     win_trades += 1
-                
+
                 position = 0
-                
+
                 results.append({
                     'date': test_data.index[i],
                     'prediction': prediction,
@@ -331,19 +331,19 @@ class OvernightPredictionModel:
                     'capital': capital,
                     'prediction_prob': prediction_prob
                 })
-        
+
         # バックテスト結果
         if results:
             backtest_df = pd.DataFrame(results)
             win_rate = win_trades / total_trades if total_trades > 0 else 0
             total_return = (capital - initial_capital) / initial_capital
-            
+
             print(f"\n=== バックテスト結果 ===")
             print(f"総取引回数: {total_trades}")
             print(f"勝率: {win_rate:.1%}")
             print(f"総リターン: {total_return:.1%}")
             print(f"最終資産: {capital:,.0f}円")
-            
+
             return {
                 'total_trades': total_trades,
                 'win_rate': win_rate,
@@ -351,30 +351,30 @@ class OvernightPredictionModel:
                 'final_capital': capital,
                 'trades': backtest_df
             }
-        
+
         return None
-    
+
     def _simulate_prediction(self, features):
         """予測シミュレーション（簡易版）"""
         # 主要指標の重み付け合計で予測確率を計算
         vix_weight = -0.3
         sp500_weight = 0.4
         nikkei_weight = 0.3
-        
+
         prob = 0.5  # ベース確率
-        
+
         # VIX変化率（マイナス影響）
         vix_cols = [col for col in features.columns if 'VIX_pct_change' in col]
         if vix_cols:
             vix_change = features[vix_cols[0]].iloc[0]
             prob += vix_weight * (vix_change / 100)
-        
+
         # S&P500変化率（プラス影響）
         sp500_cols = [col for col in features.columns if 'SP500_pct_change' in col]
         if sp500_cols:
             sp500_change = features[sp500_cols[0]].iloc[0]
             prob += sp500_weight * (sp500_change / 100)
-        
+
         # 確率を0-1の範囲に制限
         return max(0.1, min(0.9, prob))
 

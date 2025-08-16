@@ -54,7 +54,7 @@ class IntegratedModelLoader:
                     features_reshaped = features
 
                 prediction_array = self.model.predict(features_reshaped)
-                
+
                 # 出力の形状や意味は不明なため、必要な4つの値を取得する想定
                 predictions = prediction_array.flatten()[:4]
                 if len(predictions) < 4: # 出力が4より小さい場合はパディング

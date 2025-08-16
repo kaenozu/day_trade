@@ -21,10 +21,10 @@ def setup_environment() -> None:
     # プロジェクトルート設定
     project_root = Path(__file__).parent
     sys.path.insert(0, str(project_root))
-    
+
     # Windows環境での文字化け対策
     os.environ['PYTHONIOENCODING'] = 'utf-8'
-    
+
     if sys.platform == 'win32':
         _configure_windows_encoding()
 

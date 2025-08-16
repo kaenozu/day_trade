@@ -32,10 +32,10 @@ class TestOvernightPredictionModel(unittest.TestCase):
         """yfinance.downloadの戻り値全体を模倣するダミーDataFrameを作成"""
         dates = pd.to_datetime(pd.date_range(end=pd.Timestamp.now(), periods=days, freq='D'))
         tickers = list(self.model.feature_tickers.keys())
-        
+
         # MultiIndexカラムを作成
         columns = pd.MultiIndex.from_product([['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume'], tickers])
-        
+
         # ダミーデータを作成
         data = np.random.rand(days, len(columns))
         df = pd.DataFrame(data, index=dates, columns=columns)
@@ -68,7 +68,7 @@ class TestOvernightPredictionModel(unittest.TestCase):
         print("\n--- test_train_and_predict --- ")
         # _prepare_dataの戻り値を設定
         dummy_prepared_df = self._create_dummy_prepared_data(days=100)
-        
+
         async def async_magic_mock(*args, **kwargs):
             return dummy_prepared_df
         mock_prepare_data.side_effect = async_magic_mock
@@ -105,13 +105,13 @@ class TestOvernightPredictionModel(unittest.TestCase):
             feature_cols.append(f'{ticker_name}_pct_change')
             feature_cols.append(f'{ticker_name}_ma5_divergence')
             feature_cols.append(f'{ticker_name}_ma25_divergence')
-        
+
         data = {col: np.random.rand(days) for col in feature_cols}
         features_df = pd.DataFrame(data, index=dates)
-        
+
         # 目的変数
         target = pd.Series(np.random.randint(0, 2, size=days), index=dates, name='target_up')
-        
+
         return pd.concat([features_df, target], axis=1).dropna()
 
 if __name__ == '__main__':
