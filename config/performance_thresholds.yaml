@@ -1,0 +1,229 @@
+# MLモデル性能監視システム設定
+# Issue #857対応：性能閾値の外部化と柔軟化
+
+# システム基本設定
+system:
+  name: "MLモデル性能監視システム"
+  version: "1.0.0"
+  enabled: true
+  debug_mode: false
+
+# 性能閾値設定
+performance_thresholds:
+  # 精度関連閾値
+  accuracy:
+    minimum_threshold: 0.75        # 最低精度閾値 75%
+    warning_threshold: 0.80        # 警告閾値 80%
+    target_threshold: 0.90         # 目標閾値 90%
+    critical_threshold: 0.70       # 緊急閾値 70%
+
+  # 予測信頼度閾値
+  confidence:
+    minimum_threshold: 0.65        # 最低信頼度
+    warning_threshold: 0.75        # 警告信頼度
+    target_threshold: 0.85         # 目標信頼度
+
+  # パフォーマンス関連閾値
+  performance:
+    max_prediction_time_ms: 1000   # 最大予測時間 1秒
+    max_training_time_minutes: 30  # 最大訓練時間 30分
+    max_memory_usage_mb: 1000      # 最大メモリ使用量 1GB
+
+  # データ品質閾値
+  data_quality:
+    minimum_data_completeness: 0.95   # 最低データ完全性 95%
+    maximum_missing_rate: 0.05        # 最大欠損率 5%
+    minimum_sample_size: 100          # 最小サンプル数
+
+# 監視対象銘柄設定
+monitoring_symbols:
+  # 常時監視銘柄（高優先度）
+  primary_symbols:
+    - "7203"  # トヨタ自動車
+    - "8306"  # 三菱UFJ
+    - "9984"  # ソフトバンクG
+    - "4751"  # サイバーエージェント
+    - "2914"  # 日本たばこ
+
+  # 補助監視銘柄（中優先度）
+  secondary_symbols:
+    - "6758"  # ソニー
+    - "7974"  # 任天堂
+    - "4503"  # アステラス製薬
+    - "8316"  # 三井住友FG
+    - "9432"  # NTT
+
+  # 拡張監視銘柄（低優先度）
+  extended_symbols:
+    - "4568"  # 第一三共
+    - "6098"  # リクルート
+    - "8591"  # オリックス
+    - "3382"  # セブン&アイ
+    - "1605"  # INPEX
+
+  # 動的銘柄選択設定
+  dynamic_selection:
+    enabled: true
+    selection_criteria:
+      volume_threshold: 1000000      # 最小出来高
+      price_range_min: 100          # 最小価格
+      price_range_max: 10000        # 最大価格
+      volatility_min: 0.01          # 最小ボラティリティ
+      volatility_max: 0.10          # 最大ボラティリティ
+
+# 監視設定
+monitoring:
+  # 監視間隔
+  intervals:
+    real_time_seconds: 60          # リアルタイム監視間隔
+    periodic_minutes: 15           # 定期監視間隔
+    daily_check_hour: 18           # 日次チェック時刻
+    weekly_check_day: 0            # 週次チェック曜日（月曜日）
+
+  # 警告・アラート設定
+  alerts:
+    email_enabled: false
+    slack_enabled: false
+    console_enabled: true
+    log_enabled: true
+
+  # 履歴保持設定
+  history:
+    performance_history_days: 30   # 性能履歴保持日数
+    prediction_history_days: 7    # 予測履歴保持日数
+    alert_history_days: 14        # アラート履歴保持日数
+
+# 再学習トリガー設定
+retraining:
+  # トリガー条件
+  triggers:
+    accuracy_degradation:
+      enabled: true
+      threshold_drop: 0.05         # 精度低下閾値 5%
+      consecutive_failures: 3      # 連続失敗回数
+
+    prediction_confidence:
+      enabled: true
+      low_confidence_rate: 0.3     # 低信頼度予測率 30%
+      time_window_hours: 24        # 評価時間窓
+
+    data_drift:
+      enabled: true
+      drift_threshold: 0.1         # データドリフト閾値
+      statistical_test: "ks_test"  # 統計的検定手法
+
+  # 再学習戦略
+  strategy:
+    granularity: "selective"       # selective/full/incremental
+    batch_size: 5                  # バッチサイズ（selective時）
+    max_concurrent: 2              # 最大同時実行数
+    cooldown_hours: 6              # 再学習後クールダウン時間
+
+  # リソース制限
+  resources:
+    max_cpu_percent: 80            # 最大CPU使用率
+    max_memory_mb: 2000            # 最大メモリ使用量
+    max_duration_hours: 2          # 最大実行時間
+
+# モデル種別設定
+models:
+  # 支援対象モデル
+  supported_models:
+    - "RandomForestClassifier"
+    - "RandomForestRegressor"
+    - "XGBClassifier"
+    - "XGBRegressor"
+    - "LGBMClassifier"
+    - "LGBMRegressor"
+    - "SVR"
+    - "LinearRegression"
+
+  # モデル固有設定
+  model_specific:
+    RandomForest:
+      performance_weight: 1.0
+      retraining_priority: 2
+    XGBoost:
+      performance_weight: 1.2
+      retraining_priority: 1
+    LightGBM:
+      performance_weight: 1.1
+      retraining_priority: 1
+
+# 評価指標設定
+metrics:
+  # 分類タスク指標
+  classification:
+    primary: "accuracy"
+    secondary: ["precision", "recall", "f1_score"]
+    advanced: ["roc_auc", "cohen_kappa"]
+
+  # 回帰タスク指標
+  regression:
+    primary: "r2_score"
+    secondary: ["mse", "mae"]
+    advanced: ["mape", "explained_variance"]
+
+  # カスタム指標
+  custom:
+    profit_loss_ratio: true
+    win_rate: true
+    sharpe_ratio: true
+    maximum_drawdown: true
+
+# データベース設定
+database:
+  # 性能データ保存設定
+  performance_table: "model_performance_history"
+  alerts_table: "performance_alerts"
+  retraining_table: "retraining_history"
+
+  # 接続設定
+  connection:
+    type: "sqlite"
+    path: "data/model_performance.db"
+    timeout: 30
+
+# ログ設定
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  files:
+    performance: "logs/model_performance.log"
+    alerts: "logs/performance_alerts.log"
+    retraining: "logs/model_retraining.log"
+
+# 統合設定
+integration:
+  # 既存システム連携
+  ml_prediction_models: true
+  prediction_accuracy_validator: true
+  ml_model_upgrade_system: true
+  symbol_selector: true
+
+  # API設定
+  api_endpoints:
+    status: "/api/model-performance/status"
+    metrics: "/api/model-performance/metrics"
+    alerts: "/api/model-performance/alerts"
+    retraining: "/api/model-performance/trigger-retraining"
+
+# 実験的機能
+experimental:
+  # 自動ハイパーパラメータ調整
+  auto_hyperparameter_tuning:
+    enabled: false
+    optimization_method: "optuna"
+    max_trials: 100
+
+  # モデル説明可能性
+  model_explainability:
+    enabled: false
+    shap_analysis: false
+    feature_importance_tracking: true
+
+  # A/Bテスト
+  ab_testing:
+    enabled: false
+    control_group_ratio: 0.5
+    test_duration_days: 7

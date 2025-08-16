@@ -109,6 +109,53 @@ jobs:
           # 元のブランチに戻る
           git checkout $CURRENT_BRANCH
 
+      - name: Setup Python for conflict analysis
+        if: steps.conflict-check.outputs.merge_success == 'false'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Generate detailed conflict analysis
+        if: steps.conflict-check.outputs.merge_success == 'false'
+        id: detailed-analysis
+        run: |
+          echo "🔬 詳細コンフリクト分析を実行中..."
+
+          CONFLICT_FILES="${{ steps.conflict-check.outputs.conflict_files }}"
+
+          # Python分析スクリプトを実行
+          python3 .github/scripts/conflict-analyzer.py \
+            $CONFLICT_FILES \
+            --output conflict_analysis.json \
+            --format json
+
+          # Markdownレポートも生成
+          python3 .github/scripts/conflict-analyzer.py \
+            $CONFLICT_FILES \
+            --output conflict_report.md \
+            --format markdown
+
+          # 分析結果を環境変数に設定
+          if [ -f conflict_analysis.json ]; then
+            TOTAL_CONFLICTS=$(cat conflict_analysis.json | jq '.total_conflicts')
+            AUTO_RESOLVABLE=$(cat conflict_analysis.json | jq '.auto_resolvable_count')
+            COMPLEXITY=$(cat conflict_analysis.json | jq -r '.overall_complexity')
+            TIME_ESTIMATE=$(cat conflict_analysis.json | jq -r '.resolution_time_estimate')
+            APPROACH=$(cat conflict_analysis.json | jq -r '.recommended_approach')
+
+            echo "total_conflicts=$TOTAL_CONFLICTS" >> $GITHUB_OUTPUT
+            echo "auto_resolvable=$AUTO_RESOLVABLE" >> $GITHUB_OUTPUT
+            echo "complexity=$COMPLEXITY" >> $GITHUB_OUTPUT
+            echo "time_estimate=$TIME_ESTIMATE" >> $GITHUB_OUTPUT
+            echo "recommended_approach=$APPROACH" >> $GITHUB_OUTPUT
+
+            # コンフリクトタイプを抽出
+            CONFLICT_TYPES=$(cat conflict_analysis.json | jq -r '.conflicts_by_type | keys | join(", ")')
+            echo "conflict_types=$CONFLICT_TYPES" >> $GITHUB_OUTPUT
+          else
+            echo "分析ファイルの生成に失敗しました"
+          fi
+
       - name: Generate conflict analysis report
         if: steps.conflict-check.outputs.merge_success == 'false'
         id: analysis
@@ -117,7 +164,7 @@ jobs:
 
           CONFLICT_FILES="${{ steps.conflict-check.outputs.conflict_files }}"
 
-          # コンフリクトの種類分析
+          # 基本的なコンフリクトの種類分析（フォールバック）
           CONFLICT_TYPES=""
 
           for file in $CONFLICT_FILES; do
@@ -137,7 +184,12 @@ jobs:
           # 重複を削除
           CONFLICT_TYPES=$(echo "$CONFLICT_TYPES" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
 
-          echo "conflict_types=$CONFLICT_TYPES" >> $GITHUB_OUTPUT
+          # 詳細分析が成功した場合はそれを使用、失敗した場合は基本分析を使用
+          if [ -n "${{ steps.detailed-analysis.outputs.conflict_types }}" ]; then
+            echo "conflict_types=${{ steps.detailed-analysis.outputs.conflict_types }}" >> $GITHUB_OUTPUT
+          else
+            echo "conflict_types=$CONFLICT_TYPES" >> $GITHUB_OUTPUT
+          fi
 
           # 解決推奨手順の生成
           RESOLUTION_STEPS=""
@@ -203,9 +255,44 @@ jobs:
             const conflictTypes = '${{ steps.analysis.outputs.conflict_types }}';
             const resolutionSteps = `${{ steps.analysis.outputs.resolution_steps }}`;
 
+            // 詳細分析結果を取得
+            const totalConflicts = '${{ steps.detailed-analysis.outputs.total_conflicts }}';
+            const autoResolvable = '${{ steps.detailed-analysis.outputs.auto_resolvable }}';
+            const complexity = '${{ steps.detailed-analysis.outputs.complexity }}' || '不明';
+            const timeEstimate = '${{ steps.detailed-analysis.outputs.time_estimate }}' || '不明';
+            const recommendedApproach = '${{ steps.detailed-analysis.outputs.recommended_approach }}' || '手動解決を推奨';
+
+            let analysisSection = '';
+            if (totalConflicts && totalConflicts !== '') {
+              analysisSection = `
+            ### 🔬 詳細分析結果
+
+            | 項目 | 値 |
+            |------|-----|
+            | 総コンフリクト数 | ${totalConflicts} |
+            | 自動解決可能 | ${autoResolvable}/${totalConflicts} |
+            | 複雑さ | ${complexity} |
+            | 推定解決時間 | ${timeEstimate} |
+            | 推奨アプローチ | ${recommendedApproach} |
+
+            `;
+
+              // 自動解決の推奨
+              if (autoResolvable > 0) {
+                analysisSection += `
+            ### 🤖 自動解決について
+            ${autoResolvable}個のコンフリクトが自動解決可能です。
+            コメントで \`/resolve-conflicts\` と入力すると自動解決を試行できます。
+
+            `;
+              }
+            }
+
             const body = `## ⚠️ マージコンフリクトが検出されました
 
             このPRは \`${{ github.event.pull_request.base.ref }}\` ブランチとマージ時にコンフリクトが発生します。
+
+            ${analysisSection}
 
             ### 📁 コンフリクトファイル
             \`\`\`
@@ -302,3 +389,111 @@ jobs:
           path: |
             merge_output.txt
           retention-days: 7
+
+      - name: Send Slack notification on conflict
+        if: steps.conflict-check.outputs.merge_success == 'false' && vars.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}
+        run: |
+          echo "📱 Slack通知の送信..."
+
+          CONFLICT_FILES="${{ steps.conflict-check.outputs.conflict_files }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+
+          # Slack通知用JSONペイロード作成
+          cat > slack_payload.json << EOF
+          {
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "⚠️ マージコンフリクト検出",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*PR:* <${PR_URL}|${PR_TITLE}>"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*作成者:* ${AUTHOR}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*ターゲット:* ${{ github.event.pull_request.base.ref }}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*コンフリクトファイル:* ${CONFLICT_FILES}"
+                  }
+                ]
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "マージコンフリクトが検出されました。PRページで詳細な解決手順を確認してください。"
+                }
+              },
+              {
+                "type": "actions",
+                "elements": [
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "PR確認",
+                      "emoji": true
+                    },
+                    "url": "${PR_URL}",
+                    "style": "danger"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+
+          # Slack WebhookでPOST送信
+          curl -X POST -H 'Content-type: application/json' \
+            --data @slack_payload.json \
+            "$SLACK_WEBHOOK_URL" || echo "Slack通知の送信に失敗しました"
+
+      - name: Send Slack success notification
+        if: steps.conflict-check.outputs.merge_success == 'true' && vars.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}
+        run: |
+          echo "📱 Slack成功通知の送信..."
+
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+          CHANGED_FILES="${{ steps.conflict-check.outputs.changed_files }}"
+
+          # Slack成功通知用JSONペイロード作成
+          cat > slack_success_payload.json << EOF
+          {
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "✅ *マージ可能確認完了*\n\n<${PR_URL}|${PR_TITLE}> by ${AUTHOR}\n変更ファイル数: ${CHANGED_FILES} | ターゲット: ${{ github.event.pull_request.base.ref }}"
+                }
+              }
+            ]
+          }
+          EOF
+
+          # Slack WebhookでPOST送信
+          curl -X POST -H 'Content-type: application/json' \
+            --data @slack_success_payload.json \
+            "$SLACK_WEBHOOK_URL" || echo "Slack通知の送信に失敗しました"
