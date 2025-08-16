@@ -531,8 +531,6 @@ class EnhancedModelPerformanceMonitor:
             logger.error(f"データベース初期化に失敗しました: {e}")
             raise
 
-
->>>>>>> origin/main
     async def get_latest_model_performance(self,
                                            symbols: Optional[List[str]] = None,
                                            force_refresh: bool = False
@@ -811,7 +809,6 @@ class EnhancedModelPerformanceMonitor:
 
         return result
 
-<<<<<<< HEAD
     def _determine_retraining_scope(self, performance: PerformanceMetrics) -> str:
         """再学習の範囲を決定"""
         accuracy = performance.accuracy
@@ -905,47 +902,38 @@ class EnhancedModelPerformanceMonitor:
     async def _execute_retraining(self, scope: str, symbols: List[str],
                                 performance: PerformanceMetrics) -> RetrainingResult:
         """再学習の実行"""
-=======
-    async def _execute_enhanced_retraining(
-            self, scope: RetrainingScope,
-            symbol_performances: Dict[str, PerformanceMetrics]
-    ) -> RetrainingResult:
-        """改善版再学習の実行"""
->>>>>>> origin/main
         if not ml_upgrade_system:
             return RetrainingResult(
                 triggered=False,
                 scope=scope,
-                affected_symbols=list(symbol_performances.keys()),
+                affected_symbols=symbols,
                 error="ml_upgrade_system not available"
             )
 
         start_time = datetime.now()
-        affected_symbols = list(symbol_performances.keys())
+        affected_symbols = symbols
 
         # 再学習設定から推定時間を取得
         retraining_config = self.config_manager.get_retraining_config()
         scopes_config = retraining_config.get('scopes', {})
-        scope_config = scopes_config.get(scope.value, {})
+        scope_config = scopes_config.get(scope, {})
         estimated_time = scope_config.get('estimated_time', 1800)  # デフォルト30分
 
         try:
-            logger.info(f"{scope.value}再学習を開始します - 対象: {affected_symbols}")
+            logger.info(f"{scope}再学習を開始します - 対象: {affected_symbols}")
             logger.info(f"推定実行時間: {estimated_time}秒")
 
             # スコープに応じた再学習実行
-            if scope == RetrainingScope.GLOBAL:
+            if scope == "global":
                 report = await ml_upgrade_system.run_complete_system_upgrade()
                 await ml_upgrade_system.integrate_best_models(report)
                 improvement = report.overall_improvement
 
-            elif scope == RetrainingScope.PARTIAL:
+            elif scope == "partial":
                 # 低性能銘柄群の部分再学習
-                low_perf_symbols = [
-                    s for s, p in symbol_performances.items()
-                    if p.accuracy < self.config_manager.get_threshold('accuracy', s)
-                ]
-                affected_symbols = low_perf_symbols
+                # 簡化: symbolsの一部を対象として処理
+                partial_symbols = symbols[:len(symbols)//2] if len(symbols) > 1 else symbols
+                affected_symbols = partial_symbols
 
                 # TODO: ml_upgrade_systemに部分再学習機能を追加
                 report = await ml_upgrade_system.run_complete_system_upgrade()
@@ -953,20 +941,13 @@ class EnhancedModelPerformanceMonitor:
                 # 部分再学習の効果調整
                 improvement = report.overall_improvement * 0.7
 
-            elif scope == RetrainingScope.SYMBOL:
-                # 特定銘柄の再学習
-                critical_symbols = [
-                    s for s, p in symbol_performances.items()
-                    if p.accuracy < self.config_manager.get_threshold('accuracy', s)
-                ]
-                affected_symbols = critical_symbols
-
-                # TODO: ml_upgrade_systemに銘柄指定再学習機能を追加
+            elif scope == "standard":
+                # 標準的な再学習
                 report = await ml_upgrade_system.run_complete_system_upgrade()
                 await ml_upgrade_system.integrate_best_models(report)
-                improvement = report.overall_improvement * 0.5  # 銘柄別再学習の効果調整
+                improvement = report.overall_improvement * 0.8
 
-            elif scope == RetrainingScope.INCREMENTAL:
+            elif scope == "incremental":
                 # 増分学習
                 # TODO: 増分学習機能の実装
                 logger.info("増分学習は現在開発中です。通常の再学習を実行します")
@@ -979,7 +960,7 @@ class EnhancedModelPerformanceMonitor:
                     triggered=False,
                     scope=scope,
                     affected_symbols=affected_symbols,
-                    error=f"Unknown retraining scope: {scope.value}"
+                    error=f"Unknown retraining scope: {scope}"
                 )
 
             # 実行時間の計算
@@ -1031,7 +1012,7 @@ class EnhancedModelPerformanceMonitor:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     datetime.now().isoformat(),
-                    result.scope.value,
+                    result.scope,
                     ','.join(result.affected_symbols),
                     result.improvement,
                     result.duration,
