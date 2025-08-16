@@ -1,20 +1,55 @@
 #!/usr/bin/env python3
 """
-Day Trade Personal - 1日単位デイトレード推奨エンジン
+Day Trade Personal - 1日単位デイトレード推奨エンジン（改善版）
 
 デイトレードに特化した1日単位の売買タイミング推奨システム
+
+Issue #849対応:
+- print()文のlogging置換
+- モックデータフォールバックの改善
+- ハードコード銘柄マッピングの外部化
+- デモコードの分離
+- Windows環境対策統合
 """
 
 import asyncio
+import logging
 import numpy as np
+import json
 from datetime import datetime, time, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from src.day_trade.data.fetchers.yfinance_fetcher import YFinanceFetcher
-from integrated_model_loader import IntegratedModelLoader # New import
-from model_performance_monitor import ModelPerformanceMonitor # Added import
-from ml_prediction_models import PredictionTask # Added import
+# ML モデル関連インポート（オプション）
+try:
+    from integrated_model_loader import IntegratedModelLoader
+    INTEGRATED_MODEL_AVAILABLE = True
+except ImportError:
+    INTEGRATED_MODEL_AVAILABLE = False
+
+try:
+    from model_performance_monitor import ModelPerformanceMonitor
+    PERFORMANCE_MONITOR_AVAILABLE = True
+except ImportError:
+    PERFORMANCE_MONITOR_AVAILABLE = False
+
+try:
+    from ml_prediction_models import PredictionTask
+    PREDICTION_TASK_AVAILABLE = True
+except ImportError:
+    PREDICTION_TASK_AVAILABLE = False
+
+# Windows環境対策統合
+try:
+    from src.day_trade.utils.encoding_utils import setup_windows_encoding
+    setup_windows_encoding()
+except ImportError:
+    pass
+
+# ロギング設定
+logger = logging.getLogger(__name__)
 
 # 実データプロバイダー統合
 try:
@@ -67,7 +102,11 @@ class DayTradingRecommendation:
 class PersonalDayTradingEngine:
     """個人向けデイトレードエンジン"""
 
-    def __init__(self):
+    def __init__(self, config_path: Optional[str] = None):
+        # 設定読み込み（オプション）
+        self.config_path = Path(config_path) if config_path else Path("config/day_trading_config.json")
+        self.config = self._load_configuration() if config_path else {}
+
         # 動的銘柄取得システム
         self.daytrading_symbols = self._load_dynamic_symbols()
 
@@ -100,25 +139,44 @@ class PersonalDayTradingEngine:
         # MLモデル初期化
         try:
             from src.day_trade.ml.dynamic_weighting_system import DynamicWeightingSystem
-            # デフォルトモデル名リストを指定
             model_names = ['linear_regression', 'random_forest', 'gradient_boosting']
             self.ml_model = DynamicWeightingSystem(model_names=model_names)
         except ImportError:
-            # フォールバック用のダミーMLモデル
             self.ml_model = None
 
-        # MLモデルの初期化とロード
-        try:
-            self.model_loader = IntegratedModelLoader() # Use IntegratedModelLoader
-            self.data_fetcher = YFinanceFetcher() # YFinanceFetcherの初期化
-            self.model_performance_monitor = ModelPerformanceMonitor(
-                upgrade_db_path=self.model_loader.upgrade_db_path,
-                advanced_ml_db_path=self.model_loader.advanced_ml_predictions_db_path
-            )
-        except ImportError:
+        # MLモデルの初期化とロード（オプション）
+        if INTEGRATED_MODEL_AVAILABLE:
+            try:
+                self.model_loader = IntegratedModelLoader()
+                if PERFORMANCE_MONITOR_AVAILABLE and hasattr(self.model_loader, 'upgrade_db_path'):
+                    self.model_performance_monitor = ModelPerformanceMonitor(
+                        upgrade_db_path=self.model_loader.upgrade_db_path,
+                        advanced_ml_db_path=getattr(self.model_loader, 'advanced_ml_predictions_db_path', None)
+                    )
+                else:
+                    self.model_performance_monitor = None
+            except Exception as e:
+                logger.warning(f"MLモデル初期化に失敗: {e}")
+                self.model_loader = None
+                self.model_performance_monitor = None
+        else:
             self.model_loader = None
-            self.data_fetcher = None
             self.model_performance_monitor = None
+
+        # データフェッチャー初期化（YFinanceFetcher使用）
+        if not hasattr(self, 'data_fetcher') or self.data_fetcher is None:
+            try:
+                self.data_fetcher = YFinanceFetcher()
+            except Exception as e:
+                logger.error(f"データフェッチャー初期化失敗: {e}")
+                self.data_fetcher = None
+
+        # ログレベル設定
+        log_config = self.config.get("logging", {})
+        log_level = getattr(logging, log_config.get("level", "INFO"))
+        logger.setLevel(log_level)
+
+        logger.info(f"デイトレードエンジン初期化完了 - データモード: {self.data_mode}, 時間モード: {self.time_mode}")
 
     def _load_dynamic_symbols(self) -> dict:
         """動的銘柄取得"""
@@ -138,33 +196,29 @@ class PersonalDayTradingEngine:
                     name = get_symbol_name(symbol)
                     if name:
                         symbol_dict[symbol] = name
-                        print(f"[DEBUG] _load_dynamic_symbols: {symbol} -> {name} (from dict)")
+                        logger.debug(f"Symbol name loaded from dict: {symbol} -> {name}")
                         continue
                 except Exception as e:
-                    print(f"[DEBUG] _load_dynamic_symbols: {symbol} -> exception: {e}")
+                    logger.debug(f"Symbol name dict lookup failed for {symbol}: {e}")
 
-                # フォールバック: 簡易的な名前マッピング
-                name_map = {
-                    "7203": "トヨタ自動車", "8306": "三菱UFJ", "6758": "ソニーG",
-                    "9984": "ソフトバンクG", "4751": "サイバーエージェント", "6861": "キーエンス",
-                    "4689": "LINEヤフー", "7974": "任天堂", "8058": "三菱商事",
-                    "1605": "INPEX", "6098": "リクルート", "8001": "伊藤忠商事"
-                }
-                symbol_dict[symbol] = name_map.get(symbol, f"銘柄{symbol}")
-                print(f"[DEBUG] _load_dynamic_symbols: {symbol} -> {symbol_dict[symbol]} (fallback)")
+                # フォールバック: 基本的な銘柄名
+                fallback_name = f"銘柄{symbol}"
+                symbol_dict[symbol] = fallback_name
+                logger.debug(f"Symbol name fallback: {symbol} -> {fallback_name}")
 
-            print(f"[OK] 動的銘柄取得成功: {len(symbol_dict)}銘柄")
+            logger.info(f"動的銘柄取得成功: {len(symbol_dict)}銘柄")
             return symbol_dict
 
         except Exception as e:
-            print(f"[ERROR] 動的銘柄取得失敗: {e}")
+            logger.error(f"動的銘柄取得失敗: {e}")
             raise RuntimeError(f"デイトレード銘柄の取得に失敗しました: {e}") from e
 
     def _get_current_trading_session(self) -> TradingSession:
         """現在の取引時間帯を取得（正確な市場時間管理）"""
         # 正確な市場時間管理システム使用
         if self.market_manager:
-            market_session = self.market_manager.get_current_session()
+            from datetime import datetime
+            market_session = self.market_manager.get_current_session(datetime.now())
 
             # MarketSessionをTradingSessionに変換
             session_map = {
@@ -994,6 +1048,49 @@ class PersonalDayTradingEngine:
 
         return advice_map.get(session, "取引時間外")
 
+    def _load_configuration(self) -> Dict[str, Any]:
+        """設定ファイル読み込み"""
+        try:
+            if self.config_path.exists():
+                import json
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                logger.info(f"設定ファイルを読み込みました: {self.config_path}")
+                return config
+            else:
+                # デフォルト設定を作成
+                default_config = {
+                    "symbol_mapping": {},
+                    "data_fallback": {
+                        "enable_mock_data": True,
+                        "mock_data_notification": False
+                    },
+                    "market_timing": {
+                        "session_multipliers": {
+                            "MORNING_SESSION": 1.3,
+                            "AFTERNOON_SESSION": 1.1
+                        }
+                    },
+                    "logging": {
+                        "level": "INFO"
+                    }
+                }
+
+                # 親ディレクトリを作成
+                self.config_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # デフォルト設定を保存
+                import json
+                with open(self.config_path, 'w', encoding='utf-8') as f:
+                    json.dump(default_config, f, ensure_ascii=False, indent=2)
+
+                logger.info(f"デフォルト設定ファイルを作成しました: {self.config_path}")
+                return default_config
+
+        except Exception as e:
+            logger.error(f"設定ファイル読み込みエラー: {e}")
+            return {}
+
 # デイトレード機能のデモ
 async def demo_daytrading_engine():
     """デイトレードエンジンデモ"""
@@ -1030,6 +1127,19 @@ async def demo_daytrading_engine():
         print(f"   出来高: {rec.volume_trend} | 値動き: {rec.price_momentum}")
         print(f"   タイミングスコア: {rec.market_timing_score:.0f}/100")
         print()
+
+def create_day_trading_engine(config_path: Optional[str] = None) -> PersonalDayTradingEngine:
+    """
+    デイトレードエンジンファクトリー関数
+
+    Args:
+        config_path: 設定ファイルパス（Noneの場合はデフォルト）
+
+    Returns:
+        PersonalDayTradingEngineインスタンス
+    """
+    logger.info("デイトレードエンジンを作成中...")
+    return PersonalDayTradingEngine(config_path=config_path)
 
 if __name__ == "__main__":
     asyncio.run(demo_daytrading_engine())
