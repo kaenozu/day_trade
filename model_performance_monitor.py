@@ -531,7 +531,7 @@ class EnhancedModelPerformanceMonitor:
             logger.error(f"データベース初期化に失敗しました: {e}")
             raise
 
- 
+
 >>>>>>> origin/main
     async def get_latest_model_performance(self,
                                            symbols: Optional[List[str]] = None,
