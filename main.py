@@ -37,12 +37,12 @@ def main():
         # ログシステムの初期化
         from daytrade_logging import setup_logging
         logger = setup_logging(debug='--debug' in sys.argv)
-        
+
         # CLIの実行
         from daytrade_cli import DayTradeCLI
         cli = DayTradeCLI()
         return cli.execute()
-        
+
     except KeyboardInterrupt:
         print("\\n🛑 処理を中断しました")
         return 1
@@ -63,6 +63,6 @@ if __name__ == "__main__":
     print("🚀 Day Trade Personal - 93%精度AIシステム")
     print("📊 リファクタリング版 v2.0")
     print("=" * 50)
-    
+
     # メイン処理実行
     sys.exit(main())
