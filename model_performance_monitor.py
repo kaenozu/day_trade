@@ -217,13 +217,32 @@ class ModelPerformanceMonitor:
         """
         現在の監視対象銘柄を取得
 
-        将来的にはsymbol_selectorとの連携や動的生成も可能
+        symbol_selectorとの連携による動的銘柄選択をサポート
         """
         # 設定ファイルから基本銘柄を取得
         symbols = self.monitoring_symbols.copy()
 
-        # TODO: symbol_selector.pyとの連携
-        # symbols.extend(symbol_selector.get_active_symbols())
+        # symbol_selectorとの連携（オプション）
+        try:
+            symbol_selector_config = self.config.get('symbol_selector', {})
+            if symbol_selector_config.get('enabled', False):
+                from src.day_trade.data.symbol_selector import create_symbol_selector
+
+                selector = create_symbol_selector(
+                    config_path=symbol_selector_config.get('config_path'),
+                    db_path=symbol_selector_config.get('db_path')
+                )
+
+                strategy = symbol_selector_config.get('strategy', 'liquid_trading')
+                limit = symbol_selector_config.get('limit', 10)
+
+                dynamic_symbols = selector.get_symbols_by_strategy(strategy, limit)
+                symbols.extend(dynamic_symbols)
+
+                logger.info(f"symbol_selectorから{len(dynamic_symbols)}銘柄を追加")
+
+        except Exception as e:
+            logger.warning(f"symbol_selector連携エラー: {e}")
 
         return list(set(symbols))  # 重複除去
 
@@ -321,14 +340,29 @@ class ModelPerformanceMonitor:
             logger.info("性能は閾値以上です。再学習は不要です")
             return RetrainingResult(triggered=False, scope="none", affected_symbols=[])
 
+        # 段階的再学習が有効で部分的再学習の場合、銘柄別分析を実行
+        target_symbols = symbols
+        if (retraining_scope == "partial" and
+            self.config.get('retraining', {}).get('granular_mode', True)):
+
+            symbol_performances = await self._analyze_symbol_specific_performance(symbols)
+            underperforming_symbols = self._identify_underperforming_symbols(symbol_performances)
+
+            if underperforming_symbols:
+                target_symbols = underperforming_symbols
+                logger.info(f"対象を絞り込みました: {len(target_symbols)}銘柄")
+            else:
+                logger.info("性能不足銘柄が見つからないため、全体再学習に変更します")
+                retraining_scope = "standard"
+
         # 冷却期間チェック
         if not self._check_cooldown_period(retraining_scope):
             logger.info(f"{retraining_scope}再学習は冷却期間中のためスキップします")
             return RetrainingResult(triggered=False, scope=retraining_scope,
-                                  affected_symbols=symbols)
+                                  affected_symbols=target_symbols)
 
         # 再学習の実行
-        result = await self._execute_retraining(retraining_scope, symbols, performance)
+        result = await self._execute_retraining(retraining_scope, target_symbols, performance)
 
         # 結果をデータベースに記録
         await self._record_retraining_result(result)
@@ -355,6 +389,64 @@ class ModelPerformanceMonitor:
             return "standard"
 
         return "none"
+
+    async def _analyze_symbol_specific_performance(self, symbols: List[str]) -> Dict[str, float]:
+        """
+        銘柄別性能分析
+
+        Args:
+            symbols: 分析対象銘柄リスト
+
+        Returns:
+            銘柄別性能スコア辞書
+        """
+        symbol_performances = {}
+
+        if not self.accuracy_validator:
+            logger.warning("PredictionAccuracyValidatorが利用できません")
+            return symbol_performances
+
+        try:
+            # 各銘柄の個別性能を評価
+            for symbol in symbols:
+                try:
+                    metrics = await self.accuracy_validator.validate_current_system_accuracy(
+                        [symbol], self.validation_hours
+                    )
+                    symbol_performances[symbol] = metrics.overall_accuracy
+
+                except Exception as e:
+                    logger.warning(f"銘柄{symbol}の性能評価に失敗: {e}")
+                    symbol_performances[symbol] = 0.0
+
+            logger.info(f"銘柄別性能分析完了: {len(symbol_performances)}銘柄")
+            return symbol_performances
+
+        except Exception as e:
+            logger.error(f"銘柄別性能分析エラー: {e}")
+            return symbol_performances
+
+    def _identify_underperforming_symbols(self, symbol_performances: Dict[str, float]) -> List[str]:
+        """
+        性能不足銘柄の特定
+
+        Args:
+            symbol_performances: 銘柄別性能辞書
+
+        Returns:
+            性能不足銘柄リスト
+        """
+        threshold = self.thresholds.get('accuracy', 90.0)
+        underperforming = [
+            symbol for symbol, performance in symbol_performances.items()
+            if performance < threshold
+        ]
+
+        logger.info(f"性能不足銘柄を特定: {len(underperforming)}銘柄 (閾値: {threshold}%)")
+        if underperforming:
+            logger.info(f"対象銘柄: {', '.join(underperforming)}")
+
+        return underperforming
 
     def _check_cooldown_period(self, scope: str) -> bool:
         """冷却期間のチェック"""
