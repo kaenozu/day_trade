@@ -23,19 +23,21 @@ import warnings
 warnings.filterwarnings('ignore')
 import joblib # Added for model saving/loading
 
-# Windows環境での文字化け対策
-import sys
-import os
-os.environ['PYTHONIOENCODING'] = 'utf-8'
-
-if sys.platform == 'win32':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except:
-        import codecs
-        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
-        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+# 共通ユーティリティ
+try:
+    from src.day_trade.utils.encoding_utils import setup_windows_encoding
+    setup_windows_encoding()
+except ImportError:
+    # フォールバック: 簡易Windows対応
+    import sys
+    import os
+    if sys.platform == 'win32':
+        os.environ['PYTHONIOENCODING'] = 'utf-8'
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+            sys.stderr.reconfigure(encoding='utf-8')
+        except:
+            pass
 
 # 機械学習ライブラリ
 try:
@@ -102,6 +104,41 @@ class ModelPerformance:
     confusion_matrix: np.ndarray
     training_time: float
     prediction_time: float
+
+@dataclass
+class ModelMetadata:
+    """モデルメタデータ"""
+    model_type: ModelType
+    task: PredictionTask
+    version: str
+    created_at: datetime
+    feature_names: List[str]
+    target_columns: List[str]
+    training_period: str
+    training_samples: int
+    hyperparameters: Dict[str, Any]
+    preprocessing_info: Dict[str, Any]
+    performance_metrics: Dict[str, float]
+    is_classifier: bool
+    model_size_mb: float
+    python_version: str
+    sklearn_version: str
+
+    def __post_init__(self):
+        if isinstance(self.created_at, str):
+            self.created_at = datetime.fromisoformat(self.created_at)
+
+@dataclass
+class TrainingConfig:
+    """訓練設定"""
+    test_size: float = 0.2
+    random_state: int = 42
+    cv_folds: int = 5
+    enable_cross_validation: bool = True
+    save_model: bool = True
+    use_optimized_params: bool = True
+    feature_selection: bool = False
+    preprocessing: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class PredictionResult:
@@ -284,6 +321,296 @@ class MLPredictionModels:
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+
+    def _create_model_metadata(self, model_type: ModelType, task: PredictionTask,
+                              feature_names: List[str], target_columns: List[str],
+                              training_period: str, training_samples: int,
+                              hyperparameters: Dict[str, Any], performance_metrics: Dict[str, float],
+                              is_classifier: bool) -> ModelMetadata:
+        """モデルメタデータを作成"""
+        import sklearn
+        import sys
+
+        return ModelMetadata(
+            model_type=model_type,
+            task=task,
+            version=f"{model_type.value}_{task.value}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            created_at=datetime.now(),
+            feature_names=feature_names,
+            target_columns=target_columns,
+            training_period=training_period,
+            training_samples=training_samples,
+            hyperparameters=hyperparameters,
+            preprocessing_info={'scaler': 'StandardScaler', 'encoding': 'LabelEncoder'},
+            performance_metrics=performance_metrics,
+            is_classifier=is_classifier,
+            model_size_mb=0.0,  # 実際のファイルサイズで更新
+            python_version=sys.version,
+            sklearn_version=sklearn.__version__
+        )
+
+    def _save_model_with_metadata(self, model, model_key: str, metadata: ModelMetadata,
+                                 label_encoder=None):
+        """メタデータ付きでモデルを保存"""
+        file_path = self.models_dir / f"{model_key}.joblib"
+        metadata_path = self.models_dir / f"{model_key}_metadata.json"
+
+        try:
+            # モデル保存
+            model_data = {'model': model, 'metadata': metadata}
+            if label_encoder:
+                model_data['label_encoder'] = label_encoder
+            joblib.dump(model_data, file_path)
+
+            # ファイルサイズ更新
+            file_size_mb = file_path.stat().st_size / (1024 * 1024)
+            metadata.model_size_mb = file_size_mb
+
+            # メタデータ保存（JSON形式）
+            metadata_dict = {
+                'model_type': metadata.model_type.value,
+                'task': metadata.task.value,
+                'version': metadata.version,
+                'created_at': metadata.created_at.isoformat(),
+                'feature_names': metadata.feature_names,
+                'target_columns': metadata.target_columns,
+                'training_period': metadata.training_period,
+                'training_samples': metadata.training_samples,
+                'hyperparameters': metadata.hyperparameters,
+                'preprocessing_info': metadata.preprocessing_info,
+                'performance_metrics': metadata.performance_metrics,
+                'is_classifier': metadata.is_classifier,
+                'model_size_mb': metadata.model_size_mb,
+                'python_version': metadata.python_version,
+                'sklearn_version': metadata.sklearn_version
+            }
+
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata_dict, f, indent=2, ensure_ascii=False)
+
+            self.logger.info(f"Saved model with metadata: {model_key}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to save model with metadata {model_key}: {e}")
+
+    def _train_model_common(self, model_type: ModelType, task: PredictionTask,
+                           X: pd.DataFrame, targets: Dict[PredictionTask, pd.Series],
+                           symbol: str, valid_idx: pd.Index, config: TrainingConfig,
+                           optimized_params: Optional[Dict[str, Any]] = None) -> ModelPerformance:
+        """共通のモデル訓練ロジック"""
+
+        start_time = datetime.now()
+        y = targets[task].loc[valid_idx]
+        X_clean = X.loc[y.index]
+
+        # データ分割
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_clean, y, test_size=config.test_size,
+            random_state=config.random_state, stratify=y if task == PredictionTask.PRICE_DIRECTION else None
+        )
+
+        # モデル初期化
+        is_classifier = task == PredictionTask.PRICE_DIRECTION
+        model = self._create_model_instance(model_type, is_classifier, optimized_params)
+
+        # ラベルエンコーダー（分類の場合）
+        label_encoder = None
+        if is_classifier:
+            label_encoder = LabelEncoder()
+            y_train_encoded = label_encoder.fit_transform(y_train)
+            y_test_encoded = label_encoder.transform(y_test)
+        else:
+            y_train_encoded = y_train
+            y_test_encoded = y_test
+
+        # モデル訓練
+        model.fit(X_train, y_train_encoded)
+
+        # 予測と評価
+        y_pred = model.predict(X_test)
+        performance_metrics = self._calculate_performance_metrics(
+            y_test_encoded, y_pred, is_classifier, model, X_test
+        )
+
+        # クロスバリデーション
+        if config.enable_cross_validation:
+            cv_scores = self._perform_cross_validation(
+                model, X_clean, y_train_encoded if is_classifier else y,
+                config.cv_folds, is_classifier
+            )
+            performance_metrics.update({
+                'cross_val_mean': np.mean(cv_scores),
+                'cross_val_std': np.std(cv_scores)
+            })
+
+        # モデル保存
+        if config.save_model:
+            model_key = f"{symbol}_{model_type.value}_{task.value}"
+
+            # メタデータ作成
+            metadata = self._create_model_metadata(
+                model_type, task, list(X_clean.columns), [task.value],
+                "training_period", len(X_clean),
+                optimized_params or {}, performance_metrics, is_classifier
+            )
+
+            # 保存
+            self._save_model_with_metadata(model, model_key, metadata, label_encoder)
+
+            # メモリに保存
+            self.trained_models[model_key] = model
+            if label_encoder:
+                self.label_encoders[model_key] = label_encoder
+
+        # 特徴量重要度
+        feature_importance = self._get_feature_importance(model, X_clean.columns)
+
+        training_time = (datetime.now() - start_time).total_seconds()
+
+        return ModelPerformance(
+            model_name=f"{model_type.value}_{task.value}",
+            task=task,
+            accuracy=performance_metrics.get('accuracy', 0.0),
+            precision=performance_metrics.get('precision', 0.0),
+            recall=performance_metrics.get('recall', 0.0),
+            f1_score=performance_metrics.get('f1_score', 0.0),
+            cross_val_mean=performance_metrics.get('cross_val_mean', 0.0),
+            cross_val_std=performance_metrics.get('cross_val_std', 0.0),
+            feature_importance=feature_importance,
+            confusion_matrix=performance_metrics.get('confusion_matrix', np.array([])),
+            training_time=training_time,
+            prediction_time=0.0
+        )
+
+    def _create_model_instance(self, model_type: ModelType, is_classifier: bool,
+                              optimized_params: Optional[Dict[str, Any]] = None):
+        """モデルインスタンスを作成"""
+        params = optimized_params or {}
+
+        if model_type == ModelType.RANDOM_FOREST:
+            base_params = self.model_configs[ModelType.RANDOM_FOREST]
+            base_params = base_params['classifier_params' if is_classifier else 'regressor_params']
+            final_params = {**base_params, **params}
+
+            if is_classifier:
+                return RandomForestClassifier(**final_params)
+            else:
+                return RandomForestRegressor(**final_params)
+
+        elif model_type == ModelType.XGBOOST and XGBOOST_AVAILABLE:
+            base_params = self.model_configs[ModelType.XGBOOST]
+            base_params = base_params['classifier_params' if is_classifier else 'regressor_params']
+            final_params = {**base_params, **params}
+
+            if is_classifier:
+                return xgb.XGBClassifier(**final_params)
+            else:
+                return xgb.XGBRegressor(**final_params)
+
+        elif model_type == ModelType.LIGHTGBM and LIGHTGBM_AVAILABLE:
+            base_params = self.model_configs[ModelType.LIGHTGBM]
+            base_params = base_params['classifier_params' if is_classifier else 'regressor_params']
+            final_params = {**base_params, **params}
+
+            if is_classifier:
+                return lgb.LGBMClassifier(**final_params)
+            else:
+                return lgb.LGBMRegressor(**final_params)
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+    def _calculate_performance_metrics(self, y_true, y_pred, is_classifier: bool,
+                                     model, X_test) -> Dict[str, Any]:
+        """性能指標を計算"""
+        metrics = {}
+
+        if is_classifier:
+            from sklearn.metrics import precision_score, recall_score, f1_score
+            metrics['accuracy'] = accuracy_score(y_true, y_pred)
+            metrics['precision'] = precision_score(y_true, y_pred, average='weighted', zero_division=0)
+            metrics['recall'] = recall_score(y_true, y_pred, average='weighted', zero_division=0)
+            metrics['f1_score'] = f1_score(y_true, y_pred, average='weighted', zero_division=0)
+            metrics['confusion_matrix'] = confusion_matrix(y_true, y_pred)
+        else:
+            metrics['r2_score'] = r2_score(y_true, y_pred)
+            metrics['mse'] = mean_squared_error(y_true, y_pred)
+            metrics['rmse'] = np.sqrt(metrics['mse'])
+            metrics['mae'] = np.mean(np.abs(y_true - y_pred))
+
+        return metrics
+
+    def _perform_cross_validation(self, model, X, y, cv_folds: int, is_classifier: bool) -> np.ndarray:
+        """クロスバリデーション実行"""
+        scoring = 'accuracy' if is_classifier else 'r2'
+        cv_strategy = TimeSeriesSplit(n_splits=cv_folds)
+        return cross_val_score(model, X, y, cv=cv_strategy, scoring=scoring)
+
+    def _get_feature_importance(self, model, feature_names) -> Dict[str, float]:
+        """特徴量重要度を取得"""
+        try:
+            if hasattr(model, 'feature_importances_'):
+                importance_scores = model.feature_importances_
+                return dict(zip(feature_names, importance_scores))
+            else:
+                return {}
+        except Exception as e:
+            self.logger.warning(f"Failed to get feature importance: {e}")
+            return {}
+
+    def _estimate_regression_confidence(self, model, features: pd.DataFrame,
+                                      prediction: float, task: PredictionTask) -> float:
+        """回帰モデルの信頼度推定"""
+        try:
+            # 方法1: 予測値の安定性チェック（特徴量を少し変動させて予測の一貫性を確認）
+            if len(features) > 0:
+                feature_variations = []
+                base_features = features.copy()
+
+                # 特徴量を少し変動させた予測を複数回実行
+                for i in range(5):
+                    varied_features = base_features.copy()
+                    # 各特徴量に小さなノイズを追加（1%以下）
+                    noise_factor = 0.01 * (i + 1)
+                    for col in varied_features.columns:
+                        if varied_features[col].dtype in ['float64', 'int64']:
+                            varied_features[col] *= (1 + np.random.normal(0, noise_factor))
+
+                    try:
+                        varied_pred = model.predict(varied_features)[0]
+                        feature_variations.append(varied_pred)
+                    except:
+                        continue
+
+                if feature_variations:
+                    # 予測値の分散を信頼度に変換
+                    pred_std = np.std(feature_variations)
+                    pred_mean = np.mean(feature_variations)
+
+                    # 相対標準偏差を信頼度に変換（低い分散 = 高い信頼度）
+                    if pred_mean != 0:
+                        cv = abs(pred_std / pred_mean)  # 変動係数
+                        confidence = max(0.1, min(0.95, 1.0 - cv))
+                    else:
+                        confidence = 0.5
+                else:
+                    confidence = 0.5
+
+            else:
+                confidence = 0.5
+
+            # 方法2: モデルタイプに基づく基準信頼度調整
+            if hasattr(model, 'n_estimators'):  # Random Forest, XGBoost
+                # アンサンブルモデルは一般的に高い信頼度
+                confidence *= 1.1
+
+            # 信頼度を0.1-0.95の範囲に制限
+            confidence = max(0.1, min(0.95, confidence))
+
+            return float(confidence)
+
+        except Exception as e:
+            self.logger.warning(f"Failed to estimate regression confidence: {e}")
+            return 0.6  # デフォルト値
 
     async def prepare_training_data(self, symbol: str, period: str = "1y") -> Tuple[pd.DataFrame, Dict[PredictionTask, pd.Series]]:
         """訓練データの準備"""
@@ -883,20 +1210,25 @@ class MLPredictionModels:
 
                 self.ensemble_weights[symbol][task] = dict(zip(model_names, weights))
 
-    async def predict(self, symbol: str, features: pd.DataFrame) -> List[EnsemblePrediction]:
-        """予測実行"""
+    async def predict(self, symbol: str, features: pd.DataFrame) -> Dict[PredictionTask, EnsemblePrediction]:
+        """統一された予測インターフェース"""
 
-        predictions = []
+        predictions = {}
 
         for task in [PredictionTask.PRICE_DIRECTION, PredictionTask.PRICE_REGRESSION]:
             try:
                 ensemble_pred = await self._make_ensemble_prediction(symbol, features, task)
                 if ensemble_pred:
-                    predictions.append(ensemble_pred)
+                    predictions[task] = ensemble_pred
             except Exception as e:
                 self.logger.error(f"Prediction failed for {task.value}: {e}")
 
         return predictions
+
+    async def predict_list(self, symbol: str, features: pd.DataFrame) -> List[EnsemblePrediction]:
+        """リスト形式での予測（後方互換性のため）"""
+        predictions_dict = await self.predict(symbol, features)
+        return list(predictions_dict.values())
 
     async def _make_ensemble_prediction(self, symbol: str, features: pd.DataFrame,
                                       task: PredictionTask) -> Optional[EnsemblePrediction]:
@@ -932,8 +1264,14 @@ class MLPredictionModels:
                 else:  # PredictionTask.PRICE_REGRESSION
                     # 回帰予測
                     pred_value = model.predict(features)[0]
+
+                    # 回帰信頼度推定（予測区間ベース）
+                    confidence = self._estimate_regression_confidence(
+                        model, features, pred_value, task
+                    )
+
                     model_predictions[model_type.value] = pred_value
-                    model_confidences[model_type.value] = 0.8  # デフォルト信頼度
+                    model_confidences[model_type.value] = confidence
 
             except Exception as e:
                 self.logger.error(f"Prediction failed for {model_key}: {e}")
@@ -1109,89 +1447,23 @@ class MLPredictionModels:
                 'recent_predictions': []
             }
 
-# グローバルインスタンス
-ml_prediction_models = MLPredictionModels()
+# ファクトリー関数
+def create_ml_prediction_models() -> MLPredictionModels:
+    """
+    MLPredictionModelsインスタンスの作成
 
-# テスト関数
-async def test_ml_prediction_models():
-    """機械学習予測モデルのテスト"""
+    Returns:
+        MLPredictionModelsインスタンス
+    """
+    return MLPredictionModels()
 
-    print("=== 機械学習予測モデル テスト ===")
-
-    if not SKLEARN_AVAILABLE:
-        print("[ERROR] Scikit-learn not available")
-        return
-
-    models = MLPredictionModels()
-
-    # テスト銘柄
-    test_symbols = ["7203", "8306"]
-
-    print(f"\n[ {len(test_symbols)}銘柄でのモデル訓練 ]")
-
-    for symbol in test_symbols:
-        print(f"\n--- {symbol} モデル訓練 ---")
-
-        try:
-            # モデル訓練
-            performances = await models.train_models(symbol, "6mo")
-
-            print(f"訓練完了: {len(performances)} モデル")
-
-            for model_type, task_perfs in performances.items():
-                print(f"\n{model_type.value}:")
-                if not task_perfs:
-                    print("  訓練データ不足または失敗")
-                for task, perf in task_perfs.items():
-                    print(f"  {task.value}:")
-                    print(f"    精度: {perf.accuracy:.3f}")
-                    print(f"    CV平均: {perf.cross_val_mean:.3f}")
-                    print(f"    F1スコア: {perf.f1_score:.3f}")
-                    print(f"    訓練時間: {perf.training_time:.1f}秒")
-
-                    # 特徴量重要度（上位5つ）
-                    top_features = sorted(perf.feature_importance.items(), key=lambda x: x[1], reverse=True)[:5]
-                    if top_features:
-                        print(f"    重要特徴量:")
-                        for feat, importance in top_features:
-                            print(f"      {feat}: {importance:.3f}")
-
-            # 予測テスト
-            print(f"\n[ {symbol} 予測テスト ]")
-
-            # テスト特徴量データ（最新データ）
-            features, _ = await models.prepare_training_data(symbol, "1mo")
-            latest_features = features.tail(1)
-
-            predictions = await models.predict(symbol, latest_features)
-
-            for pred in predictions:
-                print(f"タスク: {pred.final_prediction}")
-                print(f"信頼度: {pred.confidence:.3f}")
-                print(f"合意強度: {pred.consensus_strength:.3f}")
-                print(f"意見不一致: {pred.disagreement_score:.3f}")
-                print(f"モデル予測: {pred.model_predictions}")
-                print()
-
-        except Exception as e:
-            print(f"[ERROR] エラー: {e}")
-            import traceback
-            traceback.print_exc()
-
-    # システムサマリー
-    print(f"\n[ システムサマリー ]")
-    summary = await models.get_model_summary()
-
-    print(f"訓練済みモデル数: {summary['trained_models_count']}")
-    print(f"最新性能（上位3）:")
-    for perf in summary['recent_performances'][:3]:
-        print(f"  {perf['model']} ({perf['task']}): {perf['accuracy']:.3f}")
-
-    print(f"\n=== 機械学習予測モデル テスト完了 ===")
+# グローバルインスタンス（後方互換性のため）
+try:
+    ml_prediction_models = MLPredictionModels()
+except Exception:
+    # 初期化に失敗した場合のフォールバック
+    ml_prediction_models = None
 
 if __name__ == "__main__":
-    # ログ設定
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-
-    # テスト実行
-    asyncio.run(test_ml_prediction_models())
+    # 基本動作確認は別ファイルに分離済み
+    pass
