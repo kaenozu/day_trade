@@ -17,138 +17,109 @@ performance_thresholds:
     target_threshold: 0.90         # 目標閾値 90%
     critical_threshold: 0.70       # 緊急閾値 70%
 
-  # 予測信頼度閾値
-  confidence:
-    minimum_threshold: 0.65        # 最低信頼度
-    warning_threshold: 0.75        # 警告信頼度
-    target_threshold: 0.85         # 目標信頼度
+  # 予測精度の最小要求値
+  prediction_accuracy: 85.0
 
-  # パフォーマンス関連閾値
-  performance:
-    max_prediction_time_ms: 1000   # 最大予測時間 1秒
-    max_training_time_minutes: 30  # 最大訓練時間 30分
-    max_memory_usage_mb: 1000      # 最大メモリ使用量 1GB
+  # リターン予測の閾値
+  return_prediction: 75.0
 
-  # データ品質閾値
-  data_quality:
-    minimum_data_completeness: 0.95   # 最低データ完全性 95%
-    maximum_missing_rate: 0.05        # 最大欠損率 5%
-    minimum_sample_size: 100          # 最小サンプル数
+  # 回帰タスク用閾値
+  r2_score:
+    minimum_threshold: 0.60        # 最低R²閾値 60%
+    warning_threshold: 0.70        # 警告閾値 70%
+    target_threshold: 0.85         # 目標閾値 85%
+    critical_threshold: 0.50       # 緊急閾値 50%
 
-# 監視対象銘柄設定
-monitoring_symbols:
-  # 常時監視銘柄（高優先度）
-  primary_symbols:
-    - "7203"  # トヨタ自動車
-    - "8306"  # 三菱UFJ
-    - "9984"  # ソフトバンクG
-    - "4751"  # サイバーエージェント
-    - "2914"  # 日本たばこ
+  # 損失関数閾値
+  loss_functions:
+    mse:
+      maximum_threshold: 0.10      # MSE最大閾値
+      warning_threshold: 0.08      # MSE警告閾値
+    mae:
+      maximum_threshold: 0.05      # MAE最大閾値
+      warning_threshold: 0.04      # MAE警告閾値
 
-  # 補助監視銘柄（中優先度）
-  secondary_symbols:
-    - "6758"  # ソニー
-    - "7974"  # 任天堂
-    - "4503"  # アステラス製薬
-    - "8316"  # 三井住友FG
-    - "9432"  # NTT
+  # ビジネス指標閾値
+  business_metrics:
+    win_rate:
+      minimum_threshold: 0.55      # 勝率最低閾値 55%
+      target_threshold: 0.70       # 勝率目標閾値 70%
+    profit_loss_ratio:
+      minimum_threshold: 1.2       # 損益比最低閾値 1.2
+      target_threshold: 2.0        # 損益比目標閾値 2.0
+    sharpe_ratio:
+      minimum_threshold: 0.5       # シャープレシオ最低閾値
+      target_threshold: 1.5        # シャープレシオ目標閾値
 
-  # 拡張監視銘柄（低優先度）
-  extended_symbols:
-    - "4568"  # 第一三共
-    - "6098"  # リクルート
-    - "8591"  # オリックス
-    - "3382"  # セブン&アイ
-    - "1605"  # INPEX
-
-  # 動的銘柄選択設定
-  dynamic_selection:
+# アラート設定
+alerts:
+  # 性能劣化アラート
+  performance_degradation:
     enabled: true
-    selection_criteria:
-      volume_threshold: 1000000      # 最小出来高
-      price_range_min: 100          # 最小価格
-      price_range_max: 10000        # 最大価格
-      volatility_min: 0.01          # 最小ボラティリティ
-      volatility_max: 0.10          # 最大ボラティリティ
+    check_interval_minutes: 15
+    consecutive_failures_threshold: 3
+    notification_methods: ["log", "file"]
 
-# 監視設定
-monitoring:
-  # 監視間隔
-  intervals:
-    real_time_seconds: 60          # リアルタイム監視間隔
-    periodic_minutes: 15           # 定期監視間隔
-    daily_check_hour: 18           # 日次チェック時刻
-    weekly_check_day: 0            # 週次チェック曜日（月曜日）
+  # 異常検知アラート
+  anomaly_detection:
+    enabled: true
+    z_score_threshold: 2.5
+    sliding_window_size: 20
+    min_samples_for_detection: 10
 
-  # 警告・アラート設定
-  alerts:
-    email_enabled: false
-    slack_enabled: false
-    console_enabled: true
-    log_enabled: true
+  # 重要度別設定
+  severity_levels:
+    critical:
+      accuracy_drop: 0.10          # 10%以上の精度低下
+      consecutive_failures: 5
+      immediate_notification: true
+    warning:
+      accuracy_drop: 0.05          # 5%以上の精度低下
+      consecutive_failures: 3
+      immediate_notification: false
+    info:
+      accuracy_drop: 0.02          # 2%以上の精度低下
+      consecutive_failures: 2
+      immediate_notification: false
 
-  # 履歴保持設定
-  history:
-    performance_history_days: 30   # 性能履歴保持日数
-    prediction_history_days: 7    # 予測履歴保持日数
-    alert_history_days: 14        # アラート履歴保持日数
-
-# 再学習トリガー設定
+# 再訓練設定
 retraining:
-  # トリガー条件
-  triggers:
-    accuracy_degradation:
-      enabled: true
-      threshold_drop: 0.05         # 精度低下閾値 5%
-      consecutive_failures: 3      # 連続失敗回数
+  # 自動再訓練トリガー
+  auto_trigger:
+    enabled: true
+    performance_drop_threshold: 0.05  # 5%性能低下で再訓練
+    time_based_interval_days: 30      # 30日間隔での定期再訓練
+    data_drift_threshold: 0.15        # データドリフト閾値
 
-    prediction_confidence:
-      enabled: true
-      low_confidence_rate: 0.3     # 低信頼度予測率 30%
-      time_window_hours: 24        # 評価時間窓
-
-    data_drift:
-      enabled: true
-      drift_threshold: 0.1         # データドリフト閾値
-      statistical_test: "ks_test"  # 統計的検定手法
-
-  # 再学習戦略
+  # 再訓練戦略
   strategy:
-    granularity: "selective"       # selective/full/incremental
-    batch_size: 5                  # バッチサイズ（selective時）
-    max_concurrent: 2              # 最大同時実行数
-    cooldown_hours: 6              # 再学習後クールダウン時間
+    incremental_learning: true        # 増分学習の使用
+    full_retrain_threshold: 0.10      # 10%性能低下で完全再訓練
+    minimum_new_samples: 100          # 最小新サンプル数
+    validation_split: 0.2             # 検証用データ分割比
 
-  # リソース制限
-  resources:
-    max_cpu_percent: 80            # 最大CPU使用率
-    max_memory_mb: 2000            # 最大メモリ使用量
-    max_duration_hours: 2          # 最大実行時間
+  # 再訓練スケジューラー
+  scheduler:
+    business_hours_only: true         # 営業時間のみ実行
+    max_concurrent_retraining: 2      # 同時再訓練最大数
+    priority_queue: true              # 優先度キューの使用
 
-# モデル種別設定
-models:
-  # 支援対象モデル
-  supported_models:
-    - "RandomForestClassifier"
-    - "RandomForestRegressor"
-    - "XGBClassifier"
-    - "XGBRegressor"
-    - "LGBMClassifier"
-    - "LGBMRegressor"
-    - "SVR"
-    - "LinearRegression"
+# モデル別設定
+model_specific:
+  # Random Forest設定
+  RandomForest:
+    performance_weight: 1.0
+    retraining_priority: 2
 
-  # モデル固有設定
-  model_specific:
-    RandomForest:
-      performance_weight: 1.0
-      retraining_priority: 2
-    XGBoost:
-      performance_weight: 1.2
-      retraining_priority: 1
-    LightGBM:
-      performance_weight: 1.1
-      retraining_priority: 1
+  # XGBoost設定
+  XGBoost:
+    performance_weight: 1.2
+    retraining_priority: 1
+
+  # LightGBM設定
+  LightGBM:
+    performance_weight: 1.1
+    retraining_priority: 1
 
 # 評価指標設定
 metrics:
@@ -197,33 +168,43 @@ logging:
 integration:
   # 既存システム連携
   ml_prediction_models: true
-  prediction_accuracy_validator: true
-  ml_model_upgrade_system: true
-  symbol_selector: true
+  enhanced_feature_engineering: true
+  real_data_provider: true
 
-  # API設定
-  api_endpoints:
-    status: "/api/model-performance/status"
-    metrics: "/api/model-performance/metrics"
-    alerts: "/api/model-performance/alerts"
-    retraining: "/api/model-performance/trigger-retraining"
+  # 通知システム連携
+  notification_endpoints:
+    webhook_url: null
+    email_notifications: false
+    slack_integration: false
+
+  # ダッシュボード連携
+  dashboard_integration:
+    enabled: true
+    update_interval_seconds: 30
+    metrics_endpoint: "/api/performance/metrics"
+
+# A/Bテスト
+ab_testing:
+  enabled: false
+  control_group_ratio: 0.5
+  test_duration_days: 7
 
 # 実験的機能
-experimental:
+experimental_features:
   # 自動ハイパーパラメータ調整
   auto_hyperparameter_tuning:
     enabled: false
-    optimization_method: "optuna"
-    max_trials: 100
+    optimization_method: "bayesian"
+    max_trials: 50
 
-  # モデル説明可能性
-  model_explainability:
+  # フェデレーション学習
+  federated_learning:
     enabled: false
-    shap_analysis: false
-    feature_importance_tracking: true
+    aggregation_method: "fedavg"
 
-  # A/Bテスト
-  ab_testing:
-    enabled: false
-    control_group_ratio: 0.5
-    test_duration_days: 7
+  # モデル解釈性
+  explainability:
+    enabled: true
+    shap_analysis: true
+    feature_importance: true
+    lime_analysis: false

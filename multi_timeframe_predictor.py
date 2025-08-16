@@ -60,10 +60,14 @@ except ImportError:
 
 # 既存システムのインポート
 try:
-    from ml_prediction_models import MLPredictionModels, ModelType, PredictionTask
+    from ml_prediction_models_improved import MLPredictionModels, ModelType, PredictionTask, ModelMetadataManager
     ML_MODELS_AVAILABLE = True
 except ImportError:
-    ML_MODELS_AVAILABLE = False
+    try:
+        from ml_prediction_models import MLPredictionModels, ModelType, PredictionTask
+        ML_MODELS_AVAILABLE = True
+    except ImportError:
+        ML_MODELS_AVAILABLE = False
 
 try:
     from enhanced_feature_engineering import enhanced_feature_engineer
@@ -72,7 +76,7 @@ except ImportError:
     FEATURE_ENGINEERING_AVAILABLE = False
 
 try:
-    from real_data_provider_v2 import real_data_provider
+    from real_data_provider_v2 import get_real_data_provider
     REAL_DATA_PROVIDER_AVAILABLE = True
 except ImportError:
     REAL_DATA_PROVIDER_AVAILABLE = False
@@ -280,12 +284,21 @@ class MultiTimeframePredictor:
 
         # 履歴データ取得
         if REAL_DATA_PROVIDER_AVAILABLE:
-            data = await real_data_provider.get_stock_data(symbol, config.data_period)
+            try:
+                real_data_provider = get_real_data_provider()
+                data = await real_data_provider.get_stock_data(symbol, config.data_period)
+            except Exception as e:
+                self.logger.warning(f"Real data provider failed: {e}, using dummy data")
+                data = self._generate_dummy_data(config.data_period)
         else:
             # ダミーデータ生成
             data = self._generate_dummy_data(config.data_period)
 
-        if data.empty:
+        if data is None or data.empty:
+            self.logger.warning(f"No real data for {symbol}, using dummy data")
+            data = self._generate_dummy_data(config.data_period)
+
+        if data is None or data.empty:
             raise ValueError(f"No data available for {symbol}")
 
         # タイムフレーム別特徴量抽出

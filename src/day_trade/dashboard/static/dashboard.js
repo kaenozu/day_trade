@@ -1,4 +1,3 @@
-
 // WebSocket接続
 const socket = io();
 
@@ -29,171 +28,193 @@ function blockTradingFunctions() {
             return false;
         }
     });
+
+    console.log('🔒 取引機能を無効化しました（分析専用モード）');
 }
 
 // 初期化
 document.addEventListener('DOMContentLoaded', function() {
     initializeDashboard();
+    blockTradingFunctions(); // 取引機能の無効化
 });
 
 function initializeDashboard() {
-    // セーフモード機能を有効化
-    blockTradingFunctions();
-
-    // セーフモード確認メッセージ
-    console.log('🛡️ セーフモード有効: 自動取引・注文実行機能は完全に無効化されています');
+    // 分析専用システム確認メッセージ
+    console.log('📊 分析専用システム: データ分析・監視機能のみ有効です');
 
     // WebSocketイベントリスナー
     socket.on('connect', function() {
         isConnected = true;
-        updateConnectionStatus(true);
-        console.log('WebSocketに接続されました');
-
-        // 初期データ要求
-        requestUpdate();
+        updateConnectionStatus();
+        console.log('WebSocket接続確立');
     });
 
     socket.on('disconnect', function() {
         isConnected = false;
-        updateConnectionStatus(false);
-        console.log('WebSocketから切断されました');
+        updateConnectionStatus();
+        console.log('WebSocket接続切断');
     });
 
-    socket.on('dashboard_update', function(data) {
+    socket.on('data_update', function(data) {
         updateDashboardData(data);
     });
 
-    socket.on('error', function(data) {
-        showAlert('エラー: ' + data.message, 'danger');
+    socket.on('analysis_complete', function(data) {
+        showAlert('分析完了: ' + data.symbol, 'success');
+        updateChart('comprehensive');
     });
 
-    // 手動更新ボタン
-    document.getElementById('refresh-btn').addEventListener('click', function() {
-        requestUpdate();
-        updateAllCharts();
+    socket.on('system_alert', function(data) {
+        showAlert(data.message, data.type || 'warning');
     });
 
-    // 定期更新設定 (30秒間隔)
-    setInterval(function() {
-        if (isConnected) {
-            requestUpdate();
-        }
-    }, 30000);
+    // 定期更新を開始
+    setInterval(updateAllCharts, 30000); // 30秒ごと
 
-    // 初回チャート読み込み
-    setTimeout(updateAllCharts, 1000);
+    // 初回データ読み込み
+    loadInitialData();
+
+    // リフレッシュボタンイベント
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            updateAllCharts();
+        });
+    }
 }
 
-function updateConnectionStatus(connected) {
+function updateConnectionStatus() {
     const statusElement = document.getElementById('connection-status');
-    if (connected) {
-        statusElement.className = 'badge bg-success me-3';
-        statusElement.innerHTML = '<i class="fas fa-circle"></i> 接続中';
-    } else {
-        statusElement.className = 'badge bg-danger me-3';
-        statusElement.innerHTML = '<i class="fas fa-circle"></i> 切断';
+    if (statusElement) {
+        if (isConnected) {
+            statusElement.className = 'badge bg-success me-3';
+            statusElement.innerHTML = '<i class="fas fa-circle"></i> 接続中';
+        } else {
+            statusElement.className = 'badge bg-danger me-3';
+            statusElement.innerHTML = '<i class="fas fa-circle"></i> 切断';
+        }
     }
 }
 
-function requestUpdate() {
-    if (isConnected) {
-        socket.emit('request_update');
-    }
-
-    // ステータスレポート更新
-    fetch('/api/report')
+function loadInitialData() {
+    // サマリー情報の初期読み込み
+    fetch('/api/dashboard/summary')
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                document.getElementById('status-report').textContent = data.report;
+            if (data.error) {
+                showAlert('データ読み込みエラー: ' + data.error, 'danger');
+                return;
             }
+            updateSummaryCards(data);
         })
-        .catch(error => console.error('レポート取得エラー:', error));
+        .catch(error => {
+            console.error('サマリーデータ読み込みエラー:', error);
+            showAlert('サマリーデータの読み込みに失敗しました', 'warning');
+        });
+
+    // 初期チャート読み込み
+    updateAllCharts();
+
+    // ステータスレポート読み込み
+    loadStatusReport();
 }
 
-function updateDashboardData(data) {
-    try {
-        // ポートフォリオデータ
-        if (data.portfolio) {
-            const portfolioValue = data.portfolio.total_value;
-            const dailyReturn = data.portfolio.daily_return;
+function updateSummaryCards(data) {
+    // ポートフォリオ価値
+    const portfolioElement = document.getElementById('portfolio-value');
+    if (portfolioElement && data.portfolio_value) {
+        portfolioElement.textContent = formatCurrency(data.portfolio_value);
+    }
 
-            document.getElementById('portfolio-value').textContent =
-                new Intl.NumberFormat('ja-JP', {
-                    style: 'currency',
-                    currency: 'JPY',
-                    maximumFractionDigits: 0
-                }).format(portfolioValue);
+    // 日次リターン
+    const returnElement = document.getElementById('daily-return');
+    if (returnElement && data.daily_return !== undefined) {
+        returnElement.textContent = formatPercentage(data.daily_return);
+    }
 
-            const returnElement = document.getElementById('daily-return');
-            const returnPercent = (dailyReturn * 100).toFixed(2) + '%';
-            returnElement.textContent = returnPercent;
+    // 本日の分析数
+    const analysisElement = document.getElementById('analysis-today');
+    if (analysisElement && data.analysis_count !== undefined) {
+        analysisElement.textContent = data.analysis_count.toString();
+    }
 
-            // リターンの色分け
-            if (dailyReturn > 0) {
-                returnElement.parentElement.parentElement.className = 'card bg-success text-white';
-            } else if (dailyReturn < 0) {
-                returnElement.parentElement.parentElement.className = 'card bg-danger text-white';
-            } else {
-                returnElement.parentElement.parentElement.className = 'card bg-secondary text-white';
-            }
-        }
-
-        // 分析データ
-        if (data.analysis) {
-            document.getElementById('analysis-today').textContent = data.analysis.completed_today + '件';
-        }
-
-        // システムデータ
-        if (data.system) {
-            const cpuUsage = data.system.cpu_usage;
-            let systemStatus = '正常';
-            let statusClass = 'bg-success';
-
-            if (cpuUsage > 80) {
-                systemStatus = '高負荷';
-                statusClass = 'bg-danger';
-            } else if (cpuUsage > 60) {
-                systemStatus = '注意';
-                statusClass = 'bg-warning text-dark';
-            }
-
-            document.getElementById('system-status').textContent = systemStatus;
-            document.getElementById('system-status').parentElement.parentElement.className =
-                'card ' + statusClass + ' text-white';
-        }
-
-    } catch (error) {
-        console.error('データ更新エラー:', error);
+    // システム状態
+    const statusElement = document.getElementById('system-status');
+    if (statusElement && data.system_status) {
+        statusElement.textContent = data.system_status;
     }
 }
 
 function updateChart(chartType) {
     const chartContainer = document.getElementById(chartType + '-chart');
+    if (!chartContainer) return;
 
     // ローディング表示
-    chartContainer.innerHTML = `
-        <div class="text-center p-3">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">読み込み中...</span>
-            </div>
-            <p class="mt-2">チャートを更新中...</p>
-        </div>
-    `;
+    chartContainer.innerHTML = '<div class="text-center p-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">読み込み中...</span></div></div>';
 
-    fetch('/api/chart/' + chartType)
+    fetch('/api/charts/' + chartType)
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                chartContainer.innerHTML = '<img src="data:image/png;base64,' + data.chart_data + '" class="img-fluid" alt="' + chartType + ' chart">';
+            if (data.error) {
+                chartContainer.innerHTML = '<div class="text-center p-3 text-danger">エラー: ' + data.error + '</div>';
+                return;
+            }
+
+            if (data.image_data) {
+                // Base64画像データを表示
+                chartContainer.innerHTML = '<img src="data:image/png;base64,' + data.image_data + '" class="img-fluid" alt="' + chartType + 'チャート">';
+            } else if (data.html) {
+                // HTMLチャートを表示
+                chartContainer.innerHTML = data.html;
             } else {
-                chartContainer.innerHTML = '<div class="alert alert-danger">Chart Error: ' + data.error + '</div>';
+                chartContainer.innerHTML = '<div class="text-center p-3 text-muted">チャートデータがありません</div>';
             }
         })
         .catch(error => {
-            console.error(chartType + ' chart error:', error);
-            chartContainer.innerHTML = '<div class="alert alert-danger">チャートの読み込みに失敗しました</div>';
+            console.error(chartType + 'チャート読み込みエラー:', error);
+            chartContainer.innerHTML = '<div class="text-center p-3 text-danger">チャートの読み込みに失敗しました</div>';
         });
+}
+
+function loadStatusReport() {
+    fetch('/api/dashboard/status')
+        .then(response => response.json())
+        .then(data => {
+            const reportElement = document.getElementById('status-report');
+            if (reportElement) {
+                if (data.error) {
+                    reportElement.textContent = 'エラー: ' + data.error;
+                } else {
+                    reportElement.textContent = data.status_text || 'ステータス情報を読み込み中...';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('ステータスレポート読み込みエラー:', error);
+            const reportElement = document.getElementById('status-report');
+            if (reportElement) {
+                reportElement.textContent = 'ステータス情報の読み込みに失敗しました';
+            }
+        });
+}
+
+function updateDashboardData(data) {
+    if (data.summary) {
+        updateSummaryCards(data.summary);
+    }
+
+    if (data.charts) {
+        Object.keys(data.charts).forEach(chartType => {
+            updateChart(chartType);
+        });
+    }
+
+    if (data.status) {
+        const reportElement = document.getElementById('status-report');
+        if (reportElement) {
+            reportElement.textContent = data.status;
+        }
+    }
 }
 
 function updateAllCharts() {
@@ -223,3 +244,22 @@ function showAlert(message, type = 'info') {
         }
     }, 5000);
 }
+
+// ユーティリティ関数
+function formatCurrency(value) {
+    if (typeof value !== 'number') return '--';
+    return '¥' + value.toLocaleString('ja-JP');
+}
+
+function formatPercentage(value) {
+    if (typeof value !== 'number') return '--';
+    return value.toFixed(2) + '%';
+}
+
+// エラーハンドリング
+window.addEventListener('error', function(e) {
+    console.error('JavaScript エラー:', e.error);
+});
+
+// 分析専用システム確認
+console.log('🔒 分析専用ダッシュボード初期化完了 - 取引機能は無効化されています');

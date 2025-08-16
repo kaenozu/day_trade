@@ -4,24 +4,21 @@
 Real Data Provider V2 - 実用レベルデータプロバイダー
 
 Yahoo Finance修正版 + 複数ソース冗長化による実データ取得システム
-Phase5-A #901実装：実際のデイトレード運用向けデータ基盤
+Issue #853対応：symbol_selector統合、リアルタイム品質スコア、段階的フォールバック
 """
 
 import asyncio
 import pandas as pd
-import numpy as np
 import logging
-import requests
 import time
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any, Union
-from dataclasses import dataclass, field
+import yaml
+from datetime import datetime
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-import json
 from collections import defaultdict
 import aiohttp
-import sqlite3
 
 # Windows環境での文字化け対策
 import sys
@@ -32,7 +29,7 @@ if sys.platform == 'win32':
     try:
         sys.stdout.reconfigure(encoding='utf-8')
         sys.stderr.reconfigure(encoding='utf-8')
-    except:
+    except Exception:
         import codecs
         sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
         sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
@@ -43,6 +40,15 @@ try:
 except ImportError:
     YFINANCE_AVAILABLE = False
 
+# symbol_selector統合
+try:
+    from src.day_trade.data.symbol_selector import DynamicSymbolSelector, create_symbol_selector
+    SYMBOL_SELECTOR_AVAILABLE = True
+except ImportError:
+    SYMBOL_SELECTOR_AVAILABLE = False
+    DynamicSymbolSelector = None
+
+
 class DataSource(Enum):
     """データソース種別"""
     YAHOO_FINANCE = "Yahoo Finance"
@@ -51,12 +57,14 @@ class DataSource(Enum):
     MATSUI_SECURITIES = "松井証券"
     GMO_CLICK = "GMOクリック"
 
+
 class DataQuality(Enum):
     """データ品質"""
     EXCELLENT = "優秀"     # 遅延5分以内、欠損率1%以下
     GOOD = "良好"         # 遅延20分以内、欠損率5%以下
     FAIR = "普通"         # 遅延60分以内、欠損率10%以下
     POOR = "低品質"       # それ以下
+
 
 @dataclass
 class DataSourceInfo:
@@ -70,6 +78,11 @@ class DataSourceInfo:
     last_success: Optional[datetime] = None
     success_rate: float = 0.0
     avg_response_time: float = 0.0
+    # Issue #853追加項目
+    current_quality_score: float = 0.0  # リアルタイム品質スコア
+    consecutive_failures: int = 0       # 連続失敗回数
+    fallback_priority: int = 1          # フォールバック優先度
+
 
 @dataclass
 class StockDataPoint:
@@ -84,6 +97,7 @@ class StockDataPoint:
     source: DataSource
     delay_minutes: int
     quality_score: float       # 0-100の品質スコア
+
 
 @dataclass
 class MarketData:
@@ -101,15 +115,28 @@ class MarketData:
     last_updated: datetime
     quality_score: float
 
+
+@dataclass
+class PerformanceMetrics:
+    """性能メトリクス - Issue #853追加"""
+    total_requests: int = 0
+    successful_requests: int = 0
+    failed_requests: int = 0
+    avg_response_time: float = 0.0
+    cache_hit_rate: float = 0.0
+    data_freshness_score: float = 0.0
+    overall_quality_score: float = 0.0
+
+
 class YahooFinanceProviderV2:
     """Yahoo Finance改良版プロバイダー"""
 
-    def __init__(self):
+    def __init__(self, daily_limit: int = 1000, min_request_interval: float = 0.6):
         self.logger = logging.getLogger(__name__)
         self.request_count = 0
-        self.daily_limit = 1000
+        self.daily_limit = daily_limit
         self.last_request_time = 0
-        self.min_request_interval = 0.6  # 1分間100リクエスト制限対応
+        self.min_request_interval = min_request_interval  # 1分間100リクエスト制限対応
 
     async def get_stock_data(self, symbol: str, period: str = "1mo") -> Optional[pd.DataFrame]:
         """株価データ取得（改良版）"""
@@ -203,10 +230,10 @@ class YahooFinanceProviderV2:
 
         # OHLC関係の整合性チェック
         if ((data['High'] < data['Low']) |
-            (data['High'] < data['Open']) |
-            (data['High'] < data['Close']) |
-            (data['Low'] > data['Open']) |
-            (data['Low'] > data['Close'])).any():
+                (data['High'] < data['Open']) |
+                (data['High'] < data['Close']) |
+                (data['Low'] > data['Open']) |
+                (data['Low'] > data['Close'])).any():
             return False
 
         return True
@@ -219,6 +246,7 @@ class YahooFinanceProviderV2:
         if elapsed < self.min_request_interval:
             wait_time = self.min_request_interval - elapsed
             await asyncio.sleep(wait_time)
+
 
 class StooqProvider:
     """Stooqデータプロバイダー"""
@@ -293,87 +321,193 @@ class StooqProvider:
 
         return df
 
-class MultiSourceDataProvider:
-    """複数ソース対応データプロバイダー"""
 
-    def __init__(self):
+class MultiSourceDataProvider:
+    """複数ソース対応データプロバイダー - Issue #853対応"""
+
+    def __init__(self, config_path: Optional[str] = None, symbol_selector: Optional[DynamicSymbolSelector] = None):
         self.logger = logging.getLogger(__name__)
 
-        # データソース初期化
-        self.providers = {
-            DataSource.YAHOO_FINANCE: YahooFinanceProviderV2(),
-            DataSource.STOOQ: StooqProvider(),
-        }
+        # Issue #853: 設定ファイル読み込み
+        self.config_path = Path(config_path) if config_path else Path("config/data_provider_config.yaml")
+        self.config = self._load_config()
 
-        # データソース情報
-        self.source_info = {
-            DataSource.YAHOO_FINANCE: DataSourceInfo(
-                source=DataSource.YAHOO_FINANCE,
-                is_available=YFINANCE_AVAILABLE,
-                delay_minutes=20,
-                daily_limit=1000,
-                cost_per_request=0.0,
-                quality=DataQuality.GOOD
-            ),
-            DataSource.STOOQ: DataSourceInfo(
-                source=DataSource.STOOQ,
-                is_available=True,
-                delay_minutes=15,
-                daily_limit=10000,
-                cost_per_request=0.0,
-                quality=DataQuality.FAIR
-            )
-        }
+        # Issue #853: symbol_selector統合
+        if symbol_selector is None and SYMBOL_SELECTOR_AVAILABLE:
+            try:
+                self.symbol_selector = create_symbol_selector()
+                self.logger.info("DynamicSymbolSelectorを統合しました")
+            except Exception as e:
+                self.logger.warning(f"symbol_selector統合に失敗: {e}")
+                self.symbol_selector = None
+        else:
+            self.symbol_selector = symbol_selector
 
-        # キャッシュシステム
-        self.cache_dir = Path("data_cache")
+        # データソース初期化（設定ベース）
+        self.providers = self._initialize_providers()
+
+        # データソース情報（設定ベース）
+        self.source_info = self._initialize_source_info()
+
+        # キャッシュシステム（設定ベース）
+        cache_config = self.config.get('cache', {})
+        self.cache_dir = Path(cache_config.get('directory', 'data_cache'))
         self.cache_dir.mkdir(exist_ok=True)
-        self.cache_expiry = 300  # 5分間キャッシュ
+        self.cache_expiry = cache_config.get('default_expiry_seconds', 300)
+        self.cache_enabled = cache_config.get('enabled', True)
 
         # 統計情報
         self.request_stats = defaultdict(int)
         self.success_stats = defaultdict(int)
 
+        # Issue #853: 性能メトリクス追加
+        self.performance_metrics = PerformanceMetrics()
+        self.response_times = defaultdict(list)  # レスポンス時間履歴
+        self.cache_hits = 0
+        self.cache_requests = 0
+
+        # 並列処理設定
+        parallel_config = self.config.get('parallel_processing', {})
+        self.max_concurrent = parallel_config.get('max_concurrent_requests', 5)
+        self.rate_limit_buffer = parallel_config.get('rate_limit_buffer', 0.1)
+
+        self.logger.info(f"MultiSourceDataProvider初期化完了 - 設定: {self.config_path}")
+
+    def _load_config(self) -> Dict[str, Any]:
+        """設定ファイル読み込み（Issue #853対応）"""
+        try:
+            if self.config_path.exists():
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                self.logger.info(f"設定ファイル読み込み成功: {self.config_path}")
+                return config
+            else:
+                self.logger.warning(f"設定ファイルが見つかりません: {self.config_path}")
+                return self._get_default_config()
+        except Exception as e:
+            self.logger.error(f"設定ファイル読み込みエラー: {e}")
+            return self._get_default_config()
+
+    def _get_default_config(self) -> Dict[str, Any]:
+        """デフォルト設定"""
+        return {
+            'data_sources': {
+                'yahoo_finance': {
+                    'enabled': True, 'daily_limit': 1000, 'min_request_interval': 0.6,
+                    'base_quality_score': 85.0, 'fallback_priority': 1
+                },
+                'stooq': {
+                    'enabled': True, 'daily_limit': 10000, 'min_request_interval': 0.2,
+                    'base_quality_score': 75.0, 'fallback_priority': 2
+                }
+            },
+            'cache': {'enabled': True, 'directory': 'data_cache', 'default_expiry_seconds': 300},
+            'parallel_processing': {'max_concurrent_requests': 5, 'rate_limit_buffer': 0.1}
+        }
+
+    def _initialize_providers(self) -> Dict[DataSource, Any]:
+        """データソースプロバイダー初期化（設定ベース）"""
+        providers = {}
+        data_sources_config = self.config.get('data_sources', {})
+
+        # Yahoo Finance
+        if data_sources_config.get('yahoo_finance', {}).get('enabled', True):
+            yahoo_config = data_sources_config.get('yahoo_finance', {})
+            providers[DataSource.YAHOO_FINANCE] = YahooFinanceProviderV2(
+                daily_limit=yahoo_config.get('daily_limit', 1000),
+                min_request_interval=yahoo_config.get('min_request_interval', 0.6)
+            )
+
+        # Stooq
+        if data_sources_config.get('stooq', {}).get('enabled', True):
+            providers[DataSource.STOOQ] = StooqProvider()
+
+        return providers
+
+    def _initialize_source_info(self) -> Dict[DataSource, DataSourceInfo]:
+        """データソース情報初期化（設定ベース）"""
+        source_info = {}
+        data_sources_config = self.config.get('data_sources', {})
+
+        # Yahoo Finance
+        yahoo_config = data_sources_config.get('yahoo_finance', {})
+        if yahoo_config.get('enabled', True):
+            source_info[DataSource.YAHOO_FINANCE] = DataSourceInfo(
+                source=DataSource.YAHOO_FINANCE,
+                is_available=YFINANCE_AVAILABLE,
+                delay_minutes=yahoo_config.get('delay_minutes', 20),
+                daily_limit=yahoo_config.get('daily_limit', 1000),
+                cost_per_request=yahoo_config.get('cost_per_request', 0.0),
+                quality=DataQuality.GOOD,
+                current_quality_score=yahoo_config.get('base_quality_score', 85.0),
+                fallback_priority=yahoo_config.get('fallback_priority', 1)
+            )
+
+        # Stooq
+        stooq_config = data_sources_config.get('stooq', {})
+        if stooq_config.get('enabled', True):
+            source_info[DataSource.STOOQ] = DataSourceInfo(
+                source=DataSource.STOOQ,
+                is_available=True,
+                delay_minutes=stooq_config.get('delay_minutes', 15),
+                daily_limit=stooq_config.get('daily_limit', 10000),
+                cost_per_request=stooq_config.get('cost_per_request', 0.0),
+                quality=DataQuality.FAIR,
+                current_quality_score=stooq_config.get('base_quality_score', 75.0),
+                fallback_priority=stooq_config.get('fallback_priority', 2)
+            )
+
+        return source_info
+
     async def get_stock_data(self, symbol: str, period: str = "1mo") -> Optional[pd.DataFrame]:
-        """複数ソースからの株価データ取得"""
+        """複数ソースからの株価データ取得 - Issue #853対応"""
+        start_time = time.time()
+        self.cache_requests += 1
 
-        # キャッシュチェック
-        cached_data = self._get_from_cache(symbol, period)
-        if cached_data is not None:
-            return cached_data
+        # キャッシュチェック（設定ベース）
+        if self.cache_enabled:
+            cached_data = self._get_from_cache(symbol, period)
+            if cached_data is not None:
+                self.cache_hits += 1
+                self.performance_metrics.cache_hit_rate = (self.cache_hits / self.cache_requests) * 100
+                self.logger.debug(f"キャッシュヒット: {symbol} ({period})")
+                return cached_data
 
-        # 優先順位順でデータ取得試行
-        priority_sources = [
-            DataSource.YAHOO_FINANCE,
-            DataSource.STOOQ
-        ]
+        # Issue #853: 段階的フォールバック対応 - 品質スコア順でソート
+        sorted_sources = self._get_prioritized_sources()
 
-        for source in priority_sources:
+        for source in sorted_sources:
             if not self.source_info[source].is_available:
                 continue
 
             try:
                 self.logger.debug(f"Trying {source.value} for {symbol}")
                 self.request_stats[source] += 1
+                self.performance_metrics.total_requests += 1
 
                 provider = self.providers[source]
                 data = await provider.get_stock_data(symbol, period)
 
                 if data is not None and not data.empty:
-                    self.success_stats[source] += 1
-                    self.source_info[source].last_success = datetime.now()
+                    # 成功時の処理
+                    response_time = time.time() - start_time
+                    self._update_success_metrics(source, response_time)
 
-                    # 成功率更新
-                    success_rate = self.success_stats[source] / self.request_stats[source] * 100
-                    self.source_info[source].success_rate = success_rate
+                    # Issue #853: リアルタイム品質スコア更新
+                    quality_score = self._calculate_data_quality_score(data, source, response_time)
+                    self.source_info[source].current_quality_score = quality_score
+                    self.source_info[source].consecutive_failures = 0
 
                     # キャッシュ保存
                     self._save_to_cache(symbol, period, data, source)
 
-                    self.logger.info(f"Successfully fetched {symbol} from {source.value}")
+                    self.logger.info(f"Successfully fetched {symbol} from {source.value} "
+                                     f"(quality: {quality_score:.1f})")
                     return data
 
             except Exception as e:
+                # 失敗時の処理
+                self._update_failure_metrics(source)
                 self.logger.error(f"Error fetching from {source.value}: {e}")
                 continue
 
@@ -381,42 +515,244 @@ class MultiSourceDataProvider:
         return None
 
     async def get_multiple_stocks_data(self, symbols: List[str], period: str = "1mo") -> Dict[str, pd.DataFrame]:
-        """複数銘柄の並列データ取得"""
+        """複数銘柄の並列データ取得（設定ベース最適化）"""
 
         results = {}
 
-        # セマフォで同時リクエスト数制限
-        semaphore = asyncio.Semaphore(5)  # 最大5並列
+        # セマフォで同時リクエスト数制限（設定ベース）
+        semaphore = asyncio.Semaphore(self.max_concurrent)
 
         async def fetch_single(symbol: str):
             async with semaphore:
                 data = await self.get_stock_data(symbol, period)
                 if data is not None:
                     results[symbol] = data
-                await asyncio.sleep(0.1)  # レート制限対策
+                # 設定ベースのレート制限対策
+                await asyncio.sleep(self.rate_limit_buffer)
 
         # 全銘柄を並列取得
+        start_time = time.time()
         tasks = [fetch_single(symbol) for symbol in symbols]
         await asyncio.gather(*tasks, return_exceptions=True)
 
+        fetch_time = time.time() - start_time
+        self.logger.info(f"並列取得完了: {len(results)}/{len(symbols)} 銘柄, {fetch_time:.2f}秒")
+
         return results
 
+    async def get_stock_data_with_retry(self, symbol: str, period: str = "1mo",
+                                        max_retries: int = 3) -> Optional[pd.DataFrame]:
+        """リトライ機能付きデータ取得（Issue #853対応）"""
+
+        error_handling_config = self.config.get('error_handling', {})
+        enable_retry = error_handling_config.get('enable_retry_logic', True)
+
+        if not enable_retry:
+            return await self.get_stock_data(symbol, period)
+
+        base_delay = error_handling_config.get('base_retry_delay', 1.0)
+        max_delay = error_handling_config.get('max_retry_delay', 60.0)
+        exponential_backoff = error_handling_config.get('exponential_backoff', True)
+
+        for attempt in range(max_retries + 1):
+            try:
+                data = await self.get_stock_data(symbol, period)
+                if data is not None:
+                    if attempt > 0:
+                        self.logger.info(f"リトライ成功: {symbol} (試行{attempt + 1}回目)")
+                    return data
+
+            except Exception as e:
+                self.logger.warning(f"データ取得試行{attempt + 1}失敗 {symbol}: {e}")
+
+                if attempt < max_retries:
+                    if exponential_backoff:
+                        delay = min(base_delay * (2 ** attempt), max_delay)
+                    else:
+                        delay = base_delay
+
+                    # ジッター追加
+                    jitter_factor = error_handling_config.get('jitter_factor', 0.1)
+                    jitter = delay * jitter_factor * (0.5 - asyncio.get_event_loop().time() % 1)
+                    final_delay = delay + jitter
+
+                    self.logger.debug(f"リトライ待機: {final_delay:.2f}秒")
+                    await asyncio.sleep(final_delay)
+                else:
+                    self.logger.error(f"全リトライ失敗: {symbol}")
+
+        return None
+
+    # Issue #853: 新機能メソッド群
+
+    def _get_prioritized_sources(self) -> List[DataSource]:
+        """品質スコアとフォールバック優先度に基づくソース順序決定"""
+        return sorted(
+            [source for source in self.source_info.keys() if self.source_info[source].is_available],
+            key=lambda s: (
+                -self.source_info[s].current_quality_score,  # 品質スコア降順
+                self.source_info[s].fallback_priority,       # 優先度昇順
+                self.source_info[s].consecutive_failures     # 連続失敗回数昇順
+            )
+        )
+
+    def _calculate_data_quality_score(self, data: pd.DataFrame, source: DataSource, response_time: float) -> float:
+        """リアルタイムデータ品質スコア計算"""
+        try:
+            score = 100.0
+
+            # レスポンス時間評価（0-20点）
+            if response_time > 10:
+                score -= 20
+            elif response_time > 5:
+                score -= 10
+            elif response_time > 2:
+                score -= 5
+
+            # データ完全性評価（0-30点）
+            required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+            missing_columns = [col for col in required_columns if col not in data.columns]
+            if missing_columns:
+                score -= len(missing_columns) * 6
+
+            # データ鮮度評価（0-20点）
+            latest_data_age = (datetime.now() - data.index[-1]).total_seconds() / 3600
+            if latest_data_age > 24:
+                score -= 20
+            elif latest_data_age > 6:
+                score -= 10
+            elif latest_data_age > 1:
+                score -= 5
+
+            # データ異常値チェック（0-15点）
+            for col in ['Open', 'High', 'Low', 'Close']:
+                if col in data.columns:
+                    if (data[col] <= 0).any():
+                        score -= 5
+                    if (data[col] > 1000000).any():
+                        score -= 3
+
+            # OHLC整合性チェック（0-15点）
+            if all(col in data.columns for col in ['Open', 'High', 'Low', 'Close']):
+                inconsistent = ((data['High'] < data['Low']) |
+                                (data['High'] < data['Open']) |
+                                (data['High'] < data['Close']) |
+                                (data['Low'] > data['Open']) |
+                                (data['Low'] > data['Close'])).sum()
+                score -= min(inconsistent * 3, 15)
+
+            return max(0.0, min(100.0, score))
+
+        except Exception as e:
+            self.logger.error(f"品質スコア計算エラー: {e}")
+            return 50.0  # エラー時はデフォルト値
+
+    def _update_success_metrics(self, source: DataSource, response_time: float):
+        """成功メトリクスの更新"""
+        self.success_stats[source] += 1
+        self.performance_metrics.successful_requests += 1
+
+        # レスポンス時間履歴更新（最新100件保持）
+        self.response_times[source].append(response_time)
+        if len(self.response_times[source]) > 100:
+            self.response_times[source] = self.response_times[source][-100:]
+
+        # 平均レスポンス時間更新
+        self.source_info[source].avg_response_time = sum(self.response_times[source]) / len(self.response_times[source])
+
+        # 成功率更新
+        success_rate = self.success_stats[source] / self.request_stats[source] * 100
+        self.source_info[source].success_rate = success_rate
+        self.source_info[source].last_success = datetime.now()
+
+    def _update_failure_metrics(self, source: DataSource):
+        """失敗メトリクスの更新"""
+        self.performance_metrics.failed_requests += 1
+        self.source_info[source].consecutive_failures += 1
+
+        # 連続失敗が多い場合は品質スコアを下げる
+        if self.source_info[source].consecutive_failures >= 3:
+            self.source_info[source].current_quality_score *= 0.8
+
+    async def get_optimized_symbols_data(self, limit: int = 20,
+                                         strategy: str = "liquid_trading") -> Dict[str, pd.DataFrame]:
+        """symbol_selector統合 - 最適化された銘柄データ取得"""
+        if not self.symbol_selector:
+            self.logger.warning("symbol_selector未統合のため、デフォルト銘柄を使用します")
+            symbols = ["7203", "8306", "4751"]
+        else:
+            try:
+                symbols = self.symbol_selector.get_symbols_by_strategy(strategy, limit)
+                self.logger.info(f"symbol_selector連携: {len(symbols)}銘柄選択（戦略: {strategy}）")
+            except Exception as e:
+                self.logger.error(f"symbol_selector連携エラー: {e}")
+                symbols = ["7203", "8306", "4751"]
+
+        return await self.get_multiple_stocks_data(symbols)
+
+    def get_enhanced_statistics(self) -> Dict[str, Any]:
+        """拡張統計情報取得 - Issue #853対応"""
+        stats = self.get_source_statistics()
+
+        # 性能メトリクス追加
+        self.performance_metrics.avg_response_time = sum(
+            sum(times) / len(times) if times else 0
+            for times in self.response_times.values()
+        ) / len(self.response_times) if self.response_times else 0
+
+        # 全体品質スコア計算
+        if self.source_info:
+            self.performance_metrics.overall_quality_score = sum(
+                info.current_quality_score for info in self.source_info.values()
+            ) / len(self.source_info)
+
+        stats.update({
+            'performance_metrics': {
+                'total_requests': self.performance_metrics.total_requests,
+                'successful_requests': self.performance_metrics.successful_requests,
+                'failed_requests': self.performance_metrics.failed_requests,
+                'success_rate': (self.performance_metrics.successful_requests /
+                                 max(1, self.performance_metrics.total_requests)) * 100,
+                'avg_response_time': self.performance_metrics.avg_response_time,
+                'cache_hit_rate': self.performance_metrics.cache_hit_rate,
+                'overall_quality_score': self.performance_metrics.overall_quality_score
+            },
+            'symbol_selector_integration': bool(self.symbol_selector),
+            'data_sources_by_quality': sorted(
+                [(source.value, info.current_quality_score)
+                 for source, info in self.source_info.items()],
+                key=lambda x: x[1], reverse=True
+            )
+        })
+
+        return stats
+
     def _get_from_cache(self, symbol: str, period: str) -> Optional[pd.DataFrame]:
-        """キャッシュからデータ取得"""
+        """キャッシュからデータ取得（設定ベース期間別有効期限）"""
 
         cache_key = f"{symbol}_{period}"
         cache_file = self.cache_dir / f"{cache_key}.parquet"
 
         if cache_file.exists():
+            # 期間別キャッシュ有効期限取得
+            cache_config = self.config.get('cache', {})
+            expiry_by_period = cache_config.get('expiry_by_period', {})
+            cache_expiry = expiry_by_period.get(period, self.cache_expiry)
+
             # キャッシュ有効期限チェック
             file_age = time.time() - cache_file.stat().st_mtime
 
-            if file_age < self.cache_expiry:
+            if file_age < cache_expiry:
                 try:
-                    return pd.read_parquet(cache_file)
+                    data = pd.read_parquet(cache_file)
+                    self.logger.debug(f"キャッシュから取得: {symbol} ({period}) - 年齢: {file_age:.1f}秒")
+                    return data
                 except Exception as e:
-                    self.logger.error(f"Cache read error: {e}")
+                    self.logger.error(f"キャッシュ読み込みエラー: {e}")
                     cache_file.unlink(missing_ok=True)
+            else:
+                self.logger.debug(f"キャッシュ期限切れ: {symbol} ({period}) - 年齢: {file_age:.1f}秒 > {cache_expiry}秒")
+                cache_file.unlink(missing_ok=True)
 
         return None
 
@@ -475,19 +811,66 @@ class MultiSourceDataProvider:
 
         self.logger.info(f"Cleaned up {deleted_count} cache files")
 
-# グローバルインスタンス
-real_data_provider = MultiSourceDataProvider()
+
+# グローバルインスタンス - Issue #853対応（設定ベース）
+real_data_provider = None
+
+def get_real_data_provider(config_path: Optional[str] = None) -> MultiSourceDataProvider:
+    """設定ベースデータプロバイダー取得"""
+    global real_data_provider
+    if real_data_provider is None:
+        real_data_provider = MultiSourceDataProvider(config_path=config_path)
+    return real_data_provider
 
 # 既存システムとの互換性関数
 async def get_real_stock_data(symbol: str, period: str = "1mo") -> Optional[pd.DataFrame]:
     """既存システム互換関数"""
-    return await real_data_provider.get_stock_data(symbol, period)
+    provider = get_real_data_provider()
+    return await provider.get_stock_data(symbol, period)
 
-# テスト関数
+# Issue #853: 設定テスト関数
+def test_configuration(config_path: Optional[str] = None) -> Dict[str, Any]:
+    """設定ファイルテスト"""
+    try:
+        provider = MultiSourceDataProvider(config_path=config_path)
+        return {
+            'config_loaded': True,
+            'config_path': str(provider.config_path),
+            'data_sources_enabled': len(provider.providers),
+            'cache_enabled': provider.cache_enabled,
+            'cache_directory': str(provider.cache_dir),
+            'max_concurrent': provider.max_concurrent,
+            'symbol_selector_integrated': bool(provider.symbol_selector),
+            'config_summary': {
+                'data_sources': list(provider.config.get('data_sources', {}).keys()),
+                'cache_expiry': provider.cache_expiry,
+                'parallel_config': provider.config.get('parallel_processing', {})
+            }
+        }
+    except Exception as e:
+        return {
+            'config_loaded': False,
+            'error': str(e),
+            'fallback_used': True
+        }
+
+
+# テスト関数 - Issue #853対応
 async def test_real_data_provider():
-    """実データプロバイダーのテスト"""
+    """実データプロバイダーのテスト - Issue #853拡張版"""
 
-    print("=== Real Data Provider V2 テスト ===")
+    print("=== Real Data Provider V2 テスト（Issue #853対応版）===")
+
+    # 設定テスト
+    print("\n[ 設定ファイルテスト ]")
+    config_test = test_configuration()
+    if config_test['config_loaded']:
+        print(f"  ✓ 設定ファイル読み込み成功: {config_test['config_path']}")
+        print(f"  ✓ データソース: {config_test['data_sources_enabled']}個有効")
+        print(f"  ✓ キャッシュ: {'有効' if config_test['cache_enabled'] else '無効'}")
+        print(f"  ✓ 並列処理: 最大{config_test['max_concurrent']}並列")
+    else:
+        print(f"  ⚠ 設定ファイル読み込み失敗: {config_test.get('error', 'Unknown')}")
 
     provider = MultiSourceDataProvider()
 
@@ -503,7 +886,7 @@ async def test_real_data_provider():
 
     end_time = time.time()
 
-    print(f"\n取得結果:")
+    print("\n取得結果:")
     print(f"  成功: {len(results)}/{len(test_symbols)} 銘柄")
     print(f"  処理時間: {end_time - start_time:.2f}秒")
 
@@ -515,16 +898,41 @@ async def test_real_data_provider():
         else:
             print(f"  {symbol}: データ取得失敗")
 
-    # データソース統計
-    print(f"\n[ データソース統計 ]")
-    stats = provider.get_source_statistics()
-    for source_name, stat in stats.items():
-        if stat['requests'] > 0:
-            print(f"  {source_name}: {stat['successes']}/{stat['requests']} "
-                  f"(成功率{stat['success_rate']:.1f}%) 遅延{stat['delay_minutes']}分")
+    # Issue #853: 拡張統計情報テスト
+    print("\n[ 拡張統計情報（Issue #853対応）]")
+    enhanced_stats = provider.get_enhanced_statistics()
 
-    # 単一銘柄詳細テスト
-    print(f"\n[ 詳細データテスト: 7203 トヨタ自動車 ]")
+    # 性能メトリクス表示
+    perf_metrics = enhanced_stats.get('performance_metrics', {})
+    print(f"  総リクエスト数: {perf_metrics.get('total_requests', 0)}")
+    print(f"  成功率: {perf_metrics.get('success_rate', 0):.1f}%")
+    print(f"  平均レスポンス時間: {perf_metrics.get('avg_response_time', 0):.2f}秒")
+    print(f"  キャッシュヒット率: {perf_metrics.get('cache_hit_rate', 0):.1f}%")
+    print(f"  全体品質スコア: {perf_metrics.get('overall_quality_score', 0):.1f}")
+
+    # データソース品質順序表示
+    quality_ranking = enhanced_stats.get('data_sources_by_quality', [])
+    print("\n  データソース品質ランキング:")
+    for source, quality in quality_ranking:
+        print(f"    {source}: {quality:.1f}")
+
+    # symbol_selector統合状態
+    selector_integrated = enhanced_stats.get('symbol_selector_integration', False)
+    print(f"  symbol_selector統合: {'有効' if selector_integrated else '無効'}")
+
+    # Issue #853: symbol_selector統合テスト
+    if selector_integrated:
+        print("\n[ symbol_selector統合テスト ]")
+        try:
+            optimized_results = await provider.get_optimized_symbols_data(limit=5, strategy="liquid_trading")
+            print(f"  最適化銘柄取得成功: {len(optimized_results)}銘柄")
+            for symbol in optimized_results.keys():
+                print(f"    {symbol}")
+        except Exception as e:
+            print(f"  symbol_selector統合テスト失敗: {e}")
+
+    # 単一銘柄詳細テスト（品質スコア付き）
+    print("\n[ 詳細データテスト: 7203 トヨタ自動車（品質評価付き）]")
     toyota_data = await provider.get_stock_data("7203", "3mo")
 
     if toyota_data is not None and not toyota_data.empty:
@@ -538,10 +946,15 @@ async def test_real_data_provider():
         data_quality = "優秀" if missing_data == 0 else f"欠損{missing_data}件"
         print(f"  データ品質: {data_quality}")
 
+        # リアルタイム品質スコア表示
+        for source, info in provider.source_info.items():
+            if info.last_success:
+                print(f"  {source.value}品質スコア: {info.current_quality_score:.1f}")
+
     else:
         print("  データ取得に失敗しました")
 
-    print(f"\n=== Real Data Provider V2 テスト完了 ===")
+    print("\n=== Real Data Provider V2 テスト完了（Issue #853対応）===")
 
 if __name__ == "__main__":
     # ログ設定

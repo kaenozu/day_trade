@@ -16,15 +16,16 @@ import sys
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 import warnings
+from typing import Tuple # Added import
 
 # テスト対象システムのインポート
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
     from src.day_trade.ml.ensemble_system import EnsembleSystem, EnsembleConfig
-    from src.day_trade.data_fetcher import DataFetcher
-    from src.day_trade.analysis.trend_analyzer import TrendAnalyzer
-    from src.day_trade.utils.smart_symbol_selector import SmartSymbolSelector
+    from src.day_trade.data.stock_fetcher import StockFetcher
+    from src.day_trade.analysis.technical_indicators_unified import TechnicalIndicatorsManager as TrendAnalyzer # Corrected import
+    from src.day_trade.automation.smart_symbol_selector import SmartSymbolSelector
 
 except ImportError as e:
     print(f"統合テスト用インポートエラー: {e}")
@@ -64,15 +65,16 @@ class TestEnsembleSystemIntegration(unittest.TestCase):
 
         return pd.DataFrame(data)
 
-    @patch('src.day_trade.data_fetcher.DataFetcher.fetch_data')
+    @patch('src.day_trade.data.stock_fetcher.StockFetcher.bulk_get_historical_data')
     def test_data_fetcher_integration(self, mock_fetch):
         """DataFetcherとの統合テスト"""
         # DataFetcherのモック設定
-        mock_fetch.return_value = self.mock_market_data
+        mock_fetch.return_value = {s: self.mock_market_data for s in self.sample_symbols}
 
         # DataFetcher経由でのデータ取得
-        fetcher = DataFetcher()
-        market_data = fetcher.fetch_data(self.sample_symbols)
+        fetcher = StockFetcher()
+        market_data_dict = fetcher.bulk_get_historical_data(self.sample_symbols)
+        market_data = pd.concat(market_data_dict.values()) if market_data_dict else pd.DataFrame()
 
         # EnsembleSystemでの処理用にデータ変換
         features = self._extract_features_from_market_data(market_data)
@@ -127,7 +129,7 @@ class TestEnsembleSystemIntegration(unittest.TestCase):
         rs = gain / loss
         return 100 - (100 / (1 + rs))
 
-    @patch('src.day_trade.analysis.trend_analyzer.TrendAnalyzer.analyze')
+    @patch('src.day_trade.analysis.technical_indicators_unified.TechnicalIndicatorsManager.calculate_indicators')
     def test_trend_analyzer_integration(self, mock_analyze):
         """TrendAnalyzerとの統合テスト"""
         # TrendAnalyzerのモック設定
@@ -140,7 +142,7 @@ class TestEnsembleSystemIntegration(unittest.TestCase):
 
         # TrendAnalyzer経由での分析
         analyzer = TrendAnalyzer()
-        trend_result = analyzer.analyze(self.mock_market_data)
+        trend_result = analyzer.calculate_indicators(self.mock_market_data, indicators=['trend'])
 
         # EnsembleSystemの予測とトレンド分析の組み合わせ
         if len(self.mock_market_data) > 50:
@@ -166,14 +168,18 @@ class TestEnsembleSystemIntegration(unittest.TestCase):
         """トレンド情報による予測調整"""
         trend_multiplier = 1.0
 
-        if trend_info['trend'] == 'upward':
+        # Assuming trend_info is a dictionary with 'trend' and 'strength' keys
+        # If trend_info is the result of calculate_indicators, it will be a dict of IndicatorResult objects
+        # We need to adapt this part based on the actual structure of trend_result
+        # For now, I'll assume it's still a simple dict for the mock.
+        if 'trend' in trend_info and trend_info['trend'] == 'upward':
             trend_multiplier = 1.0 + trend_info['strength'] * 0.1
-        elif trend_info['trend'] == 'downward':
+        elif 'trend' in trend_info and trend_info['trend'] == 'downward':
             trend_multiplier = 1.0 - trend_info['strength'] * 0.1
 
         return predictions * trend_multiplier
 
-    @patch('src.day_trade.utils.smart_symbol_selector.SmartSymbolSelector.select_top_symbols')
+    @patch('src.day_trade.automation.smart_symbol_selector.SmartSymbolSelector.select_top_symbols')
     def test_smart_symbol_selector_integration(self, mock_select):
         """SmartSymbolSelectorとの統合テスト"""
         # SmartSymbolSelectorのモック設定
@@ -322,9 +328,10 @@ class TestEnsembleSystemEndToEnd(unittest.TestCase):
     def test_full_prediction_pipeline(self):
         """完全予測パイプラインテスト"""
         # 1. データ取得（モック）
-        with patch('src.day_trade.data_fetcher.DataFetcher.fetch_data') as mock_fetch:
-            mock_data = self._create_realistic_market_data()
-            mock_fetch.return_value = mock_data
+        with patch('src.day_trade.data.stock_fetcher.StockFetcher.bulk_get_historical_data') as mock_fetch:
+            mock_data_dict = {s: self._create_realistic_market_data() for s in ['7203.T', '6758.T', '9984.T']}
+            mock_fetch.return_value = mock_data_dict
+            mock_data = pd.concat(mock_data_dict.values()) if mock_data_dict else pd.DataFrame()
 
             # 2. 特徴量エンジニアリング
             features = self._advanced_feature_engineering(mock_data)

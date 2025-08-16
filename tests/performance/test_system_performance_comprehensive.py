@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
     # パフォーマンステスト対象システム
-    from src.day_trade.data_fetcher import DataFetcher
+    from src.day_trade.data.stock_fetcher import StockFetcher # Corrected import
     from src.day_trade.automation.smart_symbol_selector import (
         SmartSymbolSelector,
         SymbolMetrics,
@@ -41,7 +41,7 @@ try:
     from src.day_trade.ml.ensemble_system import (
         EnsembleSystem,
         EnsembleConfig,
-        EnsemblePredictions
+        EnsemblePrediction # Corrected from EnsemblePredictions
     )
     from src.day_trade.automation.execution_scheduler import (
         ExecutionScheduler,
@@ -93,7 +93,7 @@ class TestEnsembleSystemPerformance(unittest.TestCase):
 
             pred_start = time.time()
             prediction = self.ensemble.predict(X_single)
-            pred_time = time.time() - pred_start
+            pred_time = time.time() - start_time
 
             prediction_times.append(pred_time)
 
@@ -164,7 +164,7 @@ class TestEnsembleSystemPerformance(unittest.TestCase):
         # 大規模データ訓練
         train_start = time.time()
         self.ensemble.fit(X_large, y_large)
-        train_time = time.time() - train_start
+        train_time = time.time() - start_time
 
         train_memory = process.memory_info().rss / 1024 / 1024  # MB
 
@@ -173,7 +173,7 @@ class TestEnsembleSystemPerformance(unittest.TestCase):
 
         pred_start = time.time()
         predictions = self.ensemble.predict(X_test_large)
-        pred_time = time.time() - pred_start
+        pred_time = time.time() - start_time
 
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
 
@@ -433,7 +433,7 @@ class TestSmartSymbolSelectorPerformance(unittest.TestCase):
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             futures = [executor.submit(run_concurrent_analysis, i) for i in range(3)]
-            concurrent_results = [future.result() for future in futures]
+            concurrent.futures.wait(futures)
 
         total_concurrent_time = time.time() - start_time
 
@@ -444,13 +444,13 @@ class TestSmartSymbolSelectorPerformance(unittest.TestCase):
         max_execution_time = np.max([r['execution_time'] for r in concurrent_results])
 
         # 並行処理効率確認
-        sequential_estimate = avg_execution_time * 3
-        efficiency = sequential_estimate / total_concurrent_time
+        sequential_time_estimate = avg_execution_time * 3
+        efficiency = sequential_time_estimate / total_concurrent_time
 
         self.assertGreater(efficiency, 1.5,
                           f"並行処理効率 {efficiency:.1f}x が期待値を下回っています")
-        self.assertLess(max_execution_time, 120,  # 2分以下
-                       f"並行処理中の最大実行時間 {max_execution_time:.1f}秒 が要件を超えています")
+        self.assertLess(overall_max_time, 1.0,
+                       f"並行処理中の最大予測時間 {overall_max_time:.3f}秒 が要件を超えています")
 
         # 並行分析パフォーマンスデータ記録
         concurrent_analysis_performance = {
@@ -467,7 +467,7 @@ class TestSmartSymbolSelectorPerformance(unittest.TestCase):
 
         self.logger.info(f"並行銘柄分析パフォーマンス結果:")
         self.logger.info(f"  並行効率: {efficiency:.1f}x")
-        self.logger.info(f"  平均実行時間: {avg_execution_time:.1f}秒")
+        self.logger.info(f"  予測レート: {symbols_per_second:.1f} 銘柄/秒")
 
 
 class TestExecutionSchedulerPerformance(unittest.TestCase):
