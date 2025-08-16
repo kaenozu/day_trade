@@ -40,7 +40,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
-from model_performance_monitor import ModelPerformanceMonitor
+
+from model_performance_monitor import EnhancedModelPerformanceMonitor as ModelPerformanceMonitor
+try:
+    from overnight_prediction_model import OvernightPredictionModel
+    OVERNIGHT_MODEL_AVAILABLE = True
+    print("[OK] 翌朝場予測モデル: 機械学習ベースの予測対応")
+except ImportError:
+    OVERNIGHT_MODEL_AVAILABLE = False
+    print("[WARNING] 翌朝場予測モデル未対応")
 
 # 個人版システム設定
 project_root = Path(__file__).parent
@@ -187,7 +195,7 @@ except ImportError:
     PERFORMANCE_TRACKER_AVAILABLE = False
     print("[WARNING] 包括的パフォーマンス追跡システム未対応")
 
-# 外部\u30a2\u30e9\u30fc\u30c8システムは削除 - Webダッシュボード統合
+# 外部アラートシステムは削除 - Webダッシュボード統合
 ALERT_SYSTEM_AVAILABLE = False
 
 try:
@@ -207,8 +215,7 @@ except ImportError:
     print("[WARNING] 実データプロバイダーV2未対応")
 
 import numpy as np
-from model_performance_monitor import ModelPerformanceMonitor
-# \u30a2\u30e9\u30fc\u30c8システム削除 - Webダッシュボード統合
+# アラートシステム削除 - Webダッシュボード統合
 
 
 class PersonalAnalysisEngine:
@@ -241,7 +248,7 @@ class PersonalAnalysisEngine:
             self.enhanced_mode = False
 
         self.analysis_cache = {}
-        self.max_cache_size = 50  # \u30e1\u30e2リ使用量制限
+        self.max_cache_size = 50  # メモリ使用量制限
 
         # セクター分散システム統合
         if SECTOR_DIVERSIFICATION_AVAILABLE:
@@ -271,7 +278,7 @@ class PersonalAnalysisEngine:
         else:
             self.performance_mode = False
 
-        # \u30a2\u30e9\u30fc\u30c8機能はWebダッシュボード統合
+        # アラート機能はWebダッシュボード統合
         self.alert_mode = False
 
         # 高度技術指標・分析手法拡張システム統合
@@ -283,6 +290,15 @@ class PersonalAnalysisEngine:
 
         # モデル性能監視システム統合 (Issue #827)
         self.performance_monitor = ModelPerformanceMonitor()
+
+        # 翌朝場予測モデルの初期化
+        if OVERNIGHT_MODEL_AVAILABLE:
+            self.overnight_model = OvernightPredictionModel()
+            self.overnight_model_enabled = True
+            print("[OK] 翌朝場予測モデル: 機械学習ベースの予測対応")
+        else:
+            self.overnight_model = None
+            self.overnight_model_enabled = False
 
     async def get_personal_recommendations(self, limit=3):
         """個人向け推奨銘柄生成（基本機能）"""
@@ -491,11 +507,11 @@ class PersonalAnalysisEngine:
         return results
 
     async def _analyze_symbol_batch(self, symbols: List[str]):
-        """軽量バッチ分析（\u30e1\u30e2リ最適化版）"""
+        """軽量バッチ分析（メモリ最適化版）"""
         batch_results = []
 
         for symbol in symbols:
-            # キャッシュチェック（\u30e1\u30e2リ節約）
+            # キャッシュチェック（メモリ節約）
             cache_key = f"{symbol}_{datetime.now().strftime('%Y%m%d')}"
             if cache_key in self.analysis_cache:
                 batch_results.append(self.analysis_cache[cache_key])
@@ -578,9 +594,9 @@ class PersonalAnalysisEngine:
             # 予測値: final_score, 実績値: アクションが「買い」または「強い買い」なら1、それ以外は0
             self.performance_monitor.record_prediction(final_score, 1 if action in ["買い", "強い買い"] else 0)
 
-            # 日付ベースキャッシュ（\u30e1\u30e2リ効率向上）
+            # 日付ベースキャッシュ（メモリ効率向上）
             if len(self.analysis_cache) >= self.max_cache_size:
-                # 古いキャッシュを削除（\u30e1\u30e2リ管理）
+                # 古いキャッシュを削除（メモリ管理）
                 oldest_key = next(iter(self.analysis_cache))
                 del self.analysis_cache[oldest_key]
 
@@ -651,87 +667,41 @@ class PersonalAnalysisEngine:
         return {"accuracy": 0.0, "num_samples": 0}
 
     async def _display_overnight_prediction(self):
-        """夜間予測情報表示（翌朝場予想）"""
+        """【新】機械学習モデルによる夜間予測情報表示（翌朝場予想）"""
+        print("\n🔮 AIによる翌朝場予測:")
+
+        if not self.overnight_model_enabled:
+            print("  - 予測モデルが利用できません。")
+            return
+
         try:
-            print("\n📊 夜間マーケット分析:")
+            prediction_result = await self.overnight_model.predict()
 
-            # 海外市場データ取得
-            from src.day_trade.utils.yfinance_import import get_yfinance
-            yf_module, available = get_yfinance()
-
-            if not available:
-                print("・海外市場データ取得不可（yfinance接続エラー）")
+            if prediction_result is None:
+                print("  - 予測に失敗しました。モデルが学習されていない可能性があります。")
+                print("  - `python daytrade.py --train-overnight-model` を実行して、モデルを学習してください。")
                 return
 
-            # 主要指数取得
-            tickers = {
-                "^DJI": "ダウ平均",
-                "^IXIC": "ナスダック",
-                "^GSPC": "S&P500",
-                "USDJPY=X": "USD/JPY",
-                "^VIX": "VIX恐怖指数",
-                "NKD=F": "日経先物"
-            }
+            prob_up = prediction_result['probability_up'] * 100
+            prob_down = prediction_result['probability_down'] * 100
+            prediction = prediction_result['prediction']
 
-            overnight_sentiment = 0  # 夜間センチメントスコア
-
-            for symbol, name in tickers.items():
-                try:
-                    ticker = yf_module.Ticker(symbol)
-                    # 直近2日のデータ取得
-                    hist = ticker.history(period="2d")
-                    if len(hist) >= 2:
-                        current = hist['Close'].iloc[-1]
-                        previous = hist['Close'].iloc[-2]
-                        change_pct = ((current - previous) / previous) * 100
-
-                        # センチメント影響度計算
-                        if symbol in ["^DJI", "^GSPC", "^IXIC"]:
-                            overnight_sentiment += change_pct * 0.3  # 米国株30%影響
-                        elif symbol == "USDJPY=X":
-                            if change_pct > 0:  # 円安
-                                overnight_sentiment += change_pct * 0.2  # 20%影響
-                            else:  # 円高
-                                overnight_sentiment += change_pct * 0.1  # 10%影響
-                        elif symbol == "^VIX":
-                            overnight_sentiment -= change_pct * 0.1  # VIX上昇で悲観
-                        elif symbol == "NKD=F":
-                            overnight_sentiment += change_pct * 0.4  # 先物40%影響
-
-                        status = "📈" if change_pct > 0.5 else "📉" if change_pct < -0.5 else "➡️"
-                        print(f"・{name}: {current:.2f} ({change_pct:+.2f}%) {status}")
-
-                except Exception as e:
-                    print(f"・{name}: データ取得エラー")
-
-            # 翌朝予想
-            print(f"\n🔮 翌朝場予想:")
-            if overnight_sentiment > 1.0:
-                prediction = "強い上昇期待 📈📈"
-                advice = "寄り付き買いエントリー検討"
-            elif overnight_sentiment > 0.3:
-                prediction = "上昇期待 📈"
-                advice = "押し目買いタイミング待ち"
-            elif overnight_sentiment > -0.3:
-                prediction = "横ばい予想 ➡️"
-                advice = "様子見推奨"
-            elif overnight_sentiment > -1.0:
-                prediction = "下落懸念 📉"
-                advice = "売りポジション検討"
+            if prediction == 'Up':
+                prediction_text = f"📈 上昇確率: {prob_up:.1f}%"
+                advice = "寄り付きでの買いを検討"
             else:
-                prediction = "強い下落懸念 📉📉"
-                advice = "リスクオフ推奨"
-
-            print(f"・総合判断: {prediction}")
-            print(f"・推奨戦略: {advice}")
-            print(f"・センチメントスコア: {overnight_sentiment:+.1f}")
+                prediction_text = f"📉 下落確率: {prob_down:.1f}%"
+                advice = "寄り付きでの売りまたは様子見を検討"
+            
+            print(f"  - 予測: {prediction_text}")
+            print(f"  - 推奨戦略: {advice}")
 
         except Exception as e:
-            print(f"・夜間予測エラー: {e}")
+            print(f"  - 予測モデルの実行中にエラーが発生しました: {e}")
 
 
 class SimpleProgress:
-    """軽量進捗表示（\u30e1\u30e2リ最適化版）"""
+    """軽量進捗表示（メモリ最適化版）"""
 
     def __init__(self):
         self.start_time = time.time()
@@ -802,10 +772,11 @@ def parse_arguments():
   python daytrade.py --chart            # チャート表示（グラフで分析結果）
   python daytrade.py --symbols 7203,8306  # 特定銘柄のみ分析
   python daytrade.py --history          # 分析履歴表示
-  python daytrade.py --alerts           # \u30a2\u30e9\u30fc\u30c8確認
+  python daytrade.py --alerts           # アラート確認
   python daytrade.py --safe             # 安全モード（低リスクのみ）
   python daytrade.py --multi 8 --chart  # 複数銘柄分析＋チャート表示
   python daytrade.py --quick --chart --safe # 基本モード＋チャート＋安全モード
+  python daytrade.py --train-overnight-model # 【開発者用】翌朝場予測モデルの再学習
 
 ★デフォルトはWebダッシュボードモードです（ブラウザでリアルタイム表示）
 注意: 投資は自己責任で行ってください"""
@@ -825,7 +796,7 @@ def parse_arguments():
     parser.add_argument('--history', action='store_true',
                        help='分析履歴表示: 過去の分析結果を確認')
     parser.add_argument('--alerts', action='store_true',
-                       help='\u30a2\u30e9\u30fc\u30c8確認: 未読\u30a2\u30e9\u30fc\u30c8表示')
+                       help='アラート確認: 未読アラート表示')
     # --daytrading オプションは削除（デフォルトになったため）
     parser.add_argument('--safe', action='store_true',
                        help='安全モード: 低リスク銘柄のみ（初心者推奨）')
@@ -836,6 +807,8 @@ def parse_arguments():
     parser.add_argument('--web', action='store_true',
                        help='Webダッシュボードモード: ブラウザでリアルタイム表示（デフォルト）')
     parser.add_argument('--version', action='version', version='Day Trade Personal v1.0')
+    parser.add_argument('--train-overnight-model', action='store_true',
+                       help='【開発者用】翌朝場予測の機械学習モデルを再学習します')
 
     return parser.parse_args()
 
@@ -1172,7 +1145,7 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
             except Exception as e:
                 print(f"包括的パフォーマンス追跡でエラーが発生: {e}")
 
-        # \u30a2\u30e9\u30fc\u30c8機能はWebダッシュボードで統合表示
+        # アラート機能はWebダッシュボードで統合表示
 
         # 高度技術指標・分析手法拡張システム
         if hasattr(engine, 'advanced_technical_mode') and engine.advanced_technical_mode:
@@ -1305,8 +1278,8 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
 
         # チャート生成（オプション）
         if generate_chart:
-            print()
-            print()
+            print() 
+            print() 
             print("[チャート] 複数銘柄分析グラフ生成中...")
             print()
             print()
@@ -1417,7 +1390,7 @@ def show_analysis_history() -> bool:
         print(f"最高スコア: {summary['analysis_stats']['best_score']:.1f}点")
         print(f"平均処理時間: {summary['analysis_stats']['avg_time']:.1f}秒")
 
-        # \u30a2\u30e9\u30fc\u30c8統計は削除（Webダッシュボード統合）
+        # アラート統計は削除（Webダッシュボード統合）
 
         return True
 
@@ -1427,9 +1400,9 @@ def show_analysis_history() -> bool:
 
 
 def show_alerts() -> bool:
-    """\u30a2\u30e9\u30fc\u30c8表示・管理"""
+    """アラート表示・管理"""
     if not HISTORY_AVAILABLE:
-        print("\u30a2\u30e9\u30fc\u30c8機能が利用できません")
+        print("アラート機能が利用できません")
         print("pip install pandas でpandasをインストールしてください")
         return False
 
@@ -1438,17 +1411,17 @@ def show_alerts() -> bool:
         alert_system = PersonalAlertSystem(history)
 
         print("\n" + "="*50)
-        print("\u30a2\u30e9\u30fc\u30c8管理")
+        print("アラート管理")
         print("="*50)
 
-        # \u30a2\u30e9\u30fc\u30c8表示
+        # アラート表示
         alert_system.display_alerts()
 
-        # \u30a2\u30e9\u30fc\u30c8確認オプション
+        # アラート確認オプション
         alerts = history.get_unread_alerts()
         if alerts:
             print("\n[選択肢]")
-            print("1. 全ての\u30a2\u30e9\u30fc\u30c8を既読にする")
+            print("1. 全てのアラートを既読にする")
             print("2. そのまま終了")
 
             try:
@@ -1456,14 +1429,14 @@ def show_alerts() -> bool:
                 if choice == "1":
                     alert_system.acknowledge_all_alerts()
                 else:
-                    print("\u30a2\u30e9\u30fc\u30c8は未読のままです")
+                    print("アラートは未読のままです")
             except KeyboardInterrupt:
                 print("\n操作をキャンセルしました")
 
         return True
 
     except Exception as e:
-        print(f"\u30a2\u30e9\u30fc\u30c8表示エラー: {e}")
+        print(f"アラート表示エラー: {e}")
         return False
 
 
@@ -1491,7 +1464,7 @@ async def run_daytrading_mode() -> bool:
 
         # モデル性能監視を開始
         monitor = ModelPerformanceMonitor()
-        await monitor.check_and_trigger_retraining()
+        await monitor.check_and_trigger_enhanced_retraining()
 
         # ステップ1: 現在の市場セッション確認
         progress.show_step("市場セッション確認", 1)
@@ -1543,7 +1516,7 @@ async def run_daytrading_mode() -> bool:
             print(f"\n{i}. {rec.symbol} ({rec.name})")
             print(f"   シグナル: {signal_display}")
             print(f"   エントリー: {rec.entry_timing}")
-            print(f"   目標\u5229\u78ba: +{rec.target_profit}% / 損切り: -{rec.stop_loss}%")
+            print(f"   目標利確: +{rec.target_profit}% / 損切り: -{rec.stop_loss}%")
             print(f"   保有時間: {rec.holding_time}")
             print(f"   信頼度: {rec.confidence:.0f}% | リスク: {risk_display}")
             print(f"   出来高動向: {rec.volume_trend}")
@@ -1581,7 +1554,7 @@ async def run_daytrading_mode() -> bool:
 
                 analysis_id = history.save_analysis_result(history_data)
 
-                # \u30a2\u30e9\u30fc\u30c8機能は削除（Webダッシュボード統合）
+                # アラート機能は削除（Webダッシュボード統合）
 
             except Exception as e:
                 print(f"[注意] 履歴保存エラー: {e}")
@@ -1602,7 +1575,8 @@ async def run_daytrading_mode() -> bool:
 
             # 夜間予測情報を追加取得
             try:
-                await self._display_overnight_prediction()
+                analysis_engine = PersonalAnalysisEngine()
+                await analysis_engine._display_overnight_prediction()
             except Exception as e:
                 print(f"[情報] 夜間予測データ取得中: {e}")
         else:
@@ -1997,7 +1971,6 @@ class DayTradeWebDashboard:
             # 現状、daytrade.pyは単一のモデルを扱っていると仮定し、
             # 簡易的に「最新の分析対象銘柄」を再学習対象とする
             # より堅牢なシステムでは、性能低下した特定のモデルを特定し、そのシンボルを渡す
-
             # 仮のシンボルとして、最も最近分析されたシンボルを使用
             # または、設定ファイルからデフォルトのシンボルを取得
             # ここでは、簡易的に"7203"を対象とする
@@ -2504,7 +2477,7 @@ class DayTradeWebDashboard:
             background: linear-gradient(90deg, #ff4757, #ff6b7d);
         }
 
-        /* \u30a2\u30e9\u30fc\u30c8 */
+        /* アラート */
         .alert {
             position: fixed;
             top: 20px;
@@ -2604,7 +2577,7 @@ class DayTradeWebDashboard:
             opacity: 0.8;
         }
 
-        /* \u30e1\u30e2モーダル */
+        /* メモモーダル */
         .modal {
             display: none;
             position: fixed;
@@ -3032,7 +3005,7 @@ class DayTradeWebDashboard:
         let autoRefreshEnabled = true;
         let refreshInterval;
         let previousPrices = {}; // 前回の価格を保存
-        let priceAlerts = JSON.parse(localStorage.getItem('priceAlerts') || '{}'); // 価格\u30a2\u30e9\u30fc\u30c8
+        let priceAlerts = JSON.parse(localStorage.getItem('priceAlerts') || '{}'); // 価格アラート
         let favorites = JSON.parse(localStorage.getItem('favorites') || '[]'); // お気に入り銘柄
         let originalData = []; // フィルター・ソート用の元データ
         let currentSortField = 'rank';
@@ -3100,7 +3073,7 @@ class DayTradeWebDashboard:
             return 'price-neutral';
         }
 
-        // \u30a2\u30e9\u30fc\u30c8表示機能
+        // アラート表示機能
         function showAlert(message, type = 'success') {
             const alert = document.createElement('div');
             alert.className = 'alert alert-' + type;
@@ -3121,25 +3094,25 @@ class DayTradeWebDashboard:
             const isProfit = currentPrice > openingPrice;
             const progressClass = isProfit ? 'progress-profit' : 'progress-loss';
 
-            return '<div class="progress-bar">' +
-                '<div class="progress-fill ' + progressClass + '" style="width: ' + progressPercent + '%"></div>' +
+            return '<div class="progress-bar">' + 
+                '<div class="progress-fill ' + progressClass + '" style="width: ' + progressPercent + '%"></div>' + 
             '</div>';
         }
 
-        // \u30a2\u30e9\u30fc\u30c8監視機能
+        // アラート監視機能
         function checkPriceAlerts(rec, previousPrice) {
             if (!previousPrice || !rec.current_price) return;
 
             const changePercent = Math.abs((rec.current_price - previousPrice) / previousPrice * 100);
 
-            // 大幅な価格変動\u30a2\u30e9\u30fc\u30c8
+            // 大幅な価格変動アラート
             if (changePercent > 2) {
                 const direction = rec.current_price > previousPrice ? '急上昇' : '急下落';
                 showAlert(rec.symbol + ' ' + rec.name + ' が' + direction + 'しています！ (' + changePercent.toFixed(1) + '%)',
                          rec.current_price > previousPrice ? 'success' : 'danger');
             }
 
-            // 利確・損切ライン接近\u30a2\u30e9\u30fc\u30c8
+            // 利確・損切ライン接近アラート
             if (rec.opening_price) {
                 const profitTarget = rec.opening_price * (1 + rec.target_profit / 100);
                 const stopLoss = rec.opening_price * (1 - rec.stop_loss / 100);
@@ -3170,7 +3143,7 @@ class DayTradeWebDashboard:
                 return;
             }
 
-            const targetPrice = prompt(symbol + " " + name + " Alert price:\\n(Current: ¥" + currentPrice.toFixed(0) + ")");
+            const targetPrice = prompt(symbol + " " + name + " Alert price:\n(Current: ¥" + currentPrice.toFixed(0) + ")");
             if (targetPrice && !isNaN(targetPrice)) {
                 priceAlerts[symbol] = {
                     name: name,
@@ -3179,19 +3152,19 @@ class DayTradeWebDashboard:
                     timestamp: new Date().toISOString()
                 };
                 localStorage.setItem('priceAlerts', JSON.stringify(priceAlerts));
-                showAlert(symbol + " の\u30a2\u30e9\u30fc\u30c8を設定しました (¥" + targetPrice + ")", 'success');
+                showAlert(symbol + " のアラートを設定しました (¥" + targetPrice + ")", 'success');
             }
         }
 
 
-        // 価格\u30a2\u30e9\u30fc\u30c8チェック機能を拡張
+        // 価格アラートチェック機能を拡張
         function checkCustomAlerts() {
             Object.keys(priceAlerts).forEach(function(symbol) {
                 const alert = priceAlerts[symbol];
                 const currentPrice = previousPrices[symbol];
 
                 if (currentPrice && Math.abs(currentPrice - alert.targetPrice) <= alert.targetPrice * 0.01) {
-                    showAlert(symbol + ' ' + alert.name + ' が\u30a2\u30e9\u30fc\u30c8価格に到達！ (目標: ¥' + alert.targetPrice.toFixed(0) + ', \u73fe\u5728: ¥' + currentPrice.toFixed(0) + ')', 'warning');
+                    showAlert(symbol + ' ' + alert.name + ' がアラート価格に到達！ (目標: ¥' + alert.targetPrice.toFixed(0) + ', 現在: ¥' + currentPrice.toFixed(0) + ')', 'warning');
                     delete priceAlerts[symbol];
                     localStorage.setItem('priceAlerts', JSON.stringify(priceAlerts));
                 }
@@ -3354,10 +3327,10 @@ class DayTradeWebDashboard:
 
             const newsContainer = document.getElementById('newsContainer');
             newsContainer.innerHTML = sampleNews.map(function(news) {
-                return '<div class="news-item">' +
-                    '<div class="news-title">' + news.title + '</div>' +
-                    '<div class="news-content">' + news.content + '</div>' +
-                    '<div class="news-meta">' + news.time + ' | ' + news.source + '</div>' +
+                return '<div class="news-item">' + 
+                    '<div class="news-title">' + news.title + '</div>' + 
+                    '<div class="news-content">' + news.content + '</div>' + 
+                    '<div class="news-meta">' + news.time + ' | ' + news.source + '</div>' + 
                     '</div>';
             }).join('');
         }
@@ -3378,28 +3351,28 @@ class DayTradeWebDashboard:
             const totalProfit = historyData.reduce(function(sum, day) { return sum + day.profit; }, 0);
 
             const performanceContainer = document.getElementById('performanceHistory');
-            performanceContainer.innerHTML =
-                '<div class="performance-summary" style="margin-bottom: 20px;">' +
-                    '<div class="performance-metric">' +
-                        '<span class="metric-name">平均予測精度 (5日間)</span>' +
-                        '<span class="metric-value">' + avgAccuracy.toFixed(1) + '%</span>' +
-                    '</div>' +
-                    '<div class="performance-metric">' +
-                        '<span class="metric-name">総取引数</span>' +
-                        '<span class="metric-value">' + totalTrades + '回</span>' +
-                    '</div>' +
-                    '<div class="performance-metric">' +
-                        '<span class="metric-name">累計収益率</span>' +
-                        '<span class="metric-value">+' + totalProfit.toFixed(1) + '%</span>' +
-                    '</div>' +
-                '</div>' +
-                '<div class="history-details">' +
+            performanceContainer.innerHTML = 
+                '<div class="performance-summary" style="margin-bottom: 20px;">' + 
+                    '<div class="performance-metric">' + 
+                        '<span class="metric-name">平均予測精度 (5日間)</span>' + 
+                        '<span class="metric-value">' + avgAccuracy.toFixed(1) + '%</span>' + 
+                    '</div>' + 
+                    '<div class="performance-metric">' + 
+                        '<span class="metric-name">総取引数</span>' + 
+                        '<span class="metric-value">' + totalTrades + '回</span>' + 
+                    '</div>' + 
+                    '<div class="performance-metric">' + 
+                        '<span class="metric-name">累計収益率</span>' + 
+                        '<span class="metric-value">+' + totalProfit.toFixed(1) + '%</span>' + 
+                    '</div>' + 
+                '</div>' + 
+                '<div class="history-details">' + 
                     historyData.map(function(day) {
-                        return '<div class="performance-metric">' +
-                            '<span class="metric-name">' + day.date + '</span>' +
-                            '<span class="metric-value">精度:' + day.accuracy + '% 取引:' + day.trades + '回 収益:+' + day.profit + '%</span>' +
+                        return '<div class="performance-metric">' + 
+                            '<span class="metric-name">' + day.date + '</span>' + 
+                            '<span class="metric-value">精度:' + day.accuracy + '% 取引:' + day.trades + '回 収益:+' + day.profit + '%</span>' + 
                         '</div>';
-                    }).join('') +
+                    }).join('') + 
                 '</div>';
         }
 
@@ -3500,22 +3473,22 @@ class DayTradeWebDashboard:
 
             const metricsGrid = document.getElementById('metricsGrid');
             const summary = data.summary;
-            metricsGrid.innerHTML =
-                '<div class="metric-card">' +
-                    '<div class="metric-value strong-buy">' + summary.strong_buy_count + '</div>' +
-                    '<div class="metric-label">★強い買い★</div>' +
-                '</div>' +
-                '<div class="metric-card">' +
-                    '<div class="metric-value buy">' + summary.buy_count + '</div>' +
-                    '<div class="metric-label">●買い●</div>' +
-                '</div>' +
-                '<div class="metric-card">' +
-                    '<div class="metric-value sell">' + summary.sell_count + '</div>' +
-                    '<div class="metric-label">▽売り▽</div>' +
-                '</div>' +
-                '<div class="metric-card">' +
-                    '<div class="metric-value hold">' + summary.hold_count + '</div>' +
-                    '<div class="metric-label">■待機/ホールド■</div>' +
+            metricsGrid.innerHTML = 
+                '<div class="metric-card">' + 
+                    '<div class="metric-value strong-buy">' + summary.strong_buy_count + '</div>' + 
+                    '<div class="metric-label">★強い買い★</div>' + 
+                '</div>' + 
+                '<div class="metric-card">' + 
+                    '<div class="metric-value buy">' + summary.buy_count + '</div>' + 
+                    '<div class="metric-label">●買い●</div>' + 
+                '</div>' + 
+                '<div class="metric-card">' + 
+                    '<div class="metric-value sell">' + summary.sell_count + '</div>' + 
+                    '<div class="metric-label">▽売り▽</div>' + 
+                '</div>' + 
+                '<div class="metric-card">' + 
+                    '<div class="metric-value hold">' + summary.hold_count + '</div>' + 
+                    '<div class="metric-label">■待機/ホールド■</div>' + 
                 '</div>';
         }
 
@@ -3534,7 +3507,7 @@ class DayTradeWebDashboard:
                 const previousPrice = previousPrices[rec.symbol];
                 const priceChangeClass = getPriceChangeClass(rec.current_price, previousPrice);
 
-                // \u30a2\u30e9\u30fc\u30c8チェック
+                // アラートチェック
                 checkPriceAlerts(rec, previousPrice);
                 checkCustomAlerts();
 
@@ -3550,31 +3523,31 @@ class DayTradeWebDashboard:
                     const priceChange = rec.current_price - rec.opening_price;
                     const progressBar = createProgressBar(rec.current_price, rec.opening_price, profitTarget, stopLoss);
 
-                    priceInfo = '<div class="price-info">' +
-                        '<div><small>\u59cb\u5024:</small> \u00a5' + rec.opening_price.toFixed(0) + '</div>' +
-                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>\u73fe\u5728:</strong> \u00a5' + rec.current_price.toFixed(0) + ' (' + (priceChange >= 0 ? '+' : '') + priceChange.toFixed(0) + ')</div>' +
-                        progressBar +
-                        '<div class="profit-target"><small>\u5229\u78ba:</small> \u00a5' + profitTarget.toFixed(0) + '</div>' +
-                        '<div class="stop-loss"><small>\u640d\u5207:</small> \u00a5' + stopLoss.toFixed(0) + '</div>' +
-                        '<div class="trading-actions">' +
-                            '<button class="action-btn btn-order" onclick="openOrderLink(\\'' + rec.symbol.replace(/'/g, '&#39;') + '\\', \\'' + rec.name.replace(/'/g, '&#39;') + '\\')">楽天で注文</button>' +
-                            '<button class="action-btn btn-alert" onclick="setAlert(\\'' + rec.symbol.replace(/'/g, '&#39;') + '\\', \\'' + rec.name.replace(/'/g, '&#39;') + '\\')">\u30a2\u30e9\u30fc\u30c8</button>' +
-                        '</div>' +
+                    priceInfo = '<div class="price-info">' + 
+                        '<div><small>始値:</small> ¥' + rec.opening_price.toFixed(0) + '</div>' + 
+                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + ' (' + (priceChange >= 0 ? '+' : '') + priceChange.toFixed(0) + ')</div>' + 
+                        progressBar + 
+                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' + 
+                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' + 
+                        '<div class="trading-actions">' + 
+                            '<button class="action-btn btn-order" onclick="openOrderLink(\'' + rec.symbol.replace(/'/g, '&#39;') + '\', \'' + rec.name.replace(/'/g, '&#39;') + '\')">楽天で注文</button>' + 
+                            '<button class="action-btn btn-alert" onclick="setAlert(\'' + rec.symbol.replace(/'/g, '&#39;') + '\', \'' + rec.name.replace(/'/g, '&#39;') + '\')">アラート</button>' + 
+                        '</div>' + 
                         '</div>';
                 } else if (rec.current_price) {
                     const profitTarget = rec.current_price * (1 + rec.target_profit / 100);
                     const stopLoss = rec.current_price * (1 - rec.stop_loss / 100);
                     const progressBar = createProgressBar(rec.current_price, rec.current_price, profitTarget, stopLoss);
 
-                    priceInfo = '<div class="price-info">' +
-                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>\u73fe\u5728:</strong> ¥' + rec.current_price.toFixed(0) + '</div>' +
-                        progressBar +
-                        '<div class="profit-target"><small>\u5229\u78ba:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
-                        '<div class="stop-loss"><small>\u640d\u5207:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
-                        '<div class="trading-actions">' +
-                            '<button class="action-btn btn-order" onclick="openOrderLink(\\'' + rec.symbol.replace(/'/g, '&#39;') + '\\', \\'' + rec.name.replace(/'/g, '&#39;') + '\\')">楽天で注文</button>' +
-                            '<button class="action-btn btn-alert" onclick="setAlert(\\'' + rec.symbol.replace(/'/g, '&#39;') + '\\', \\'' + rec.name.replace(/'/g, '&#39;') + '\\')">\u30a2\u30e9\u30fc\u30c8</button>' +
-                        '</div>' +
+                    priceInfo = '<div class="price-info">' + 
+                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + '</div>' + 
+                        progressBar + 
+                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' + 
+                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' + 
+                        '<div class="trading-actions">' + 
+                            '<button class="action-btn btn-order" onclick="openOrderLink(\'' + rec.symbol.replace(/'/g, '&#39;') + '\', \'' + rec.name.replace(/'/g, '&#39;') + '\')">楽天で注文</button>' + 
+                            '<button class="action-btn btn-alert" onclick="setAlert(\'' + rec.symbol.replace(/'/g, '&#39;') + '\', \'' + rec.name.replace(/'/g, '&#39;') + '\')">アラート</button>' + 
+                        '</div>' + 
                         '</div>';
                 } else {
                     priceInfo = '<div class="price-info">N/A</div>';
@@ -3583,19 +3556,19 @@ class DayTradeWebDashboard:
                 const isFavorite = favorites.includes(rec.symbol);
                 const favoriteIcon = isFavorite ? '⭐' : '☆';
 
-                return '<tr>' +
-                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(\\'' + rec.symbol.replace(/'/g, '&#39;') + '\\')">' + favoriteIcon + '</span></td>' +
-                    '<td><strong>' + rec.rank + '</strong></td>' +
-                    '<td><strong>' + rec.symbol + '</strong></td>' +
-                    '<td>' + rec.name + '</td>' +
-                    '<td>' + priceInfo + '</td>' +
-                    '<td><span class="signal-badge signal-' + getSignalClass(rec.signal) + '">' + rec.signal + '</span></td>' +
-                    '<td>' + rec.confidence.toFixed(0) + '%</td>' +
-                    '<td>' + rec.entry_timing + '</td>' +
-                    '<td>' +
-                        '<span class="ml-source-badge ml-' + rec.ml_source + '">' + (rec.ml_source === 'advanced_ml' ? '高度AI' : '基本AI') + '</span>' +
-                        (rec.backtest_score && rec.backtest_score > 0 ? '<br><small>過去' + Math.round(rec.backtest_score) + '%</small>' : '') +
-                    '</td>' +
+                return '<tr>' + 
+                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(\'' + rec.symbol.replace(/'/g, '&#39;') + '\')">' + favoriteIcon + '</span></td>' + 
+                    '<td><strong>' + rec.rank + '</strong></td>' + 
+                    '<td><strong>' + rec.symbol + '</strong></td>' + 
+                    '<td>' + rec.name + '</td>' + 
+                    '<td>' + priceInfo + '</td>' + 
+                    '<td><span class="signal-badge signal-' + getSignalClass(rec.signal) + '">' + rec.signal + '</span></td>' + 
+                    '<td>' + rec.confidence.toFixed(0) + '%</td>' + 
+                    '<td>' + rec.entry_timing + '</td>' + 
+                    '<td>' + 
+                        '<span class="ml-source-badge ml-' + rec.ml_source + '">' + (rec.ml_source === 'advanced_ml' ? '高度AI' : '基本AI') + '</span>' + 
+                        (rec.backtest_score && rec.backtest_score > 0 ? '<br><small>過去' + Math.round(rec.backtest_score) + '%</small>' : '') + 
+                    '</td>' + 
                 '</tr>';
             }).join('');
         }
@@ -3813,7 +3786,7 @@ async def main():
         # 履歴表示モード
         if args.history:
             success = show_analysis_history()
-        # \u30a2\u30e9\u30fc\u30c8表示モード
+        # アラート表示モード
         elif args.alerts:
             success = show_alerts()
         # 複数銘柄分析モード
@@ -3855,4 +3828,18 @@ async def main():
 
 
 if __name__ == "__main__":
+    # 引数に --train-overnight-model があれば学習を実行
+    if '--train-overnight-model' in sys.argv:
+        print("--- 翌朝場予測モデルの学習を開始します ---")
+        try:
+            from overnight_prediction_model import OvernightPredictionModel
+            model = OvernightPredictionModel()
+            asyncio.run(model.train())
+            print("--- 学習が完了しました ---")
+        except ImportError:
+            print("[ERROR] overnight_prediction_model.py が見つかりません。")
+        except Exception as e:
+            print(f"[ERROR] 学習中にエラーが発生しました: {e}")
+        sys.exit(0)
+
     asyncio.run(main())
