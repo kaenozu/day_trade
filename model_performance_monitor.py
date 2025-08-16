@@ -768,6 +768,21 @@ class EnhancedModelPerformanceMonitor:
                 affected_symbols=list(symbol_performances.keys())
             )
 
+        # 段階的再学習が有効で部分的再学習の場合、銘柄別分析を実行
+        target_symbols = symbols
+        if (retraining_scope == "partial" and
+            self.config.get('retraining', {}).get('granular_mode', True)):
+
+            symbol_performances = await self._analyze_symbol_specific_performance(symbols)
+            underperforming_symbols = self._identify_underperforming_symbols(symbol_performances)
+
+            if underperforming_symbols:
+                target_symbols = underperforming_symbols
+                logger.info(f"対象を絞り込みました: {len(target_symbols)}銘柄")
+            else:
+                logger.info("性能不足銘柄が見つからないため、全体再学習に変更します")
+                retraining_scope = "standard"
+
         # 冷却期間チェック
         if not self.retraining_manager.check_cooldown_period(retraining_scope):
             logger.info(f"{retraining_scope.value}再学習は冷却期間中のためスキップします")
@@ -782,6 +797,7 @@ class EnhancedModelPerformanceMonitor:
             retraining_scope, symbol_performances
         )
 
+
         # 結果をデータベースに記録
         await self._record_enhanced_retraining_result(
             result
@@ -793,11 +809,99 @@ class EnhancedModelPerformanceMonitor:
 
         return result
 
-    async def _execute_enhanced_retraining(
-            self, scope: RetrainingScope,
-            symbol_performances: Dict[str, PerformanceMetrics]
-    ) -> RetrainingResult:
-        """改善版再学習の実行"""
+    def _determine_retraining_scope(self, performance: PerformanceMetrics) -> str:
+        """再学習の範囲を決定"""
+        accuracy = performance.accuracy
+
+        # グローバル閾値チェック
+        global_threshold = self.config.get('retraining', {}).get('global_threshold', 85.0)
+        if accuracy < global_threshold:
+            return "global"
+
+        # 段階的再学習が有効な場合
+        if self.config.get('retraining', {}).get('granular_mode', True):
+            symbol_threshold = self.config.get('retraining', {}).get('symbol_specific_threshold', 80.0)
+            if accuracy < symbol_threshold:
+                return "partial"
+
+        # 基本的な精度閾値
+        if accuracy < self.thresholds.get('accuracy', 90.0):
+            return "standard"
+
+        return "none"
+
+    async def _analyze_symbol_specific_performance(self, symbols: List[str]) -> Dict[str, float]:
+        """
+        銘柄別性能分析
+
+        Args:
+            symbols: 分析対象銘柄リスト
+
+        Returns:
+            銘柄別性能スコア辞書
+        """
+        symbol_performances = {}
+
+        if not self.accuracy_validator:
+            logger.warning("PredictionAccuracyValidatorが利用できません")
+            return symbol_performances
+
+        try:
+            # 各銘柄の個別性能を評価
+            for symbol in symbols:
+                try:
+                    metrics = await self.accuracy_validator.validate_current_system_accuracy(
+                        [symbol], self.validation_hours
+                    )
+                    symbol_performances[symbol] = metrics.overall_accuracy
+
+                except Exception as e:
+                    logger.warning(f"銘柄{symbol}の性能評価に失敗: {e}")
+                    symbol_performances[symbol] = 0.0
+
+            logger.info(f"銘柄別性能分析完了: {len(symbol_performances)}銘柄")
+            return symbol_performances
+
+        except Exception as e:
+            logger.error(f"銘柄別性能分析エラー: {e}")
+            return symbol_performances
+
+    def _identify_underperforming_symbols(self, symbol_performances: Dict[str, float]) -> List[str]:
+        """
+        性能不足銘柄の特定
+
+        Args:
+            symbol_performances: 銘柄別性能辞書
+
+        Returns:
+            性能不足銘柄リスト
+        """
+        threshold = self.thresholds.get('accuracy', 90.0)
+        underperforming = [
+            symbol for symbol, performance in symbol_performances.items()
+            if performance < threshold
+        ]
+
+        logger.info(f"性能不足銘柄を特定: {len(underperforming)}銘柄 (閾値: {threshold}%)")
+        if underperforming:
+            logger.info(f"対象銘柄: {', '.join(underperforming)}")
+
+        return underperforming
+
+    def _check_cooldown_period(self, scope: str) -> bool:
+        """冷却期間のチェック"""
+        cooldown_hours = self.config.get('retraining', {}).get('cooldown_hours', 24)
+
+        last_time = self.last_retraining.get(scope)
+        if last_time is None:
+            return True
+
+        elapsed = datetime.now() - last_time
+        return elapsed.total_seconds() > (cooldown_hours * 3600)
+
+    async def _execute_retraining(self, scope: str, symbols: List[str],
+                                performance: PerformanceMetrics) -> RetrainingResult:
+        """再学習の実行"""
         if not ml_upgrade_system:
             return RetrainingResult(
                 triggered=False,

@@ -111,10 +111,23 @@ class PredictionTask(Enum):
     TREND_STRENGTH = "トレンド強度予測"   # トレンドの強さ
 
 @dataclass
+class ModelMetadata:
+    """モデルメタデータ"""
+    model_id: str
+    model_type: ModelType
+    task: PredictionTask
+    symbol: str
+    version: str
+    created_at: datetime
+    parameters: Dict[str, Any]
+    feature_columns: List[str]
+    target_info: Dict[str, Any]
+    training_samples: int
+
+@dataclass
 class ModelPerformance:
     """モデル性能"""
-    model_name: str
-    task: PredictionTask
+    model_id: str
     accuracy: float
     precision: float
     recall: float
@@ -125,6 +138,7 @@ class ModelPerformance:
     confusion_matrix: np.ndarray
     training_time: float
     prediction_time: float
+    validation_metrics: Dict[str, float] = field(default_factory=dict)
 
 @dataclass
 class ModelMetadata:
@@ -239,7 +253,6 @@ class BaseModelTrainer:
         cv_strategy = TimeSeriesSplit(n_splits=cv_folds)
         return cross_val_score(model, X, y, cv=cv_strategy, scoring=scoring)
 
-
 class MLPredictionModels:
     """機械学習予測モデルシステム"""
 
@@ -302,16 +315,42 @@ class MLPredictionModels:
                     'n_jobs': -1,
                     'eval_metric': 'rmse'
                 }
+            },
+            ModelType.LIGHTGBM: {
+                'classifier_params': {
+                    'n_estimators': 200,
+                    'max_depth': 10,
+                    'learning_rate': 0.1,
+                    'random_state': 42,
+                    'n_jobs': -1,
+                    'verbose': -1
+                },
+                'regressor_params': {
+                    'n_estimators': 200,
+                    'max_depth': 10,
+                    'learning_rate': 0.1,
+                    'random_state': 42,
+                    'n_jobs': -1,
+                    'verbose': -1
+                }
             }
         }
 
         # 訓練済みモデル
         self.trained_models = {}
-        self.scalers = {}
         self.label_encoders = {}
 
-        # パフォーマンス記録
-        self.model_performances = {}
+        # メタデータ管理
+        self.metadata_manager = ModelMetadataManager(self.data_dir / "ml_predictions.db")
+
+        # モデル訓練器
+        self.trainers = {
+            ModelType.RANDOM_FOREST: RandomForestTrainer(ModelType.RANDOM_FOREST, self.model_configs[ModelType.RANDOM_FOREST]),
+            ModelType.XGBOOST: XGBoostTrainer(ModelType.XGBOOST, self.model_configs[ModelType.XGBOOST]) if XGBOOST_AVAILABLE else None,
+            ModelType.LIGHTGBM: LightGBMTrainer(ModelType.LIGHTGBM, self.model_configs[ModelType.LIGHTGBM]) if LIGHTGBM_AVAILABLE else None
+        }
+        # Noneを除去
+        self.trainers = {k: v for k, v in self.trainers.items() if v is not None}
 
         # アンサンブル重み（性能ベース）
         self.ensemble_weights = {}
@@ -322,6 +361,9 @@ class MLPredictionModels:
         # データベース初期化
         self.db_path = self.data_dir / "ml_predictions.db"
         self._init_database()
+
+        # データ準備パイプライン
+        self.data_pipeline = DataPreparationPipeline()
 
         self.logger.info("ML prediction models initialized")
 
@@ -970,352 +1012,7 @@ class MLPredictionModels:
 
         return performances
 
-    async def _train_random_forest(self, X: pd.DataFrame, targets: Dict[PredictionTask, pd.Series],
-                                 symbol: str, valid_idx: pd.Index, optimized_params: Optional[Dict[str, Any]] = None) -> Dict[PredictionTask, ModelPerformance]:
-        """Random Forest訓練"""
 
-        performances = {}
-
-        for task, target_series in targets.items():
-            if task not in [PredictionTask.PRICE_DIRECTION, PredictionTask.PRICE_REGRESSION]:
-                continue
-
-            self.logger.info(f"Training Random Forest for {task.value}")
-
-            start_time = datetime.now()
-
-            # ターゲット準備
-            y = target_series.loc[valid_idx].dropna()
-            X_clean = X.loc[y.index]
-
-            self.logger.info(f"Sample count for {task.value}: {len(y)}")
-
-            if len(y) < 20:  # 最小サンプル数チェック（現実的な値に調整）
-                self.logger.warning(f"Insufficient samples for {task.value}: {len(y)} < 20")
-                continue
-
-            # 訓練・テスト分割
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_clean, y, test_size=0.3, random_state=42,
-                stratify=y if task == PredictionTask.PRICE_DIRECTION else None
-            )
-
-            try:
-                if task == PredictionTask.PRICE_DIRECTION:
-                    # 分類モデル
-                    model_params = self.model_configs[ModelType.RANDOM_FOREST]['classifier_params']
-                    if optimized_params and ModelType.RANDOM_FOREST.value in optimized_params:
-                        model_params.update(optimized_params[ModelType.RANDOM_FOREST.value].get(task.value, {})) # .get(task.value, {})を追加
-                    model = RandomForestClassifier(**model_params)
-
-                    # ラベルエンコーダー
-                    le = LabelEncoder()
-                    y_train_encoded = le.fit_transform(y_train)
-                    y_test_encoded = le.transform(y_test)
-
-                    model.fit(X_train, y_train_encoded)
-                    y_pred = model.predict(X_test)
-
-                    # 性能計算
-                    accuracy = accuracy_score(y_test_encoded, y_pred)
-                    report = classification_report(y_test_encoded, y_pred, output_dict=True)
-                    cm = confusion_matrix(y_test_encoded, y_pred)
-
-                    # クロスバリデーション
-                    cv_scores = cross_val_score(model, X_train, y_train_encoded,
-                                              cv=TimeSeriesSplit(n_splits=5), scoring='accuracy')
-
-                    # 特徴量重要度
-                    feature_importance = dict(zip(X_train.columns, model.feature_importances_))
-
-                    # モデル保存
-                    model_key = f"{symbol}_{task.value}_{ModelType.RANDOM_FOREST.value}"
-                    self.trained_models[model_key] = model
-                    self.label_encoders[model_key] = le
-                    self._save_model(model, model_key, le)
-
-                    performance = ModelPerformance(
-                        model_name=f"RandomForest_{task.value}",
-                        task=task,
-                        accuracy=accuracy,
-                        precision=report['weighted avg']['precision'],
-                        recall=report['weighted avg']['recall'],
-                        f1_score=report['weighted avg']['f1-score'],
-                        cross_val_mean=cv_scores.mean(),
-                        cross_val_std=cv_scores.std(),
-                        feature_importance=feature_importance,
-                        confusion_matrix=cm,
-                        training_time=(datetime.now() - start_time).total_seconds(),
-                        prediction_time=0.0
-                    )
-
-                    performances[task] = performance
-
-                else:  # PredictionTask.PRICE_REGRESSION
-                    # 回帰モデル
-                    model_params = self.model_configs[ModelType.RANDOM_FOREST]['regressor_params']
-                    if optimized_params and ModelType.RANDOM_FOREST.value in optimized_params:
-                        model_params.update(optimized_params[ModelType.RANDOM_FOREST.value].get(task.value, {}))
-                    model = RandomForestRegressor(**model_params)
-
-                    model.fit(X_train, y_train)
-                    y_pred = model.predict(X_test)
-
-                    # 性能計算
-                    mse = mean_squared_error(y_test, y_pred)
-                    rmse = np.sqrt(mse)
-                    r2 = r2_score(y_test, y_pred)
-
-                    # クロスバリデーション
-                    cv_scores = cross_val_score(model, X_train, y_train,
-                                              cv=TimeSeriesSplit(n_splits=5), scoring='r2')
-
-                    # 特徴量重要度
-                    feature_importance = dict(zip(X_train.columns, model.feature_importances_))
-
-                    # モデル保存
-                    model_key = f"{symbol}_{task.value}_{ModelType.RANDOM_FOREST.value}"
-                    self.trained_models[model_key] = model
-                    self._save_model(model, model_key)
-
-                    performance = ModelPerformance(
-                        model_name=f"RandomForest_{task.value}",
-                        task=task,
-                        accuracy=r2,  # 回帰ではR²を精度として使用
-                        precision=1.0 - (rmse / y_test.std()),  # 正規化RMSE
-                        recall=0.0,
-                        f1_score=0.0,
-                        cross_val_mean=cv_scores.mean(),
-                        cross_val_std=cv_scores.std(),
-                        feature_importance=feature_importance,
-                        confusion_matrix=np.array([]),
-                        training_time=(datetime.now() - start_time).total_seconds(),
-                        prediction_time=0.0
-                    )
-
-                    performances[task] = performance
-
-            except Exception as e:
-                self.logger.error(f"Random Forest training failed for {task.value}: {e}")
-
-        return performances
-
-    async def _train_xgboost(self, X: pd.DataFrame, targets: Dict[PredictionTask, pd.Series],
-                           symbol: str, valid_idx: pd.Index, optimized_params: Optional[Dict[str, Any]] = None) -> Dict[PredictionTask, ModelPerformance]:
-        """XGBoost訓練"""
-
-        performances = {}
-
-        for task, target_series in targets.items():
-            if task not in [PredictionTask.PRICE_DIRECTION, PredictionTask.PRICE_REGRESSION]:
-                continue
-
-            self.logger.info(f"Training XGBoost for {task.value}")
-
-            start_time = datetime.now()
-
-            # ターゲット準備
-            y = target_series.loc[valid_idx].dropna()
-            X_clean = X.loc[y.index]
-
-            self.logger.info(f"XGBoost sample count for {task.value}: {len(y)}")
-
-            if len(y) < 20:
-                self.logger.warning(f"XGBoost insufficient samples for {task.value}: {len(y)} < 20")
-                continue
-
-            # 訓練・テスト分割
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_clean, y, test_size=0.3, random_state=42,
-                stratify=y if task == PredictionTask.PRICE_DIRECTION else None
-            )
-
-            try:
-                if task == PredictionTask.PRICE_DIRECTION:
-                    # 分類モデル
-                    # XGBoostは-1, 0, 1を0, 1, 2にマッピング
-                    le = LabelEncoder()
-                    y_train_encoded = le.fit_transform(y_train)
-                    y_test_encoded = le.transform(y_test)
-
-                    model_params = self.model_configs[ModelType.XGBOOST]['classifier_params']
-                    if optimized_params and ModelType.XGBOOST.value in optimized_params:
-                        model_params.update(optimized_params[ModelType.XGBOOST.value].get(task.value, {}))
-                    model = xgb.XGBClassifier(**model_params)
-
-                    model.fit(X_train, y_train_encoded)
-                    y_pred = model.predict(X_test)
-
-                    # 性能計算
-                    accuracy = accuracy_score(y_test_encoded, y_pred)
-                    report = classification_report(y_test_encoded, y_pred, output_dict=True)
-                    cm = confusion_matrix(y_test_encoded, y_pred)
-
-                    # クロスバリデーション
-                    cv_scores = cross_val_score(model, X_train, y_train_encoded,
-                                              cv=TimeSeriesSplit(n_splits=5), scoring='accuracy')
-
-                    # 特徴量重要度
-                    feature_importance = dict(zip(X_train.columns, model.feature_importances_))
-
-                    # モデル保存
-                    model_key = f"{symbol}_{task.value}_{ModelType.XGBOOST.value}"
-                    self.trained_models[model_key] = model
-                    self.label_encoders[model_key] = le
-                    self._save_model(model, model_key, le)
-
-                    performance = ModelPerformance(
-                        model_name=f"XGBoost_{task.value}",
-                        task=task,
-                        accuracy=accuracy,
-                        precision=report['weighted avg']['precision'],
-                        recall=report['weighted avg']['recall'],
-                        f1_score=report['weighted avg']['f1-score'],
-                        cross_val_mean=cv_scores.mean(),
-                        cross_val_std=cv_scores.std(),
-                        feature_importance=feature_importance,
-                        confusion_matrix=cm,
-                        training_time=(datetime.now() - start_time).total_seconds(),
-                        prediction_time=0.0
-                    )
-
-                    performances[task] = performance
-
-                else:  # PredictionTask.PRICE_REGRESSION
-                    # 回帰モデル
-                    model_params = self.model_configs[ModelType.XGBOOST]['regressor_params']
-                    if optimized_params and ModelType.XGBOOST.value in optimized_params:
-                        model_params.update(optimized_params[ModelType.XGBOOST.value].get(task.value, {}))
-                    model = xgb.XGBRegressor(**model_params)
-
-                    model.fit(X_train, y_train)
-                    y_pred = model.predict(X_test)
-
-                    # 性能計算
-                    mse = mean_squared_error(y_test, y_pred)
-                    rmse = np.sqrt(mse)
-                    r2 = r2_score(y_test, y_pred)
-
-                    # クロスバリデーション
-                    cv_scores = cross_val_score(model, X_train, y_train,
-                                              cv=TimeSeriesSplit(n_splits=5), scoring='r2')
-
-                    # 特徴量重要度
-                    feature_importance = dict(zip(X_train.columns, model.feature_importances_))
-
-                    # モデル保存
-                    model_key = f"{symbol}_{task.value}_{ModelType.XGBOOST.value}"
-                    self.trained_models[model_key] = model
-                    self._save_model(model, model_key)
-
-                    performance = ModelPerformance(
-                        model_name=f"XGBoost_{task.value}",
-                        task=task,
-                        accuracy=r2,
-                        precision=1.0 - (rmse / y_test.std()),
-                        recall=0.0,
-                        f1_score=0.0,
-                        cross_val_mean=cv_scores.mean(),
-                        cross_val_std=cv_scores.std(),
-                        feature_importance=feature_importance,
-                        confusion_matrix=np.array([]),
-                        training_time=(datetime.now() - start_time).total_seconds(),
-                        prediction_time=0.0
-                    )
-
-                    performances[task] = performance
-
-            except Exception as e:
-                self.logger.error(f"XGBoost training failed for {task.value}: {e}")
-
-    async def _train_lightgbm(self, X: pd.DataFrame, targets: Dict[PredictionTask, pd.Series],
-                            symbol: str, valid_idx: pd.Index, optimized_params: Optional[Dict[str, Any]] = None) -> Dict[PredictionTask, ModelPerformance]:
-        """LightGBM訓練"""
-
-        performances = {}
-
-        for task, target_series in targets.items():
-            if task not in [PredictionTask.PRICE_DIRECTION, PredictionTask.PRICE_REGRESSION]:
-                continue
-
-            self.logger.info(f"Training LightGBM for {task.value}")
-
-            start_time = datetime.now()
-
-            # ターゲット準備
-            y = target_series.loc[valid_idx].dropna()
-            X_clean = X.loc[y.index]
-
-            if len(y) < 50:
-                continue
-
-            # 訓練・テスト分割
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_clean, y, test_size=0.3, random_state=42,
-                stratify=y if task == PredictionTask.PRICE_DIRECTION else None
-            )
-
-            try:
-                if task == PredictionTask.PRICE_DIRECTION:
-                    # 分類モデル
-                    le = LabelEncoder()
-                    y_train_encoded = le.fit_transform(y_train)
-                    y_test_encoded = le.transform(y_test)
-
-                    model_params = {
-                        'n_estimators': 200,
-                        'max_depth': 10,
-                        'learning_rate': 0.1,
-                        'random_state': 42,
-                        'n_jobs': -1,
-                        'verbose': -1
-                    }
-                    if optimized_params and ModelType.LIGHTGBM.value in optimized_params:
-                        model_params.update(optimized_params[ModelType.LIGHTGBM.value].get(task.value, {}))
-                    model = lgb.LGBMClassifier(**model_params)
-
-                    model.fit(X_train, y_train_encoded)
-                    y_pred = model.predict(X_test)
-
-                    # 性能計算
-                    accuracy = accuracy_score(y_test_encoded, y_pred)
-                    report = classification_report(y_test_encoded, y_pred, output_dict=True)
-                    cm = confusion_matrix(y_test_encoded, y_pred)
-
-                    # クロスバリデーション
-                    cv_scores = cross_val_score(model, X_train, y_train_encoded,
-                                              cv=TimeSeriesSplit(n_splits=5), scoring='accuracy')
-
-                    # 特徴量重要度
-                    feature_importance = dict(zip(X_train.columns, model.feature_importances_))
-
-                    # モデル保存
-                    model_key = f"{symbol}_{task.value}_{ModelType.LIGHTGBM.value}"
-                    self.trained_models[model_key] = model
-                    self.label_encoders[model_key] = le
-                    self._save_model(model, model_key, le)
-
-                    performance = ModelPerformance(
-                        model_name=f"LightGBM_{task.value}",
-                        task=task,
-                        accuracy=accuracy,
-                        precision=report['weighted avg']['precision'],
-                        recall=report['weighted avg']['recall'],
-                        f1_score=report['weighted avg']['f1-score'],
-                        cross_val_mean=cv_scores.mean(),
-                        cross_val_std=cv_scores.std(),
-                        feature_importance=feature_importance,
-                        confusion_matrix=cm,
-                        training_time=(datetime.now() - start_time).total_seconds(),
-                        prediction_time=0.0
-                    )
-
-                    performances[task] = performance
-
-            except Exception as e:
-                self.logger.error(f"LightGBM training failed for {task.value}: {e}")
-
-        return performances
 
     def _calculate_ensemble_weights(self, performances: Dict[ModelType, Dict[PredictionTask, ModelPerformance]],
                                   symbol: str):
@@ -1363,10 +1060,11 @@ class MLPredictionModels:
 
     async def _make_ensemble_prediction(self, symbol: str, features: pd.DataFrame,
                                       task: PredictionTask) -> Optional[EnsemblePrediction]:
-        """アンサンブル予測"""
+        """改良されたアンサンブル予測"""
 
         model_predictions = {}
         model_confidences = {}
+        model_quality_scores = {}
 
         # 各モデルで予測
         for model_type in [ModelType.RANDOM_FOREST, ModelType.XGBOOST, ModelType.LIGHTGBM]:
@@ -1378,8 +1076,12 @@ class MLPredictionModels:
             try:
                 model = self.trained_models[model_key]
 
+                # モデル品質スコア取得（過去の性能に基づく）
+                quality_score = await self._get_model_quality_score(symbol, model_type, task)
+                model_quality_scores[model_type.value] = quality_score
+
                 if task == PredictionTask.PRICE_DIRECTION:
-                    # 分類予測
+                    # 分類予測の改良
                     pred_proba = model.predict_proba(features)
                     pred_class = model.predict(features)[0]
 
@@ -1388,12 +1090,13 @@ class MLPredictionModels:
                         le = self.label_encoders[model_key]
                         pred_class = le.inverse_transform([pred_class])[0]
 
-                    confidence = np.max(pred_proba[0])
+                    # 改良された信頼度計算
+                    confidence = self._calculate_classification_confidence(pred_proba[0], quality_score)
                     model_predictions[model_type.value] = pred_class
                     model_confidences[model_type.value] = confidence
 
                 else:  # PredictionTask.PRICE_REGRESSION
-                    # 回帰予測
+                    # 回帰予測の改良
                     pred_value = model.predict(features)[0]
 
                     # 回帰信頼度推定（予測区間ベース）
@@ -1410,54 +1113,35 @@ class MLPredictionModels:
         if not model_predictions:
             return None
 
-        # アンサンブル統合
-        weights = self.ensemble_weights.get(symbol, {}).get(task, {})
+        # 動的重み調整（性能ベース）
+        dynamic_weights = await self._calculate_dynamic_weights(
+            symbol, task, model_quality_scores, model_confidences
+        )
 
+        # アンサンブル統合の改良
         if task == PredictionTask.PRICE_DIRECTION:
-            # 多数決 + 重み付け
-            weighted_votes = {}
-            total_weight = 0
-
-            for model_name, prediction in model_predictions.items():
-                model_type = ModelType(model_name)
-                weight = weights.get(model_type, 1.0)
-                confidence = model_confidences[model_name]
-
-                if prediction not in weighted_votes:
-                    weighted_votes[prediction] = 0
-                weighted_votes[prediction] += weight * confidence
-                total_weight += weight
-
-            # 最も重み付きスコアが高い予測を選択
-            final_prediction = max(weighted_votes.items(), key=lambda x: x[1])[0]
-            confidence = weighted_votes[final_prediction] / total_weight if total_weight > 0 else 0.5
-
-            # 合意強度（予測の一致度）
-            unique_predictions = len(set(model_predictions.values()))
-            consensus_strength = 1.0 - (unique_predictions - 1) / max(1, len(model_predictions) - 1)
-
+            # 改良された多数決+重み付け+信頼度調整
+            ensemble_result = self._ensemble_classification(
+                model_predictions, model_confidences, dynamic_weights
+            )
         else:  # PredictionTask.PRICE_REGRESSION
-            # 重み付き平均
-            weighted_sum = 0
-            total_weight = 0
+            # 改良された重み付き平均+不確実性考慮
+            ensemble_result = self._ensemble_regression(
+                model_predictions, model_confidences, dynamic_weights
+            )
 
-            for model_name, prediction in model_predictions.items():
-                model_type = ModelType(model_name)
-                weight = weights.get(model_type, 1.0)
+        final_prediction = ensemble_result['prediction']
+        confidence = ensemble_result['confidence']
+        consensus_strength = ensemble_result['consensus_strength']
+        disagreement_score = ensemble_result['disagreement_score']
 
-                weighted_sum += prediction * weight
-                total_weight += weight
-
-            final_prediction = weighted_sum / total_weight if total_weight > 0 else 0
-            confidence = np.mean(list(model_confidences.values()))
-            consensus_strength = 1.0 - np.std(list(model_predictions.values())) / np.mean(list(model_predictions.values()))
-
-        # 意見不一致スコア
-        prediction_values = list(model_predictions.values())
-        if len(set(str(p) for p in prediction_values)) == 1:
-            disagreement_score = 0.0
-        else:
-            disagreement_score = 1.0 - consensus_strength
+        # 追加の品質メトリクス
+        quality_metrics = {
+            'model_count': len(model_predictions),
+            'avg_model_quality': np.mean(list(model_quality_scores.values())),
+            'confidence_variance': np.var(list(model_confidences.values())),
+            'prediction_stability': self._calculate_prediction_stability(model_predictions)
+        }
 
         ensemble_prediction = EnsemblePrediction(
             symbol=symbol,
@@ -1465,15 +1149,266 @@ class MLPredictionModels:
             final_prediction=final_prediction,
             confidence=confidence,
             model_predictions=model_predictions,
-            model_weights=weights,
+            model_weights=dynamic_weights,
             consensus_strength=consensus_strength,
             disagreement_score=disagreement_score
         )
+
+        # 品質メトリクスを追加属性として保存
+        ensemble_prediction.quality_metrics = quality_metrics
 
         # 予測結果保存
         await self._save_prediction_result(ensemble_prediction, task)
 
         return ensemble_prediction
+
+    async def _get_model_quality_score(self, symbol: str, model_type: ModelType,
+                                     task: PredictionTask) -> float:
+        """過去の性能に基づくモデル品質スコア取得"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute("""
+                    SELECT accuracy, f1_score, cross_val_mean
+                    FROM model_performance_history mph
+                    JOIN model_metadata mm ON mph.model_id = mm.model_id
+                    WHERE mm.symbol = ? AND mm.model_type = ? AND mm.task = ?
+                    ORDER BY mph.created_at DESC LIMIT 5
+                """, (symbol, model_type.value, task.value))
+
+                results = cursor.fetchall()
+                if not results:
+                    return 0.6  # デフォルト品質スコア
+
+                # 直近5回の平均性能から品質スコア計算
+                recent_scores = []
+                for accuracy, f1_score, cross_val_mean in results:
+                    # 複数メトリクスの重み付き平均
+                    score = (0.4 * (accuracy or 0.5) +
+                            0.4 * (f1_score or 0.5) +
+                            0.2 * (cross_val_mean or 0.5))
+                    recent_scores.append(score)
+
+                return np.mean(recent_scores)
+
+        except Exception as e:
+            self.logger.error(f"Failed to get model quality score: {e}")
+            return 0.6
+
+    def _calculate_classification_confidence(self, pred_proba: np.ndarray,
+                                           quality_score: float) -> float:
+        """改良された分類信頼度計算"""
+        # 確率の最大値
+        max_prob = np.max(pred_proba)
+
+        # エントロピーベースの不確実性
+        entropy = -np.sum(pred_proba * np.log(pred_proba + 1e-15))
+        normalized_entropy = entropy / np.log(len(pred_proba))
+        certainty = 1.0 - normalized_entropy
+
+        # 品質スコアと確率情報の組み合わせ
+        confidence = (0.5 * max_prob + 0.3 * certainty + 0.2 * quality_score)
+
+        return np.clip(confidence, 0.1, 0.95)
+
+    def _calculate_regression_confidence(self, model, features: pd.DataFrame,
+                                       quality_score: float) -> float:
+        """回帰予測の信頼度計算"""
+        try:
+            # 特徴量の代表性チェック（学習データとの類似性）
+            feature_uncertainty = self._estimate_feature_uncertainty(features)
+
+            # モデル固有の予測分散（可能な場合）
+            prediction_variance = 0.1  # デフォルト値
+            if hasattr(model, 'predict') and hasattr(model, 'estimators_'):
+                # Random Forestの場合、各木の予測のばらつきから分散推定
+                try:
+                    predictions = [tree.predict(features)[0] for tree in model.estimators_[:10]]
+                    prediction_variance = np.var(predictions)
+                except:
+                    pass
+
+            # 信頼度計算
+            uncertainty = feature_uncertainty + prediction_variance
+            confidence = quality_score * (1.0 - np.tanh(uncertainty))
+
+            return np.clip(confidence, 0.1, 0.95)
+
+        except Exception as e:
+            self.logger.error(f"Failed to calculate regression confidence: {e}")
+            return quality_score * 0.8
+
+    def _estimate_feature_uncertainty(self, features: pd.DataFrame) -> float:
+        """特徴量の不確実性推定"""
+        try:
+            # 特徴量の統計的性質をチェック
+            uncertainty_factors = []
+
+            for col in features.columns:
+                if features[col].dtype in ['float64', 'int64']:
+                    # 数値特徴量の変動性
+                    col_std = features[col].std()
+                    col_mean = abs(features[col].mean())
+                    if col_mean > 0:
+                        cv = col_std / col_mean  # 変動係数
+                        uncertainty_factors.append(min(cv, 1.0))
+
+            return np.mean(uncertainty_factors) if uncertainty_factors else 0.2
+
+        except Exception:
+            return 0.2
+
+    async def _calculate_dynamic_weights(self, symbol: str, task: PredictionTask,
+                                       quality_scores: Dict[str, float],
+                                       confidences: Dict[str, float]) -> Dict[ModelType, float]:
+        """動的重み計算"""
+        try:
+            # 基本重み（設定値）
+            base_weights = self.ensemble_weights.get(symbol, {}).get(task, {})
+
+            dynamic_weights = {}
+            total_score = 0
+
+            for model_name in quality_scores.keys():
+                model_type = ModelType(model_name)
+
+                # 品質スコア、信頼度、基本重みの組み合わせ
+                quality = quality_scores[model_name]
+                confidence = confidences[model_name]
+                base_weight = base_weights.get(model_type, 1.0)
+
+                # 動的重み計算式
+                dynamic_weight = (0.4 * quality + 0.3 * confidence + 0.3 * base_weight)
+                dynamic_weights[model_type] = dynamic_weight
+                total_score += dynamic_weight
+
+            # 正規化
+            if total_score > 0:
+                for model_type in dynamic_weights:
+                    dynamic_weights[model_type] /= total_score
+
+            return dynamic_weights
+
+        except Exception as e:
+            self.logger.error(f"Failed to calculate dynamic weights: {e}")
+            # フォールバック：均等重み
+            num_models = len(quality_scores)
+            return {ModelType(name): 1.0/num_models for name in quality_scores.keys()}
+
+    def _ensemble_classification(self, predictions: Dict[str, Any],
+                               confidences: Dict[str, float],
+                               weights: Dict[ModelType, float]) -> Dict[str, Any]:
+        """改良された分類アンサンブル"""
+        weighted_votes = {}
+        total_weighted_confidence = 0
+
+        for model_name, prediction in predictions.items():
+            model_type = ModelType(model_name)
+            weight = weights.get(model_type, 1.0)
+            confidence = confidences[model_name]
+
+            # 重み付き投票
+            vote_strength = weight * confidence
+            if prediction not in weighted_votes:
+                weighted_votes[prediction] = 0
+            weighted_votes[prediction] += vote_strength
+            total_weighted_confidence += vote_strength
+
+        # 最終予測選択
+        final_prediction = max(weighted_votes.items(), key=lambda x: x[1])[0]
+
+        # アンサンブル信頼度
+        if total_weighted_confidence > 0:
+            ensemble_confidence = weighted_votes[final_prediction] / total_weighted_confidence
+        else:
+            ensemble_confidence = 0.5
+
+        # コンセンサス強度
+        unique_predictions = len(set(predictions.values()))
+        consensus_strength = 1.0 - (unique_predictions - 1) / max(1, len(predictions) - 1)
+
+        # 不一致スコア
+        disagreement_score = 1.0 - consensus_strength
+
+        return {
+            'prediction': final_prediction,
+            'confidence': ensemble_confidence,
+            'consensus_strength': consensus_strength,
+            'disagreement_score': disagreement_score
+        }
+
+    def _ensemble_regression(self, predictions: Dict[str, float],
+                           confidences: Dict[str, float],
+                           weights: Dict[ModelType, float]) -> Dict[str, Any]:
+        """改良された回帰アンサンブル"""
+        weighted_sum = 0
+        total_weight = 0
+        pred_values = list(predictions.values())
+
+        # 重み付き平均計算
+        for model_name, prediction in predictions.items():
+            model_type = ModelType(model_name)
+            weight = weights.get(model_type, 1.0)
+            confidence = confidences[model_name]
+
+            adjusted_weight = weight * confidence
+            weighted_sum += prediction * adjusted_weight
+            total_weight += adjusted_weight
+
+        final_prediction = weighted_sum / total_weight if total_weight > 0 else np.mean(pred_values)
+
+        # 予測値の分散ベースの信頼度
+        prediction_std = np.std(pred_values)
+        prediction_mean = np.mean(pred_values)
+
+        if prediction_mean != 0:
+            coefficient_of_variation = prediction_std / abs(prediction_mean)
+        else:
+            coefficient_of_variation = prediction_std
+
+        # 信頼度：分散が小さいほど高い
+        ensemble_confidence = np.mean(list(confidences.values())) * (1.0 - np.tanh(coefficient_of_variation))
+
+        # コンセンサス強度
+        if prediction_mean != 0:
+            consensus_strength = 1.0 - (prediction_std / abs(prediction_mean))
+        else:
+            consensus_strength = 1.0 - prediction_std
+        consensus_strength = np.clip(consensus_strength, 0.0, 1.0)
+
+        # 不一致スコア
+        disagreement_score = 1.0 - consensus_strength
+
+        return {
+            'prediction': final_prediction,
+            'confidence': np.clip(ensemble_confidence, 0.1, 0.95),
+            'consensus_strength': consensus_strength,
+            'disagreement_score': disagreement_score
+        }
+
+    def _calculate_prediction_stability(self, predictions: Dict[str, Any]) -> float:
+        """予測安定性計算"""
+        try:
+            pred_values = list(predictions.values())
+            if len(set(str(p) for p in pred_values)) == 1:
+                return 1.0  # 完全一致
+
+            # 数値予測の場合
+            if all(isinstance(p, (int, float)) for p in pred_values):
+                mean_pred = np.mean(pred_values)
+                std_pred = np.std(pred_values)
+                if mean_pred != 0:
+                    stability = 1.0 - (std_pred / abs(mean_pred))
+                else:
+                    stability = 1.0 - std_pred
+                return np.clip(stability, 0.0, 1.0)
+
+            # カテゴリ予測の場合
+            unique_count = len(set(str(p) for p in pred_values))
+            stability = 1.0 - (unique_count - 1) / max(1, len(pred_values) - 1)
+            return np.clip(stability, 0.0, 1.0)
+
+        except Exception:
+            return 0.5
 
     async def _save_model_performances(self, performances: Dict[ModelType, Dict[PredictionTask, ModelPerformance]],
                                      symbol: str):
@@ -1504,25 +1439,80 @@ class MLPredictionModels:
             self.logger.error(f"Failed to save model performances: {e}")
 
     async def _save_prediction_result(self, prediction: EnsemblePrediction, task: PredictionTask):
-        """予測結果保存"""
+        """改良された予測結果保存"""
 
         try:
+            # 品質メトリクスの取得（デフォルト値付き）
+            quality_metrics = getattr(prediction, 'quality_metrics', {})
+
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
-                    INSERT INTO ensemble_predictions
-                    (symbol, timestamp, final_prediction, confidence, consensus_strength, disagreement_score)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                # アンサンブル予測履歴に保存
+                cursor = conn.execute("""
+                    INSERT INTO ensemble_prediction_history
+                    (symbol, timestamp, task, final_prediction, confidence,
+                     consensus_strength, disagreement_score, model_count,
+                     avg_model_quality, confidence_variance, prediction_stability,
+                     model_predictions, model_weights, quality_metrics)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     prediction.symbol,
                     prediction.timestamp.isoformat(),
+                    task.value,
                     str(prediction.final_prediction),
                     prediction.confidence,
                     prediction.consensus_strength,
-                    prediction.disagreement_score
+                    prediction.disagreement_score,
+                    quality_metrics.get('model_count', len(prediction.model_predictions)),
+                    quality_metrics.get('avg_model_quality', 0.0),
+                    quality_metrics.get('confidence_variance', 0.0),
+                    quality_metrics.get('prediction_stability', 0.0),
+                    json.dumps(prediction.model_predictions),
+                    json.dumps({k.value if hasattr(k, 'value') else str(k): v
+                               for k, v in prediction.model_weights.items()}),
+                    json.dumps(quality_metrics)
                 ))
+
+                prediction_id = cursor.lastrowid
+
+                # 予測精度追跡テーブルにエントリ作成（後で実際値と比較用）
+                conn.execute("""
+                    INSERT INTO prediction_accuracy_tracking
+                    (prediction_id, symbol, predicted_value, prediction_date,
+                     confidence_at_prediction, model_used, task)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    str(prediction_id),
+                    prediction.symbol,
+                    str(prediction.final_prediction),
+                    prediction.timestamp.isoformat(),
+                    prediction.confidence,
+                    'ensemble',
+                    task.value
+                ))
+
+                # モデル重み履歴の更新
+                await self._update_model_weights_history(
+                    prediction.symbol, task, prediction.model_weights, conn
+                )
 
         except Exception as e:
             self.logger.error(f"Failed to save prediction result: {e}")
+
+    async def _update_model_weights_history(self, symbol: str, task: PredictionTask,
+                                          weights: Dict, conn):
+        """モデル重み履歴更新"""
+        try:
+            for model_type, weight in weights.items():
+                model_type_str = model_type.value if hasattr(model_type, 'value') else str(model_type)
+
+                conn.execute("""
+                    INSERT INTO model_weight_history
+                    (symbol, task, model_type, dynamic_weight)
+                    VALUES (?, ?, ?, ?)
+                """, (symbol, task.value, model_type_str, weight))
+
+        except Exception as e:
+            self.logger.error(f"Failed to update model weights history: {e}")
 
     async def get_model_summary(self) -> Dict[str, Any]:
         """モデルサマリー取得"""
