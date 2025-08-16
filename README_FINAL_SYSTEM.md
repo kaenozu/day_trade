@@ -25,7 +25,7 @@
 6. **enhanced_personal_analysis_engine.py** - 個人分析エンジン (4分析モード)
 7. **ml_accuracy_improvement_system.py** - ML精度向上システム
 
-### ユーザー・最適化システム (3モジュール) 
+### ユーザー・最適化システム (3モジュール)
 8. **user_centric_trading_system.py** - ユーザー中心システム (パーソナライゼーション)
 9. **performance_optimization_system.py** - パフォーマンス最適化
 10. **system_performance_monitor.py** - リアルタイムシステム監視
@@ -43,7 +43,7 @@
 - **リアルタイム分析** (7203, 8306等の東証銘柄対応)
 - **4段階分析モード**: SIMPLE, ENHANCED, COMPREHENSIVE, QUICK
 
-### Webダッシュボード 
+### Webダッシュボード
 - **4タブUI**: 概要・ML詳細・データ品質・リスク監視
 - **リアルタイム更新**: 30秒間隔自動更新
 - **レスポンシブデザイン**: モダンWeb UI

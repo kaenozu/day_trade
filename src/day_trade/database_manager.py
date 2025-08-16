@@ -66,12 +66,12 @@ class DatabaseManager:
 
         query = """
             INSERT OR REPLACE INTO positions (
-                symbol, name, entry_price, quantity, entry_time, 
-                stop_loss, take_profit, current_price, status, pnl, 
+                symbol, name, entry_price, quantity, entry_time,
+                stop_loss, take_profit, current_price, status, pnl,
                 pnl_percent, risk_level, max_holding_time, close_time
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        
+
         params = (
             position.symbol,
             position.name,
@@ -107,11 +107,11 @@ class DatabaseManager:
             cursor = self.conn.cursor()
             cursor.execute(query, (PositionStatus.OPEN.value,))
             rows = cursor.fetchall()
-            
+
             positions = []
             for row in rows:
                 positions.append(self._row_to_position(row))
-            
+
             self.logger.info(f"{len(positions)}件のオープンなポジションを読み込みました")
             return positions
         except sqlite3.Error as e:
