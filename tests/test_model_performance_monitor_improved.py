@@ -253,6 +253,81 @@ class TestModelPerformanceMonitor:
             monitor = create_performance_monitor(str(config_file))
             assert isinstance(monitor, ModelPerformanceMonitor)
 
+    @pytest.mark.asyncio
+    async def test_symbol_specific_performance_analysis(self, monitor):
+        """銘柄別性能分析のテスト"""
+        # モックバリデータの設定
+        mock_validator = Mock()
+
+        def mock_validate(symbols, hours):
+            # 銘柄によって異なる性能を返す
+            if symbols == ["TEST1"]:
+                mock_result = Mock()
+                mock_result.overall_accuracy = 85.0
+                return mock_result
+            elif symbols == ["TEST2"]:
+                mock_result = Mock()
+                mock_result.overall_accuracy = 95.0
+                return mock_result
+            return Mock(overall_accuracy=90.0)
+
+        mock_validator.validate_current_system_accuracy = AsyncMock(side_effect=mock_validate)
+        monitor.accuracy_validator = mock_validator
+
+        symbols = ["TEST1", "TEST2"]
+        performances = await monitor._analyze_symbol_specific_performance(symbols)
+
+        assert len(performances) == 2
+        assert performances["TEST1"] == 85.0
+        assert performances["TEST2"] == 95.0
+
+    def test_identify_underperforming_symbols(self, monitor):
+        """性能不足銘柄特定のテスト"""
+        symbol_performances = {
+            "GOOD1": 95.0,
+            "BAD1": 75.0,
+            "GOOD2": 92.0,
+            "BAD2": 80.0
+        }
+
+        # 閾値85.0を設定
+        monitor.thresholds["accuracy"] = 85.0
+
+        underperforming = monitor._identify_underperforming_symbols(symbol_performances)
+
+        assert len(underperforming) == 2
+        assert "BAD1" in underperforming
+        assert "BAD2" in underperforming
+        assert "GOOD1" not in underperforming
+        assert "GOOD2" not in underperforming
+
+    @pytest.mark.asyncio
+    async def test_get_monitoring_symbols_with_selector(self, monitor, temp_dir):
+        """symbol_selector連携での監視銘柄取得テスト"""
+        # symbol_selector連携設定を追加
+        monitor.config["symbol_selector"] = {
+            "enabled": True,
+            "strategy": "test_strategy",
+            "limit": 5,
+            "config_path": str(temp_dir / "test_selector_config.yaml"),
+            "db_path": str(temp_dir / "test_selector.db")
+        }
+
+        # モックsymbol_selectorの設定
+        with patch('src.day_trade.data.symbol_selector.create_symbol_selector') as mock_create:
+            mock_selector = Mock()
+            mock_selector.get_symbols_by_strategy.return_value = ["DYN1", "DYN2", "DYN3"]
+            mock_create.return_value = mock_selector
+
+            symbols = monitor.get_monitoring_symbols()
+
+            # 基本銘柄と動的銘柄が結合されているか確認
+            assert "TEST1" in symbols  # 基本銘柄
+            assert "TEST2" in symbols  # 基本銘柄
+            assert "DYN1" in symbols   # 動的銘柄
+            assert "DYN2" in symbols   # 動的銘柄
+            assert "DYN3" in symbols   # 動的銘柄
+
     def test_default_config_creation(self, temp_dir):
         """デフォルト設定作成のテスト"""
         config_path = temp_dir / "non_existent_config.yaml"

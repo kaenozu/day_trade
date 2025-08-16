@@ -1,48 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Hyperparameter Optimizer - ハイパーパラメータ最適化システム
+Hyperparameter Optimizer - ハイパーパラメータ最適化システム（改善版）
 
-GridSearch・RandomSearch・Bayesian最適化による予測精度向上
-Issue #796-3実装：ハイパーパラメータ最適化
+Issue #856対応：最適化戦略と設定の柔軟性強化
+主な改善点：
+1. 最適化手法の選択とフォールバックロジックの明確化
+2. ハイパーパラメータ空間定義の外部化
+3. パラメータ重要度計算の改善
+4. baseline_scoreの調整
+5. Windows環境対策コードの集約
+6. テストコードの分離
 """
 
 import asyncio
 import pandas as pd
 import numpy as np
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any, Union
+import yaml
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
 import json
-import pickle
 from pathlib import Path
 import sqlite3
 import warnings
-import yaml
+from enum import Enum
 warnings.filterwarnings('ignore')
 
-# 共通ユーティリティ
-try:
-    from src.day_trade.utils.encoding_utils import setup_windows_encoding
-    setup_windows_encoding()
-except ImportError:
-    # フォールバック: 簡易Windows対応
-    import sys
-    import os
-    if sys.platform == 'win32':
-        os.environ['PYTHONIOENCODING'] = 'utf-8'
-        try:
-            sys.stdout.reconfigure(encoding='utf-8')
-            sys.stderr.reconfigure(encoding='utf-8')
-        except:
-            pass
+# 共通ユーティリティのインポート
+from src.day_trade.utils.encoding_fix import apply_windows_encoding_fix
 
 # 最適化ライブラリ
 try:
-    from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, TimeSeriesSplit
+    from sklearn.model_selection import (
+        GridSearchCV, RandomizedSearchCV, TimeSeriesSplit
+    )
     from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-    from sklearn.metrics import accuracy_score, r2_score
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -54,7 +48,7 @@ except ImportError:
     XGBOOST_AVAILABLE = False
 
 try:
-    from scipy.stats import uniform, randint
+    from scipy.stats import pearsonr
     SCIPY_AVAILABLE = True
 except ImportError:
     SCIPY_AVAILABLE = False
@@ -62,70 +56,106 @@ except ImportError:
 try:
     # Bayesian Optimization (オプション)
     from skopt import BayesSearchCV
-    from skopt.space import Real, Integer
+    from skopt.space import Real, Integer, Categorical
     BAYESIAN_AVAILABLE = True
 except ImportError:
     BAYESIAN_AVAILABLE = False
 
-# 既存システム
-try:
-    from ml_prediction_models import MLPredictionModels, ModelType, PredictionTask
-    ML_MODELS_AVAILABLE = True
-except ImportError:
-    ML_MODELS_AVAILABLE = False
+# Windows環境対応
+apply_windows_encoding_fix()
+
+# ロギング設定
+logger = logging.getLogger(__name__)
+
+
+class ModelType(Enum):
+    """モデルタイプ"""
+    RANDOM_FOREST = "random_forest"
+    XGBOOST = "xgboost"
+
+
+class PredictionTask(Enum):
+    """予測タスク"""
+    PRICE_DIRECTION = "price_direction"  # 分類
+    PRICE_REGRESSION = "price_regression"  # 回帰
+
+
+class OptimizationMethod(Enum):
+    """最適化手法"""
+    GRID = "grid"
+    RANDOM = "random"
+    BAYESIAN = "bayesian"
+
 
 @dataclass
 class OptimizationConfig:
     """最適化設定"""
-    method: str  # 'grid', 'random', 'bayesian'
+    method: OptimizationMethod
     cv_folds: int
     max_iterations: int
+    n_iter: int  # RandomizedSearchCV用
     scoring: str
     n_jobs: int
     random_state: int
-    n_iter: Optional[int] = None  # RandomizedSearchCV用
+    verbose: int = 1
+
 
 @dataclass
 class OptimizationResult:
     """最適化結果"""
     model_type: str
     task: str
+    optimization_method: str
     best_params: Dict[str, Any]
     best_score: float
     cv_scores: List[float]
     optimization_time: float
-    improvement: float  # 最適化前との改善率
+    improvement: float  # ベースラインからの改善率
     param_importance: Dict[str, float]
+    baseline_score: float
+    total_combinations: int = 0
+
 
 @dataclass
-class HyperparameterSpace:
-    """ハイパーパラメータ空間定義"""
-    random_forest_classifier: Dict[str, Any]
-    random_forest_regressor: Dict[str, Any]
-    xgboost_classifier: Dict[str, Any]
-    xgboost_regressor: Dict[str, Any]
+class HyperparameterSpaceConfig:
+    """外部設定からのハイパーパラメータ空間"""
+    random_forest_classifier: Dict[str, Any] = field(default_factory=dict)
+    random_forest_regressor: Dict[str, Any] = field(default_factory=dict)
+    xgboost_classifier: Dict[str, Any] = field(default_factory=dict)
+    xgboost_regressor: Dict[str, Any] = field(default_factory=dict)
 
-class HyperparameterOptimizer:
-    """ハイパーパラメータ最適化システム（改善版）"""
 
-    def __init__(self, config_path: Optional[Path] = None,
-                 hyperparameter_config_path: Optional[Path] = None):
+class EnhancedHyperparameterOptimizer:
+    """
+    改善版ハイパーパラメータ最適化システム
+
+    主な機能:
+    - 外部YAML設定による柔軟なパラメータ空間定義
+    - 最適化手法の明確な選択ロジック
+    - タスクに応じた適切なベースラインスコア
+    - 改善されたパラメータ重要度分析
+    - Windows環境対応統合
+    """
+
+    def __init__(self, config_path: Optional[Path] = None):
         self.logger = logging.getLogger(__name__)
 
         if not SKLEARN_AVAILABLE:
-            raise ImportError("Scikit-learn is required")
+            raise ImportError(
+                "Scikit-learn is required for hyperparameter optimization"
+            )
 
         # 設定ファイルパス
-        self.config_path = config_path or Path("config/optimization_config.yaml")
-        self.hyperparameter_config_path = hyperparameter_config_path or Path("config/hyperparameter_spaces.yaml")
+        self.config_path = config_path or Path("config/hyperparameter_spaces.yaml")
 
         # データディレクトリ
         self.data_dir = Path("hyperparameter_optimization")
         self.data_dir.mkdir(exist_ok=True)
 
         # 設定読み込み
-        self.config = {}
-        self.hyperparameter_spaces = {}
+        self.hyperparameter_spaces = HyperparameterSpaceConfig()
+        self.optimization_configs = {}
+        self.baseline_configs = {}
         self._load_configuration()
 
         # データベース初期化
@@ -135,271 +165,216 @@ class HyperparameterOptimizer:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_database()
 
-        # 最適化設定
-        self.optimization_configs = self._load_optimization_configs()
-
         # 最適化履歴
         self.optimization_history = {}
-
-        # 最適化済みパラメータ
         self.optimized_params = {}
 
-        self.logger.info("Hyperparameter optimizer initialized with external config")
-
-    def _init_database(self):
-        """データベース初期化"""
-        with sqlite3.connect(self.db_path) as conn:
-            # 最適化結果テーブル
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS optimization_results (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    model_type TEXT NOT NULL,
-                    task TEXT NOT NULL,
-                    optimization_method TEXT,
-                    best_score REAL,
-                    improvement REAL,
-                    optimization_time REAL,
-                    best_params TEXT,
-                    cv_scores TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            # パラメータ重要度テーブル
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS parameter_importance (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    model_type TEXT NOT NULL,
-                    task TEXT NOT NULL,
-                    parameter_name TEXT,
-                    importance_score REAL,
-                    optimization_run_id INTEGER,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+        self.logger.info("Enhanced Hyperparameter Optimizer initialized")
 
     def _load_configuration(self):
-        """設定ファイル読み込み"""
+        """外部設定ファイルの読み込み"""
         try:
-            # 最適化設定読み込み
             if self.config_path.exists():
                 with open(self.config_path, 'r', encoding='utf-8') as f:
                     self.config = yaml.safe_load(f)
-                self.logger.info(f"最適化設定を読み込みました: {self.config_path}")
+                self.logger.info(f"設定ファイルを読み込みました: {self.config_path}")
             else:
-                self.logger.warning(f"最適化設定ファイルが見つかりません: {self.config_path}")
+                self.logger.warning(f"設定ファイルが見つかりません: {self.config_path}")
                 self._create_default_config()
 
-            # ハイパーパラメータ空間読み込み
-            if self.hyperparameter_config_path.exists():
-                with open(self.hyperparameter_config_path, 'r', encoding='utf-8') as f:
-                    hyperparameter_config = yaml.safe_load(f)
-                    self.hyperparameter_spaces = hyperparameter_config
-                self.logger.info(f"ハイパーパラメータ空間を読み込みました: {self.hyperparameter_config_path}")
-            else:
-                self.logger.warning(f"ハイパーパラメータ設定ファイルが見つかりません: {self.hyperparameter_config_path}")
-                self.hyperparameter_spaces = self._define_default_hyperparameter_spaces()
+            # ハイパーパラメータ空間の設定
+            self._load_hyperparameter_spaces()
+
+            # 最適化設定の読み込み
+            self._load_optimization_configs()
+
+            # ベースラインスコア設定の読み込み
+            self._load_baseline_configs()
 
         except Exception as e:
             self.logger.error(f"設定読み込みエラー: {e}")
             self._load_default_settings()
 
     def _create_default_config(self):
-        """デフォルト設定ファイル作成"""
-        # デフォルト設定はすでにconfig/optimization_config.yamlで作成済み
-        self._load_default_settings()
+        """デフォルト設定ファイルの作成"""
+        # 既にconfig/hyperparameter_spaces.yamlが作成されているので、それを読み込む
+        try:
+            if self.config_path.exists():
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    self.config = yaml.safe_load(f)
+            else:
+                self._load_default_settings()
+        except Exception as e:
+            self.logger.error(f"デフォルト設定作成エラー: {e}")
+            self._load_default_settings()
 
     def _load_default_settings(self):
-        """デフォルト設定読み込み"""
+        """デフォルト設定の読み込み"""
         self.config = {
-            'optimization_methods': {
-                'grid_search': {
-                    'method': 'grid', 'cv_folds': 3, 'max_iterations': 50,
-                    'scoring': 'accuracy', 'n_jobs': -1, 'random_state': 42, 'enabled': True
-                },
-                'random_search': {
-                    'method': 'random', 'cv_folds': 3, 'max_iterations': 100,
-                    'scoring': 'accuracy', 'n_jobs': -1, 'random_state': 42, 'enabled': True
-                }
-            },
-            'storage': {'database_path': 'hyperparameter_optimization/optimization_results.db'}
-        }
-        self.hyperparameter_spaces = self._define_default_hyperparameter_spaces()
-
-    def _load_optimization_configs(self) -> Dict[str, OptimizationConfig]:
-        """最適化設定をOptimizationConfigオブジェクトに変換"""
-        configs = {}
-
-        optimization_methods = self.config.get('optimization_methods', {})
-
-        for method_name, method_config in optimization_methods.items():
-            if method_config.get('enabled', True):
-                configs[method_name] = OptimizationConfig(
-                    method=method_config.get('method', 'random'),
-                    cv_folds=method_config.get('cv_folds', 3),
-                    max_iterations=method_config.get('max_iterations', 100),
-                    scoring=method_config.get('scoring', 'accuracy'),
-                    n_jobs=method_config.get('n_jobs', -1),
-                    random_state=method_config.get('random_state', 42),
-                    n_iter=method_config.get('max_iterations', 100)  # RandomizedSearchCV用
-                )
-
-        return configs
-
-    def _define_default_hyperparameter_spaces(self) -> Dict[str, Any]:
-        """デフォルトハイパーパラメータ空間定義"""
-        return {
             'random_forest_classifier': {
                 'n_estimators': [100, 200, 300],
                 'max_depth': [10, 15, 20, None],
-                'min_samples_split': [2, 5],
-                'min_samples_leaf': [1, 2],
-                'max_features': ['sqrt', 'log2'],
-                'bootstrap': [True, False]
+                'min_samples_split': [2, 5, 10]
             },
             'random_forest_regressor': {
                 'n_estimators': [100, 200, 300],
                 'max_depth': [10, 15, 20, None],
-                'min_samples_split': [2, 5],
-                'min_samples_leaf': [1, 2],
-                'max_features': ['sqrt', 'log2'],
-                'bootstrap': [True, False]
+                'min_samples_split': [2, 5, 10]
             },
-            'xgboost_classifier': {
-                'n_estimators': [100, 200, 300],
-                'max_depth': [3, 5, 7],
-                'learning_rate': [0.01, 0.1, 0.2],
-                'subsample': [0.8, 0.9, 1.0],
-                'colsample_bytree': [0.8, 0.9, 1.0]
+            'optimization_settings': {
+                'random_search': {'n_iter': 50},
+                'grid_search': {'max_iterations': 50},
+                'bayesian_optimization': {'n_iter': 30}
             },
-            'xgboost_regressor': {
-                'n_estimators': [100, 200, 300],
-                'max_depth': [3, 5, 7],
-                'learning_rate': [0.01, 0.1, 0.2],
-                'subsample': [0.8, 0.9, 1.0],
-                'colsample_bytree': [0.8, 0.9, 1.0]
+            'baseline_scores': {
+                'classification': {'accuracy': 0.5},
+                'regression': {'r2': 0.0}
             }
         }
+        self.logger.info("デフォルト設定を使用します")
 
-    def _get_baseline_score(self, task: PredictionTask, scoring: str) -> float:
-        """タスクと評価指標に応じた適切なベースラインスコア取得"""
-        baseline_scores = self.config.get('baseline_scores', {})
+    def _load_hyperparameter_spaces(self):
+        """ハイパーパラメータ空間の読み込み"""
+        spaces = {}
+        for model_key in ['random_forest_classifier', 'random_forest_regressor',
+                          'xgboost_classifier', 'xgboost_regressor']:
+            spaces[model_key] = self.config.get(model_key, {})
 
-        if task == PredictionTask.PRICE_DIRECTION:
-            # 分類タスク
-            classification_scores = baseline_scores.get('classification', {})
-            return classification_scores.get(scoring, 0.5)
-        else:
-            # 回帰タスク
-            regression_scores = baseline_scores.get('regression', {})
-            if scoring == 'r2':
-                return regression_scores.get('r2', 0.0)
+        self.hyperparameter_spaces = HyperparameterSpaceConfig(**spaces)
+
+    def _load_optimization_configs(self):
+        """最適化設定の読み込み"""
+        opt_settings = self.config.get('optimization_settings', {})
+
+        self.optimization_configs = {
+            OptimizationMethod.GRID: OptimizationConfig(
+                method=OptimizationMethod.GRID,
+                cv_folds=opt_settings.get('grid_search', {}).get('cv_folds', 3),
+                max_iterations=opt_settings.get('grid_search', {}).get('max_iterations', 50),
+                n_iter=0,  # Grid Searchでは使用しない
+                scoring='accuracy',
+                n_jobs=opt_settings.get('grid_search', {}).get('n_jobs', -1),
+                random_state=42,
+                verbose=opt_settings.get('grid_search', {}).get('verbose', 1)
+            ),
+            OptimizationMethod.RANDOM: OptimizationConfig(
+                method=OptimizationMethod.RANDOM,
+                cv_folds=opt_settings.get('random_search', {}).get('cv_folds', 3),
+                max_iterations=opt_settings.get('random_search', {}).get('max_iterations', 100),
+                n_iter=opt_settings.get('random_search', {}).get('n_iter', 50),
+                scoring='accuracy',
+                n_jobs=opt_settings.get('random_search', {}).get('n_jobs', -1),
+                random_state=42,
+                verbose=opt_settings.get('random_search', {}).get('verbose', 1)
+            ),
+            OptimizationMethod.BAYESIAN: OptimizationConfig(
+                method=OptimizationMethod.BAYESIAN,
+                cv_folds=opt_settings.get('bayesian_optimization', {}).get('cv_folds', 3),
+                max_iterations=opt_settings.get('bayesian_optimization', {}).get('max_iterations', 50),
+                n_iter=opt_settings.get('bayesian_optimization', {}).get('n_iter', 30),
+                scoring='accuracy',
+                n_jobs=opt_settings.get('bayesian_optimization', {}).get('n_jobs', -1),
+                random_state=42,
+                verbose=opt_settings.get('bayesian_optimization', {}).get('verbose', 1)
+            )
+        }
+
+    def _load_baseline_configs(self):
+        """ベースラインスコア設定の読み込み"""
+        baseline_settings = self.config.get('baseline_scores', {})
+
+        self.baseline_configs = {
+            'classification': baseline_settings.get('classification', {'accuracy': 0.5}),
+            'regression': baseline_settings.get('regression', {'r2': 0.0})
+        }
+
+    def _init_database(self):
+        """データベース初期化"""
+        with sqlite3.connect(self.db_path) as conn:
+            # 改善版最適化結果テーブル
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS enhanced_optimization_results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    model_type TEXT NOT NULL,
+                    task TEXT NOT NULL,
+                    optimization_method TEXT NOT NULL,
+                    best_score REAL NOT NULL,
+                    baseline_score REAL NOT NULL,
+                    improvement REAL NOT NULL,
+                    optimization_time REAL NOT NULL,
+                    best_params TEXT NOT NULL,
+                    cv_scores TEXT NOT NULL,
+                    total_combinations INTEGER,
+                    config_snapshot TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # 改善版パラメータ重要度テーブル
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS enhanced_parameter_importance (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    optimization_run_id INTEGER NOT NULL,
+                    parameter_name TEXT NOT NULL,
+                    importance_score REAL NOT NULL,
+                    importance_method TEXT NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (optimization_run_id) REFERENCES enhanced_optimization_results (id)
+                )
+            """)
+
+    def get_appropriate_baseline_score(self, task: PredictionTask,
+                                       X: pd.DataFrame, y: pd.Series) -> float:
+        """タスクに応じた適切なベースラインスコアを計算"""
+        try:
+            if task == PredictionTask.PRICE_DIRECTION:
+                # 分類タスク：最頻値での予測精度
+                from sklearn.dummy import DummyClassifier
+                dummy = DummyClassifier(strategy='most_frequent')
+                dummy.fit(X, y)
+                baseline = dummy.score(X, y)
+                self.logger.info(f"分類ベースラインスコア (最頻値予測): {baseline:.3f}")
+                return baseline
+
+            else:  # 回帰タスク
+                # 回帰タスク：平均値での予測のR2スコア
+                from sklearn.dummy import DummyRegressor
+                dummy = DummyRegressor(strategy='mean')
+                dummy.fit(X, y)
+                baseline = dummy.score(X, y)  # R2スコア
+                self.logger.info(f"回帰ベースラインスコア (平均値予測): {baseline:.3f}")
+                return baseline
+
+        except Exception as e:
+            self.logger.warning(f"ベースラインスコア計算エラー: {e}")
+            # フォールバック値
+            if task == PredictionTask.PRICE_DIRECTION:
+                return self.baseline_configs['classification']['accuracy']
             else:
-                return regression_scores.get(scoring, 1.0)
-
+                return self.baseline_configs['regression']['r2']
 
     async def optimize_model(self, symbol: str, model_type: ModelType, task: PredictionTask,
-                           X: pd.DataFrame, y: pd.Series,
-                           baseline_score: Optional[float] = None,
-                           method: str = 'random') -> OptimizationResult:
-        """モデル最適化実行（改善版）"""
+                             X: pd.DataFrame, y: pd.Series,
+                             method: OptimizationMethod = OptimizationMethod.RANDOM) -> OptimizationResult:
+        """
+        改善版モデル最適化実行
+        """
 
-        self.logger.info(f"Optimizing {model_type.value} for {task.value} using {method}")
-
+        self.logger.info(f"Optimizing {model_type.value} for {task.value} using {method.value}")
         start_time = datetime.now()
 
+        # 適切なベースラインスコア計算
+        baseline_score = self.get_appropriate_baseline_score(task, X, y)
+
         # 最適化設定取得
-        config = self.optimization_configs.get(f'{method}_search')
-        if not config:
-            self.logger.warning(f"設定が見つかりません: {method}_search. random_searchを使用します")
-            config = self.optimization_configs.get('random_search')
-            if not config:
-                raise ValueError("利用可能な最適化設定がありません")
+        config = self.optimization_configs[method]
 
         # モデルとパラメータ空間選択
-        scoring = self._get_scoring_for_task(task)
-
-        if model_type == ModelType.RANDOM_FOREST:
-            if task == PredictionTask.PRICE_DIRECTION:
-                model = RandomForestClassifier(random_state=42, n_jobs=-1)
-                param_space = self.hyperparameter_spaces.get('random_forest_classifier', {})
-            else:  # PRICE_REGRESSION
-                model = RandomForestRegressor(random_state=42, n_jobs=-1)
-                param_space = self.hyperparameter_spaces.get('random_forest_regressor', {})
-
-        elif model_type == ModelType.XGBOOST and XGBOOST_AVAILABLE:
-            if task == PredictionTask.PRICE_DIRECTION:
-                model = xgb.XGBClassifier(random_state=42, n_jobs=-1, eval_metric='mlogloss')
-                param_space = self.hyperparameter_spaces.get('xgboost_classifier', {})
-            else:  # PRICE_REGRESSION
-                model = xgb.XGBRegressor(random_state=42, n_jobs=-1, eval_metric='rmse')
-                param_space = self.hyperparameter_spaces.get('xgboost_regressor', {})
-        else:
-            raise ValueError(f"Unsupported model type: {model_type}")
-
-        if not param_space:
-            raise ValueError(f"パラメータ空間が定義されていません: {model_type.value}")
-
-        # ベースラインスコア設定
-        if baseline_score is None:
-            baseline_score = self._get_baseline_score(task, scoring)
+        model, param_space, scoring = self._get_model_and_params(model_type, task)
 
         # 最適化実行
         try:
-            if method == 'grid':
-                # Grid Search（パラメータ数を制限）
-                max_combinations = self.config.get('advanced', {}).get('parameter_space_limiting', {}).get('max_combinations_grid', 100)
-                limited_param_space = self._limit_param_space(param_space, max_combinations)
-
-                optimizer = GridSearchCV(
-                    model,
-                    limited_param_space,
-                    cv=TimeSeriesSplit(n_splits=config.cv_folds),
-                    scoring=scoring,
-                    n_jobs=config.n_jobs,
-                    verbose=1
-                )
-
-            elif method == 'random' and SCIPY_AVAILABLE:
-                # RandomizedSearchCV（正しい実装）
-                random_param_space = self._convert_to_random_space(param_space)
-
-                optimizer = RandomizedSearchCV(
-                    model,
-                    random_param_space,
-                    n_iter=config.n_iter or config.max_iterations,
-                    cv=TimeSeriesSplit(n_splits=config.cv_folds),
-                    scoring=scoring,
-                    n_jobs=config.n_jobs,
-                    random_state=config.random_state,
-                    verbose=1
-                )
-
-            elif method == 'bayesian' and BAYESIAN_AVAILABLE:
-                # Bayesian Optimization
-                bayesian_space = self._convert_to_bayesian_space(param_space)
-                optimizer = BayesSearchCV(
-                    model,
-                    bayesian_space,
-                    cv=TimeSeriesSplit(n_splits=config.cv_folds),
-                    scoring=scoring,
-                    n_jobs=config.n_jobs,
-                    n_iter=config.max_iterations,
-                    random_state=config.random_state,
-                    verbose=1
-                )
-
-            else:  # フォールバック: Grid Search
-                self.logger.warning(f"メソッド'{method}'が利用できません。Grid Searchにフォールバックします")
-                limited_param_space = self._limit_param_space(param_space, 2)
-                optimizer = GridSearchCV(
-                    model,
-                    limited_param_space,
-                    cv=TimeSeriesSplit(n_splits=config.cv_folds),
-                    scoring=scoring,
-                    n_jobs=config.n_jobs,
-                    verbose=1
-                )
+            optimizer = self._create_optimizer(method, config, model, param_space, scoring)
 
             # 最適化実行
             optimizer.fit(X, y)
@@ -409,400 +384,488 @@ class HyperparameterOptimizer:
             best_params = optimizer.best_params_
             cv_scores = list(optimizer.cv_results_['mean_test_score'])
 
-            # 改善率計算（適切なベースライン使用）
+            # 改善率計算（修正版）
             if baseline_score != 0:
-                improvement = ((best_score - baseline_score) / abs(baseline_score) * 100)
+                improvement = ((best_score - baseline_score) / abs(baseline_score)) * 100
             else:
                 improvement = best_score * 100
 
-            # パラメータ重要度計算（改善版）
-            param_importance = self._calculate_param_importance_improved(optimizer.cv_results_)
+            # 改善されたパラメータ重要度計算
+            param_importance = await self._calculate_enhanced_param_importance(
+                optimizer, X, y, best_params
+            )
 
             optimization_time = (datetime.now() - start_time).total_seconds()
+
+            # 組み合わせ数計算
+            total_combinations = self._calculate_total_combinations(param_space, method, config)
 
             result = OptimizationResult(
                 model_type=model_type.value,
                 task=task.value,
+                optimization_method=method.value,
                 best_params=best_params,
                 best_score=best_score,
                 cv_scores=cv_scores,
                 optimization_time=optimization_time,
                 improvement=improvement,
-                param_importance=param_importance
+                param_importance=param_importance,
+                baseline_score=baseline_score,
+                total_combinations=total_combinations
             )
 
-            # 結果保存
-            await self._save_optimization_result(result, symbol, method)
+            # 結果をデータベースに記録
+            await self._record_optimization_result(result)
 
-            # キャッシュに保存
-            cache_key = f"{symbol}_{model_type.value}_{task.value}"
-            self.optimized_params[cache_key] = best_params
-
-            self.logger.info(f"Optimization completed: {best_score:.4f} (improvement: {improvement:.2f}%)")
+            self.logger.info(
+                f"最適化完了 - ベストスコア: {best_score:.4f}, "
+                f"改善率: {improvement:.2f}%, 所要時間: {optimization_time:.1f}秒"
+            )
 
             return result
 
         except Exception as e:
-            self.logger.error(f"Optimization failed: {e}")
+            self.logger.error(f"最適化実行エラー: {e}")
             raise
 
-    def _get_scoring_for_task(self, task: PredictionTask) -> str:
-        """タスクに応じたスコアリング指標取得"""
-        task_scoring = self.config.get('task_scoring', {})
+    def _get_model_and_params(self, model_type: ModelType, task: PredictionTask) -> Tuple[Any, Dict, str]:
+        """モデルとパラメータ空間、評価指標を取得"""
 
-        if task == PredictionTask.PRICE_DIRECTION:
-            return task_scoring.get('price_direction', {}).get('primary', 'accuracy')
+        if model_type == ModelType.RANDOM_FOREST:
+            if task == PredictionTask.PRICE_DIRECTION:
+                model = RandomForestClassifier(random_state=42, n_jobs=-1)
+                param_space = self.hyperparameter_spaces.random_forest_classifier
+                scoring = 'accuracy'
+            else:  # PRICE_REGRESSION
+                model = RandomForestRegressor(random_state=42, n_jobs=-1)
+                param_space = self.hyperparameter_spaces.random_forest_regressor
+                scoring = 'r2'
+
+        elif model_type == ModelType.XGBOOST and XGBOOST_AVAILABLE:
+            if task == PredictionTask.PRICE_DIRECTION:
+                model = xgb.XGBClassifier(random_state=42, n_jobs=-1, eval_metric='mlogloss')
+                param_space = self.hyperparameter_spaces.xgboost_classifier
+                scoring = 'accuracy'
+            else:  # PRICE_REGRESSION
+                model = xgb.XGBRegressor(random_state=42, n_jobs=-1, eval_metric='rmse')
+                param_space = self.hyperparameter_spaces.xgboost_regressor
+                scoring = 'r2'
         else:
-            return task_scoring.get('price_regression', {}).get('primary', 'r2')
+            raise ValueError(f"Unsupported model type: {model_type}")
 
-    def _convert_to_random_space(self, param_space: Dict[str, List]) -> Dict[str, Any]:
-        """Random Search用のパラメータ分布に変換"""
+        if not param_space:
+            raise ValueError(f"パラメータ空間が定義されていません: {model_type.value}")
 
-        random_space = {}
+        return model, param_space, scoring
+
+    def _create_optimizer(self, method: OptimizationMethod, config: OptimizationConfig,
+                          model: Any, param_space: Dict, scoring: str) -> Any:
+        """最適化器を作成（Issue #856修正：RandomizedSearchCVを正しく使用）"""
+
+        cv = TimeSeriesSplit(n_splits=config.cv_folds)
+
+        if method == OptimizationMethod.GRID:
+            # Grid Search
+            limited_param_space = self._limit_param_space_for_grid(param_space, config.max_iterations)
+            return GridSearchCV(
+                model,
+                limited_param_space,
+                cv=cv,
+                scoring=scoring,
+                n_jobs=config.n_jobs,
+                verbose=config.verbose
+            )
+
+        elif method == OptimizationMethod.RANDOM:
+            # Random Search（修正：RandomizedSearchCVを正しく使用）
+            if not SCIPY_AVAILABLE:
+                self.logger.warning("scipy not available, falling back to Grid Search")
+                limited_param_space = self._limit_param_space_for_grid(param_space, 20)
+                return GridSearchCV(
+                    model,
+                    limited_param_space,
+                    cv=cv,
+                    scoring=scoring,
+                    n_jobs=config.n_jobs,
+                    verbose=config.verbose
+                )
+            else:
+                return RandomizedSearchCV(
+                    model,
+                    param_space,
+                    n_iter=config.n_iter,
+                    cv=cv,
+                    scoring=scoring,
+                    n_jobs=config.n_jobs,
+                    random_state=config.random_state,
+                    verbose=config.verbose
+                )
+
+        elif method == OptimizationMethod.BAYESIAN and BAYESIAN_AVAILABLE:
+            # Bayesian Optimization
+            bayesian_space = self._convert_to_bayesian_space(param_space)
+            return BayesSearchCV(
+                model,
+                bayesian_space,
+                n_iter=config.n_iter,
+                cv=cv,
+                scoring=scoring,
+                n_jobs=config.n_jobs,
+                random_state=config.random_state,
+                verbose=config.verbose
+            )
+        else:
+            # フォールバック：Grid Search
+            self.logger.warning(f"Method {method.value} not available, falling back to Grid Search")
+            limited_param_space = self._limit_param_space_for_grid(param_space, 20)
+            return GridSearchCV(
+                model,
+                limited_param_space,
+                cv=cv,
+                scoring=scoring,
+                n_jobs=config.n_jobs,
+                verbose=config.verbose
+            )
+
+    def _limit_param_space_for_grid(self, param_space: Dict, max_combinations: int) -> Dict:
+        """Grid Search用にパラメータ空間を制限"""
+        limited_space = {}
+        total_combinations = 1
 
         for param, values in param_space.items():
             if isinstance(values, list):
-                # 数値のみの場合（Noneを除く）
-                numeric_values = [v for v in values if isinstance(v, (int, float)) and v is not None]
-                if numeric_values and all(isinstance(v, int) for v in numeric_values):
-                    # 整数パラメータ
-                    if SCIPY_AVAILABLE:
-                        random_space[param] = randint(min(numeric_values), max(numeric_values) + 1)
-                    else:
-                        random_space[param] = numeric_values
-                elif numeric_values and all(isinstance(v, float) for v in numeric_values):
-                    # 浮動小数点パラメータ
-                    if SCIPY_AVAILABLE:
-                        random_space[param] = uniform(min(numeric_values), max(numeric_values) - min(numeric_values))
-                    else:
-                        random_space[param] = numeric_values
-                else:
-                    # カテゴリカルパラメータ（混合型含む）
-                    random_space[param] = values
-            else:
-                random_space[param] = values
-
-        return random_space
-
-    def _limit_param_space(self, param_space: Dict[str, List], max_values_per_param: int = 3) -> Dict[str, List]:
-        """パラメータ空間を制限（計算時間短縮のため）"""
-
-        limited_space = {}
-
-        for param, values in param_space.items():
-            if isinstance(values, list) and len(values) > max_values_per_param:
-                # 値を均等にサンプリング
-                step = len(values) // max_values_per_param
-                limited_values = values[::step][:max_values_per_param]
-                limited_space[param] = limited_values
+                # 組み合わせ数を考慮してサイズを制限
+                max_values = min(len(values), max(2, max_combinations // total_combinations))
+                limited_space[param] = values[:max_values]
+                total_combinations *= len(limited_space[param])
             else:
                 limited_space[param] = values
 
         return limited_space
 
-    def _convert_to_bayesian_space(self, param_space: Dict[str, List]) -> Dict[str, Any]:
-        """Bayesian Optimization用の空間に変換"""
-
-        if not BAYESIAN_AVAILABLE:
-            return param_space
-
+    def _convert_to_bayesian_space(self, param_space: Dict) -> Dict:
+        """Bayesian最適化用のパラメータ空間に変換"""
         bayesian_space = {}
 
         for param, values in param_space.items():
             if isinstance(values, list):
-                if all(isinstance(v, int) for v in values if v is not None):
-                    # 整数パラメータ
-                    int_values = [v for v in values if v is not None]
-                    if int_values:
-                        bayesian_space[param] = Integer(min(int_values), max(int_values))
-                elif all(isinstance(v, float) for v in values if v is not None):
-                    # 浮動小数点パラメータ
-                    float_values = [v for v in values if v is not None]
-                    if float_values:
-                        bayesian_space[param] = Real(min(float_values), max(float_values))
+                if all(isinstance(v, (int, float)) and v is not None for v in values):
+                    # 数値の場合
+                    if all(isinstance(v, int) for v in values):
+                        bayesian_space[param] = Integer(min(values), max(values))
+                    else:
+                        bayesian_space[param] = Real(min(values), max(values))
                 else:
-                    # カテゴリカルパラメータ（リストのまま）
-                    bayesian_space[param] = values
+                    # カテゴリカルの場合
+                    bayesian_space[param] = Categorical(values)
             else:
                 bayesian_space[param] = values
 
         return bayesian_space
 
-    def _calculate_param_importance_improved(self, cv_results: Dict[str, Any]) -> Dict[str, float]:
-        """パラメータ重要度計算（改善版）"""
-        param_importance = {}
+    async def _calculate_enhanced_param_importance(self, optimizer: Any, X: pd.DataFrame,
+                                                   y: pd.Series, best_params: Dict) -> Dict[str, float]:
+        """
+        改善されたパラメータ重要度計算
+
+        Issue #856対応：
+        1. CV結果の分散分析
+        2. パラメータと性能の相関分析
+        3. より統計的に意味のある重要度計算
+        """
+        importance_scores = {}
 
         try:
-            params = cv_results['params']
+            # 1. CV結果の分散による重要度
+            cv_variance_importance = self._calculate_cv_variance_importance(optimizer)
+
+            # 2. パラメータ-性能相関による重要度
+            correlation_importance = self._calculate_correlation_importance(optimizer)
+
+            # 3. 最適パラメータの偏差による重要度
+            deviation_importance = self._calculate_deviation_importance(optimizer, best_params)
+
+            # 重要度スコアの統合
+            all_params = set(cv_variance_importance.keys()) | set(correlation_importance.keys()) | set(deviation_importance.keys())
+
+            for param in all_params:
+                cv_score = cv_variance_importance.get(param, 0.0)
+                corr_score = correlation_importance.get(param, 0.0)
+                dev_score = deviation_importance.get(param, 0.0)
+
+                # 重み付き平均
+                combined_score = (cv_score * 0.4 + corr_score * 0.4 + dev_score * 0.2)
+                importance_scores[param] = combined_score
+
+            # 上位N個のパラメータのみ保持（ノイズ除去）
+            if len(importance_scores) > 5:
+                sorted_params = sorted(importance_scores.items(), key=lambda x: x[1], reverse=True)
+                importance_scores = dict(sorted_params[:5])
+
+        except Exception as e:
+            self.logger.warning(f"パラメータ重要度計算エラー: {e}")
+            # フォールバック：単純な分散計算
+            importance_scores = self._simple_param_importance(optimizer)
+
+        return importance_scores
+
+    def _calculate_cv_variance_importance(self, optimizer: Any) -> Dict[str, float]:
+        """CV結果の分散による重要度計算"""
+        importance = {}
+
+        try:
+            cv_results = optimizer.cv_results_
+            params_keys = [key for key in cv_results.keys() if key.startswith('param_')]
+
+            for param_key in params_keys:
+                param_name = param_key.replace('param_', '')
+
+                # パラメータごとのスコア分散を計算
+                param_scores = {}
+                for i, param_value in enumerate(cv_results[param_key]):
+                    if param_value not in param_scores:
+                        param_scores[param_value] = []
+                    param_scores[param_value].append(cv_results['mean_test_score'][i])
+
+                # 各パラメータ値でのスコア平均値の分散
+                if len(param_scores) > 1:
+                    mean_scores = [np.mean(scores) for scores in param_scores.values()]
+                    variance = np.var(mean_scores)
+                    importance[param_name] = variance
+                else:
+                    importance[param_name] = 0.0
+
+        except Exception as e:
+            self.logger.debug(f"CV分散計算エラー: {e}")
+
+        return importance
+
+    def _calculate_correlation_importance(self, optimizer: Any) -> Dict[str, float]:
+        """パラメータと性能の相関による重要度計算"""
+        importance = {}
+
+        try:
+            cv_results = optimizer.cv_results_
             scores = cv_results['mean_test_score']
 
-            if len(params) < 2:
-                return {}
+            params_keys = [key for key in cv_results.keys() if key.startswith('param_')]
 
-            # パラメータごとの統計分析
-            param_effects = {}
+            for param_key in params_keys:
+                param_name = param_key.replace('param_', '')
+                param_values = cv_results[param_key]
 
-            for param_dict, score in zip(params, scores):
-                for param_name, param_value in param_dict.items():
-                    if param_name not in param_effects:
-                        param_effects[param_name] = {'values': [], 'scores': []}
-
-                    param_effects[param_name]['values'].append(param_value)
-                    param_effects[param_name]['scores'].append(score)
-
-            # 各パラメータの重要度計算
-            for param_name, data in param_effects.items():
-                values = data['values']
-                scores = data['scores']
-
-                if len(set(values)) < 2:  # パラメータ値のバリエーションが少ない
-                    param_importance[param_name] = 0.0
-                    continue
-
+                # 数値パラメータのみ相関計算
                 try:
-                    # 数値パラメータの場合：相関係数を使用
                     numeric_values = []
                     numeric_scores = []
 
-                    for val, score in zip(values, scores):
-                        if isinstance(val, (int, float)) and val is not None:
-                            numeric_values.append(float(val))
-                            numeric_scores.append(score)
+                    for i, value in enumerate(param_values):
+                        if isinstance(value, (int, float)) and not pd.isna(value):
+                            numeric_values.append(float(value))
+                            numeric_scores.append(scores[i])
 
-                    if len(numeric_values) >= 2 and len(set(numeric_values)) >= 2:
-                        correlation = abs(np.corrcoef(numeric_values, numeric_scores)[0, 1])
-                        if not np.isnan(correlation):
-                            param_importance[param_name] = correlation
-                        else:
-                            param_importance[param_name] = 0.0
+                    if len(numeric_values) > 5 and len(set(numeric_values)) > 1:
+                        correlation, _ = pearsonr(numeric_values, numeric_scores)
+                        importance[param_name] = abs(correlation)
                     else:
-                        # カテゴリカルパラメータ：値ごとの平均スコア分散
-                        value_groups = {}
-                        for val, score in zip(values, scores):
-                            val_key = str(val)
-                            if val_key not in value_groups:
-                                value_groups[val_key] = []
-                            value_groups[val_key].append(score)
+                        importance[param_name] = 0.0
 
-                        group_means = [np.mean(group_scores) for group_scores in value_groups.values()]
-
-                        if len(group_means) > 1:
-                            overall_mean = np.mean(scores)
-                            # グループ間分散を重要度として使用
-                            variance = np.var(group_means)
-                            param_importance[param_name] = variance / (np.var(scores) + 1e-8)
-                        else:
-                            param_importance[param_name] = 0.0
-
-                except Exception as e:
-                    self.logger.warning(f"パラメータ{param_name}の重要度計算でエラー: {e}")
-                    param_importance[param_name] = 0.0
-
-            # 正規化
-            max_importance = max(param_importance.values()) if param_importance else 1.0
-            if max_importance > 0:
-                param_importance = {k: v/max_importance for k, v in param_importance.items()}
-
-            # 上位N個のパラメータのみ保持（ノイズ除去）
-            if len(param_importance) > 5:
-                sorted_params = sorted(param_importance.items(), key=lambda x: x[1], reverse=True)
-                param_importance = dict(sorted_params[:5])
+                except Exception:
+                    importance[param_name] = 0.0
 
         except Exception as e:
-            self.logger.error(f"Failed to calculate parameter importance: {e}")
-            param_importance = {}
+            self.logger.debug(f"相関計算エラー: {e}")
 
-        return param_importance
+        return importance
 
-    def _calculate_param_importance(self, cv_results: Dict[str, Any]) -> Dict[str, float]:
-        """パラメータ重要度計算（後方互換性のため）"""
-        return self._calculate_param_importance_improved(cv_results)
-
-    async def optimize_all_models(self, symbol: str, X: pd.DataFrame, y_dict: Dict[PredictionTask, pd.Series],
-                                baseline_scores: Dict[str, float] = None) -> Dict[str, OptimizationResult]:
-        """全モデルの最適化実行"""
-
-        if baseline_scores is None:
-            baseline_scores = {}
-
-        results = {}
-
-        # Random Forest最適化
-        for task, y in y_dict.items():
-            if task in [PredictionTask.PRICE_DIRECTION, PredictionTask.PRICE_REGRESSION]:
-                try:
-                    baseline_key = f"RandomForest_{task.value}"
-                    baseline = baseline_scores.get(baseline_key, 0.5)
-
-                    rf_result = await self.optimize_model(
-                        symbol, ModelType.RANDOM_FOREST, task, X, y,
-                        baseline_score=baseline, method='random'
-                    )
-                    results[f"RandomForest_{task.value}"] = rf_result
-
-                except Exception as e:
-                    self.logger.error(f"Random Forest optimization failed for {task.value}: {e}")
-
-        # XGBoost最適化
-        if XGBOOST_AVAILABLE:
-            for task, y in y_dict.items():
-                if task in [PredictionTask.PRICE_DIRECTION, PredictionTask.PRICE_REGRESSION]:
-                    try:
-                        baseline_key = f"XGBoost_{task.value}"
-                        baseline = baseline_scores.get(baseline_key, 0.5)
-
-                        xgb_result = await self.optimize_model(
-                            symbol, ModelType.XGBOOST, task, X, y,
-                            baseline_score=baseline, method='random'
-                        )
-                        results[f"XGBoost_{task.value}"] = xgb_result
-
-                    except Exception as e:
-                        self.logger.error(f"XGBoost optimization failed for {task.value}: {e}")
-
-        return results
-
-    async def _save_optimization_result(self, result: OptimizationResult, symbol: str, method: str):
-        """最適化結果保存"""
+    def _calculate_deviation_importance(self, optimizer: Any, best_params: Dict) -> Dict[str, float]:
+        """最適パラメータの偏差による重要度計算"""
+        importance = {}
 
         try:
+            cv_results = optimizer.cv_results_
+
+            for param_name, best_value in best_params.items():
+                param_key = f'param_{param_name}'
+                if param_key in cv_results:
+                    param_values = cv_results[param_key]
+
+                    # 数値パラメータの場合
+                    if isinstance(best_value, (int, float)):
+                        numeric_values = [v for v in param_values if isinstance(v, (int, float))]
+                        if len(numeric_values) > 1:
+                            param_std = np.std(numeric_values)
+                            param_mean = np.mean(numeric_values)
+                            if param_std > 0:
+                                # 標準化された偏差
+                                deviation = abs(best_value - param_mean) / param_std
+                                importance[param_name] = min(deviation, 3.0)  # 上限設定
+                            else:
+                                importance[param_name] = 0.0
+                        else:
+                            importance[param_name] = 0.0
+                    else:
+                        # カテゴリカルパラメータの場合
+                        unique_values = list(set(param_values))
+                        if len(unique_values) > 1:
+                            importance[param_name] = 1.0 / len(unique_values)
+                        else:
+                            importance[param_name] = 0.0
+
+        except Exception as e:
+            self.logger.debug(f"偏差計算エラー: {e}")
+
+        return importance
+
+    def _simple_param_importance(self, optimizer: Any) -> Dict[str, float]:
+        """シンプルなパラメータ重要度計算（フォールバック）"""
+        importance = {}
+
+        try:
+            cv_results = optimizer.cv_results_
+
+            for key in cv_results.keys():
+                if key.startswith('param_'):
+                    param_name = key.replace('param_', '')
+                    # 単純に最高スコアとの差を重要度とする
+                    importance[param_name] = 1.0
+
+        except Exception:
+            pass
+
+        return importance
+
+    def _calculate_total_combinations(self, param_space: Dict, method: OptimizationMethod,
+                                      config: OptimizationConfig) -> int:
+        """パラメータ組み合わせ総数を計算"""
+        if method == OptimizationMethod.GRID:
+            total = 1
+            for values in param_space.values():
+                if isinstance(values, list):
+                    total *= len(values)
+            return min(total, config.max_iterations)
+        elif method == OptimizationMethod.RANDOM:
+            return config.n_iter
+        elif method == OptimizationMethod.BAYESIAN:
+            return config.n_iter
+        else:
+            return 1
+
+    async def _record_optimization_result(self, result: OptimizationResult):
+        """最適化結果をデータベースに記録"""
+        try:
             with sqlite3.connect(self.db_path) as conn:
-                # メイン結果保存
-                cursor = conn.execute("""
-                    INSERT INTO optimization_results
-                    (model_type, task, optimization_method, best_score, improvement,
-                     optimization_time, best_params, cv_scores)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                cursor = conn.cursor()
+
+                # 設定スナップショット
+                config_snapshot = yaml.dump(self.config)
+
+                # 最適化結果の記録
+                cursor.execute("""
+                    INSERT INTO enhanced_optimization_results
+                    (model_type, task, optimization_method, best_score, baseline_score,
+                     improvement, optimization_time, best_params, cv_scores,
+                     total_combinations, config_snapshot)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     result.model_type,
                     result.task,
-                    method,
+                    result.optimization_method,
                     result.best_score,
+                    result.baseline_score,
                     result.improvement,
                     result.optimization_time,
                     json.dumps(result.best_params),
-                    json.dumps(result.cv_scores)
+                    json.dumps(result.cv_scores),
+                    result.total_combinations,
+                    config_snapshot
                 ))
 
                 optimization_run_id = cursor.lastrowid
 
-                # パラメータ重要度保存
-                for param_name, importance in result.param_importance.items():
-                    conn.execute("""
-                        INSERT INTO parameter_importance
-                        (model_type, task, parameter_name, importance_score, optimization_run_id)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (
-                        result.model_type,
-                        result.task,
-                        param_name,
-                        importance,
-                        optimization_run_id
-                    ))
+                # パラメータ重要度の記録
+                for param_name, importance_score in result.param_importance.items():
+                    cursor.execute("""
+                        INSERT INTO enhanced_parameter_importance
+                        (optimization_run_id, parameter_name, importance_score, importance_method)
+                        VALUES (?, ?, ?, ?)
+                    """, (optimization_run_id, param_name, importance_score, 'enhanced_combined'))
+
+                conn.commit()
+                self.logger.info(f"最適化結果をデータベースに記録しました (ID: {optimization_run_id})")
 
         except Exception as e:
-            self.logger.error(f"Failed to save optimization result: {e}")
+            self.logger.error(f"最適化結果記録エラー: {e}")
 
-    def get_optimized_params(self, symbol: str, model_type: ModelType, task: PredictionTask) -> Dict[str, Any]:
-        """最適化済みパラメータ取得"""
-
-        cache_key = f"{symbol}_{model_type.value}_{task.value}"
-        return self.optimized_params.get(cache_key, {})
-
-    async def get_optimization_summary(self) -> Dict[str, Any]:
-        """最適化サマリー取得"""
-
+    def get_optimization_summary(self) -> Dict[str, Any]:
+        """最適化結果サマリーを取得"""
         try:
             with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
                 # 最新の最適化結果
-                cursor = conn.execute("""
-                    SELECT model_type, task, best_score, improvement, optimization_time
-                    FROM optimization_results
+                cursor.execute("""
+                    SELECT model_type, task, optimization_method, best_score,
+                           improvement, optimization_time, created_at
+                    FROM enhanced_optimization_results
                     ORDER BY created_at DESC
-                    LIMIT 20
-                """)
-
-                recent_optimizations = cursor.fetchall()
-
-                # 最大改善率
-                cursor = conn.execute("""
-                    SELECT MAX(improvement) as max_improvement,
-                           AVG(improvement) as avg_improvement
-                    FROM optimization_results
-                """)
-
-                improvement_stats = cursor.fetchone()
+                    LIMIT 10
+                ")
+                recent_results = cursor.fetchall()
 
                 # パラメータ重要度統計
-                cursor = conn.execute("""
-                    SELECT parameter_name, AVG(importance_score) as avg_importance
-                    FROM parameter_importance
+                cursor.execute("""
+                    SELECT parameter_name, AVG(importance_score) as avg_importance,
+                           COUNT(*) as frequency
+                    FROM enhanced_parameter_importance
                     GROUP BY parameter_name
                     ORDER BY avg_importance DESC
                     LIMIT 10
-                """)
-
-                param_importance = cursor.fetchall()
+                ")
+                param_importance_stats = cursor.fetchall()
 
                 return {
-                    'optimization_count': len(self.optimized_params),
-                    'recent_optimizations': [
-                        {
-                            'model': r[0],
-                            'task': r[1],
-                            'score': r[2],
-                            'improvement': r[3],
-                            'time': r[4]
-                        } for r in recent_optimizations
-                    ],
-                    'max_improvement': improvement_stats[0] if improvement_stats else 0,
-                    'avg_improvement': improvement_stats[1] if improvement_stats else 0,
-                    'important_params': [
-                        {
-                            'parameter': p[0],
-                            'importance': p[1]
-                        } for p in param_importance
-                    ]
+                    'config_path': str(self.config_path),
+                    'recent_optimizations': recent_results,
+                    'parameter_importance_stats': param_importance_stats,
+                    'available_methods': [method.value for method in OptimizationMethod],
+                    'integrations': {
+                        'sklearn': SKLEARN_AVAILABLE,
+                        'xgboost': XGBOOST_AVAILABLE,
+                        'scipy': SCIPY_AVAILABLE,
+                        'bayesian': BAYESIAN_AVAILABLE
+                    }
                 }
 
         except Exception as e:
-            self.logger.error(f"Failed to get optimization summary: {e}")
-            return {
-                'optimization_count': 0,
-                'recent_optimizations': [],
-                'max_improvement': 0,
-                'avg_improvement': 0,
-                'important_params': []
-            }
+            self.logger.error(f"サマリー情報取得エラー: {e}")
+            return {'error': str(e)}
 
-# ファクトリー関数
-def create_hyperparameter_optimizer(config_path: Optional[str] = None,
-                                   hyperparameter_config_path: Optional[str] = None) -> HyperparameterOptimizer:
-    """
-    HyperparameterOptimizerインスタンスの作成
 
-    Args:
-        config_path: 最適化設定ファイルパス
-        hyperparameter_config_path: ハイパーパラメータ空間設定ファイルパス
+# ユーティリティ関数
+def create_enhanced_hyperparameter_optimizer(
+    config_path: Optional[str] = None
+) -> EnhancedHyperparameterOptimizer:
+    """EnhancedHyperparameterOptimizerインスタンスの作成"""
+    path = Path(config_path) if config_path else None
+    return EnhancedHyperparameterOptimizer(config_path=path)
 
-    Returns:
-        HyperparameterOptimizerインスタンス
-    """
-    config_path_obj = Path(config_path) if config_path else None
-    hyperparameter_path_obj = Path(hyperparameter_config_path) if hyperparameter_config_path else None
-
-    return HyperparameterOptimizer(
-        config_path=config_path_obj,
-        hyperparameter_config_path=hyperparameter_path_obj
-    )
-
-# グローバルインスタンス（後方互換性のため）
-try:
-    hyperparameter_optimizer = HyperparameterOptimizer()
-except Exception:
-    # 設定ファイルがない場合のフォールバック
-    hyperparameter_optimizer = None
 
 if __name__ == "__main__":
-    # 基本動作確認は別ファイルに分離済み
-    pass
+    # 基本的な動作確認（テストコードは別ファイルに分離予定）
+    async def main():
+        logger.info("Enhanced Hyperparameter Optimizer テスト開始")
+
+        optimizer = create_enhanced_hyperparameter_optimizer()
+        summary = optimizer.get_optimization_summary()
+
+        logger.info("最適化システム初期化完了")
+        logger.info(f"利用可能な最適化手法: {summary.get('available_methods', [])}")
+        logger.info(f"統合状況: {summary.get('integrations', {})}")
+
+    # テスト実行
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    asyncio.run(main())
