@@ -159,7 +159,7 @@ jobs:
           if [ -n "$HIGH_RISK_CHANGES" ]; then
             echo "high_risk_changes=true" >> $GITHUB_ENV
             echo "high_risk_areas<<EOF" >> $GITHUB_ENV
-            echo "$HIGH_RISK_CHANGES" >> $GITHUB_ENV
+            echo -e "$HIGH_RISK_CHANGES" >> $GITHUB_ENV
             echo "EOF" >> $GITHUB_ENV
           else
             echo "high_risk_changes=false"
@@ -176,50 +176,54 @@ jobs:
           script: |
             const conflictedFiles = process.env.conflicted_files || 'Unknown files';
             const mergeOutput = process.env.merge_output || 'No detailed output available';
+            const baseBranch = process.env.base_branch || 'main';
+            const currentBranch = process.env.current_branch || 'your-branch';
 
             const body = `## ⚠️ マージコンフリクトが検出されました
 
-            このプルリクエストを \`${{ env.base_branch }}\` ブランチにマージする際にコンフリクトが発生します。
+            このプルリクエストを 
+            `${baseBranch}` 
+            ブランチにマージする際にコンフリクトが発生します。
 
             ### 🔧 コンフリクトの解決手順:
 
             1. **ローカルで最新の変更を取得:**
-               ```bash
-               git checkout ${{ env.current_branch }}
+               `bash
+               git checkout ${currentBranch}
                git fetch origin
-               git pull origin ${{ env.current_branch }}
-               ```
+               git pull origin ${currentBranch}
+               `
 
             2. **ベースブランチの最新変更をマージ:**
-               ```bash
-               git merge origin/${{ env.base_branch }}
-               ```
+               `bash
+               git merge origin/${baseBranch}
+               `
 
             3. **コンフリクトを手動で解決:**
-               ```bash
+               `bash
                # エディターでコンフリクトファイルを編集
                # <<<<<<< HEAD, =======, >>>>>>> マーカーを削除
                git add <解決したファイル名>
-               ```
+               `
 
             4. **マージをコミット:**
-               ```bash
-               git commit -m "Resolve merge conflicts with ${{ env.base_branch }}"
-               git push origin ${{ env.current_branch }}
-               ```
+               `bash
+               git commit -m "Resolve merge conflicts with ${baseBranch}"
+               git push origin ${currentBranch}
+               `
 
             ### 📋 コンフリクトファイル:
-            ```
+            `bash
             ${conflictedFiles}
-            ```
+            `
 
             ### 🔍 詳細出力:
             <details>
             <summary>マージ試行の詳細ログ</summary>
 
-            ```
+            `bash
             ${mergeOutput}
-            ```
+            `
             </details>
 
             コンフリクトが解決されると、このチェックは自動的に再実行されます。
@@ -244,12 +248,18 @@ jobs:
 
             const body = `## ⚠️ コンフリクトマーカーが検出されました
 
-            コード内にマージコンフリクトマーカー (\`<<<<<<<\`, \`=======\`, \`>>>>>>>\`) が残っています。
+            コード内にマージコンフリクトマーカー (
+            `<<<<<<< `
+            , 
+            `=======
+            `, 
+            `>>>>>>>`
+            ) が残っています。
 
             ### 🔍 検出された箇所:
-            ```
+            `bash
             ${conflictMarkers}
-            ```
+            `
 
             ### 🔧 修正方法:
             1. 上記ファイルを開いて、コンフリクトマーカーを探してください
@@ -285,9 +295,9 @@ jobs:
             <details>
             <summary>変更ファイル一覧</summary>
 
-            ```
+            `bash
             ${changedFiles}
-            ```
+            `
             </details>
 
             ### ⚠️ 注意事項:
