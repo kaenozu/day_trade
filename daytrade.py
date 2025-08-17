@@ -38,19 +38,24 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
+import logging.config
+
+import config
+from ml_service import MLService, PredictionResult
+from utils.symbol_data_fetcher import get_company_name_from_yfinance
 
 
 from model_performance_monitor import EnhancedModelPerformanceMonitor as ModelPerformanceMonitor
 try:
     from overnight_prediction_model import OvernightPredictionModel
     OVERNIGHT_MODEL_AVAILABLE = True
-    print("[OK] 翌朝場予測モデル: 機械学習ベースの予測対応")
+    logger.info("[OK] 翌朝場予測モデル: 機械学習ベースの予測対応")
 except ImportError:
     OVERNIGHT_MODEL_AVAILABLE = False
-    print("[WARNING] 翌朝場予測モデル未対応")
+    logger.warning("[WARNING] 翌朝場予測モデル未対応")
 
 # 個人版システム設定
-project_root = Path(__file__).parent
+project_root = config.PROJECT_ROOT
 sys.path.insert(0, str(project_root))
 
 # 個人版システム機能
@@ -65,21 +70,7 @@ try:
 except ImportError:
     PRICE_DATA_AVAILABLE = False
 
-# ML予測システム
-try:
-    # 軽量版を先に試行
-    from simple_ml_prediction_system import SimpleMLPredictionSystem as MLPredictionSystem
-    ML_AVAILABLE = True
-    ML_TYPE = "simple"
-except ImportError:
-    try:
-        # 高度版をフォールバック
-        from advanced_ml_prediction_system import AdvancedMLPredictionSystem as MLPredictionSystem
-        ML_AVAILABLE = True
-        ML_TYPE = "advanced"
-    except ImportError:
-        ML_AVAILABLE = False
-        ML_TYPE = "none"
+
 
 # バックテスト結果統合
 try:
@@ -106,9 +97,9 @@ try:
     from plotly.subplots import make_subplots
     import plotly.utils
     WEB_AVAILABLE = True
-    print("[OK] Web機能: ブラウザダッシュボード対応")
+    logger.info("[OK] Web機能: ブラウザダッシュボード対応")
 except ImportError:
-    print("[WARNING] Web機能未対応 - pip install flask plotly")
+    logger.warning("[WARNING] Web機能未対応 - pip install flask plotly")
 
 try:
     from analysis_history import PersonalAnalysisHistory
@@ -125,26 +116,26 @@ except ImportError:
 try:
     from enhanced_symbol_manager import EnhancedSymbolManager, SymbolTier
     ENHANCED_SYMBOLS_AVAILABLE = True
-    print("[OK] 拡張銘柄管理システム: 100銘柄体制対応")
+    self.logger.info("[OK] 拡張銘柄管理システム: 100銘柄体制対応")
 except ImportError:
     ENHANCED_SYMBOLS_AVAILABLE = False
-    print("[WARNING] 拡張銘柄管理システム未対応")
+    self.logger.warning("[WARNING] 拡張銘柄管理システム未対応")
 
 try:
     from real_data_provider import RealDataProvider, RealDataAnalysisEngine
     REAL_DATA_AVAILABLE = True
-    print("[OK] 実戦投入モード: リアルデータ対応")
+    self.logger.info("[OK] 実戦投入モード: リアルデータ対応")
 except ImportError:
     REAL_DATA_AVAILABLE = False
-    print("[INFO] シンプルモード: 基本データ使用（本番運用可能）")
+    self.logger.info("[INFO] シンプルモード: 基本データ使用（本番運用可能）")
 
 try:
     from risk_manager import PersonalRiskManager, RiskSettings
     RISK_MANAGER_AVAILABLE = True
-    print("[OK] 実戦リスク管理システム: 損切り自動化対応")
+    self.logger.info("[OK] 実戦リスク管理システム: 損切り自動化対応")
 except ImportError:
     RISK_MANAGER_AVAILABLE = False
-    print("[WARNING] リスク管理システム未対応")
+    self.logger.warning("[WARNING] リスク管理システム未対応")
 
 # Issue #882対応: マルチタイムフレーム予測機能
 try:
@@ -154,58 +145,58 @@ try:
         TradingStyle
     )
     MULTI_TIMEFRAME_AVAILABLE = True
-    print("[OK] マルチタイムフレーム予測: 1週間・1ヶ月・3ヶ月予測対応")
+    self.logger.info("[OK] マルチタイムフレーム予測: 1週間・1ヶ月・3ヶ月予測対応")
 except ImportError:
     MULTI_TIMEFRAME_AVAILABLE = False
-    print("[WARNING] マルチタイムフレーム予測未対応 - pip install lightgbm scikit-learn")
+    self.logger.warning("[WARNING] マルチタイムフレーム予測未対応 - pip install lightgbm scikit-learn")
 
 try:
     from stability_manager import SystemStabilityManager, ErrorLevel
     STABILITY_MANAGER_AVAILABLE = True
-    print("[OK] 技術的安定性システム: エラーハンドリング強化")
+    self.logger.info("[OK] 技術的安定性システム: エラーハンドリング強化")
 except ImportError:
     STABILITY_MANAGER_AVAILABLE = False
-    print("[WARNING] 安定性管理システム未対応")
+    self.logger.warning("[WARNING] 安定性管理システム未対応")
 
 try:
     from parallel_analyzer import ParallelAnalyzer
     PARALLEL_ANALYZER_AVAILABLE = True
-    print("[OK] 並列分析システム: 高速処理対応")
+    self.logger.info("[OK] 並列分析システム: 高速処理対応")
 except ImportError:
     PARALLEL_ANALYZER_AVAILABLE = False
-    print("[WARNING] 並列分析システム未対応")
+    self.logger.warning("[WARNING] 並列分析システム未対応")
 
 try:
     from sector_diversification import SectorDiversificationManager
     SECTOR_DIVERSIFICATION_AVAILABLE = True
-    print("[OK] セクター分散システム: 33業界完全分散対応")
+    self.logger.info("[OK] セクター分散システム: 33業界完全分散対応")
 except ImportError:
     SECTOR_DIVERSIFICATION_AVAILABLE = False
-    print("[WARNING] セクター分散システム未対応")
+    self.logger.warning("[WARNING] セクター分散システム未対応")
 
 try:
     from theme_stock_analyzer import ThemeStockAnalyzer
     THEME_STOCK_AVAILABLE = True
-    print("[OK] テーマ株・材料株システム: ニュース連動分析対応")
+    self.logger.info("[OK] テーマ株・材料株システム: ニュース連動分析対応")
 except ImportError:
     THEME_STOCK_AVAILABLE = False
-    print("[WARNING] テーマ株・材料株システム未対応")
+    self.logger.warning("[WARNING] テーマ株・材料株システム未対応")
 
 try:
     from prediction_validator import PredictionValidator, Prediction, ValidationPeriod
     PREDICTION_VALIDATOR_AVAILABLE = True
-    print("[OK] 予測精度検証システム: 93%精度目標追跡対応")
+    self.logger.info("[OK] 予測精度検証システム: 93%精度目標追跡対応")
 except ImportError:
     PREDICTION_VALIDATOR_AVAILABLE = False
-    print("[WARNING] 予測精度検証システム未対応")
+    self.logger.warning("[WARNING] 予測精度検証システム未対応")
 
 try:
     from performance_tracker import PerformanceTracker, Trade, TradeType, TradeResult, RiskLevel
     PERFORMANCE_TRACKER_AVAILABLE = True
-    print("[OK] 包括的パフォーマンス追跡システム: 総合運用分析対応")
+    self.logger.info("[OK] 包括的パフォーマンス追跡システム: 総合運用分析対応")
 except ImportError:
     PERFORMANCE_TRACKER_AVAILABLE = False
-    print("[WARNING] 包括的パフォーマンス追跡システム未対応")
+    self.logger.warning("[WARNING] 包括的パフォーマンス追跡システム未対応")
 
 # 外部アラートシステムは削除 - Webダッシュボード統合
 ALERT_SYSTEM_AVAILABLE = False
@@ -213,18 +204,18 @@ ALERT_SYSTEM_AVAILABLE = False
 try:
     from advanced_technical_analyzer import AdvancedTechnicalAnalyzer, AdvancedAnalysis, TechnicalSignal, SignalStrength
     ADVANCED_TECHNICAL_AVAILABLE = True
-    print("[OK] 高度技術指標・分析手法拡張システム: 先進的技術分析対応")
+    self.logger.info("[OK] 高度技術指標・分析手法拡張システム: 先進的技術分析対応")
 except ImportError:
     ADVANCED_TECHNICAL_AVAILABLE = False
-    print("[WARNING] 高度技術指標・分析手法拡張システム未対応")
+    self.logger.warning("[WARNING] 高度技術指標・分析手法拡張システム未対応")
 
 try:
     from real_data_provider_v2 import real_data_provider, MultiSourceDataProvider
     REAL_DATA_PROVIDER_V2_AVAILABLE = True
-    print("[OK] 実データプロバイダーV2: 複数ソース対応・品質管理強化")
+    self.logger.info("[OK] 実データプロバイダーV2: 複数ソース対応・品質管理強化")
 except ImportError:
     REAL_DATA_PROVIDER_V2_AVAILABLE = False
-    print("[WARNING] 実データプロバイダーV2未対応")
+    self.logger.warning("[WARNING] 実データプロバイダーV2未対応")
 
 import numpy as np
 # アラートシステム削除 - Webダッシュボード統合
@@ -233,11 +224,21 @@ import numpy as np
 class PersonalAnalysisEngine:
     """個人投資家向けシンプル分析エンジン"""
 
-    def __init__(self):
+    def __init__(self,
+                 logger: logging.Logger,
+                 symbol_manager: Optional[Any] = None,
+                 sector_diversification_manager: Optional[Any] = None,
+                 theme_stock_analyzer: Optional[Any] = None,
+                 prediction_validator: Optional[Any] = None,
+                 performance_tracker: Optional[Any] = None,
+                 advanced_technical_analyzer: Optional[Any] = None,
+                 model_performance_monitor: Optional[Any] = None,
+                 overnight_prediction_model: Optional[Any] = None):
+        self.logger = logger
+
         # 拡張銘柄管理システム統合
-        if ENHANCED_SYMBOLS_AVAILABLE:
-            self.symbol_manager = EnhancedSymbolManager()
-            # 拡張システムから銘柄取得
+        self.symbol_manager = symbol_manager
+        if self.symbol_manager:
             all_symbols = self.symbol_manager.symbols
             self.recommended_symbols = {
                 symbol: info.name for symbol, info in all_symbols.items()
@@ -246,12 +247,11 @@ class PersonalAnalysisEngine:
             self.enhanced_mode = True
         else:
             # フォールバック: 従来の15銘柄
-            # 銘柄名辞書をインポート
             try:
                 from src.day_trade.data.symbol_names import get_all_symbols
                 self.recommended_symbols = get_all_symbols()
             except ImportError as e:
-                print(f"[DEBUG] 銘柄辞書読み込み失敗: {e}")
+                self.logger.debug(f"銘柄辞書読み込み失敗: {e}")
                 # フォールバック：最小限の銘柄辞書
                 self.recommended_symbols = {
                     "7203": "トヨタ自動車", "6758": "ソニーG", "7974": "任天堂", "9984": "ソフトバンクG",
@@ -260,57 +260,45 @@ class PersonalAnalysisEngine:
             self.enhanced_mode = False
 
         self.analysis_cache = {}
-        self.max_cache_size = 50  # メモリ使用量制限
+        self.max_cache_size = config.ANALYSIS_CACHE_MAX_SIZE  # メモリ使用量制限
 
         # セクター分散システム統合
-        if SECTOR_DIVERSIFICATION_AVAILABLE:
-            self.sector_diversification = SectorDiversificationManager()
-            self.diversification_mode = True
-        else:
-            self.diversification_mode = False
+        self.sector_diversification = sector_diversification_manager
+        self.diversification_mode = True if self.sector_diversification else False
 
         # テーマ株・材料株システム統合
-        if THEME_STOCK_AVAILABLE:
-            self.theme_analyzer = ThemeStockAnalyzer()
-            self.theme_mode = True
-        else:
-            self.theme_mode = False
+        self.theme_analyzer = theme_stock_analyzer
+        self.theme_mode = True if self.theme_analyzer else False
 
         # 予測精度検証システム統合
-        if PREDICTION_VALIDATOR_AVAILABLE:
-            self.prediction_validator = PredictionValidator()
-            self.validation_mode = True
-        else:
-            self.validation_mode = False
+        self.prediction_validator = prediction_validator
+        self.validation_mode = True if self.prediction_validator else False
 
         # 包括的パフォーマンス追跡システム統合
-        if PERFORMANCE_TRACKER_AVAILABLE:
-            self.performance_tracker = PerformanceTracker()
-            self.performance_mode = True
-        else:
-            self.performance_mode = False
+        self.performance_tracker = performance_tracker
+        self.performance_mode = True if self.performance_tracker else False
 
         # アラート機能はWebダッシュボード統合
         self.alert_mode = False
 
         # 高度技術指標・分析手法拡張システム統合
-        if ADVANCED_TECHNICAL_AVAILABLE:
-            self.advanced_technical = AdvancedTechnicalAnalyzer()
-            self.advanced_technical_mode = True
-        else:
-            self.advanced_technical_mode = False
+        self.advanced_technical = advanced_technical_analyzer
+        self.advanced_technical_mode = True if self.advanced_technical else False
 
         # モデル性能監視システム統合 (Issue #827)
-        self.performance_monitor = ModelPerformanceMonitor()
+        self.performance_monitor = model_performance_monitor
+        if not self.performance_monitor:
+            # If not injected, fallback to default (original behavior)
+            from model_performance_monitor import EnhancedModelPerformanceMonitor
+            self.performance_monitor = EnhancedModelPerformanceMonitor()
 
         # 翌朝場予測モデルの初期化
-        if OVERNIGHT_MODEL_AVAILABLE:
-            self.overnight_model = OvernightPredictionModel()
-            self.overnight_model_enabled = True
-            print("[OK] 翌朝場予測モデル: 機械学習ベースの予測対応")
+        self.overnight_model = overnight_prediction_model
+        self.overnight_model_enabled = True if self.overnight_model else False
+        if self.overnight_model_enabled:
+            self.logger.info("[OK] 翌朝場予測モデル: 機械学習ベースの予測対応")
         else:
-            self.overnight_model = None
-            self.overnight_model_enabled = False
+            self.logger.warning("[WARNING] 翌朝場予測モデル未対応")
 
     async def get_personal_recommendations(self, limit=3):
         """個人向け推奨銘柄生成（基本機能）"""
@@ -338,7 +326,7 @@ class PersonalAnalysisEngine:
                     ))
 
                     risk_level = "低" if symbol_info.risk_score < 40 else ("中" if symbol_info.risk_score < 70 else "高")
-                    print(f"[DEBUG] Enhanced mode: {symbol_key} -> symbol_info.name = {symbol_info.name}")
+                    self.logger.debug(f"Enhanced mode: {symbol_key} -> symbol_info.name = {symbol_info.name}")
 
                     # 銘柄名取得の強化 - 辞書を最優先
                     name = None
@@ -347,24 +335,24 @@ class PersonalAnalysisEngine:
                     try:
                         from src.day_trade.data.symbol_names import get_symbol_name
                         name = get_symbol_name(symbol_key)
-                        print(f"[DEBUG] Enhanced mode: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
+                        self.logger.debug(f"Enhanced mode: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
                     except:
                         pass
 
                     if not name:
                         # 次にsymbol_info.nameを確認
                         name = symbol_info.name
-                        print(f"[DEBUG] Enhanced mode: {symbol_key} -> symbol_info.name = {repr(name)}")
+                        self.logger.debug(f"Enhanced mode: {symbol_key} -> symbol_info.name = {repr(name)}")
 
                         if not name:
                             # yfinanceから取得
                             name = self.get_company_name_from_yfinance(symbol_key)
-                            print(f"[DEBUG] Enhanced mode: {symbol_key} -> yfinance = {repr(name)}")
+                            self.logger.debug(f"Enhanced mode: {symbol_key} -> yfinance = {repr(name)}")
 
                     if not name:
                         name = symbol_key
 
-                    print(f"[DEBUG] Enhanced mode: {symbol_key} -> final name = {name}")
+                    self.logger.debug(f"Enhanced mode: {symbol_key} -> final name = {name}")
                 else:
                     # フォールバック
                     np.random.seed(hash(symbol_key) % 1000)
@@ -376,19 +364,19 @@ class PersonalAnalysisEngine:
                     try:
                         from src.day_trade.data.symbol_names import get_symbol_name
                         name = get_symbol_name(symbol_key)
-                        print(f"[DEBUG] Fallback: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
+                        self.logger.debug(f"Fallback: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
                     except:
                         pass
 
                     if not name:
                         # 次にrecommended_symbolsから
                         name = self.recommended_symbols.get(symbol_key, None)
-                        print(f"[DEBUG] Fallback: {symbol_key} -> recommended_symbols = {repr(name)}")
+                        self.logger.debug(f"Fallback: {symbol_key} -> recommended_symbols = {repr(name)}")
 
                         if not name:
                             # yfinanceから取得
                             name = self.get_company_name_from_yfinance(symbol_key)
-                            print(f"[DEBUG] Fallback: {symbol_key} -> yfinance = {repr(name)}")
+                            self.logger.debug(f"Fallback: {symbol_key} -> yfinance = {repr(name)}")
 
                     # 最後の手段
                     if not name:
@@ -404,14 +392,14 @@ class PersonalAnalysisEngine:
                 try:
                     from src.day_trade.data.symbol_names import get_symbol_name
                     name = get_symbol_name(symbol_key)
-                    print(f"[DEBUG] Traditional: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
+                    self.logger.debug(f"Traditional: {symbol_key} -> direct dict lookup FIRST = {repr(name)}")
                 except:
                     pass
 
                 if not name:
                     # 次にrecommended_symbolsから
                     name = self.recommended_symbols.get(symbol_key, None)
-                    print(f"[DEBUG] Traditional: {symbol_key} -> recommended_symbols = {repr(name)}")
+                                            self.logger.debug(f"Traditional: {symbol_key} -> recommended_symbols = {repr(name)}")
 
                     if not name:
                         # yfinanceから取得
@@ -536,26 +524,26 @@ class PersonalAnalysisEngine:
             try:
                 from src.day_trade.data.symbol_names import get_symbol_name
                 symbol_name = get_symbol_name(symbol)
-                print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> direct dict lookup FIRST: {repr(symbol_name)}")
+                self.logger.debug(f"get_enhanced_single_symbol_analysis: {symbol} -> direct dict lookup FIRST: {repr(symbol_name)}")
             except:
                 pass
 
             if not symbol_name:
                 # 次にrecommended_symbolsから確認
                 symbol_name = self.recommended_symbols.get(symbol, None)
-                print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> recommended_symbols.get = {symbol_name}")
+                self.logger.debug(f"get_enhanced_single_symbol_analysis: {symbol} -> recommended_symbols.get = {symbol_name}")
 
                 if not symbol_name:
                     # yfinanceから会社名を取得
                     symbol_name = self.get_company_name_from_yfinance(symbol)
-                    print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> get_company_name_from_yfinance = {symbol_name}")
+                    self.logger.debug(f"get_enhanced_single_symbol_analysis: {symbol} -> get_company_name_from_yfinance = {symbol_name}")
 
             # 最終フォールバック
             if not symbol_name:
                 symbol_name = f"銘柄{symbol}"
-                print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> using fallback: {symbol_name}")
+                self.logger.debug(f"get_enhanced_single_symbol_analysis: {symbol} -> using fallback: {symbol_name}")
             else:
-                print(f"[DEBUG] get_enhanced_single_symbol_analysis: {symbol} -> final result: {symbol_name}")
+                self.logger.debug(f"get_enhanced_single_symbol_analysis: {symbol} -> final result: {symbol_name}")
 
             # 軽量分析（CPU使用量削減）
             np.random.seed(hash(symbol) % 1000)
@@ -680,18 +668,18 @@ class PersonalAnalysisEngine:
 
     async def _display_overnight_prediction(self):
         """【新】機械学習モデルによる夜間予測情報表示（翌朝場予想）"""
-        print("\n🔮 AIによる翌朝場予測:")
+        self.logger.info("🔮 AIによる翌朝場予測:")
 
         if not self.overnight_model_enabled:
-            print("  - 予測モデルが利用できません。")
+            self.logger.info("  - 予測モデルが利用できません。")
             return
 
         try:
             prediction_result = await self.overnight_model.predict()
 
             if prediction_result is None:
-                print("  - 予測に失敗しました。モデルが学習されていない可能性があります。")
-                print("  - `python daytrade.py --train-overnight-model` を実行して、モデルを学習してください。")
+                self.logger.info("  - 予測に失敗しました。モデルが学習されていない可能性があります。")
+                self.logger.info("  - `python daytrade.py --train-overnight-model` を実行して、モデルを学習してください。")
                 return
 
             prob_up = prediction_result['probability_up'] * 100
@@ -705,69 +693,73 @@ class PersonalAnalysisEngine:
                 prediction_text = f"📉 下落確率: {prob_down:.1f}%"
                 advice = "寄り付きでの売りまたは様子見を検討"
 
-            print(f"  - 予測: {prediction_text}")
-            print(f"  - 推奨戦略: {advice}")
+            self.logger.info(f"  - 予測: {prediction_text}")
+            self.logger.info(f"  - 推奨戦略: {advice}")
 
         except Exception as e:
-            print(f"  - 予測モデルの実行中にエラーが発生しました: {e}")
+            self.logger.error(f"  - 予測モデルの実行中にエラーが発生しました: {e}")
 
 
 class SimpleProgress:
     """軽量進捗表示（メモリ最適化版）"""
 
     def __init__(self):
+        self.logger = logging.getLogger('daytrade')
         self.start_time = time.time()
         self.total_steps = 3
 
     def show_step(self, step_name: str, step_num: int):
         """軽量ステップ表示"""
         progress_bar = "=" * step_num + ">" + "." * (self.total_steps - step_num)
-        print(f"\n[{progress_bar}] ({step_num}/{self.total_steps}) {step_name}")
+        self.logger.info(f"\n[{progress_bar}] ({step_num}/{self.total_steps}) {step_name}")
 
     def show_completion(self):
         """完了表示"""
         total_time = time.time() - self.start_time
-        print(f"\n[OK] 分析完了！ 総実行時間: {total_time:.1f}秒")
+        self.logger.info(f"\n[OK] 分析完了！ 総実行時間: {total_time:.1f}秒")
 
 
 def show_header():
     """個人版ヘッダー表示"""
-    print("=" * 50)
-    print("    Day Trade Personal - 個人利用専用版")
-    print("=" * 50)
-    print("93%精度AI × 個人投資家向け最適化")
-    print("商用機能なし・完全無料・超シンプル")
-    print(f"実行時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger = logging.getLogger('daytrade')
+    logger.info("=" * 50)
+    logger.info("    Day Trade Personal - 個人利用専用版")
+    logger.info("=" * 50)
+    logger.info("93%精度AI × 個人投資家向け最適化")
+    logger.info("商用機能なし・完全無料・超シンプル")
+    logger.info(f"実行時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 
 def print_summary(recommendations: List[Dict[str, Any]], portfolio_recommendation: Optional[Dict[str, Any]] = None):
     """
     分析結果の要約を出力します。
     """
-    print("\n" + "="*60)
-    print("分析結果サマリー")
-    print("="*60)
+    logger = logging.getLogger('daytrade')
+    logger.info("\n" + "="*60)
+    logger.info("分析結果サマリー")
+    logger.info("="*60)
 
     if not recommendations:
-        print("推奨銘柄がありません。")
+        logger.info("推奨銘柄がありません。")
         return
 
     buy_count = sum(1 for r in recommendations if r['action'] in ['買い', '強い買い'])
     total_symbols = len(recommendations)
 
-    print(f"総分析銘柄数: {total_symbols}")
-    print(f"買い推奨銘柄数: {buy_count}")
-    print(f"平均スコア: {sum(r['score'] for r in recommendations) / total_symbols:.1f}")
-    print(f"平均信頼度: {sum(r['confidence'] for r in recommendations) / total_symbols:.1f}%")
+    logger.info(f"総分析銘柄数: {total_symbols}")
+    logger.info(f"買い推奨銘柄数: {buy_count}")
+    logger.info(f"平均スコア: {sum(r['score'] for r in recommendations) / total_symbols:.1f}")
+    logger.info(f"平均信頼度: {sum(r['confidence'] for r in recommendations) / total_symbols:.1f}%")
 
     if portfolio_recommendation and portfolio_recommendation['total_symbols'] > 0:
-        print("\n--- ポートフォリオ推奨 ---")
-        print(f"投資額: {portfolio_recommendation['total_allocated']:,}円")
-        print(f"期待リターン: {portfolio_recommendation['expected_return_percent']:.1f}%")
-        print(f"リスク評価: {portfolio_recommendation['risk_assessment']}")
+        logger.info("\n--- ポートフォリオ推奨 ---")
+        logger.info(f"投資額: {portfolio_recommendation['total_allocated']:,}円")
+        logger.info(f"期待リターン: {portfolio_recommendation['expected_return_percent']:.1f}%")
+        logger.info(f"リスク評価: {portfolio_recommendation['risk_assessment']}")
 
-    print("\n投資は自己責任で！")
-    print("="*60)
+    logger.info("\n投資は自己責任で！")
+    logger.info("="*60)
+
 
 def parse_arguments():
 
@@ -855,30 +847,31 @@ async def run_quick_mode(symbols: Optional[List[str]] = None, generate_chart: bo
     Returns:
         実行成功かどうか
     """
+    logger = logging.getLogger('daytrade')
     progress = SimpleProgress()
 
     try:
-        print("\n個人版高速モード: 瞬時でTOP3推奨を実行します")
-        print("93%精度AI分析実行中...")
+        logger.info("\n個人版高速モード: 瞬時でTOP3推奨を実行します")
+        logger.info("93%精度AI分析実行中...")
 
         if symbols:
-            print(f"指定銘柄: {len(symbols)} 銘柄")
+            logger.info(f"指定銘柄: {len(symbols)} 銘柄")
         else:
-            print("推奨銘柄: 個人投資家向け厳選3銘柄")
+            logger.info("推奨銘柄: 個人投資家向け厳選3銘柄")
 
         # ステップ1: データ分析
         progress.show_step("市場データ分析中", 1)
         progress.show_step("93%精度AI予測中", 2)
 
         # 個人版シンプル分析実行
-        engine = PersonalAnalysisEngine()
+        engine = PersonalAnalysisEngine(logger=logger)
         recommendations = await engine.get_personal_recommendations(limit=3)
 
         # ステップ3: 結果表示
         progress.show_step("結果表示", 3)
 
         if not recommendations:
-            print("\n現在推奨できる銘柄がありません")
+            logger.info("\n現在推奨できる銘柄がありません")
             return False
 
         print_summary(recommendations)
@@ -886,8 +879,8 @@ async def run_quick_mode(symbols: Optional[List[str]] = None, generate_chart: bo
 
         # チャート生成（オプション）
         if generate_chart:
-            print()
-            print("[チャート] グラフ生成中...")
+            logger.info("")
+            logger.info("[チャート] グラフ生成中...")
             try:
                 # ここでチャート関連モジュールを遅延インポート
                 import matplotlib.pyplot as plt
@@ -899,32 +892,33 @@ async def run_quick_mode(symbols: Optional[List[str]] = None, generate_chart: bo
                 analysis_chart_path = chart_gen.generate_analysis_chart(recommendations)
                 summary_chart_path = chart_gen.generate_simple_summary(recommendations)
 
-                print(f"[チャート] 分析チャートを保存しました: {analysis_chart_path}")
-                print(f"[チャート] サマリーチャートを保存しました: {summary_chart_path}")
-                print("[チャート] 投資判断の参考にしてください")
+                logger.info(f"[チャート] 分析チャートを保存しました: {analysis_chart_path}")
+                logger.info(f"[チャート] サマリーチャートを保存しました: {summary_chart_path}")
+                logger.info("[チャート] 投資判断の参考にしてください")
 
             except ImportError:
-                print()
-                print("[警告] チャート機能が利用できません")
-                print("pip install matplotlib seaborn で必要なライブラリをインストールしてください")
+                logger.warning("")
+                logger.warning("[警告] チャート機能が利用できません")
+                logger.warning("pip install matplotlib seaborn で必要なライブラリをインストールしてください")
             except Exception as e:
-                print(f"[警告] チャート生成エラー: {e}")
-                print("テキスト結果をご参照ください")
+                logger.warning(f"[警告] チャート生成エラー: {e}")
+                logger.warning("テキスト結果をご参照ください")
 
-        print("\n個人投資家向けガイド:")
-        print("・スコア70点以上: 投資検討価値が高い銘柄")
-        print("・信頼度80%以上: より確実性の高い予測")
-        print("・[買い]推奨: 上昇期待、検討してみてください")
-        print("・[様子見]: 明確なトレンドなし、慎重に")
-        print("・リスク管理: 余裕資金での投資を推奨")
-        print("・投資は自己責任で！複数の情報源と照らし合わせを")
+        logger.info("\n個人投資家向けガイド:")
+        logger.info("・スコア70点以上: 投資検討価値が高い銘柄")
+        logger.info("・信頼度80%以上: より確実性の高い予測")
+        logger.info("・[買い]推奨: 上昇期待、検討してみてください")
+        logger.info("・[様子見]: 明確なトレンドなし、慎重に")
+        logger.info("・リスク管理: 余裕資金での投資を推奨")
+        logger.info("・投資は自己責任で！複数の情報源と照らし合わせを")
 
         return True
 
     except Exception as e:
-        print(f"\nエラーが発生しました: {e}")
-        print("基本機能で再試行中...")
+        logger.error(f"\nエラーが発生しました: {e}")
+        logger.info("基本機能で再試行中...")
         return False
+
 
 
 async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[int] = None,
@@ -941,22 +935,23 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
     Returns:
         実行成功かどうか
     """
+    logger = logging.getLogger('daytrade')
     progress = SimpleProgress()
     progress.total_steps = 4  # 複数銘柄用に増加
 
     try:
-        print(f"\n複数銘柄分析モード: {symbol_count}銘柄を一括分析します")
-        print("93%精度AI × 複数銘柄同時処理")
+        logger.info(f"\n複数銘柄分析モード: {symbol_count}銘柄を一括分析します")
+        logger.info("93%精度AI × 複数銘柄同時処理")
 
-        engine = PersonalAnalysisEngine()
+        engine = PersonalAnalysisEngine(logger=logger)
 
         # 拡張銘柄システム対応
         if hasattr(engine, 'enhanced_mode') and engine.enhanced_mode:
-            print(f"拡張銘柄システム使用中: 最大{len(engine.recommended_symbols)}銘柄から選択")
+            logger.info(f"拡張銘柄システム使用中: 最大{len(engine.recommended_symbols)}銘柄から選択")
             # 銘柄数制限
             max_symbols = len(engine.recommended_symbols)
             if symbol_count > max_symbols:
-                print(f"注意: 利用可能銘柄数は{max_symbols}銘柄です。最大数で実行します。")
+                logger.warning(f"注意: 利用可能銘柄数は{max_symbols}銘柄です。最大数で実行します。")
                 symbol_count = max_symbols
 
             # ステップ1: 超高速並列分析実行
@@ -981,7 +976,7 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
             # 従来システム
             all_symbols = list(engine.recommended_symbols.keys())
             if symbol_count > len(all_symbols):
-                print(f"注意: 利用可能銘柄数は{len(all_symbols)}銘柄です。最大数で実行します。")
+                logger.warning(f"注意: 利用可能銘柄数は{len(all_symbols)}銘柄です。最大数で実行します。")
                 symbol_count = len(all_symbols)
 
             target_symbols = all_symbols[:symbol_count]
@@ -1007,16 +1002,16 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
         progress.show_step("分析結果表示", 4)
 
         if not recommendations:
-            print("\n現在推奨できる銘柄がありません")
+            logger.info("\n現在推奨できる銘柄がありません")
             return False
 
         print_summary(recommendations, portfolio_recommendation)
 
         # セクター分散分析表示
         if hasattr(engine, 'diversification_mode') and engine.diversification_mode:
-            print("\n" + "="*60)
-            print("セクター分散分析レポート")
-            print("="*60)
+            logger.info("\n" + "="*60)
+            logger.info("セクター分散分析レポート")
+            logger.info("="*60)
 
             try:
                 # 現在選択された銘柄のセクター分析
@@ -1024,37 +1019,37 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
                 diversification_report = engine.sector_diversification.generate_diversification_report(selected_symbols)
 
                 metrics = diversification_report['diversification_metrics']
-                print(f"セクター分散状況:")
-                print(f"  カバーセクター数: {metrics['total_sectors']} / 33業界")
-                print(f"  セクターカバレッジ: {metrics['sector_coverage']:.1f}%")
-                print(f"  バランススコア: {metrics['sector_balance_score']:.1f}/100")
-                print(f"  集中リスク: {diversification_report['risk_assessment']['concentration_risk']}")
-                print(f"  分散品質: {diversification_report['risk_assessment']['diversification_quality']}")
+                logger.info(f"セクター分散状況:")
+                logger.info(f"  カバーセクター数: {metrics['total_sectors']} / 33業界")
+                logger.info(f"  セクターカバレッジ: {metrics['sector_coverage']:.1f}%")
+                logger.info(f"  バランススコア: {metrics['sector_balance_score']:.1f}/100")
+                logger.info(f"  集中リスク: {diversification_report['risk_assessment']['concentration_risk']}")
+                logger.info(f"  分散品質: {diversification_report['risk_assessment']['diversification_quality']}")
 
-                print(f"\n改善提案:")
+                logger.info(f"\n改善提案:")
                 for suggestion in diversification_report['improvement_suggestions']:
-                    print(f"  • {suggestion}")
+                    logger.info(f"  • {suggestion}")
 
             except Exception as e:
-                print(f"セクター分散分析でエラーが発生: {e}")
+                logger.error(f"セクター分散分析でエラーが発生: {e}")
 
         # テーマ株・材料株分析表示
         if hasattr(engine, 'theme_mode') and engine.theme_mode:
-            print("\n" + "="*60)
-            print("テーマ株・材料株分析レポート")
-            print("="*60)
+            logger.info("\n" + "="*60)
+            logger.info("テーマ株・材料株分析レポート")
+            logger.info("="*60)
 
             try:
                 # 注目テーマ分析
                 hot_themes = await engine.theme_analyzer.get_hot_themes(limit=3)
 
                 if hot_themes:
-                    print(f"注目テーマTOP3:")
+                    logger.info(f"注目テーマTOP3:")
                     for i, theme in enumerate(hot_themes, 1):
-                        print(f"{i}. {theme.theme_category.value}")
-                        print(f"   テーマ強度: {theme.theme_strength:.1f}/100")
-                        print(f"   市場注目度: {theme.market_attention:.1f}/100")
-                        print(f"   投資見通し: {theme.investment_outlook}")
+                        logger.info(f"{i}. {theme.theme_category.value}")
+                        logger.info(f"   テーマ強度: {theme.theme_strength:.1f}/100")
+                        logger.info(f"   市場注目度: {theme.market_attention:.1f}/100")
+                        logger.info(f"   投資見通し: {theme.investment_outlook}")
 
                         # 関連銘柄でポートフォリオに含まれるもの
                         selected_symbols_set = set(r['symbol'] for r in recommendations)
@@ -1064,26 +1059,26 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
                         ]
 
                         if matching_stocks:
-                            print(f"   ポートフォリオ内関連銘柄: {', '.join([f'{s.symbol}({s.name})' for s in matching_stocks])}")
+                            logger.info(f"   ポートフォリオ内関連銘柄: {', '.join([f'{s.symbol}({s.name})' for s in matching_stocks])}")
 
                 # 材料株機会
                 material_opportunities = await engine.theme_analyzer.get_material_opportunities(30)
 
                 if material_opportunities:
-                    print(f"\n材料株機会:")
+                    logger.info(f"\n材料株機会:")
                     for material in material_opportunities[:3]:
-                        print(f"• {material.symbol} ({material.name})")
-                        print(f"  材料: {material.material_description}")
-                        print(f"  期待インパクト: {material.expected_impact:.1f}% (確率{material.probability:.0f}%)")
+                        logger.info(f"• {material.symbol} ({material.name})")
+                        logger.info(f"  材料: {material.material_description}")
+                        logger.info(f"  期待インパクト: {material.expected_impact:.1f}% (確率{material.probability:.0f}%)")
 
             except Exception as e:
-                print(f"テーマ株分析でエラーが発生: {e}")
+                logger.error(f"テーマ株分析でエラーが発生: {e}")
 
         # 予測精度検証レポート表示
         if hasattr(engine, 'validation_mode') and engine.validation_mode:
-            print("\n" + "="*60)
-            print("予測精度検証レポート（93%精度目標追跡）")
-            print("="*60)
+            logger.info("\n" + "="*60)
+            logger.info("予測精度検証レポート（93%精度目標追跡）")
+            logger.info("="*60)
 
             try:
                 # パフォーマンスレポート生成
@@ -1093,40 +1088,40 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
                     current_perf = performance_report["current_performance"]
                     system_status = performance_report["system_status"]
 
-                    print(f"システム目標精度: {system_status['target_accuracy']}%")
-                    print(f"現在の精度: {current_perf['accuracy_rate']:.1f}% ({current_perf['target_achievement']})")
-                    print(f"検証期間: {current_perf['period']}")
-                    print(f"総予測数: {current_perf['total_predictions']}件")
-                    print(f"勝率: {current_perf['win_rate']:.1f}%")
-                    print(f"平均リターン: {current_perf['avg_return']:.2f}%")
-                    print(f"プロフィットファクター: {current_perf['profit_factor']:.2f}")
+                    logger.info(f"システム目標精度: {system_status['target_accuracy']}%")
+                    logger.info(f"現在の精度: {current_perf['accuracy_rate']:.1f}% ({current_perf['target_achievement']})")
+                    logger.info(f"検証期間: {current_perf['period']}")
+                    logger.info(f"総予測数: {current_perf['total_predictions']}件")
+                    logger.info(f"勝率: {current_perf['win_rate']:.1f}%")
+                    logger.info(f"平均リターン: {current_perf['avg_return']:.2f}%")
+                    logger.info(f"プロフィットファクター: {current_perf['profit_factor']:.2f}")
 
                     # 信頼度別的中率
                     confidence_analysis = performance_report.get("confidence_analysis", {})
                     if confidence_analysis:
-                        print(f"\n信頼度別的中率:")
+                        logger.info(f"\n信頼度別的中率:")
                         for level, rate in confidence_analysis.items():
                             if rate > 0:
-                                print(f"  {level}: {rate:.1f}%")
+                                logger.info(f"  {level}: {rate:.1f}%")
 
                     # 改善提案
                     suggestions = performance_report.get("improvement_suggestions", [])
                     if suggestions:
-                        print(f"\nAI改善提案:")
+                        logger.info(f"\nAI改善提案:")
                         for suggestion in suggestions[:3]:  # TOP3のみ表示
-                            print(f"  • {suggestion}")
+                            logger.info(f"  • {suggestion}")
 
                 else:
-                    print(f"予測精度レポート生成でエラーが発生しました")
+                    logger.error(f"予測精度レポート生成でエラーが発生しました")
 
             except Exception as e:
-                print(f"予測精度検証でエラーが発生: {e}")
+                logger.error(f"予測精度検証でエラーが発生: {e}")
 
         # 包括的パフォーマンス追跡レポート表示
         if hasattr(engine, 'performance_mode') and engine.performance_mode:
-            print("\n" + "="*60)
-            print("包括的パフォーマンス追跡レポート")
-            print("="*60)
+            logger.info("\n" + "="*60)
+            logger.info("包括的パフォーマンス追跡レポート")
+            logger.info("="*60)
 
             try:
                 # 包括的パフォーマンスレポート生成
@@ -1138,182 +1133,182 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
                     risk_analysis = comprehensive_report["risk_analysis"]
 
                     # ポートフォリオサマリー
-                    print(f"ポートフォリオ: {portfolio_summary['portfolio_name']}")
-                    print(f"初期資本: {portfolio_summary['initial_capital']:,}円")
-                    print(f"現在資本: {portfolio_summary['current_capital']:,}円")
-                    print(f"総リターン: {portfolio_summary['total_return']:.2f}%")
-                    print(f"現金残高: {portfolio_summary['cash_balance']:,}円")
+                    logger.info(f"ポートフォリオ: {portfolio_summary['portfolio_name']}")
+                    logger.info(f"初期資本: {portfolio_summary['initial_capital']:,}円")
+                    logger.info(f"現在資本: {portfolio_summary['current_capital']:,}円")
+                    logger.info(f"総リターン: {portfolio_summary['total_return']:.2f}%")
+                    logger.info(f"現金残高: {portfolio_summary['cash_balance']:,}円")
 
                     # 30日パフォーマンス
-                    print(f"\n30日間パフォーマンス:")
-                    print(f"  年率リターン: {perf_30d['annualized_return']:.2f}%")
-                    print(f"  ボラティリティ: {perf_30d['volatility']:.2f}%")
-                    print(f"  シャープレシオ: {perf_30d['sharpe_ratio']:.2f}")
-                    print(f"  最大ドローダウン: {perf_30d['max_drawdown']:.2f}%")
-                    print(f"  勝率: {perf_30d['win_rate']:.1f}%")
-                    print(f"  プロフィットファクター: {perf_30d['profit_factor']:.2f}")
+                    logger.info(f"\n30日間パフォーマンス:")
+                    logger.info(f"  年率リターン: {perf_30d['annualized_return']:.2f}%")
+                    logger.info(f"  ボラティリティ: {perf_30d['volatility']:.2f}%")
+                    logger.info(f"  シャープレシオ: {perf_30d['sharpe_ratio']:.2f}")
+                    logger.info(f"  最大ドローダウン: {perf_30d['max_drawdown']:.2f}%")
+                    logger.info(f"  勝率: {perf_30d['win_rate']:.1f}%")
+                    logger.info(f"  プロフィットファクター: {perf_30d['profit_factor']:.2f}")
 
                     # リスク分析
                     if risk_analysis:
-                        print(f"\nリスク分析:")
-                        print(f"  リスクレベル: {risk_analysis.get('risk_level', 'N/A')}")
-                        print(f"  分散化スコア: {risk_analysis.get('diversification_score', 0):.1f}/100")
+                        logger.info(f"\nリスク分析:")
+                        logger.info(f"  リスクレベル: {risk_analysis.get('risk_level', 'N/A')}")
+                        logger.info(f"  分散化スコア: {risk_analysis.get('diversification_score', 0):.1f}/100")
 
                         risk_recs = risk_analysis.get('risk_recommendations', [])
                         if risk_recs:
-                            print(f"  リスク管理提言: {risk_recs[0]}")
+                            logger.info(f"  リスク管理提言: {risk_recs[0]}")
 
                     # ベンチマーク比較
                     benchmark = comprehensive_report["benchmark_comparison"]
                     if benchmark.get('alpha_30d'):
-                        print(f"\nベンチマーク比較:")
-                        print(f"  アルファ: {benchmark['alpha_30d']:.2f}%")
-                        print(f"  トラッキングエラー: {benchmark['tracking_error_30d']:.2f}%")
+                        logger.info(f"\nベンチマーク比較:")
+                        logger.info(f"  アルファ: {benchmark['alpha_30d']:.2f}%")
+                        logger.info(f"  トラッキングエラー: {benchmark['tracking_error_30d']:.2f}%")
 
                 else:
-                    print(f"包括的パフォーマンスレポート生成でエラーが発生しました")
+                    logger.error(f"包括的パフォーマンスレポート生成でエラーが発生しました")
 
             except Exception as e:
-                print(f"包括的パフォーマンス追跡でエラーが発生: {e}")
+                logger.error(f"包括的パフォーマンス追跡でエラーが発生: {e}")
 
         # アラート機能はWebダッシュボードで統合表示
 
         # 高度技術指標・分析手法拡張システム
         if hasattr(engine, 'advanced_technical_mode') and engine.advanced_technical_mode:
-            print("\n" + "="*60)
-            print("高度技術指標・分析手法拡張システム")
-            print("="*60)
+            logger.info("\n" + "="*60)
+            logger.info("高度技術指標・分析手法拡張システム")
+            logger.info("="*60)
 
             try:
                 # 上位3銘柄について高度技術分析実行
                 top_symbols = [r['symbol'] for r in recommendations[:3]]
                 advanced_analyses = []
 
-                print(f"高度技術分析実行中...")
+                logger.info(f"高度技術分析実行中...")
                 for symbol in top_symbols:
                     advanced_analysis = await engine.advanced_technical.analyze_symbol(symbol, period="3mo")
                     if advanced_analysis:
                         advanced_analyses.append(advanced_analysis)
-                        print(f"  {symbol}: 分析完了")
+                        logger.info(f"  {symbol}: 分析完了")
 
                 if advanced_analyses:
-                    print(f"\n🔬 高度技術分析結果 (TOP{len(advanced_analyses)}銘柄):")
+                    logger.info(f"\n🔬 高度技術分析結果 (TOP{len(advanced_analyses)}銘柄):")
 
                     for analysis in advanced_analyses:
-                        print(f"\n📊 {analysis.symbol}:")
-                        print(f"  現在価格: ¥{analysis.current_price:.2f} ({analysis.price_change:+.2f}%)")
-                        print(f"  総合スコア: {analysis.composite_score:.1f}/100")
-                        print(f"  トレンド強度: {analysis.trend_strength:+.1f}")
-                        print(f"  モメンタムスコア: {analysis.momentum_score:+.1f}")
-                        print(f"  ボラティリティ局面: {analysis.volatility_regime}")
-                        print(f"  異常度スコア: {analysis.anomaly_score:.1f}")
+                        logger.info(f"\n📊 {analysis.symbol}:")
+                        logger.info(f"  現在価格: ¥{analysis.current_price:.2f} ({analysis.price_change:+.2f}%)")
+                        logger.info(f"  総合スコア: {analysis.composite_score:.1f}/100")
+                        logger.info(f"  トレンド強度: {analysis.trend_strength:+.1f}")
+                        logger.info(f"  モメンタムスコア: {analysis.momentum_score:+.1f}")
+                        logger.info(f"  ボラティリティ局面: {analysis.volatility_regime}")
+                        logger.info(f"  異常度スコア: {analysis.anomaly_score:.1f}")
 
                         # 主要技術指標
-                        print(f"  主要指標:")
+                        logger.info(f"  主要指標:")
                         if 'RSI_14' in analysis.momentum_indicators:
                             rsi = analysis.momentum_indicators['RSI_14']
                             rsi_status = "買われすぎ" if rsi > 70 else "売られすぎ" if rsi < 30 else "中立"
-                            print(f"    RSI(14): {rsi:.1f} ({rsi_status})")
+                            logger.info(f"    RSI(14): {rsi:.1f} ({rsi_status})")
 
                         if 'MACD' in analysis.trend_indicators:
                             macd = analysis.trend_indicators['MACD']
                             macd_signal = analysis.trend_indicators.get('MACD_Signal', 0)
                             macd_direction = "上昇" if macd > macd_signal else "下降"
-                            print(f"    MACD: {macd:.4f} ({macd_direction})")
+                            logger.info(f"    MACD: {macd:.4f} ({macd_direction})")
 
                         if 'BB_Position' in analysis.volatility_indicators:
                             bb_pos = analysis.volatility_indicators['BB_Position']
                             bb_status = "上限付近" if bb_pos > 80 else "下限付近" if bb_pos < 20 else "中央付近"
-                            print(f"    ボリンジャーバンド位置: {bb_pos:.1f}% ({bb_status})")
+                            logger.info(f"    ボリンジャーバンド位置: {bb_pos:.1f}% ({bb_status})")
 
                         # プライマリシグナル
                         if analysis.primary_signals:
-                            print(f"  🎯 主要シグナル:")
+                            logger.info(f"  🎯 主要シグナル:")
                             for signal in analysis.primary_signals[:2]:
                                 signal_emoji = "🟢" if signal.signal_type == "BUY" else "🔴" if signal.signal_type == "SELL" else "🟡"
-                                print(f"    {signal_emoji} {signal.indicator_name}: {signal.signal_type} (信頼度{signal.confidence:.0f}%)")
+                                logger.info(f"    {signal_emoji} {signal.indicator_name}: {signal.signal_type} (信頼度{signal.confidence:.0f}%)")
 
                         # 統計プロファイル
                         if analysis.statistical_profile:
                             stats = analysis.statistical_profile
-                            print(f"  📈 統計プロファイル:")
-                            print(f"    年率リターン: {stats.get('mean_return', 0)*100:.1f}%")
-                            print(f"    ボラティリティ: {stats.get('volatility', 0)*100:.1f}%")
+                            logger.info(f"  📈 統計プロファイル:")
+                            logger.info(f"    年率リターン: {stats.get('mean_return', 0)*100:.1f}%")
+                            logger.info(f"    ボラティリティ: {stats.get('volatility', 0)*100:.1f}%")
                             if 'sharpe_ratio' in stats:
-                                print(f"    シャープレシオ: {stats['sharpe_ratio']:.2f}")
+                                logger.info(f"    シャープレシオ: {stats['sharpe_ratio']:.2f}")
 
                         # 機械学習予測
                         if analysis.ml_prediction:
                             ml = analysis.ml_prediction
                             direction_emoji = "📈" if ml['direction'] == "上昇" else "📉" if ml['direction'] == "下落" else "➡️"
-                            print(f"  🤖 AI予測:")
-                            print(f"    {direction_emoji} 方向性: {ml['direction']} (信頼度{ml['confidence']:.0f}%)")
-                            print(f"    期待リターン: {ml.get('expected_return', 0):.2f}%")
-                            print(f"    リスクレベル: {ml['risk_level']}")
+                            logger.info(f"  🤖 AI予測:")
+                            logger.info(f"    {direction_emoji} 方向性: {ml['direction']} (信頼度{ml['confidence']:.0f}%)")
+                            logger.info(f"    期待リターン: {ml.get('expected_return', 0):.2f}%")
+                            logger.info(f"    リスクレベル: {ml['risk_level']}")
 
                         # パターン認識
                         if analysis.pattern_recognition:
                             pattern = analysis.pattern_recognition
-                            print(f"  🔍 パターン認識:")
-                            print(f"    検出パターン: {pattern.get('detected_pattern', 'N/A')}")
-                            print(f"    現在位置: {pattern.get('current_position', 'N/A')}")
+                            logger.info(f"  🔍 パターン認識:")
+                            logger.info(f"    検出パターン: {pattern.get('detected_pattern', 'N/A')}")
+                            logger.info(f"    現在位置: {pattern.get('current_position', 'N/A')}")
 
                             support_levels = pattern.get('support_levels', [])
                             if support_levels:
-                                print(f"    サポートレベル: {', '.join([f'¥{level:.0f}' for level in support_levels])}")
+                                logger.info(f"    サポートレベル: {', '.join([f'¥{level:.0f}' for level in support_levels])}")
 
                     # 高度分析サマリー
-                    print(f"\n📊 高度分析サマリー:")
+                    logger.info(f"\n📊 高度分析サマリー:")
                     avg_composite = sum(a.composite_score for a in advanced_analyses) / len(advanced_analyses)
                     avg_trend = sum(a.trend_strength for a in advanced_analyses) / len(advanced_analyses)
                     avg_momentum = sum(a.momentum_score for a in advanced_analyses) / len(advanced_analyses)
 
-                    print(f"  平均総合スコア: {avg_composite:.1f}/100")
-                    print(f"  平均トレンド強度: {avg_trend:+.1f}")
-                    print(f"  平均モメンタム: {avg_momentum:+.1f}")
+                    logger.info(f"  平均総合スコア: {avg_composite:.1f}/100")
+                    logger.info(f"  平均トレンド強度: {avg_trend:+.1f}")
+                    logger.info(f"  平均モメンタム: {avg_momentum:+.1f}")
 
                     # 全体的な市場判断
                     market_sentiment = "強気" if avg_composite > 70 else "弱気" if avg_composite < 50 else "中立"
-                    print(f"  市場センチメント: {market_sentiment}")
+                    logger.info(f"  市場センチメント: {market_sentiment}")
 
                     # 投資アドバイス
-                    print(f"\n💡 高度分析に基づく投資アドバイス:")
+                    logger.info(f"\n💡 高度分析に基づく投資アドバイス:")
 
                     buy_signals = sum(1 for a in advanced_analyses for s in a.primary_signals if s.signal_type == "BUY")
                     sell_signals = sum(1 for a in advanced_analyses for s in a.primary_signals if s.signal_type == "SELL")
 
                     if buy_signals > sell_signals:
-                        print(f"  📈 買いシグナルが優勢です。積極的な投資を検討")
+                        logger.info(f"  📈 買いシグナルが優勢です。積極的な投資を検討")
                     elif sell_signals > buy_signals:
-                        print(f"  📉 売りシグナルが優勢です。慎重な判断を推奨")
+                        logger.info(f"  📉 売りシグナルが優勢です。慎重な判断を推奨")
                     else:
-                        print(f"  ⚖️ シグナルが拮抗しています。様子見を推奨")
+                        logger.info(f"  ⚖️ シグナルが拮抗しています。様子見を推奨")
 
                     # ボラティリティ環境
                     high_vol_count = sum(1 for a in advanced_analyses if a.volatility_regime in ["高ボラ", "超高ボラ"])
                     if high_vol_count > 0:
-                        print(f"  ⚠️ 高ボラティリティ環境です。ポジションサイズに注意")
+                        logger.info(f"  ⚠️ 高ボラティリティ環境です。ポジションサイズに注意")
 
                     # 異常検知
                     high_anomaly = sum(1 for a in advanced_analyses if a.anomaly_score > 50)
                     if high_anomaly > 0:
-                        print(f"  🚨 異常な価格変動を検知。特に注意して監視推奨")
+                        logger.info(f"  🚨 異常な価格変動を検知。特に注意して監視推奨")
 
                 else:
-                    print(f"高度技術分析データが取得できませんでした")
+                    logger.error(f"高度技術分析データが取得できませんでした")
 
             except Exception as e:
-                print(f"高度技術分析でエラーが発生: {e}")
+                logger.error(f"高度技術分析でエラーが発生: {e}")
 
         progress.show_completion()
 
         # チャート生成（オプション）
         if generate_chart:
-            print()
-            print()
-            print("[チャート] 複数銘柄分析グラフ生成中...")
-            print()
-            print()
+            logger.info("")
+            logger.info("")
+            logger.info("[チャート] 複数銘柄分析グラフ生成中...")
+            logger.info("")
+            logger.info("")
             try:
                 # ここでチャート関連モジュールを遅延インポート
                 import matplotlib.pyplot as plt
@@ -1326,41 +1321,42 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
                 analysis_chart_path = chart_gen.generate_analysis_chart(chart_data)
                 summary_chart_path = chart_gen.generate_simple_summary(chart_data)
 
-                print(f"[チャート] 分析チャートを保存しました: {analysis_chart_path}")
-                print(f"[チャート] サマリーチャートを保存しました: {summary_chart_path}")
+                logger.info(f"[チャート] 分析チャートを保存しました: {analysis_chart_path}")
+                logger.info(f"[チャート] サマリーチャートを保存しました: {summary_chart_path}")
 
             except ImportError:
-                print()
-                print("[警告] チャート機能が利用できません")
-                print("pip install matplotlib seaborn で必要なライブラリをインストールしてください")
+                logger.warning("")
+                logger.warning("[警告] チャート機能が利用できません")
+                logger.warning("pip install matplotlib seaborn で必要なライブラリをインストールしてください")
             except Exception as e:
-                print(f"[警告] チャート生成エラー: {e}")
-                print("テキスト結果をご参照ください")
+                logger.warning(f"[警告] チャート生成エラー: {e}")
+                logger.warning("テキスト結果をご参照ください")
 
-        print(f"\n複数銘柄分析完了: {len(recommendations)}銘柄を{progress.start_time:.1f}秒で処理")
-        print("個人投資家向けガイド:")
-        print("・★強い買い★: 最も期待の高い銘柄")
-        print("・複数銘柄への分散投資を推奨")
-        print("・リスクレベルを考慮した投資を")
-        print("・投資は自己責任で！")
+        logger.info(f"\n複数銘柄分析完了: {len(recommendations)}銘柄を{progress.start_time:.1f}秒で処理")
+        logger.info("個人投資家向けガイド:")
+        logger.info("・★強い買い★: 最も期待の高い銘柄")
+        logger.info("・複数銘柄への分散投資を推奨")
+        logger.info("・リスクレベルを考慮した投資を")
+        logger.info("・投資は自己責任で！")
 
         # モデル性能監視結果の表示 (Issue #827)
         if hasattr(engine, 'performance_monitor'):
             model_metrics = engine.get_model_performance_metrics()
-            print("\n" + "="*60)
-            print("モデル性能監視レポート")
-            print("="*60)
-            print(f"  現在の予測精度: {model_metrics['accuracy']:.2f}")
-            print(f"  評価サンプル数: {model_metrics['num_samples']}")
-            print("  (注: 予測精度は簡易的なバイナリ分類に基づいています)")
+            logger.info("\n" + "="*60)
+            logger.info("モデル性能監視レポート")
+            logger.info("="*60)
+            logger.info(f"  現在の予測精度: {model_metrics['accuracy']:.2f}")
+            logger.info(f"  評価サンプル数: {model_metrics['num_samples']}")
+            logger.info("  (注: 予測精度は簡易的なバイナリ分類に基づいています)")
 
             # モデル性能監視はWebダッシュボードで表示
         return True
 
     except Exception as e:
-        print(f"\nエラーが発生しました: {e}")
-        print("複数銘柄分析に問題が発生しました")
+        logger.error(f"\nエラーが発生しました: {e}")
+        logger.error("複数銘柄分析に問題が発生しました")
         return False
+
 
 
 def filter_safe_recommendations(recommendations):
@@ -1380,71 +1376,74 @@ def filter_safe_recommendations(recommendations):
 
 def show_analysis_history() -> bool:
     """分析履歴表示"""
+    logger = logging.getLogger('daytrade')
     if not HISTORY_AVAILABLE:
-        print("履歴機能が利用できません")
-        print("pip install pandas でpandasをインストールしてください")
+        logger.warning("履歴機能が利用できません")
+        logger.warning("pip install pandas でpandasをインストールしてください")
         return False
 
     try:
         history = PersonalAnalysisHistory()
 
-        print("\n" + "="*50)
-        print("分析履歴（過去30日間）")
-        print("="*50)
+        logger.info("\n" + "="*50)
+        logger.info("分析履歴（過去30日間）")
+        logger.info("="*50)
 
         # 最近の分析履歴
         recent_analyses = history.get_recent_analyses(days=30)
 
         if not recent_analyses:
-            print("分析履歴がありません")
+            logger.info("分析履歴がありません")
             return True
 
         for i, analysis in enumerate(recent_analyses, 1):
             date_str = analysis['date'][:19] if analysis['date'] else '不明'
             type_name = {'basic': '基本分析', 'multi_symbol': '複数銘柄分析'}.get(analysis['type'], analysis['type'])
 
-            print(f"{i}. {date_str}")
-            print(f"   タイプ: {type_name}")
-            print(f"   銘柄数: {analysis['symbol_count']}銘柄")
-            print(f"   平均スコア: {analysis['total_score']:.1f}点")
-            print(f"   買い推奨: {analysis['buy_count']}銘柄")
-            print(f"   処理時間: {analysis['performance_time']:.1f}秒")
-            print()
+            logger.info(f"{i}. {date_str}")
+            logger.info(f"   タイプ: {type_name}")
+            logger.info(f"   銘柄数: {analysis['symbol_count']}銘柄")
+            logger.info(f"   平均スコア: {analysis['total_score']:.1f}点")
+            logger.info(f"   買い推奨: {analysis['buy_count']}銘柄")
+            logger.info(f"   処理時間: {analysis['performance_time']:.1f}秒")
+            logger.info("")
 
         # サマリーレポート
         summary = history.generate_summary_report(days=7)
 
-        print("\n" + "-"*30)
-        print("直近7日間のサマリー")
-        print("-"*30)
-        print(f"分析実行回数: {summary['analysis_stats']['total_analyses']}回")
-        print(f"平均スコア: {summary['analysis_stats']['avg_score']:.1f}点")
-        print(f"最高スコア: {summary['analysis_stats']['best_score']:.1f}点")
-        print(f"平均処理時間: {summary['analysis_stats']['avg_time']:.1f}秒")
+        logger.info("\n" + "-"*30)
+        logger.info("直近7日間のサマリー")
+        logger.info("-"*30)
+        logger.info(f"分析実行回数: {summary['analysis_stats']['total_analyses']}回")
+        logger.info(f"平均スコア: {summary['analysis_stats']['avg_score']:.1f}点")
+        logger.info(f"最高スコア: {summary['analysis_stats']['best_score']:.1f}点")
+        logger.info(f"平均処理時間: {summary['analysis_stats']['avg_time']:.1f}秒")
 
         # アラート統計は削除（Webダッシュボード統合）
 
         return True
 
     except Exception as e:
-        print(f"履歴表示エラー: {e}")
+        logger.error(f"履歴表示エラー: {e}")
         return False
+
 
 
 def show_alerts() -> bool:
     """アラート表示・管理"""
+    logger = logging.getLogger('daytrade')
     if not HISTORY_AVAILABLE:
-        print("アラート機能が利用できません")
-        print("pip install pandas でpandasをインストールしてください")
+        logger.warning("アラート機能が利用できません")
+        logger.warning("pip install pandas でpandasをインストールしてください")
         return False
 
     try:
         history = PersonalAnalysisHistory()
         alert_system = PersonalAlertSystem(history)
 
-        print("\n" + "="*50)
-        print("アラート管理")
-        print("="*50)
+        logger.info("\n" + "="*50)
+        logger.info("アラート管理")
+        logger.info("="*50)
 
         # アラート表示
         alert_system.display_alerts()
@@ -1452,24 +1451,25 @@ def show_alerts() -> bool:
         # アラート確認オプション
         alerts = history.get_unread_alerts()
         if alerts:
-            print("\n[選択肢]")
-            print("1. 全てのアラートを既読にする")
-            print("2. そのまま終了")
+            logger.info("\n[選択肢]")
+            logger.info("1. 全てのアラートを既読にする")
+            logger.info("2. そのまま終了")
 
             try:
                 choice = input("選択してください (1/2): ").strip()
                 if choice == "1":
                     alert_system.acknowledge_all_alerts()
                 else:
-                    print("アラートは未読のままです")
+                    logger.info("アラートは未読のままです")
             except KeyboardInterrupt:
-                print("\n操作をキャンセルしました")
+                logger.info("\n操作をキャンセルしました")
 
         return True
 
     except Exception as e:
-        print(f"アラート表示エラー: {e}")
+        logger.error(f"アラート表示エラー: {e}")
         return False
+
 
 
 async def run_daytrading_mode() -> bool:
@@ -1479,17 +1479,18 @@ async def run_daytrading_mode() -> bool:
     Returns:
         実行成功かどうか
     """
+    logger = logging.getLogger('daytrade')
     if not DAYTRADING_AVAILABLE:
-        print("デイトレード機能が利用できません")
-        print("day_trading_engine.py が必要です")
+        logger.warning("デイトレード機能が利用できません")
+        logger.warning("day_trading_engine.py が必要です")
         return False
 
     progress = SimpleProgress()
     progress.total_steps = 4
 
     try:
-        print("\nデイトレードモード: 1日単位の売買タイミング推奨")
-        print("93%精度AI × デイトレード特化分析")
+        logger.info("\nデイトレードモード: 1日単位の売買タイミング推奨")
+        logger.info("93%精度AI × デイトレード特化分析")
 
         # デイトレードエンジン初期化
         engine = PersonalDayTradingEngine()
@@ -1501,7 +1502,7 @@ async def run_daytrading_mode() -> bool:
         # ステップ1: 現在の市場セッション確認
         progress.show_step("市場セッション確認", 1)
         session_advice = engine.get_session_advice()
-        print(f"\n{session_advice}")
+        logger.info(f"\n{session_advice}")
 
         # ステップ2: デイトレード分析実行
         progress.show_step("デイトレード分析実行中", 2)
@@ -1511,7 +1512,7 @@ async def run_daytrading_mode() -> bool:
         progress.show_step("デイトレード推奨取得", 3)
 
         if not recommendations:
-            print("\n現在デイトレード推奨できる銘柄がありません")
+            logger.info("\n現在デイトレード推奨できる銘柄がありません")
             return False
 
         # ステップ4: 結果表示
@@ -1524,20 +1525,19 @@ async def run_daytrading_mode() -> bool:
         if current_time >= dt_time(15, 0):  # 大引け後（15:00以降）
             tomorrow = datetime.now() + timedelta(days=1)
             tomorrow_str = tomorrow.strftime("%m/%d")
-            print("\n" + "="*60)
-            print(f"翌日前場予想（{tomorrow_str}）TOP5")
-            print("="*60)
+            logger.info("\n" + "="*60)
+            logger.info(f"翌日前場予想（{tomorrow_str}）TOP5")
+            logger.info("="*60)
         else:
-            print("\n" + "="*60)
-            print("今日のデイトレード推奨 TOP5")
-            print("="*60)
+            logger.info("\n" + "="*60)
+            logger.info("今日のデイトレード推奨 TOP5")
+            logger.info("="*60)
 
         for i, rec in enumerate(recommendations, 1):
             # シグナル別アイコン表示
             signal_display = {
                 DayTradingSignal.STRONG_BUY: "[★強い買い★]",
                 DayTradingSignal.BUY: "[●買い●]",
-                DayTradingSignal.STRONG_SELL: "[▼強い売り▼]",
                 DayTradingSignal.SELL: "[▽売り▽]",
                 DayTradingSignal.HOLD: "[■ホールド■]",
                 DayTradingSignal.WAIT: "[…待機…]"
@@ -1545,16 +1545,16 @@ async def run_daytrading_mode() -> bool:
 
             risk_display = {"低": "[低リスク]", "中": "[中リスク]", "高": "[高リスク]"}.get(rec.risk_level, "[?]")
 
-            print(f"\n{i}. {rec.symbol} ({rec.name})")
-            print(f"   シグナル: {signal_display}")
-            print(f"   エントリー: {rec.entry_timing}")
-            print(f"   目標利確: +{rec.target_profit}% / 損切り: -{rec.stop_loss}%")
-            print(f"   保有時間: {rec.holding_time}")
-            print(f"   信頼度: {rec.confidence:.0f}% | リスク: {risk_display}")
-            print(f"   出来高動向: {rec.volume_trend}")
-            print(f"   価格動向: {rec.price_momentum}")
-            print(f"   日中ボラティリティ: {rec.intraday_volatility:.1f}%")
-            print(f"   タイミングスコア: {rec.market_timing_score:.0f}/100")
+            logger.info(f"\n{i}. {rec.symbol} ({rec.name})")
+            logger.info(f"   シグナル: {signal_display}")
+            logger.info(f"   エントリー: {rec.entry_timing}")
+            logger.info(f"   目標利確: +{rec.target_profit}% / 損切り: -{rec.stop_loss}%")
+            logger.info(f"   保有時間: {rec.holding_time}")
+            logger.info(f"   信頼度: {rec.confidence:.0f}% | リスク: {risk_display}")
+            logger.info(f"   出来高動向: {rec.volume_trend}")
+            logger.info(f"   価格動向: {rec.price_momentum}")
+            logger.info(f"   日中ボラティリティ: {rec.intraday_volatility:.1f}%")
+            logger.info(f"   タイミングスコア: {rec.market_timing_score:.0f}/100")
 
         progress.show_completion()
 
@@ -1589,93 +1589,99 @@ async def run_daytrading_mode() -> bool:
                 # アラート機能は削除（Webダッシュボード統合）
 
             except Exception as e:
-                print(f"[注意] 履歴保存エラー: {e}")
+                logger.warning(f"[注意] 履歴保存エラー: {e}")
 
         # 時間帯に応じたガイド表示
         if current_time >= dt_time(15, 0):  # 大引け後（15:00以降）
-            print("\n🌙 翌日前場予想ガイド（夜間予測対応）:")
-            print("・★強い買い★: 寄り成行で積極エントリー計画")
-            print("・●買い●: 寄り後の値動き確認してエントリー")
-            print("・▼強い売り▼/▽売り▼: 寄り付きでの売りエントリー計画")
-            print("・■ホールド■: 寄り後の流れ次第で判断")
-            print("・…待機…: 前場中盤までエントリーチャンス待ち")
-            print("\n🌍 夜間要因:")
-            print("・NY市場動向、USD/JPY、日経先物を考慮した予測")
-            print("・翌日前場予想のため実際の結果と異なる場合があります")
-            print("・オーバーナイトリスクを考慮した損切り設定を")
-            print("・投資は自己責任で！")
+            logger.info("\n🌙 翌日前場予想ガイド（夜間予測対応）:")
+            logger.info("・★強い買い★: 寄り成行で積極エントリー計画")
+            logger.info("・●買い●: 寄り後の値動き確認してエントリー")
+            logger.info("・▼強い売り▼/▽売り▼: 寄り付きでの売りエントリー計画")
+            logger.info("・■ホールド■: 寄り後の流れ次第で判断")
+            logger.info("・…待機…: 前場中盤までエントリーチャンス待ち")
+            logger.info("\n🌍 夜間要因:")
+            logger.info("・NY市場動向、USD/JPY、日経先物を考慮した予測")
+            logger.info("・翌日前場予想のため実際の結果と異なる場合があります")
+            logger.info("・オーバーナイトリスクを考慮した損切り設定を")
+            logger.info("・投資は自己責任で！")
 
             # 夜間予測情報を追加取得
             try:
-                analysis_engine = PersonalAnalysisEngine()
+                analysis_engine = PersonalAnalysisEngine(logger=logger)
                 await analysis_engine._display_overnight_prediction()
             except Exception as e:
-                print(f"[情報] 夜間予測データ取得中: {e}")
+                logger.info(f"[情報] 夜間予測データ取得中: {e}")
         else:
-            print("\nデイトレード推奨ガイド:")
-            print("・★強い買い★: 即座にエントリー検討")
-            print("・●買い●: 押し目でのエントリータイミングを狙う")
-            print("・▼強い売り▼/▽売り▽: 利確・損切り実行")
-            print("・■ホールド■: 既存ポジション維持")
-            print("・…待機…: エントリーチャンス待ち")
-            print("・デイトレードは当日中に決済完了を推奨")
-            print("・損切りラインを必ず設定してください")
-            print("・投資は自己責任で！")
+            logger.info("\nデイトレード推奨ガイド:")
+            logger.info("・★強い買い★: 即座にエントリー検討")
+            logger.info("・●買い●: 押し目でのエントリータイミングを狙う")
+            logger.info("・▼強い売り▼/▽売り▽: 利確・損切り実行")
+            logger.info("・■ホールド■: 既存ポジション維持")
+            logger.info("・…待機…: エントリーチャンス待ち")
+            logger.info("・デイトレードは当日中に決済完了を推奨")
+            logger.info("・損切りラインを必ず設定してください")
+            logger.info("・投資は自己責任で！")
 
         return True
 
     except Exception as e:
-        print(f"\nデイトレード分析エラー: {e}")
-        print("デイトレード機能に問題が発生しました")
+        logger.error(f"\nデイトレード分析エラー: {e}")
+        logger.error("デイトレード機能に問題が発生しました")
         return False
+
 
 
 class DayTradeWebDashboard:
     """統合Webダッシュボード - daytrade.pyに統合"""
 
-    def __init__(self):
+    def __init__(self, logger: logging.Logger,
+                 ml_service: Optional[Any] = None,
+                 prediction_validator: Optional[Any] = None,
+                 backtest_engine: Optional[Any] = None,
+                 personal_day_trading_engine: Optional[Any] = None):
+        self.logger = logger
         if not WEB_AVAILABLE:
             raise ImportError("Web機能にはFlaskとPlotlyが必要です")
 
         # ML予測システム初期化
-        if ML_AVAILABLE:
-            try:
-                self.ml_system = MLPredictionSystem()
-                self.use_advanced_ml = True
-                print(f"[OK] ML予測システム: 真の93%精度AI有効化 (タイプ: {ML_TYPE})")
-            except Exception as e:
-                print(f"[WARNING] ML予測システム初期化失敗: {e}")
-                self.ml_system = None
-                self.use_advanced_ml = False
-                print("[WARNING] フォールバックモード: 改良ランダム値使用")
+        self.ml_service = ml_service
+        if not self.ml_service:
+            from ml_service import MLService
+            self.ml_service = MLService() # フォールバック
+
+        self.use_advanced_ml = self.ml_service.ml_available
+        if self.use_advanced_ml:
+            self.logger.info(f"[OK] ML予測システム: 真の93%精度AI有効化 (タイプ: {self.ml_service.ml_type})")
         else:
-            self.ml_system = None
-            self.use_advanced_ml = False
-            print("[WARNING] ML予測システム未対応 - 改良ランダム値使用")
+            self.logger.warning("[WARNING] ML予測システム未対応 - 改良ランダム値使用")
 
         # バックテスト統合システム初期化
-        if BACKTEST_INTEGRATION_AVAILABLE:
-            try:
-                self.prediction_validator = PredictionValidator()
-                self.backtest_engine = BacktestEngine()
-                self.use_backtest_integration = True
-                print("[OK] バックテスト統合: 過去実績ベース予測有効化")
-            except Exception as e:
-                print(f"[WARNING] バックテスト統合初期化失敗: {e}")
-                self.prediction_validator = None
-                self.backtest_engine = None
-                self.use_backtest_integration = False
-                print("[INFO] 基本モード: シンプル予測システム使用")
+        self.prediction_validator = prediction_validator
+        self.backtest_engine = backtest_engine
+
+        if BACKTEST_INTEGRATION_AVAILABLE and self.prediction_validator and self.backtest_engine:
+            self.use_backtest_integration = True
+            self.logger.info("[OK] バックテスト統合: 過去実績ベース予測有効化")
         else:
-            self.prediction_validator = None
-            self.backtest_engine = None
             self.use_backtest_integration = False
-            print("[WARNING] バックテスト統合未対応 - ダミー実績使用")
+            self.logger.warning("[WARNING] バックテスト統合未対応 - ダミー実績使用")
+            if not BACKTEST_INTEGRATION_AVAILABLE:
+                self.logger.warning("  (BACKTEST_INTEGRATION_AVAILABLE フラグがFalseです)")
+            if not self.prediction_validator:
+                self.logger.warning("  (prediction_validator がNoneです)")
+            if not self.backtest_engine:
+                self.logger.warning("  (backtest_engine がNoneです)")
 
         # 銘柄選択属性（エラー修正用）
         self.selected_symbols = []
 
         self.setup_app()
+
+        # メインエンジン初期化 (依存性注入)
+        self.engine = personal_day_trading_engine
+        if not self.engine and DAYTRADING_AVAILABLE:
+            from day_trading_engine import PersonalDayTradingEngine
+            self.engine = PersonalDayTradingEngine() # フォールバック
 
     async def get_stock_price_data(self, symbol: str) -> Dict[str, Optional[float]]:
         """株価データ取得（始値・現在価格）- タイムアウト付き実データ取得"""
@@ -1729,107 +1735,39 @@ class DayTradeWebDashboard:
                 return await asyncio.wait_for(future, timeout=3.0)
 
         except asyncio.TimeoutError:
-            print(f"価格データ取得タイムアウト ({symbol}): 3秒")
+            self.logger.warning(f"価格データ取得タイムアウト ({symbol}): 3秒")
             return {'opening_price': None, 'current_price': None}
         except Exception as e:
-            print(f"価格データ取得エラー ({symbol}): {e}")
+            self.logger.warning(f"価格データ取得エラー ({symbol}): {e}")
             return {'opening_price': None, 'current_price': None}
 
     async def get_ml_prediction(self, symbol: str) -> Dict[str, Any]:
         """高度ML予測取得（バックテスト結果統合）"""
-        if not self.use_advanced_ml:
-            # フォールバック：ランダム値
-            return {
-                'confidence': np.random.uniform(65, 95),
-                'score': np.random.uniform(60, 90),
-                'signal': '検討',
-                'risk_level': '中',
-                'ml_source': 'random_fallback',
-                'backtest_score': None
-            }
+        # MLServiceから予測を取得
+        ml_prediction_result = await self.ml_service.get_prediction(symbol, use_random_fallback=config.ML_RANDOM_FALLBACK_ENABLED)
 
-        try:
-            # 1. 過去のバックテスト結果を取得
-            backtest_score = None
-            if self.use_backtest_integration:
-                historical_performance = await self._get_symbol_historical_performance(symbol)
-                backtest_score = historical_performance.get('accuracy_rate', 0.0)
+        # バックテスト結果で信頼度を調整
+        backtest_score = None
+        if self.use_backtest_integration:
+            historical_performance = await self._get_symbol_historical_performance(symbol)
+            backtest_score = historical_performance.get('accuracy_rate', 0.0)
 
-            # 2. 高度MLシステムで予測
-            if hasattr(self.ml_system, 'predict_symbol_movement'):
-                prediction_result = await self.ml_system.predict_symbol_movement(symbol)
-            else:
-                # MLシステムが利用できない場合のフォールバック
-                raise Exception("ML prediction method not available")
+        adjusted_confidence = ml_prediction_result.confidence
+        if backtest_score is not None and backtest_score > 0:
+            # 過去実績で信頼度補正
+            confidence_boost = min(10, (backtest_score - 50) * 0.2)  # 50%超で信頼度ブースト
+            adjusted_confidence = min(88, ml_prediction_result.confidence + confidence_boost)
 
-            # 3. バックテスト結果で信頼度を調整
-            base_confidence = prediction_result.confidence * 100
-            if backtest_score is not None and backtest_score > 0:
-                # 過去実績で信頼度補正
-                confidence_boost = min(10, (backtest_score - 50) * 0.2)  # 50%超で信頼度ブースト
-                adjusted_confidence = min(88, base_confidence + confidence_boost)
-            else:
-                adjusted_confidence = base_confidence
-
-            # 4. シグナル強度計算（本番運用版）
-            if prediction_result.prediction == 1:  # 上昇予測
-                if adjusted_confidence > 85:
-                    signal = '強い買い'
-                elif adjusted_confidence > 75:
-                    signal = '買い'
-                else:
-                    signal = '検討'
-            else:  # 下降予測
-                if adjusted_confidence > 85:
-                    signal = '強い売り'
-                elif adjusted_confidence > 75:
-                    signal = '売り'
-                else:
-                    signal = '様子見'
-
-            # 5. リスクレベル判定
-            volatility_risk = prediction_result.feature_values.get('volatility', 0.5)
-            if volatility_risk > 0.7 or adjusted_confidence < 70:
-                risk_level = '高'
-            elif volatility_risk > 0.4 or adjusted_confidence < 80:
-                risk_level = '中'
-            else:
-                risk_level = '低'
-
-            return {
-                'confidence': adjusted_confidence,
-                'score': min(95, adjusted_confidence + np.random.uniform(-3, 7)),  # 微小ランダム性
-                'signal': signal,
-                'risk_level': risk_level,
-                'ml_source': 'advanced_ml',
-                'backtest_score': backtest_score,
-                'model_consensus': prediction_result.model_consensus,
-                'feature_importance': list(prediction_result.feature_values.keys())[:3]  # TOP3特徴
-            }
-
-        except Exception as e:
-            print(f"ML予測エラー ({symbol}): {e}")
-            # エラー時は改良されたフォールバック（シード固定でより一貫性のある結果）
-            np.random.seed(hash(symbol) % 1000)  # 銘柄コードでシード固定
-            confidence = np.random.uniform(65, 85)
-
-            # シグナル判定（少し改良）
-            signal_rand = np.random.random()
-            if signal_rand > 0.7:
-                signal = '買い'
-            elif signal_rand > 0.4:
-                signal = '検討'
-            else:
-                signal = '様子見'
-
-            return {
-                'confidence': confidence,
-                'score': confidence + np.random.uniform(-5, 10),
-                'signal': signal,
-                'risk_level': '中' if confidence > 75 else '高',
-                'ml_source': 'error_fallback',
-                'backtest_score': np.random.uniform(60, 80) if np.random.random() > 0.3 else None
-            }
+        return {
+            'confidence': adjusted_confidence,
+            'score': ml_prediction_result.score,
+            'signal': ml_prediction_result.signal,
+            'risk_level': ml_prediction_result.risk_level,
+            'ml_source': ml_prediction_result.ml_source,
+            'backtest_score': backtest_score,
+            'model_consensus': ml_prediction_result.model_consensus,
+            'feature_importance': ml_prediction_result.feature_importance
+        }
 
     async def _get_symbol_historical_performance(self, symbol: str) -> Dict[str, Any]:
         """銘柄別過去実績取得"""
@@ -1859,7 +1797,7 @@ class DayTradeWebDashboard:
             }
 
         except Exception as e:
-            print(f"過去実績取得エラー ({symbol}): {e}")
+            self.logger.warning(f"過去実績取得エラー ({symbol}): {e}")
             return {}
 
     def setup_app(self):
@@ -2175,13 +2113,13 @@ class DayTradeWebDashboard:
 
     async def _trigger_retraining_and_deployment(self, symbol: str):
         """モデルの再学習とデプロイをトリガーする"""
-        print(f"[ML] モデル再学習とデプロイを開始: {symbol}")
+        self.logger.info(f"[ML] モデル再学習とデプロイを開始: {symbol}")
         try:
             # 1. 最新の訓練データを準備
             from ml_prediction_models import ml_prediction_models, PredictionTask
             from hyperparameter_optimizer import hyperparameter_optimizer
 
-            print(f"[ML] {symbol} の訓練データを準備中...")
+            self.logger.info(f"[ML] {symbol} の訓練データを準備中...")
             features, targets = await ml_prediction_models.prepare_training_data(symbol, "1y")
 
             # 欠損値除去（最後の行は未来の値が不明）
@@ -2197,17 +2135,17 @@ class DayTradeWebDashboard:
                         valid_targets[task] = y
 
             if not valid_targets:
-                print(f"[ML] {symbol} の再学習に十分なデータがありません。スキップします。")
+                self.logger.warning(f"[ML] {symbol} の再学習に十分なデータがありません。スキップします。")
                 return False
 
             # 2. ハイパーパラメータ最適化
-            print(f"[ML] {symbol} のハイパーパラメータ最適化を実行中...")
+            self.logger.info(f"[ML] {symbol} のハイパーパラメータ最適化を実行中...")
             optimized_results = await hyperparameter_optimizer.optimize_all_models(
                 symbol, X, valid_targets
             )
 
             # 3. 最適化されたパラメータでモデルを再訓練
-            print(f"[ML] {symbol} のモデルを再訓練中...")
+            self.logger.info(f"[ML] {symbol} のモデルを再訓練中...")
             # optimized_resultsから最適なパラメータを抽出して渡す
             # optimized_resultsは {ModelType.value}_{PredictionTask.value}: OptimizationResult の形式
             # 例: {"Random Forest": {"価格方向予測": {...}}, "XGBoost": {...}}
@@ -2223,11 +2161,11 @@ class DayTradeWebDashboard:
             await ml_prediction_models.train_models(symbol, "1y", optimized_params=optimized_params_for_training) # 再訓練
 
             # 4. 新しいモデルのデプロイ（ml_prediction_models.pyでモデルが保存されるため、ここではログのみ）
-            print(f"[ML] {symbol} の新しいモデルがデプロイされました。")
+            self.logger.info(f"[ML] {symbol} の新しいモデルがデプロイされました。")
             return True
 
         except Exception as e:
-            print(f"[ML] モデル再学習とデプロイに失敗しました ({symbol}): {e}")
+            self.logger.error(f"[ML] モデル再学習とデプロイに失敗しました ({symbol}): {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -3359,29 +3297,30 @@ class DayTradeWebDashboard:
 
     def run(self, host='127.0.0.1', port=5000, debug=False):
         """統合Webダッシュボード起動"""
-        print(f"\n🚀 デイトレードAI統合システム 起動中...")
-        print(f"URL: http://{host}:{port}")
-        print(f"💻 ブラウザでアクセスしてください\n")
-        print(f"機能:")
-        print(f"  • リアルタイムAI分析")
-        print(f"  • TOP10デイトレード推奨")
-        print(f"  • インタラクティブチャート")
-        print(f"  • 自動更新機能")
-        print(f"\n停止: Ctrl+C\n")
+        self.logger.info(f"\n🚀 デイトレードAI統合システム 起動中...")
+        self.logger.info(f"URL: http://{host}:{port}")
+        self.logger.info(f"💻 ブラウザでアクセスしてください\n")
+        self.logger.info(f"機能:")
+        self.logger.info(f"  • リアルタイムAI分析")
+        self.logger.info(f"  • TOP10デイトレード推奨")
+        self.logger.info(f"  • インタラクティブチャート")
+        self.logger.info(f"  • 自動更新機能")
+        self.logger.info(f"\n停止: Ctrl+C\n")
 
         self.app.run(host=host, port=port, debug=debug)
 
 
 async def run_web_mode():
     """統合Webモード実行"""
+    logger = logging.getLogger('daytrade')
     if not WEB_AVAILABLE:
-        print("❌ Web機能が利用できません")
-        print("pip install flask plotly でインストールしてください")
+        logger.error("❌ Web機能が利用できません")
+        logger.error("pip install flask plotly でインストールしてください")
         return False
 
     if not DAYTRADING_AVAILABLE:
-        print("❌ デイトレードエンジンが利用できません")
-        print("day_trading_engine.py が必要です")
+        logger.error("❌ デイトレードエンジンが利用できません")
+        logger.error("day_trading_engine.py が必要です")
         return False
 
     try:
@@ -3389,28 +3328,30 @@ async def run_web_mode():
         dashboard.run()
         return True
     except Exception as e:
-        print(f"❌ Webダッシュボードエラー: {e}")
+        logger.error(f"❌ Webダッシュボードエラー: {e}")
         return False
 
 
 async def main():
     """メイン処理"""
+    logging.config.dictConfig(config.LOGGING_CONFIG)
     show_header()
     args = parse_arguments()
 
     if args.train_overnight_model:
-        print("\n🚀 翌朝場予測モデルの学習を開始します...")
+        logger = logging.getLogger('daytrade')
+    logger.info("\n🚀 翌朝場予測モデルの学習を開始します...")
         try:
             from overnight_prediction_model import OvernightPredictionModel
             model = OvernightPredictionModel()
             await model.train_model()
-            print("\n✅ 翌朝場予測モデルの学習が完了しました。")
-            print("   モデルは 'overnight_model.joblib' として保存されました。")
+            logger.info("\n✅ 翌朝場予測モデルの学習が完了しました。")
+            logger.info("   モデルは 'overnight_model.joblib' として保存されました。")
         except ImportError:
-            print("\n❌ エラー: overnight_prediction_model.py が見つからないか、必要なライブラリがインストールされていません。")
-            print("   `pip install -r requirements.txt` を実行してください。")
+            logger.error("\n❌ エラー: overnight_prediction_model.py が見つからないか、必要なライブラリがインストールされていません。")
+            logger.error("   `pip install -r requirements.txt` を実行してください。")
         except Exception as e:
-            print(f"\n❌ 翌朝場予測モデルの学習中にエラーが発生しました: {e}")
+            logger.error(f"\n❌ 翌朝場予測モデルの学習中にエラーが発生しました: {e}")
         return
 
     if args.history:
@@ -3428,16 +3369,16 @@ async def main():
         return
 
     if WEB_AVAILABLE and not args.quick and not args.symbols and not args.multi and not args.portfolio and not args.chart and not args.history and not args.alerts:
-        print("\n🌐 Webダッシュボードモードで起動します... (Ctrl+Cで終了)")
-        print("   ブラウザで http://127.0.0.1:5000/ にアクセスしてください")
+        logger.info("\n🌐 Webダッシュボードモードで起動します... (Ctrl+Cで終了)")
+        logger.info("   ブラウザで http://127.0.0.1:5000/ にアクセスしてください")
         dashboard = DayTradeWebDashboard()
         # Flaskアプリを非同期で実行するために、別スレッドで実行するか、ASGIサーバーを使用する必要がある
         # 簡易的な開発サーバー起動
         try:
             dashboard.app.run(debug=False, host='0.0.0.0', port=5000)
         except Exception as e:
-            print(f"Webダッシュボードの起動に失敗しました: {e}")
-            print("コンソールモードで続行します。")
+            logger.error(f"Webダッシュボードの起動に失敗しました: {e}")
+            logger.info("コンソールモードで続行します。")
             await run_daytrading_mode()
         return
 
@@ -3458,7 +3399,7 @@ async def main():
     elif args.symbols:
         symbols_list = [s.strip() for s in args.symbols.split(',')]
         if args.multi:
-            print(f"--symbols と --multi は同時に指定できません。--symbols を優先します。")
+            logger.warning(f"--symbols と --multi は同時に指定できません。--symbols を優先します。")
         await run_multi_symbol_mode(symbol_count=len(symbols_list), generate_chart=args.chart, safe_mode=args.safe)
     elif args.multi:
         await run_multi_symbol_mode(symbol_count=args.multi, portfolio_amount=args.portfolio, generate_chart=args.chart, safe_mode=args.safe)
@@ -3474,14 +3415,14 @@ async def main():
     else:
         # 引数なしの場合、Webダッシュボードが利用可能ならWeb、そうでなければデイトレードモード
         if WEB_AVAILABLE:
-            print("\n🌐 Webダッシュボードモードで起動します... (Ctrl+Cで終了)")
-            print("   ブラウザで http://127.0.0.1:5000/ にアクセスしてください")
+            logger.info("\n🌐 Webダッシュボードモードで起動します... (Ctrl+Cで終了)")
+            logger.info("   ブラウザで http://127.0.0.1:5000/ にアクセスしてください")
             dashboard = DayTradeWebDashboard()
             try:
                 dashboard.app.run(debug=False, host='0.0.0.0', port=5000)
             except Exception as e:
-                print(f"Webダッシュボードの起動に失敗しました: {e}")
-                print("コンソールモードで続行します。")
+                logger.error(f"Webダッシュボードの起動に失敗しました: {e}")
+                logger.info("コンソールモードで続行します。")
                 await run_daytrading_mode()
         else:
             await run_daytrading_mode()
@@ -3489,8 +3430,9 @@ async def main():
 
 async def run_single_symbol_quick_mode(symbol: str, generate_chart: bool = False) -> bool:
     """単一銘柄の従来デイトレード予測（高速モード）"""
-    print(f"\n⚡ 高速デイトレード予測: {symbol}")
-    print("=" * 50)
+    logger = logging.getLogger('daytrade')
+    logger.info(f"\n⚡ 高速デイトレード予測: {symbol}")
+    logger.info("=" * 50)
 
     try:
         # 従来のシンプル分析を実行
@@ -3498,27 +3440,29 @@ async def run_single_symbol_quick_mode(symbol: str, generate_chart: bool = False
         result = await daytrader.get_single_symbol_analysis(symbol)
 
         if result:
-            print(f"\n📊 {result['name']} ({result['symbol']})")
-            print(f"   推奨アクション: {result['action']}")
-            print(f"   信頼度: {result['confidence']:.1f}%")
-            print(f"   リスクレベル: {result['risk_level']}")
+            logger.info(f"\n📊 {result['name']} ({result['symbol']})")
+            logger.info(f"   推奨アクション: {result['action']}")
+            logger.info(f"   信頼度: {result['confidence']:.1f}%")
+            logger.info(f"   リスクレベル: {result['risk_level']}")
 
             if generate_chart and CHART_AVAILABLE:
                 await daytrader.generate_simple_chart(symbol)
 
             return True
         else:
-            print(f"❌ {symbol}の分析に失敗しました")
+            logger.warning(f"❌ {symbol}の分析に失敗しました")
             return False
 
     except Exception as e:
-        print(f"❌ 高速予測エラー: {e}")
+        logger.error(f"❌ 高速予測エラー: {e}")
         return False
+
 
 async def run_portfolio_analysis_mode(args) -> bool:
     """ポートフォリオ分析モード実行"""
+    logger = logging.getLogger('daytrade')
     if not MULTI_TIMEFRAME_AVAILABLE:
-        print("❌ ポートフォリオ分析機能が利用できません")
+        logger.warning("❌ ポートフォリオ分析機能が利用できません")
         return False
 
     symbols = []
@@ -3528,15 +3472,15 @@ async def run_portfolio_analysis_mode(args) -> bool:
         # デフォルト銘柄を使用
         symbols = ['7203.T', '6758.T', '9984.T', '8306.T', '4751.T']
 
-    print(f"\n📈 ポートフォリオ分析: {len(symbols)}銘柄")
-    print("=" * 50)
+    logger.info(f"\n📈 ポートフォリオ分析: {len(symbols)}銘柄")
+    logger.info("=" * 50)
 
     try:
         engine = MultiTimeframePredictionEngine()
         results = []
 
         for symbol in symbols:
-            print(f"   分析中: {symbol}")
+            logger.info(f"   分析中: {symbol}")
             prediction = await engine.generate_multi_timeframe_prediction(symbol)
             if prediction:
                 results.append(prediction)
@@ -3549,33 +3493,35 @@ async def run_portfolio_analysis_mode(args) -> bool:
 
             return True
         else:
-            print("❌ ポートフォリオ分析に失敗しました")
+            logger.warning("❌ ポートフォリオ分析に失敗しました")
             return False
 
     except Exception as e:
-        print(f"❌ ポートフォリオ分析エラー: {e}")
+        logger.error(f"❌ ポートフォリオ分析エラー: {e}")
         return False
+
 
 # Issue #882対応: マルチタイムフレーム予測機能実装
 async def run_multi_timeframe_mode(args) -> bool:
     """マルチタイムフレーム予測モード実行"""
+    logger = logging.getLogger('daytrade')
     try:
         if not MULTI_TIMEFRAME_AVAILABLE:
-            print("❌ マルチタイムフレーム予測機能が利用できません")
-            print("必要なライブラリをインストールしてください:")
-            print("pip install lightgbm scikit-learn yfinance")
+            logger.warning("❌ マルチタイムフレーム予測機能が利用できません")
+            logger.warning("必要なライブラリをインストールしてください:")
+            logger.warning("pip install lightgbm scikit-learn yfinance")
             return False
 
-        print("\n🚀 マルチタイムフレーム予測機能 - Issue #882対応")
-        print("デイトレード以外の取引サポート: 1週間・1ヶ月・3ヶ月予測")
-        print("=" * 60)
+        logger.info("\n🚀 マルチタイムフレーム予測機能 - Issue #882対応")
+        logger.info("デイトレード以外の取引サポート: 1週間・1ヶ月・3ヶ月予測")
+        logger.info("=" * 60)
 
         # エンジン初期化
         engine = MultiTimeframePredictionEngine()
 
         # 単一銘柄マルチタイムフレーム予測
         symbol = args.symbol
-        print(f"\n🔍 {symbol} のマルチタイムフレーム予測分析")
+        logger.info(f"\n🔍 {symbol} のマルチタイムフレーム予測分析")
 
         # 特定期間予測モード
         if args.timeframe:
@@ -3585,15 +3531,17 @@ async def run_multi_timeframe_mode(args) -> bool:
             return await run_full_multi_timeframe_prediction(engine, symbol, args.output_json)
 
     except Exception as e:
-        print(f"❌ マルチタイムフレーム予測エラー: {e}")
+        logger.error(f"❌ マルチタイムフレーム予測エラー: {e}")
         return False
+
 
 
 async def run_single_timeframe_prediction(engine, symbol: str, timeframe: str, output_json: bool = False) -> bool:
     """特定期間のみの予測"""
+    logger = logging.getLogger('daytrade')
     try:
         tf_enum = getattr(PredictionTimeframe, timeframe.upper())
-        print(f"📊 {tf_enum.value}予測実行中...")
+        logger.info(f"📊 {tf_enum.value}予測実行中...")
 
         # 予測実行
         prediction = await engine.predict_timeframe(symbol, tf_enum)
@@ -3605,17 +3553,18 @@ async def run_single_timeframe_prediction(engine, symbol: str, timeframe: str, o
                 print_single_prediction_summary(prediction)
             return True
         else:
-            print(f"❌ {symbol}の{tf_enum.value}予測に失敗しました")
+            logger.warning(f"❌ {symbol}の{tf_enum.value}予測に失敗しました")
             return False
 
     except Exception as e:
-        print(f"❌ {timeframe}予測エラー: {e}")
+        logger.error(f"❌ {timeframe}予測エラー: {e}")
         return False
 
 async def run_full_multi_timeframe_prediction(engine, symbol: str, output_json: bool = False) -> bool:
     """全期間統合マルチタイムフレーム予測"""
+    logger = logging.getLogger('daytrade')
     try:
-        print("📊 全期間統合予測実行中...")
+        logger.info("📊 全期間統合予測実行中...")
 
         # マルチタイムフレーム予測実行
         prediction = await engine.generate_multi_timeframe_prediction(symbol)
@@ -3627,61 +3576,65 @@ async def run_full_multi_timeframe_prediction(engine, symbol: str, output_json: 
                 print_multi_prediction_summary(prediction)
             return True
         else:
-            print(f"❌ {symbol}のマルチタイムフレーム予測に失敗しました")
+            logger.warning(f"❌ {symbol}のマルチタイムフレーム予測に失敗しました")
             return False
 
     except Exception as e:
-        print(f"❌ マルチタイムフレーム予測エラー: {e}")
+        logger.error(f"❌ マルチタイムフレーム予測エラー: {e}")
         return False
 
 # 表示・出力関数群
 def print_single_prediction_summary(prediction):
     """単一期間予測結果の表示"""
-    print(f"\n【{prediction.timeframe.value}予測結果】")
-    print(f"  方向性: {prediction.direction}")
-    print(f"  信頼度: {prediction.confidence:.1f}%")
-    print(f"  期待リターン: {prediction.expected_return:.1f}%")
-    print(f"  リスクレベル: {prediction.risk_level}")
+    logger = logging.getLogger('daytrade')
+    logger.info(f"\n【{prediction.timeframe.value}予測結果】")
+    logger.info(f"  方向性: {prediction.direction}")
+    logger.info(f"  信頼度: {prediction.confidence:.1f}%")
+    logger.info(f"  期待リターン: {prediction.expected_return:.1f}%")
+    logger.info(f"  リスクレベル: {prediction.risk_level}")
 
 def print_multi_prediction_summary(prediction):
     """マルチタイムフレーム予測結果の表示"""
-    print(f"\n【マルチタイムフレーム予測サマリー】{prediction.symbol}")
-    print("=" * 60)
+    logger = logging.getLogger('daytrade')
+    logger.info(f"\n【マルチタイムフレーム予測サマリー】{prediction.symbol}")
+    logger.info("=" * 60)
 
-    print("\n【統合予測】")
-    print(f"  方向性: {prediction.consensus_direction}")
-    print(f"  信頼度: {prediction.consensus_confidence:.1f}%")
-    print(f"  推奨戦略: {prediction.recommended_strategy}")
-    print(f"  最適期間: {prediction.best_timeframe.value}")
+    logger.info("\n【統合予測】")
+    logger.info(f"  方向性: {prediction.consensus_direction}")
+    logger.info(f"  信頼度: {prediction.consensus_confidence:.1f}%")
+    logger.info(f"  推奨戦略: {prediction.recommended_strategy}")
+    logger.info(f"  最適期間: {prediction.best_timeframe.value}")
 
-    print("\n【期間別予測】")
+    logger.info("\n【期間別予測】")
     for timeframe, pred in prediction.predictions.items():
-        print(f"  {timeframe.value}: {pred.prediction_direction} ({pred.confidence:.1f}%) "
+        logger.info(f"  {timeframe.value}: {pred.prediction_direction} ({pred.confidence:.1f}%) "
               f"期待リターン: {pred.expected_return:.1f}%")
 
-    print(f"\n【リスク評価】")
+    logger.info(f"\n【リスク評価】")
     risk = prediction.risk_assessment
-    print(f"  総合リスク: {risk.get('overall_risk', 'N/A')}")
-    print(f"  ボラティリティ予測: {risk.get('volatility_forecast', 0):.2f}%")
-    print(f"  分散投資推奨: {'はい' if risk.get('diversification_recommended', False) else 'いいえ'}")
+    logger.info(f"  総合リスク: {risk.get('overall_risk', 'N/A')}")
+    logger.info(f"  ボラティリティ予測: {risk.get('volatility_forecast', 0):.2f}%")
+    logger.info(f"  分散投資推奨: {'はい' if risk.get('diversification_recommended', False) else 'いいえ'}")
 
 def print_portfolio_analysis_summary(results):
     """ポートフォリオ分析結果の表示"""
-    print("\n【ポートフォリオ分析サマリー】")
-    print("=" * 60)
+    logger = logging.getLogger('daytrade')
+    logger.info("\n【ポートフォリオ分析サマリー】")
+    logger.info("=" * 60)
 
     total_symbols = len(results)
     up_symbols = sum(1 for r in results if r.consensus_direction == "UP")
 
-    print(f"\n【全体概況】")
-    print(f"  分析銘柄数: {total_symbols}")
-    print(f"  上昇予想: {up_symbols}銘柄 ({up_symbols/total_symbols*100:.1f}%)")
-    print(f"  下落予想: {total_symbols-up_symbols}銘柄 ({(total_symbols-up_symbols)/total_symbols*100:.1f}%)")
+    logger.info(f"\n【全体概況】")
+    logger.info(f"  分析銘柄数: {total_symbols}")
+    logger.info(f"  上昇予想: {up_symbols}銘柄 ({up_symbols/total_symbols*100:.1f}%)")
+    logger.info(f"  下落予想: {total_symbols-up_symbols}銘柄 ({(total_symbols-up_symbols)/total_symbols*100:.1f}%)")
 
-    print(f"\n【推奨銘柄ランキング】")
+    logger.info(f"\n【推奨銘柄ランキング】")
     sorted_results = sorted(results, key=lambda x: x.consensus_confidence, reverse=True)
     for i, result in enumerate(sorted_results[:5], 1):
-        print(f"  {i}. {result.symbol}: {result.consensus_direction} (信頼度: {result.consensus_confidence:.1f}%)")
+        logger.info(f"  {i}. {result.symbol}: {result.consensus_direction} (信頼度: {result.consensus_confidence:.1f}%)")
+
 
 def output_single_prediction_json(prediction):
     """単一期間予測結果のJSON出力"""
@@ -3791,24 +3744,25 @@ def output_portfolio_json(results):
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger('daytrade')
     try:
         # 引数に --train-overnight-model があれば学習を実行
         if '--train-overnight-model' in sys.argv:
-            print("--- 翌朝場予測モデルの学習を開始します ---")
+            logger.info("--- 翌朝場予測モデルの学習を開始します ---")
             try:
                 from overnight_prediction_model import OvernightPredictionModel
                 model = OvernightPredictionModel()
                 asyncio.run(model.train())
-                print("--- 学習が完了しました ---")
+                logger.info("--- 学習が完了しました ---")
             except ImportError:
-                print("[ERROR] overnight_prediction_model.py が見つかりません。")
+                logger.error("[ERROR] overnight_prediction_model.py が見つかりません。")
             except Exception as e:
-                print(f"[ERROR] 学習中にエラーが発生しました: {e}")
+                logger.error(f"[ERROR] 学習中にエラーが発生しました: {e}")
             sys.exit(0)
 
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nプログラムを終了します。")
+        logger.info("\nプログラムを終了します。")
     except Exception as e:
-        print(f"予期せぬエラーが発生しました: {e}")
+        logger.error(f"予期せぬエラーが発生しました: {e}")
         sys.exit(1)
