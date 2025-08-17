@@ -20,9 +20,19 @@ import warnings
 
 # 最適化ライブラリ
 from scipy.optimize import minimize, differential_evolution
-from skopt import gp_minimize
-from skopt.space import Real, Integer, Categorical
-from skopt.utils import use_named_args
+
+try:
+    from skopt import gp_minimize
+    from skopt.space import Real, Integer, Categorical
+    from skopt.utils import use_named_args
+    SKOPT_AVAILABLE = True
+except ImportError:
+    gp_minimize = None
+    Real = None
+    Integer = None
+    Categorical = None
+    use_named_args = None
+    SKOPT_AVAILABLE = False
 
 # 機械学習
 from sklearn.model_selection import cross_val_score, KFold
