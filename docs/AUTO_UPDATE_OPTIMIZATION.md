@@ -138,7 +138,7 @@ async def integrated_optimization():
     optimizer = AutoUpdateOptimizer()
     expansion = SymbolExpansionSystem()
     enhancer = PredictionAccuracyEnhancer()
-    
+
     # 並行実行
     await asyncio.gather(
         optimizer.run_optimization_cycle(),
