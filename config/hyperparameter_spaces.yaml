@@ -1,80 +1,178 @@
-# ハイパーパラメータ空間定義 - Issue #856対応
-# 各モデルのハイパーパラメータ探索範囲を外部化
+# ハイパーパラメータ空間設定（統合改善版）
+# Issue #856対応：最適化戦略と設定の柔軟性強化
 
-# RandomForest 分類用パラメータ
-random_forest_classifier:
-  n_estimators: [100, 200, 300, 500]
-  max_depth: [10, 15, 20, 25, null]
-  min_samples_split: [2, 5, 10]
-  min_samples_leaf: [1, 2, 4]
-  max_features: ['sqrt', 'log2', null]
-  bootstrap: [true, false]
-  class_weight: [null, 'balanced']
+# Random Forest設定
+random_forest:
+  classifier:
+    n_estimators: [100, 200, 300, 500, 700]
+    max_depth: [5, 10, 15, 20, 25, 30, null]
+    min_samples_split: [2, 5, 10, 15]
+    min_samples_leaf: [1, 2, 4, 8]
+    max_features: ["sqrt", "log2", 0.3, 0.5, 0.7]
+    class_weight: ["balanced", "balanced_subsample", null]
+    bootstrap: [true, false]
+    criterion: ["gini", "entropy"]
 
-# RandomForest 回帰用パラメータ
-random_forest_regressor:
-  n_estimators: [100, 200, 300, 500]
-  max_depth: [10, 15, 20, 25, null]
-  min_samples_split: [2, 5, 10]
-  min_samples_leaf: [1, 2, 4]
-  max_features: ['sqrt', 'log2', null]
-  bootstrap: [true, false]
+  regressor:
+    n_estimators: [100, 200, 300, 500, 700]
+    max_depth: [5, 10, 15, 20, 25, 30, null]
+    min_samples_split: [2, 5, 10, 15]
+    min_samples_leaf: [1, 2, 4, 8]
+    max_features: ["sqrt", "log2", 0.3, 0.5, 0.7]
+    bootstrap: [true, false]
+    criterion: ["squared_error", "absolute_error", "friedman_mse"]
 
-# XGBoost 分類用パラメータ
-xgboost_classifier:
-  n_estimators: [100, 200, 300, 500]
-  max_depth: [3, 5, 7, 10]
-  learning_rate: [0.01, 0.05, 0.1, 0.2]
-  subsample: [0.8, 0.9, 1.0]
-  colsample_bytree: [0.8, 0.9, 1.0]
-  reg_alpha: [0, 0.1, 0.5, 1.0]
-  reg_lambda: [0, 0.1, 0.5, 1.0]
+# XGBoost設定
+xgboost:
+  classifier:
+    n_estimators: [50, 100, 200, 300, 500, 700]
+    max_depth: [3, 4, 5, 6, 7, 8, 10]
+    learning_rate: [0.01, 0.03, 0.05, 0.1, 0.15, 0.2]
+    subsample: [0.6, 0.7, 0.8, 0.9, 1.0]
+    colsample_bytree: [0.6, 0.7, 0.8, 0.9, 1.0]
+    colsample_bylevel: [0.6, 0.7, 0.8, 0.9, 1.0]
+    gamma: [0, 0.1, 0.2, 0.3, 0.5, 1.0]
+    reg_alpha: [0, 0.1, 0.5, 1.0, 2.0]
+    reg_lambda: [0, 0.1, 0.5, 1.0, 2.0]
+    min_child_weight: [1, 3, 5, 7]
+    scale_pos_weight: [1, 2, 3, 5]
 
-# XGBoost 回帰用パラメータ
-xgboost_regressor:
-  n_estimators: [100, 200, 300, 500]
-  max_depth: [3, 5, 7, 10]
-  learning_rate: [0.01, 0.05, 0.1, 0.2]
-  subsample: [0.8, 0.9, 1.0]
-  colsample_bytree: [0.8, 0.9, 1.0]
-  reg_alpha: [0, 0.1, 0.5, 1.0]
-  reg_lambda: [0, 0.1, 0.5, 1.0]
+  regressor:
+    n_estimators: [50, 100, 200, 300, 500, 700]
+    max_depth: [3, 4, 5, 6, 7, 8, 10]
+    learning_rate: [0.01, 0.03, 0.05, 0.1, 0.15, 0.2]
+    subsample: [0.6, 0.7, 0.8, 0.9, 1.0]
+    colsample_bytree: [0.6, 0.7, 0.8, 0.9, 1.0]
+    colsample_bylevel: [0.6, 0.7, 0.8, 0.9, 1.0]
+    gamma: [0, 0.1, 0.2, 0.3, 0.5, 1.0]
+    reg_alpha: [0, 0.1, 0.5, 1.0, 2.0]
+    reg_lambda: [0, 0.1, 0.5, 1.0, 2.0]
+    min_child_weight: [1, 3, 5, 7]
 
-# 最適化設定
-optimization_settings:
-  # Grid Search設定
-  grid_search:
+# LightGBM設定
+lightgbm:
+  classifier:
+    n_estimators: [50, 100, 200, 300, 500, 700]
+    max_depth: [3, 5, 7, 10, 15, -1]
+    learning_rate: [0.01, 0.03, 0.05, 0.1, 0.15, 0.2]
+    subsample: [0.6, 0.7, 0.8, 0.9, 1.0]
+    colsample_bytree: [0.6, 0.7, 0.8, 0.9, 1.0]
+    reg_alpha: [0, 0.1, 0.5, 1.0, 2.0]
+    reg_lambda: [0, 0.1, 0.5, 1.0, 2.0]
+    num_leaves: [15, 31, 63, 127, 255]
+    min_child_samples: [10, 20, 30, 50]
+    min_child_weight: [0.001, 0.01, 0.1, 1.0]
+    subsample_freq: [0, 1, 5]
+    class_weight: ["balanced", null]
+
+  regressor:
+    n_estimators: [50, 100, 200, 300, 500, 700]
+    max_depth: [3, 5, 7, 10, 15, -1]
+    learning_rate: [0.01, 0.03, 0.05, 0.1, 0.15, 0.2]
+    subsample: [0.6, 0.7, 0.8, 0.9, 1.0]
+    colsample_bytree: [0.6, 0.7, 0.8, 0.9, 1.0]
+    reg_alpha: [0, 0.1, 0.5, 1.0, 2.0]
+    reg_lambda: [0, 0.1, 0.5, 1.0, 2.0]
+    num_leaves: [15, 31, 63, 127, 255]
+    min_child_samples: [10, 20, 30, 50]
+    min_child_weight: [0.001, 0.01, 0.1, 1.0]
+    subsample_freq: [0, 1, 5]
+
+# 最適化手法別設定
+optimization_methods:
+  random:
+    description: "ランダムサーチ - 広範囲な探索に適している"
+    n_iter: 50
     cv_folds: 3
-    max_iterations: 50
-    n_jobs: -1
-    verbose: 1
-
-  # Random Search設定
-  random_search:
-    cv_folds: 3
-    n_iter: 100  # RandomizedSearchCVで使用
     max_iterations: 100
     n_jobs: -1
     verbose: 1
+    recommended_for: ["初回最適化", "広範囲探索"]
 
-  # Bayesian最適化設定
-  bayesian_optimization:
+  grid:
+    description: "グリッドサーチ - 徹底的な探索（計算コスト高）"
+    max_combinations: 1000
     cv_folds: 3
-    n_iter: 50
     max_iterations: 50
     n_jobs: -1
     verbose: 1
+    recommended_for: ["小規模パラメータ空間", "最終調整"]
+
+  bayesian:
+    description: "ベイジアン最適化 - 効率的な探索"
+    n_iter: 100
+    cv_folds: 3
+    max_iterations: 50
+    n_jobs: -1
+    verbose: 1
+    recommended_for: ["効率的最適化", "連続パラメータ"]
+
+  adaptive:
+    description: "適応的最適化 - ランダム→ベイジアンの組み合わせ"
+    total_budget: 150
+    exploration_ratio: 0.3
+    recommended_for: ["バランス重視", "不明なパラメータ空間"]
+
+# モデル別推奨設定
+model_recommendations:
+  random_forest:
+    primary_params: ["n_estimators", "max_depth", "min_samples_split"]
+    tuning_priority: "high"
+    typical_ranges:
+      n_estimators: [100, 500]
+      max_depth: [10, 30]
+
+  xgboost:
+    primary_params: ["n_estimators", "max_depth", "learning_rate", "subsample"]
+    tuning_priority: "very_high"
+    typical_ranges:
+      n_estimators: [100, 700]
+      max_depth: [3, 8]
+      learning_rate: [0.01, 0.2]
+
+  lightgbm:
+    primary_params: ["n_estimators", "max_depth", "learning_rate", "num_leaves"]
+    tuning_priority: "very_high"
+    typical_ranges:
+      n_estimators: [100, 700]
+      max_depth: [3, 15]
+      learning_rate: [0.01, 0.2]
+      num_leaves: [31, 255]
+
+# パフォーマンス設定
+performance_settings:
+  time_limits:
+    grid_search: 1800  # 30分
+    random_search: 900  # 15分
+    bayesian_search: 1800  # 30分
+
+  resource_limits:
+    max_memory_gb: 8
+    max_cpu_cores: -1  # 全コア使用
+
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_improvement: 0.001
+
+# 評価メトリクス設定
+evaluation_metrics:
+  classification:
+    primary: "accuracy"
+    alternatives: ["f1_weighted", "roc_auc", "precision_weighted", "recall_weighted"]
+
+  regression:
+    primary: "r2"
+    alternatives: ["neg_mean_squared_error", "neg_mean_absolute_error", "neg_root_mean_squared_error"]
 
 # ベースラインスコア設定
 baseline_scores:
-  # 分類タスク
   classification:
     accuracy: 0.5  # ランダム予測レベル
     precision: 0.5
     recall: 0.5
     f1: 0.5
 
-  # 回帰タスク
   regression:
     r2: 0.0       # 平均値予測レベル
     mse: 1.0      # データ依存
@@ -89,12 +187,18 @@ importance_analysis:
     - correlation      # パラメータと性能の相関
     - permutation      # パーミュテーション重要度
 
-  # 分析対象パラメータ
   focus_parameters:
     - n_estimators
     - max_depth
     - learning_rate
     - min_samples_split
+
+# 検証設定
+validation_settings:
+  cv_folds: 5
+  cv_strategy: "time_series"  # time_series, stratified, group
+  test_size: 0.2
+  shuffle: false  # 時系列データのため
 
 # システム設定
 system:
@@ -102,3 +206,61 @@ system:
   cache_results: true
   save_models: true
   random_state: 42
+
+# 後方互換性のための別名設定
+random_forest_classifier:
+  n_estimators: [100, 200, 300, 500]
+  max_depth: [10, 15, 20, 25, null]
+  min_samples_split: [2, 5, 10]
+  min_samples_leaf: [1, 2, 4]
+  max_features: ['sqrt', 'log2', null]
+  bootstrap: [true, false]
+  class_weight: [null, 'balanced']
+
+random_forest_regressor:
+  n_estimators: [100, 200, 300, 500]
+  max_depth: [10, 15, 20, 25, null]
+  min_samples_split: [2, 5, 10]
+  min_samples_leaf: [1, 2, 4]
+  max_features: ['sqrt', 'log2', null]
+  bootstrap: [true, false]
+
+xgboost_classifier:
+  n_estimators: [100, 200, 300, 500]
+  max_depth: [3, 5, 7, 10]
+  learning_rate: [0.01, 0.05, 0.1, 0.2]
+  subsample: [0.8, 0.9, 1.0]
+  colsample_bytree: [0.8, 0.9, 1.0]
+  reg_alpha: [0, 0.1, 0.5, 1.0]
+  reg_lambda: [0, 0.1, 0.5, 1.0]
+
+xgboost_regressor:
+  n_estimators: [100, 200, 300, 500]
+  max_depth: [3, 5, 7, 10]
+  learning_rate: [0.01, 0.05, 0.1, 0.2]
+  subsample: [0.8, 0.9, 1.0]
+  colsample_bytree: [0.8, 0.9, 1.0]
+  reg_alpha: [0, 0.1, 0.5, 1.0]
+  reg_lambda: [0, 0.1, 0.5, 1.0]
+
+# 最適化設定（後方互換性）
+optimization_settings:
+  grid_search:
+    cv_folds: 3
+    max_iterations: 50
+    n_jobs: -1
+    verbose: 1
+
+  random_search:
+    cv_folds: 3
+    n_iter: 100
+    max_iterations: 100
+    n_jobs: -1
+    verbose: 1
+
+  bayesian_optimization:
+    cv_folds: 3
+    n_iter: 50
+    max_iterations: 50
+    n_jobs: -1
+    verbose: 1

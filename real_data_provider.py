@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Real Data Provider - 実戦投入用リアルデータ取得システム
+Real Data Provider - 実戦投入用リアルデータ取得システム (改善版)
 
-Issue #852対応: 堅牢なデータ取得と責務分離
-Yahoo Finance APIを使用して実際の株価データを取得
+Issue #852対応: 堅牢なデータ取得と責務分離の強化
+- カスタム例外による明確なエラーハンドリング
+- データ取得結果の明確な管理
+- 外部設定からの銘柄リスト読み込み
+- レート制限対応とAPIレスポンス最適化
+- データ検証の強化
+- テストコードの分離完了
 """
 
 import asyncio
@@ -124,20 +129,35 @@ class RealDataProvider:
         # Issue #852: 外部設定からの銘柄リスト読み込み
         self.config_path = config_path or "config/symbols.yaml"
         self.target_symbols = {}
+
+        # デフォルト設定値（設定ファイル読み込み前）
+        self.cache_duration = 60
+        self.min_request_interval = 0.5
+        self.max_requests_per_minute = 60
+        self.timeout_seconds = 30
+        self.min_price = 1.0
+        self.max_price_change_percent = 50.0
+        self.required_fields = ["Open", "High", "Low", "Close", "Volume"]
+        self.max_retries = 3
+        self.retry_delay = 1.0
+        self.consecutive_failure_threshold = 5
+
+        # 設定ファイル読み込み（上記デフォルト値を上書き）
         self._load_symbol_configuration()
 
         # キャッシュ機能（API制限回避）
         self.data_cache = {}
-        self.cache_duration = 60  # 1分間キャッシュ
 
-        # Issue #852: レート制限対応
+        # Issue #852: レート制限対応（強化版）
         self.last_request_time = 0
-        self.min_request_interval = 0.5  # 0.5秒間隔
         self.request_count = 0
-        self.max_requests_per_minute = 60
+        self.consecutive_failures = {}  # 銘柄別連続失敗カウント
+
+        # yfinance セッション管理
+        self.session = None
 
     def _load_symbol_configuration(self):
-        """Issue #852: 外部設定ファイルからの銘柄リスト読み込み"""
+        """Issue #852: 外部設定ファイルからの銘柄リスト読み込み（強化版）"""
         try:
             config_file = Path(self.config_path)
             if config_file.exists():
@@ -147,15 +167,38 @@ class RealDataProvider:
                     else:
                         config = json.load(f)
 
+                # 銘柄リスト読み込み
                 self.target_symbols = config.get('symbols', {})
-                self.logger.info(f"Loaded {len(self.target_symbols)} symbols from {self.config_path}")
+
+                # API設定読み込み
+                api_settings = config.get('api_settings', {})
+                self.cache_duration = api_settings.get('cache_duration', 60)
+                self.min_request_interval = api_settings.get('request_interval', 0.5)
+                self.max_requests_per_minute = api_settings.get('max_requests_per_minute', 60)
+                self.timeout_seconds = api_settings.get('timeout_seconds', 30)
+
+                # データ検証設定読み込み
+                validation_settings = config.get('data_validation', {})
+                self.min_price = validation_settings.get('min_price', 1.0)
+                self.max_price_change_percent = validation_settings.get('max_price_change_percent', 50.0)
+                self.required_fields = validation_settings.get('required_ohlcv_fields',
+                                                             ["Open", "High", "Low", "Close", "Volume"])
+
+                # エラーハンドリング設定読み込み
+                error_settings = config.get('error_handling', {})
+                self.max_retries = error_settings.get('max_retries', 3)
+                self.retry_delay = error_settings.get('retry_delay', 1.0)
+                self.consecutive_failure_threshold = error_settings.get('consecutive_failure_threshold', 5)
+
+                self.logger.info(f"Loaded {len(self.target_symbols)} symbols and settings from {self.config_path}")
             else:
                 self.logger.warning(f"Configuration file not found: {self.config_path}")
                 self._create_default_configuration()
 
         except Exception as e:
-            self.logger.error(f"Failed to load symbol configuration: {e}")
-            self._load_default_symbols()
+            error_msg = f"Failed to load symbol configuration: {e}"
+            self.logger.error(error_msg)
+            raise ConfigurationError(f"Cannot load configuration from {self.config_path}: {e}") from e
 
     def _create_default_configuration(self):
         """デフォルト設定ファイルの作成"""
@@ -214,29 +257,54 @@ class RealDataProvider:
         self.last_request_time = time_module.time()
         self.request_count += 1
 
-    def _validate_stock_data(self, data: pd.DataFrame, symbol: str) -> bool:
-        """Issue #852: データ検証の強化"""
+    def _validate_stock_data(self, data: pd.DataFrame, symbol: str, previous_close: Optional[float] = None) -> bool:
+        """Issue #852: データ検証の強化（拡張版）"""
         if data.empty:
             raise DataValidationError(symbol, "Empty dataset returned")
 
-        required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
-        missing_columns = [col for col in required_columns if col not in data.columns]
+        # 必要なカラムの存在確認
+        missing_columns = [col for col in self.required_fields if col not in data.columns]
         if missing_columns:
-            raise DataValidationError(symbol, f"Missing columns: {missing_columns}")
+            raise DataValidationError(symbol, f"Missing required columns: {missing_columns}")
+
+        # 最新データの基本検証
+        latest = data.iloc[-1]
 
         # 価格データの整合性チェック
-        latest = data.iloc[-1]
         if latest['High'] < latest['Low']:
             raise DataValidationError(symbol, "High price is less than low price")
 
         if any(latest[col] <= 0 for col in ['Open', 'High', 'Low', 'Close']):
             raise DataValidationError(symbol, "Invalid price data (zero or negative)")
 
+        # 最小価格チェック
+        if latest['Close'] < self.min_price:
+            raise DataValidationError(symbol, f"Price {latest['Close']} below minimum {self.min_price}")
+
+        # 価格変動の妥当性チェック（前日比）
+        if previous_close and previous_close > 0:
+            price_change_percent = abs(latest['Close'] - previous_close) / previous_close * 100
+            if price_change_percent > self.max_price_change_percent:
+                raise DataValidationError(
+                    symbol,
+                    f"Price change {price_change_percent:.1f}% exceeds maximum {self.max_price_change_percent}%"
+                )
+
+        # 出来高の基本チェック
+        if latest['Volume'] < 0:
+            raise DataValidationError(symbol, "Negative volume data")
+
+        # 価格の四本値チェック
+        ohlc_prices = [latest['Open'], latest['High'], latest['Low'], latest['Close']]
+        if latest['Low'] > min(latest['Open'], latest['Close']) or latest['High'] < max(latest['Open'], latest['Close']):
+            raise DataValidationError(symbol, "OHLC price relationships are inconsistent")
+
+        self.logger.debug(f"Data validation passed for {symbol}")
         return True
 
     def get_real_stock_data(self, symbol: str) -> DataFetchResult:
         """
-        指定銘柄の実際の株価データを取得 - Issue #852対応
+        指定銘柄の実際の株価データを取得 - Issue #852対応強化版
 
         Args:
             symbol: 銘柄コード（例：7203.T）
@@ -244,66 +312,114 @@ class RealDataProvider:
         Returns:
             DataFetchResult: データ取得結果（成功/失敗情報を含む）
         """
-        try:
-            # キャッシュチェック
-            cache_key = f"{symbol}_{int(time_module.time() / self.cache_duration)}"
-            if cache_key in self.data_cache:
-                cached_result = self.data_cache[cache_key]
-                self.logger.debug(f"Cache hit for {symbol}")
-                return cached_result
-
-            # Yahoo Finance APIでデータ取得
-            ticker = yf.Ticker(symbol)
-
-            # 基本情報取得
-            try:
-                info = ticker.info
-                hist = ticker.history(period="2d")  # 2日分で前日比計算
-            except Exception as api_error:
-                error_msg = f"Yahoo Finance API error: {str(api_error)}"
-                self.logger.error(error_msg)
-                return DataFetchResult(False, None, error_msg, symbol)
-
-            # Issue #852: データ検証強化
-            try:
-                self._validate_stock_data(hist, symbol)
-            except DataValidationError as validation_error:
-                self.logger.error(f"Data validation failed for {symbol}: {validation_error}")
-                return DataFetchResult(False, None, str(validation_error), symbol)
-
-            # 最新データ取得
-            latest = hist.iloc[-1]
-            previous = hist.iloc[-2] if len(hist) > 1 else latest
-
-            # RealStockDataオブジェクト作成
-            stock_data = RealStockData(
-                symbol=symbol,
-                current_price=float(latest['Close']),
-                open_price=float(latest['Open']),
-                high_price=float(latest['High']),
-                low_price=float(latest['Low']),
-                volume=int(latest['Volume']) if not pd.isna(latest['Volume']) else 0,
-                previous_close=float(previous['Close']),
-                market_cap=info.get('marketCap'),
-                pe_ratio=info.get('trailingPE'),
-                dividend_yield=info.get('dividendYield'),
-                last_fetched_time=datetime.now(),
-                data_source="Yahoo Finance"
-            )
-
-            # 成功結果作成
-            result = DataFetchResult(True, stock_data, None, symbol)
-
-            # キャッシュ保存
-            self.data_cache[cache_key] = result
-
-            self.logger.info(f"Successfully fetched data for {symbol}")
-            return result
-
-        except Exception as e:
-            error_msg = f"Unexpected error for {symbol}: {str(e)}"
-            self.logger.error(error_msg)
+        # 連続失敗チェック
+        if self.consecutive_failures.get(symbol, 0) >= self.consecutive_failure_threshold:
+            error_msg = f"Symbol {symbol} has exceeded consecutive failure threshold ({self.consecutive_failure_threshold})"
+            self.logger.warning(error_msg)
             return DataFetchResult(False, None, error_msg, symbol)
+
+        # リトライ処理
+        for attempt in range(self.max_retries + 1):
+            try:
+                # キャッシュチェック
+                cache_key = f"{symbol}_{int(time_module.time() / self.cache_duration)}"
+                if cache_key in self.data_cache:
+                    cached_result = self.data_cache[cache_key]
+                    self.logger.debug(f"Cache hit for {symbol}")
+                    # キャッシュヒット時は連続失敗カウントをリセット
+                    self.consecutive_failures[symbol] = 0
+                    return cached_result
+
+                # Yahoo Finance APIでデータ取得（セッション使用）
+                if self.session is None:
+                    self.session = yf.Session()
+
+                ticker = yf.Ticker(symbol, session=self.session)
+
+                # 基本情報取得（タイムアウト対応）
+                try:
+                    info = ticker.info
+                    hist = ticker.history(period="2d")  # 2日分で前日比計算
+                except Exception as api_error:
+                    error_msg = f"Yahoo Finance API error: {str(api_error)}"
+                    self.logger.error(f"Attempt {attempt + 1}/{self.max_retries + 1} - {error_msg}")
+
+                    if attempt < self.max_retries:
+                        time_module.sleep(self.retry_delay * (attempt + 1))  # 指数バックオフ
+                        continue
+                    else:
+                        self._increment_failure_count(symbol)
+                        return DataFetchResult(False, None, error_msg, symbol)
+
+                # Issue #852: データ検証強化（前日終値も考慮）
+                previous_close = None
+                if len(hist) > 1:
+                    previous_close = float(hist.iloc[-2]['Close'])
+
+                try:
+                    self._validate_stock_data(hist, symbol, previous_close)
+                except DataValidationError as validation_error:
+                    error_msg = f"Data validation failed: {validation_error}"
+                    self.logger.error(f"Attempt {attempt + 1}/{self.max_retries + 1} - {error_msg}")
+
+                    if attempt < self.max_retries:
+                        time_module.sleep(self.retry_delay * (attempt + 1))
+                        continue
+                    else:
+                        self._increment_failure_count(symbol)
+                        return DataFetchResult(False, None, error_msg, symbol)
+
+                # 最新データ取得
+                latest = hist.iloc[-1]
+                previous = hist.iloc[-2] if len(hist) > 1 else latest
+
+                # RealStockDataオブジェクト作成
+                stock_data = RealStockData(
+                    symbol=symbol,
+                    current_price=float(latest['Close']),
+                    open_price=float(latest['Open']),
+                    high_price=float(latest['High']),
+                    low_price=float(latest['Low']),
+                    volume=int(latest['Volume']) if not pd.isna(latest['Volume']) else 0,
+                    previous_close=float(previous['Close']),
+                    market_cap=info.get('marketCap'),
+                    pe_ratio=info.get('trailingPE'),
+                    dividend_yield=info.get('dividendYield'),
+                    last_fetched_time=datetime.now(),
+                    data_source="Yahoo Finance"
+                )
+
+                # 成功結果作成
+                result = DataFetchResult(True, stock_data, None, symbol)
+
+                # キャッシュ保存
+                self.data_cache[cache_key] = result
+
+                # 成功時は連続失敗カウントをリセット
+                self.consecutive_failures[symbol] = 0
+
+                self.logger.info(f"Successfully fetched data for {symbol}")
+                return result
+
+            except Exception as e:
+                error_msg = f"Unexpected error for {symbol}: {str(e)}"
+                self.logger.error(f"Attempt {attempt + 1}/{self.max_retries + 1} - {error_msg}")
+
+                if attempt < self.max_retries:
+                    time_module.sleep(self.retry_delay * (attempt + 1))
+                    continue
+                else:
+                    self._increment_failure_count(symbol)
+                    return DataFetchResult(False, None, error_msg, symbol)
+
+    def _increment_failure_count(self, symbol: str):
+        """連続失敗カウントを増加"""
+        self.consecutive_failures[symbol] = self.consecutive_failures.get(symbol, 0) + 1
+        if self.consecutive_failures[symbol] >= self.consecutive_failure_threshold:
+            self.logger.warning(
+                f"Symbol {symbol} has reached consecutive failure threshold "
+                f"({self.consecutive_failures[symbol]}/{self.consecutive_failure_threshold})"
+            )
 
     async def get_multiple_stocks_data(self, symbols: List[str] = None) -> Dict[str, DataFetchResult]:
         """
@@ -609,12 +725,20 @@ class RealDataAnalysisEngine:
 
 
 # Issue #852: テストコード分離完了
-# テストコードは tests/test_real_data_provider.py に移動しました
+# テストコードは tests/test_real_data_provider_improved.py に移動しました
 
 if __name__ == "__main__":
     # 基本的な動作確認のみ
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
     logger = logging.getLogger(__name__)
-    logger.info("Real Data Provider - Issue #852 対応版")
-    logger.info("詳細なテストは tests/test_real_data_provider.py を実行してください")
+    logger.info("Real Data Provider - Issue #852 対応強化版")
+    logger.info("主要改善点:")
+    logger.info("- カスタム例外による明確なエラーハンドリング")
+    logger.info("- データ取得結果の明確な管理")
+    logger.info("- 外部設定からの銘柄リスト読み込み")
+    logger.info("- レート制限対応とAPIレスポンス最適化")
+    logger.info("- データ検証の強化")
+    logger.info("- テストコードの分離完了")
+    logger.info("")
+    logger.info("詳細なテストは tests/test_real_data_provider_improved.py を実行してください")
