@@ -1,0 +1,52 @@
+# Day Trade Personal - Production Dockerfile
+# Issue #901 Phase 2: プロダクション用コンテナ設定
+
+FROM python:3.11-slim
+
+# メタデータ
+LABEL maintainer="Day Trade Personal Team"
+LABEL description="Day Trade Personal 93% AI System - Production Web Server"
+LABEL version="1.0.0"
+
+# 環境変数設定
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONIOENCODING=utf-8
+ENV TZ=Asia/Tokyo
+
+# 作業ディレクトリ作成
+WORKDIR /app
+
+# システムパッケージ更新とインストール
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pythonの依存関係をコピーしてインストール
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Gunicornをインストール
+RUN pip install --no-cache-dir gunicorn[gevent]
+
+# アプリケーションコードをコピー
+COPY . .
+
+# ログディレクトリ作成
+RUN mkdir -p logs
+
+# 非rootユーザー作成（セキュリティ向上）
+RUN groupadd -r daytrader && useradd -r -g daytrader daytrader
+RUN chown -R daytrader:daytrader /app
+USER daytrader
+
+# ヘルスチェック
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# ポート公開
+EXPOSE 8080
+
+# 実行コマンド（プロダクションモード）
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "production_web_server:app"]
