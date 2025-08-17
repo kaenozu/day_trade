@@ -51,7 +51,7 @@ class WebDashboard:
                 "FLASK_SECRET_KEY環境変数が未設定です。ランダムキーを生成しました。"
             )
             logger.info(
-                f"本番環境では環境変数を設定してください: export FLASK_SECRET_KEY='{secret_key}'"
+                f"本番環境では環境変数を設定してください: export FLASK_SECRET_KEY='[32文字以上のランダム文字列]'"
             )
 
         self.app.config["SECRET_KEY"] = secret_key

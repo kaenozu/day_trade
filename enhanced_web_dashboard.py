@@ -696,7 +696,16 @@ class EnhancedWebDashboard:
 
         # Flask・SocketIOアプリ初期化
         self.app = Flask(__name__)
-        self.app.secret_key = 'enhanced_dashboard_secret_key'
+        
+        # セキュアなsecret key設定
+        secret_key = os.environ.get('ENHANCED_DASHBOARD_SECRET_KEY')
+        if not secret_key:
+            import secrets
+            secret_key = secrets.token_urlsafe(32)
+            self.logger.warning(f"⚠️  本番環境では環境変数ENHANCED_DASHBOARD_SECRET_KEYを設定してください")
+            self.logger.warning(f"    例: export ENHANCED_DASHBOARD_SECRET_KEY='[32文字以上のランダム文字列]'")
+        
+        self.app.secret_key = secret_key
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
 
         # コンポーネント初期化
@@ -1076,12 +1085,28 @@ class EnhancedWebDashboard:
         </html>
         """
 
-    def run(self, debug: bool = False):
+    def run(self, debug: bool = False, production: bool = False):
         """ダッシュボードサーバー起動"""
-        self.logger.info(f"Enhanced Web Dashboard starting on port {self.port}")
+        # プロダクションモードでは強制的にdebug=False
+        if production:
+            debug = False
+            self.logger.info(f"Enhanced Web Dashboard starting in PRODUCTION mode on port {self.port}")
+        else:
+            self.logger.info(f"Enhanced Web Dashboard starting in {'DEBUG' if debug else 'DEVELOPMENT'} mode on port {self.port}")
 
         # バックグラウンドタスク開始
         asyncio.create_task(self.real_time_manager.update_data_loop(self.socketio))
+
+        # プロダクションモードでは追加設定
+        if production:
+            # プロダクション用設定適用
+            self.app.config.update({
+                'ENV': 'production',
+                'DEBUG': False,
+                'TESTING': False,
+                'SECRET_KEY': os.environ.get('SECRET_KEY', os.urandom(32).hex())
+            })
+            self.logger.info("Production security settings applied")
 
         self.socketio.run(self.app, host='0.0.0.0', port=self.port, debug=debug)
 

@@ -23,7 +23,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from real_data_provider_v2 import (
     DataSourceConfigManager,
     ImprovedYahooFinanceProvider,
-    ImprovedImprovedMultiSourceDataProvider,
+    ImprovedMultiSourceDataProvider,
     DataSource,
     DataQuality,
     DataSourceInfo,

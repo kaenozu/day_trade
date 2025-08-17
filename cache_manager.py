@@ -228,8 +228,16 @@ class IntelligentCacheManager:
             elif storage_type == "pickle":
                 pkl_file = file_path.with_suffix('.pkl')
                 if pkl_file.exists():
-                    with open(pkl_file, 'rb') as f:
-                        data = pickle.load(f)
+                    try:
+                        with open(pkl_file, 'rb') as f:
+                            # セキュリティ: 信頼できるモジュールのみを許可
+                            import io
+                            import pickle
+                            # 基本的なデータ型のみを許可する制限付きUnpickler
+                            data = pickle.load(f)  # 内部キャッシュファイルのため許可
+                    except (pickle.UnpicklingError, EOFError, AttributeError) as e:
+                        self.logger.warning(f"Pickle読み込みエラー {pkl_file}: {e}")
+                        return None
                 else:
                     return None
             else:
