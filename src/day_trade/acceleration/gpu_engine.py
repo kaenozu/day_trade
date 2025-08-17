@@ -470,7 +470,7 @@ class GPUAccelerationEngine:
             avg_loss[i] = ((period - 1) * avg_loss[i - 1] + loss[i - 1]) / period
 
         # RSI 計算
-        rs = avg_gain / cp.where(avg_loss != 0, avg_loss, 1e - 10)
+        rs = avg_gain / cp.where(avg_loss != 0, avg_loss, 1e-10)
         rsi = 100 - (100 / (1 + rs))
 
         return rsi

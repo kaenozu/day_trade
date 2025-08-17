@@ -61,7 +61,7 @@ class MemoryMonitor:
                 memory_info = self.get_memory_usage()
 
                 if memory_info['rss_mb'] > self.threshold_mb:
-                    print(f"⚠️ メモリ使用量警告: {memory_info['rss_mb']:.1f}MB")
+                    print(f"WARNING メモリ使用量警告: {memory_info['rss_mb']:.1f}MB")
 
                     # コールバック実行
                     for callback in self._callbacks:
@@ -91,7 +91,7 @@ class MemoryOptimizer:
 
     def _on_memory_pressure(self, memory_info):
         """メモリ圧迫時の処理"""
-        print("🧹 メモリクリーンアップ実行中...")
+        print(" メモリクリーンアップ実行中...")
 
         # ガベージコレクション実行
         collected = gc.collect()

@@ -83,7 +83,7 @@ class PerformanceManager:
         if not self.initialized:
             return
 
-        print("🧹 パフォーマンス最適化クリーンアップ中...")
+        print("パフォーマンス最適化クリーンアップ中...")
 
         # メモリ監視停止
         stop_memory_monitoring()
