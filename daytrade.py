@@ -887,7 +887,7 @@ async def run_quick_mode(symbols: Optional[List[str]] = None, generate_chart: bo
 
         # チャート生成（オプション）
         if generate_chart:
-            print()
+            print() 
             print("[チャート] グラフ生成中...")
             try:
                 # ここでチャート関連モジュールを遅延インポート
@@ -1313,8 +1313,8 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
             print() 
             print() 
             print("[チャート] 複数銘柄分析グラフ生成中...")
-            print()
-            print()
+            print() 
+            print() 
             try:
                 # ここでチャート関連モジュールを遅延インポート
                 import matplotlib.pyplot as plt
@@ -1474,12 +1474,7 @@ def show_alerts() -> bool:
 
 
 async def run_daytrading_mode() -> bool:
-    """
-    デイトレードモード実行
-
-    Returns:
-        実行成功かどうか
-    """
+    """デイトレードモード実行"""
     if not DAYTRADING_AVAILABLE:
         print("デイトレード機能が利用できません")
         print("day_trading_engine.py が必要です")
@@ -2059,7 +2054,7 @@ class DayTradeWebDashboard:
             return None
 
 
-def main():
+async def main():
     """メイン処理"""
     show_header()
     args = parse_arguments()
@@ -2434,7 +2429,6 @@ def output_multi_prediction_json(prediction):
     }
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
-
 def output_portfolio_json(results):
     """ポートフォリオ分析結果JSON出力"""
     portfolio_result = {
@@ -2446,13 +2440,15 @@ def output_portfolio_json(results):
     }
 
     for symbol, prediction in results.items():
-        portfolio_result["portfolio_analysis"]["predictions"][symbol] = {
-            "consensus_direction": prediction.consensus_direction,
-            "consensus_confidence": prediction.consensus_confidence,
-            "best_timeframe": prediction.best_timeframe.value,
-            "recommended_strategy": prediction.recommended_strategy,
-            "risk_assessment": prediction.risk_assessment
-        }
+        portfolio_result["portfolio_analysis"]["predictions"].update({
+            symbol: {
+                "consensus_direction": prediction.consensus_direction,
+                "consensus_confidence": prediction.consensus_confidence,
+                "best_timeframe": prediction.best_timeframe.value,
+                "recommended_strategy": prediction.recommended_strategy,
+                "risk_assessment": prediction.risk_assessment
+            }
+        })
 
     print(json.dumps(portfolio_result, indent=2, ensure_ascii=False))
 

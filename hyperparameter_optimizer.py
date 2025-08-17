@@ -737,24 +737,26 @@ class HyperparameterOptimizer:
             return {'error': str(e)}
 
 
-# ファクトリー関数
-def create_hyperparameter_optimizer(config_path: Optional[str] = None,
-                                   hyperparameter_config_path: Optional[str] = None) -> HyperparameterOptimizer:
+# ユーティリティ関数
+def create_enhanced_hyperparameter_optimizer(
+    config_path: Optional[str] = None,
+    hyperparameter_config_path: Optional[str] = None
+) -> HyperparameterOptimizer:
     """
-    HyperparameterOptimizerインスタンスの作成
+    EnhancedHyperparameterOptimizerインスタンスの作成
 
     Args:
         config_path: 最適化設定ファイルパス
         hyperparameter_config_path: ハイパーパラメータ空間設定ファイルパス
 
     Returns:
-        HyperparameterOptimizerインスタンス
+        EnhancedHyperparameterOptimizerインスタンス
     """
-    config_path_obj = Path(config_path) if config_path else None
+    path = Path(config_path) if config_path else None
     hyperparameter_path_obj = Path(hyperparameter_config_path) if hyperparameter_config_path else None
 
     return HyperparameterOptimizer(
-        config_path=config_path_obj,
+        config_path=path,
         hyperparameter_config_path=hyperparameter_path_obj
     )
 

@@ -1,0 +1,200 @@
+# Real Data Provider V2 Configuration - Issue #853対応
+# マルチソースデータプロバイダー設定
+
+version: "2.0.0"
+last_updated: "2025-01-16"
+description: "Real Data Provider V2 設定ファイル（Issue #853対応）"
+
+# データソース設定
+data_sources:
+  yahoo_finance:
+    enabled: true
+    daily_limit: 1000
+    min_request_interval: 0.6  # 秒
+    delay_minutes: 20
+    cost_per_request: 0.0
+    base_quality_score: 85.0
+    fallback_priority: 1
+    retry_attempts: 3
+    timeout_seconds: 10
+
+  stooq:
+    enabled: true
+    daily_limit: 10000
+    min_request_interval: 0.2
+    delay_minutes: 15
+    cost_per_request: 0.0
+    base_quality_score: 75.0
+    fallback_priority: 2
+    retry_attempts: 2
+    timeout_seconds: 8
+
+  alpha_vantage:
+    enabled: false  # API key required
+    daily_limit: 500
+    min_request_interval: 12.0  # Free tier: 5 calls per minute
+    delay_minutes: 0
+    cost_per_request: 0.0
+    base_quality_score: 90.0
+    fallback_priority: 1
+    retry_attempts: 2
+    timeout_seconds: 15
+    api_key: null  # Set via environment variable ALPHA_VANTAGE_API_KEY
+
+# キャッシュ設定
+cache:
+  enabled: true
+  directory: "data_cache"
+  default_expiry_seconds: 300  # 5分
+  max_cache_size_mb: 1000
+  cleanup_interval_hours: 6
+  compression: true
+  formats:
+    primary: "parquet"    # parquet, pickle, csv
+    fallback: "pickle"
+
+  # 期間別キャッシュ有効期限
+  expiry_by_period:
+    "1d": 300      # 5分
+    "5d": 600      # 10分
+    "1mo": 1800    # 30分
+    "3mo": 3600    # 1時間
+    "6mo": 7200    # 2時間
+    "1y": 14400    # 4時間
+
+# 並列処理設定
+parallel_processing:
+  max_concurrent_requests: 5
+  rate_limit_buffer: 0.1  # 各リクエスト後の追加待機時間
+  semaphore_timeout: 30
+  chunk_size: 10  # 大量取得時の分割サイズ
+
+# 品質評価設定
+quality_assessment:
+  # 品質スコア重み
+  weights:
+    response_time: 0.20
+    data_completeness: 0.30
+    data_freshness: 0.20
+    data_consistency: 0.15
+    source_reliability: 0.15
+
+  # 閾値設定
+  thresholds:
+    excellent_response_time: 2.0
+    good_response_time: 5.0
+    poor_response_time: 10.0
+    max_data_age_hours: 24
+    min_data_points: 5
+    max_price_value: 1000000
+
+  # 連続失敗に対するペナルティ
+  failure_penalties:
+    quality_degradation_factor: 0.8
+    max_consecutive_failures: 5
+    recovery_time_minutes: 30
+
+# フォールバック戦略
+fallback_strategy:
+  enable_intelligent_fallback: true
+  quality_threshold: 60.0  # この値以下は使用しない
+  max_fallback_attempts: 3
+  fallback_delay_seconds: 1.0
+
+  # データソース無効化条件
+  disable_conditions:
+    consecutive_failures: 10
+    success_rate_threshold: 0.3  # 30%以下
+    disable_duration_minutes: 60
+
+# symbol_selector統合設定
+symbol_selector:
+  enabled: true
+  default_strategy: "liquid_trading"
+  fallback_symbols: ["7203", "8306", "4751", "6861", "9984"]
+  max_symbols_per_request: 50
+
+  # 戦略別設定
+  strategies:
+    liquid_trading:
+      min_volume: 1000000
+      min_market_cap: 100000000000
+      volatility_range: [0.02, 0.08]
+
+    growth_stocks:
+      min_market_cap: 50000000000
+      max_pe_ratio: 50
+      min_revenue_growth: 0.1
+
+    value_stocks:
+      max_pe_ratio: 15
+      min_dividend_yield: 0.02
+      max_pb_ratio: 1.5
+
+# エラーハンドリング設定
+error_handling:
+  enable_retry_logic: true
+  exponential_backoff: true
+  base_retry_delay: 1.0
+  max_retry_delay: 60.0
+  jitter_factor: 0.1
+
+  # ログレベル設定
+  log_levels:
+    data_fetch_success: "INFO"
+    data_fetch_failure: "WARNING"
+    cache_operations: "DEBUG"
+    quality_assessment: "INFO"
+    fallback_activation: "WARNING"
+
+# 監視・メトリクス設定
+monitoring:
+  enable_performance_tracking: true
+  metrics_retention_hours: 168  # 1週間
+
+  # アラート閾値
+  alerts:
+    low_success_rate: 0.7      # 70%以下
+    high_response_time: 5.0    # 5秒以上
+    low_quality_score: 60.0    # 60以下
+    high_failure_rate: 0.3     # 30%以上
+
+  # 統計情報保存
+  statistics:
+    save_interval_minutes: 15
+    save_location: "logs/data_provider_stats.json"
+    max_history_days: 30
+
+# 開発・デバッグ設定
+development:
+  debug_mode: false
+  verbose_logging: false
+  simulate_failures: false
+  mock_data_probability: 0.0
+  force_cache_miss: false
+
+  # テスト用設定
+  test_symbols: ["7203", "4751", "6861", "8306", "9984"]
+  test_periods: ["1d", "5d", "1mo"]
+  performance_benchmark_runs: 5
+
+# セキュリティ設定
+security:
+  validate_ssl: true
+  max_redirect_count: 3
+  user_agent: "RealDataProviderV2/2.0"
+  request_headers:
+    Accept: "application/json, text/csv, */*"
+    Accept-Encoding: "gzip, deflate"
+
+  # API キー管理（環境変数優先）
+  api_keys:
+    alpha_vantage: null  # ALPHA_VANTAGE_API_KEY
+    twelve_data: null    # TWELVE_DATA_API_KEY
+
+# 互換性設定
+compatibility:
+  legacy_function_support: true
+  pandas_version_check: true
+  backwards_compatible_cache: true
+  migration_mode: false
