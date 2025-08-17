@@ -70,7 +70,7 @@ except ImportError:
     DATA_PROVIDER_AVAILABLE = False
 
 try:
-    from model_performance_monitor import EnhancedModelPerformanceMonitor
+    from model_performance_monitor import ModelPerformanceMonitor
     PERFORMANCE_MONITOR_AVAILABLE = True
 except ImportError:
     PERFORMANCE_MONITOR_AVAILABLE = False
@@ -744,7 +744,7 @@ class EnhancedWebDashboard:
                 self.logger.info("予測精度向上システム統合完了")
 
             if PERFORMANCE_MONITOR_AVAILABLE:
-                self.performance_monitor = EnhancedModelPerformanceMonitor()
+                self.performance_monitor = ModelPerformanceMonitor()
                 self.logger.info("性能監視システム統合完了")
 
             if SYMBOL_SELECTOR_AVAILABLE:

@@ -4,93 +4,34 @@
 data_sources:
   yahoo_finance:
     enabled: true
-    api_key: ""  # 将来的なAPI認証対応
-    base_url: ""
-    rate_limits:
-      requests_per_minute: 100
-      daily_limit: 1000
-      min_request_interval: 0.6
-    quality_settings:
-      delay_minutes: 5
-      expected_success_rate: 0.95
-      max_consecutive_failures: 3
-    retry_config:
-      max_retries: 3
-      backoff_factor: 2.0
-      initial_delay: 1.0
-    fallback_priority: 1
+    priority: 1
+    timeout: 30
+    rate_limit_per_minute: 100
+    rate_limit_per_day: 1000
+    quality_threshold: 80.0
+    max_price_threshold: 1000000
 
   stooq:
     enabled: true
-    api_key: ""
+    priority: 2
+    timeout: 20
     base_url: "https://stooq.com/q/d/l/"
-    rate_limits:
-      requests_per_minute: 60
-      daily_limit: 500
-      min_request_interval: 1.0
-    quality_settings:
-      delay_minutes: 15
-      expected_success_rate: 0.80
-      max_consecutive_failures: 5
-    retry_config:
-      max_retries: 2
-      backoff_factor: 1.5
-      initial_delay: 2.0
-    fallback_priority: 2
+    rate_limit_per_minute: 60
+    rate_limit_per_day: 500
+    quality_threshold: 70.0
 
   alpha_vantage:
-    enabled: false  # API키가 필요함
+    enabled: false
+    priority: 3
+    timeout: 30
     api_key: ""
     base_url: "https://www.alphavantage.co/query"
-    rate_limits:
-      requests_per_minute: 5  # 무료 플랜
-      daily_limit: 500
-      min_request_interval: 12.0
-    quality_settings:
-      delay_minutes: 0  # Real-time
-      expected_success_rate: 0.98
-      max_consecutive_failures: 2
-    retry_config:
-      max_retries: 2
-      backoff_factor: 2.0
-      initial_delay: 1.0
-    fallback_priority: 3
+    rate_limit_per_minute: 5
+    rate_limit_per_day: 500
+    quality_threshold: 90.0
 
-cache_settings:
-  enabled: true
-  cache_directory: "cache/stock_data"
-  default_ttl_seconds: 1800  # 30分
-  max_cache_size_mb: 500
-  metadata_format: "json"  # json または parquet
-  compression: true
-
-data_quality:
-  price_validation:
-    min_price: 0.01
-    max_price_multiplier: 10.0  # 前日終値の10倍まで
-    use_iqr_outlier_detection: true
-    iqr_multiplier: 3.0
-
-  volume_validation:
-    min_volume: 0
-    max_volume_multiplier: 50.0  # 平均出来高の50倍まで
-
-  completeness_check:
-    required_fields: ["open", "high", "low", "close", "volume"]
-    min_data_points: 10
-    max_missing_ratio: 0.05  # 5%まで欠損許可
-
-performance_monitoring:
-  track_response_times: true
-  track_success_rates: true
-  alert_on_consecutive_failures: 3
-  quality_score_calculation:
-    freshness_weight: 0.3
-    completeness_weight: 0.3
-    accuracy_weight: 0.2
-    availability_weight: 0.2
-
-logging:
-  level: "INFO"
-  detailed_error_logging: true
-  performance_logging: true
+  mock:
+    enabled: true
+    priority: 99
+    timeout: 1
+    quality_threshold: 50.0
