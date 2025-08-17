@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Day Trade Personal - 個人利用専用版
@@ -383,7 +384,7 @@ class PersonalAnalysisEngine:
                     if not name:
                         # 次にrecommended_symbolsから
                         name = self.recommended_symbols.get(symbol_key, None)
-                        print(f"[DEBUG] Fallback: {symbol_key} -> recommended_symbols = {repr(name)}")
+                        print(f"[DEBUG] Fallback: {symbol_key} -> recommended_symbols.get = {symbol_name}")
 
                         if not name:
                             # yfinanceから取得
@@ -411,7 +412,7 @@ class PersonalAnalysisEngine:
                 if not name:
                     # 次にrecommended_symbolsから
                     name = self.recommended_symbols.get(symbol_key, None)
-                    print(f"[DEBUG] Traditional: {symbol_key} -> recommended_symbols = {repr(name)}")
+                    print(f"[DEBUG] Traditional: {symbol_key} -> recommended_symbols.get = {symbol_name}")
 
                     if not name:
                         # yfinanceから取得
@@ -786,7 +787,7 @@ def parse_arguments():
   python daytrade.py --symbols 7203,8306  # 特定銘柄のみ分析
   python daytrade.py --history          # 分析履歴表示
   python daytrade.py --alerts           # アラート確認
-  python daytrade.py --safe             # 安全モード（低リスクのみ）
+  python daytrade.py --safe             # 安全モード（低リスク銘柄のみ）
   python daytrade.py --multi 8 --chart  # 複数銘柄分析＋チャート表示
   python daytrade.py --quick --chart --safe # 基本モード＋チャート＋安全モード
   python daytrade.py --train-overnight-model # 【開発者用】翌朝場予測モデルの再学習
@@ -1139,10 +1140,10 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
 
                     # ポートフォリオサマリー
                     print(f"ポートフォリオ: {portfolio_summary['portfolio_name']}")
-                    print(f"初期資本: {portfolio_summary['initial_capital']:,}円")
-                    print(f"現在資本: {portfolio_summary['current_capital']:,}円")
+                    print(f"初期資本: {portfolio_summary['initial_capital']:,.0f}円")
+                    print(f"現在資本: {portfolio_summary['current_capital']:,.0f}円")
                     print(f"総リターン: {portfolio_summary['total_return']:.2f}%")
-                    print(f"現金残高: {portfolio_summary['cash_balance']:,}円")
+                    print(f"現金残高: {portfolio_summary['cash_balance']:,.0f}円")
 
                     # 30日パフォーマンス
                     print(f"\n30日間パフォーマンス:")
@@ -1473,12 +1474,7 @@ def show_alerts() -> bool:
 
 
 async def run_daytrading_mode() -> bool:
-    """
-    デイトレードモード実行
-
-    Returns:
-        実行成功かどうか
-    """
+    """デイトレードモード実行"""
     if not DAYTRADING_AVAILABLE:
         print("デイトレード機能が利用できません")
         print("day_trading_engine.py が必要です")
@@ -1659,7 +1655,7 @@ class DayTradeWebDashboard:
                 self.prediction_validator = PredictionValidator()
                 self.backtest_engine = BacktestEngine()
                 self.use_backtest_integration = True
-                print("[OK] バックテスト統合: 過去実績ベース予測有効化")
+                print(f"[OK] バックテスト統合: 過去実績ベース予測有効化")
             except Exception as e:
                 print(f"[WARNING] バックテスト統合初期化失敗: {e}")
                 self.prediction_validator = None
@@ -2364,19 +2360,21 @@ def output_multi_prediction_json(prediction):
     """マルチタイムフレーム予測結果のJSON出力"""
     data = {
         'symbol': prediction.symbol,
-        'consensus_direction': prediction.consensus_direction,
-        'consensus_confidence': prediction.consensus_confidence,
-        'recommended_strategy': prediction.recommended_strategy,
-        'best_timeframe': prediction.best_timeframe.value,
-        'risk_assessment': prediction.risk_assessment,
-        'predictions': {
-            timeframe.value: {
-                'direction': pred.prediction_direction,
-                'confidence': pred.confidence,
-                'expected_return': pred.expected_return,
-                'risk_level': pred.risk_level
+        'multi_timeframe_prediction': {
+            'consensus_direction': prediction.consensus_direction,
+            'consensus_confidence': prediction.consensus_confidence,
+            'best_timeframe': prediction.best_timeframe.value,
+            'recommended_strategy': prediction.recommended_strategy,
+            'risk_assessment': prediction.risk_assessment,
+            'predictions': {
+                timeframe.value: {
+                    'direction': pred.prediction_direction,
+                    'confidence': pred.confidence,
+                    'expected_return': pred.expected_return,
+                    'risk_level': pred.risk_level
+                }
+                for timeframe, pred in prediction.predictions.items()
             }
-            for timeframe, pred in prediction.predictions.items()
         },
         'timestamp': datetime.now().isoformat()
     }

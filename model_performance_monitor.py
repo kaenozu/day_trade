@@ -284,7 +284,13 @@ class EnhancedPerformanceConfigManager:
                 'cooldown_hours': 24,
                 'global_threshold': 80.0,
                 'symbol_specific_threshold': 85.0,
-                'partial_threshold': 88.0
+                'partial_threshold': 88.0,
+                'scopes': { # 追加
+                    'global': {'estimated_time': 3600}, # 1時間
+                    'partial': {'estimated_time': 1800}, # 30分
+                    'symbol': {'estimated_time': 600}, # 10分
+                    'incremental': {'estimated_time': 300} # 5分
+                }
             },
             'database': {
                 'connection': {
@@ -1169,16 +1175,18 @@ class ModelPerformanceMonitor:
             return RetrainingResult(
                 triggered=False,
                 scope=scope,
-                affected_symbols=list(symbol_performances.keys()),
+                affected_symbols=list(symbol_performances.keys()), # symbolsをsymbol_performances.keys()に変更
                 error="ml_upgrade_system not available"
             )
 
         start_time = datetime.now()
-        affected_symbols = list(symbol_performances.keys())
+        affected_symbols = list(symbol_performances.keys()) # symbolsをsymbol_performances.keys()に変更
 
         # 再学習設定から推定時間を取得
         retraining_config = self.config_manager.get_retraining_config()
-        estimated_time = 1800  # デフォルト30分
+        scopes_config = retraining_config.get('scopes', {}) # HEAD側の変更を採用
+        scope_config = scopes_config.get(scope.value, {}) # scope.value を使用
+        estimated_time = scope_config.get('estimated_time', 1800)  # デフォルト30分
 
         try:
             self.logger.info(f"{scope.value}再学習を開始します - 対象: {affected_symbols}")
@@ -1218,7 +1226,7 @@ class ModelPerformanceMonitor:
                     triggered=False,
                     scope=scope,
                     affected_symbols=affected_symbols,
-                    error=f"Unknown retraining scope: {scope.value}"
+                    error=f"Unknown retraining scope: {scope}"
                 )
 
             # 実行時間の計算
@@ -1274,7 +1282,7 @@ class ModelPerformanceMonitor:
                 ''', (
                     trigger_id,
                     datetime.now().isoformat(),
-                    result.scope.value,
+                    result.scope,
                     ','.join(result.affected_symbols),
                     f"性能低下により{result.scope.value}再学習を実行",
                     'INFO' if result.triggered else 'WARNING',
