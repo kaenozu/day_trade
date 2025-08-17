@@ -1,3 +1,5 @@
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 """
 GPU並列処理・高速化モジュール
 Phase F: 次世代機能拡張フェーズ

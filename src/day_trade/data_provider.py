@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+#!/usr / bin / env python3
+# -*- coding: utf - 8 -*-
 """
 Data Provider Interface
 """
@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Dict
 
 class AbstractDataProvider(ABC):
+    """AbstractDataProviderクラス"""
     @abstractmethod
     def get_latest_prices(self) -> Dict[str, float]:
         """銘柄ごとの最新価格を取得する"""
@@ -15,8 +16,10 @@ class AbstractDataProvider(ABC):
 
 class ManualDataProvider(AbstractDataProvider):
     """テスト用の手動データプロバイダー"""
-    def __init__(self, price_data: Dict[str, float]):
+    """__init__関数"""
+    def __init__(self, price_data: Dict[str, float]) -> None:
         self.price_data = price_data
+    """get_latest_prices関数"""
 
     def get_latest_prices(self) -> Dict[str, float]:
         return self.price_data
