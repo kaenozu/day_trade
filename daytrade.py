@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 
-from model_performance_monitor import EnhancedModelPerformanceMonitor as ModelPerformanceMonitor
+from model_performance_monitor import ModelPerformanceMonitor
 try:
     from overnight_prediction_model import OvernightPredictionModel
     OVERNIGHT_MODEL_AVAILABLE = True
@@ -2429,6 +2429,7 @@ def output_multi_prediction_json(prediction):
     }
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
+
 def output_portfolio_json(results):
     """ポートフォリオ分析結果JSON出力"""
     portfolio_result = {
@@ -2440,35 +2441,19 @@ def output_portfolio_json(results):
     }
 
     for symbol, prediction in results.items():
-        portfolio_result["portfolio_analysis"]["predictions"].update({
-            symbol: {
-                "consensus_direction": prediction.consensus_direction,
-                "consensus_confidence": prediction.consensus_confidence,
-                "best_timeframe": prediction.best_timeframe.value,
-                "recommended_strategy": prediction.recommended_strategy,
-                "risk_assessment": prediction.risk_assessment
-            }
-        })
+        portfolio_result["portfolio_analysis"]["predictions"][symbol] = {
+            "consensus_direction": prediction.consensus_direction,
+            "consensus_confidence": prediction.consensus_confidence,
+            "best_timeframe": prediction.best_timeframe.value,
+            "recommended_strategy": prediction.recommended_strategy,
+            "risk_assessment": prediction.risk_assessment
+        }
 
     print(json.dumps(portfolio_result, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
     try:
-        # 引数に --train-overnight-model があれば学習を実行
-        if '--train-overnight-model' in sys.argv:
-            print("--- 翌朝場予測モデルの学習を開始します ---")
-            try:
-                from overnight_prediction_model import OvernightPredictionModel
-                model = OvernightPredictionModel()
-                asyncio.run(model.train())
-                print("--- 学習が完了しました ---")
-            except ImportError:
-                print("[ERROR] overnight_prediction_model.py が見つかりません。")
-            except Exception as e:
-                print(f"[ERROR] 学習中にエラーが発生しました: {e}")
-            sys.exit(0)
-
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nプログラムを終了します。")
