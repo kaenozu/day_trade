@@ -17,7 +17,33 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-# ... (Models and Enums as before) ...
+# データベースモデル
+Base = declarative_base()
+
+class DBTrade(Base):
+    """トレード記録テーブル"""
+    __tablename__ = 'trades'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    symbol = Column(String, nullable=False)
+    entry_price = Column(Float, nullable=False)
+    exit_price = Column(Float)
+    quantity = Column(Integer, nullable=False)
+    entry_date = Column(DateTime, nullable=False)
+    exit_date = Column(DateTime)
+    profit_loss = Column(Float)
+    trade_type = Column(String, nullable=False)  # 'BUY' or 'SELL'
+    trade_result = Column(String)  # 'PROFIT', 'LOSS', 'BREAKEVEN'
+
+# Enums
+class TradeType:
+    BUY = "BUY"
+    SELL = "SELL"
+
+class TradeResult:
+    PROFIT = "PROFIT"
+    LOSS = "LOSS"
+    BREAKEVEN = "BREAKEVEN"
 
 class PerformanceTracker:
     # ... (__init__ and other methods as before) ...
