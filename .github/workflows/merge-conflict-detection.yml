@@ -14,7 +14,6 @@ permissions:
 
 jobs:
   conflict-detection:
-    if: false
     runs-on: ubuntu-latest
     name: Detect merge conflicts
 
@@ -252,7 +251,7 @@ jobs:
             コード内にマージコンフリクトマーカー ( 
 <<<<<<< 
 , 
-=======
+======= 
 , 
 >>>>>>> 
 ) が残っています。
