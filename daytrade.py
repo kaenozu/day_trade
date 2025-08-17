@@ -7,10 +7,30 @@ Day Trade Personal - 個人利用専用版
 1日単位の売買タイミング推奨に特化した個人投資家向けシステム
 
 使用方法:
-  python daytrade.py           # デイトレード推奨（デフォルト）
-  python daytrade.py --quick   # 基本分析
-  python daytrade.py --help    # 詳細オプション
-"""
+  python daytrade.py           # デフォルト：Webダッシュボード（ブラウザ表示）
+  python daytrade.py --console # コンソールモード（ターミナル表示）
+  python daytrade.py --quick   # 基本モード（TOP3推奨・シンプル）
+  python daytrade.py --multi 10 # 10銘柄一括分析
+  python daytrade.py --portfolio 1000000 # ポートフォリオ推奨（100万円）
+  python daytrade.py --chart   # チャート表示（グラフで分析結果）
+  python daytrade.py --symbols 7203,8306  # 特定銘柄のみ分析
+  python daytrade.py --history # 分析履歴表示
+  python daytrade.py --alerts  # アラート確認
+  python daytrade.py --safe    # 安全モード（低リスク銘柄のみ）
+  python daytrade.py --multi 8 --chart  # 複数銘柄分析＋チャート表示
+  python daytrade.py --quick --chart --safe # 基本モード＋チャート＋安全モード
+  python daytrade.py --train-overnight-model # 【開発者用】翌朝場予測の再学習
+
+  # Issue #882対応: マルチタイムフレーム予測機能（デフォルト化）
+  python daytrade.py --symbol 7203.T # マルチタイムフレーム予測（新デフォルト）
+  python daytrade.py --symbol ^N225 --timeframe weekly # 週足予測のみ
+  python daytrade.py --portfolio-analysis --symbols 7203,6758,9984 # ポートフォリオ分析
+  python daytrade.py --symbol 7203.T --output-json # JSON出力
+  python daytrade.py --quick --symbol 7203.T # 高速デイトレード予測のみ
+
+★NEW: --symbolでマルチタイムフレーム予測がデフォルト動作になりました
+★従来のデイトレード予測は --quick オプションで利用できます
+注意: 投資は自己責任で！"""
 
 # Windows環境での文字化け対策
 import os
@@ -45,10 +65,10 @@ from model_performance_monitor import ModelPerformanceMonitor
 try:
     from overnight_prediction_model import OvernightPredictionModel
     OVERNIGHT_MODEL_AVAILABLE = True
-    print("[OK] 翌朝場予測モデル: 機械学習ベースの予測対応")
+    print('[OK] 翌朝場予測モデル: 機械学習ベースの予測対応')
 except ImportError:
     OVERNIGHT_MODEL_AVAILABLE = False
-    print("[WARNING] 翌朝場予測モデル未対応")
+    print('[WARNING] 翌朝場予測モデル未対応')
 
 # 個人版システム設定
 project_root = Path(__file__).parent
@@ -107,9 +127,9 @@ try:
     from plotly.subplots import make_subplots
     import plotly.utils
     WEB_AVAILABLE = True
-    print("[OK] Web機能: ブラウザダッシュボード対応")
+    print('[OK] Web機能: ブラウザダッシュボード対応')
 except ImportError:
-    print("[WARNING] Web機能未対応 - pip install flask plotly")
+    print('[WARNING] Web機能未対応 - pip install flask plotly')
 
 try:
     from analysis_history import PersonalAnalysisHistory
@@ -126,26 +146,26 @@ except ImportError:
 try:
     from enhanced_symbol_manager import EnhancedSymbolManager, SymbolTier
     ENHANCED_SYMBOLS_AVAILABLE = True
-    print("[OK] 拡張銘柄管理システム: 100銘柄体制対応")
+    print('[OK] 拡張銘柄管理システム: 100銘柄体制対応')
 except ImportError:
     ENHANCED_SYMBOLS_AVAILABLE = False
-    print("[WARNING] 拡張銘柄管理システム未対応")
+    print('[WARNING] 拡張銘柄管理システム未対応')
 
 try:
     from real_data_provider import RealDataProvider, RealDataAnalysisEngine
     REAL_DATA_AVAILABLE = True
-    print("[OK] 実戦投入モード: リアルデータ対応")
+    print('[OK] 実戦投入モード: リアルデータ対応')
 except ImportError:
     REAL_DATA_AVAILABLE = False
-    print("[INFO] シンプルモード: 基本データ使用（本番運用可能）")
+    print('[INFO] シンプルモード: 基本データ使用（本番運用可能）')
 
 try:
     from risk_manager import PersonalRiskManager, RiskSettings
     RISK_MANAGER_AVAILABLE = True
-    print("[OK] 実戦リスク管理システム: 損切り自動化対応")
+    print('[OK] 実戦リスク管理システム: 損切り自動化対応')
 except ImportError:
     RISK_MANAGER_AVAILABLE = False
-    print("[WARNING] リスク管理システム未対応")
+    print('[WARNING] リスク管理システム未対応')
 
 # Issue #882対応: マルチタイムフレーム予測機能
 try:
@@ -155,58 +175,58 @@ try:
         TradingStyle
     )
     MULTI_TIMEFRAME_AVAILABLE = True
-    print("[OK] マルチタイムフレーム予測: 1週間・1ヶ月・3ヶ月予測対応")
+    print('[OK] マルチタイムフレーム予測: 1週間・1ヶ月・3ヶ月予測対応')
 except ImportError:
     MULTI_TIMEFRAME_AVAILABLE = False
-    print("[WARNING] マルチタイムフレーム予測未対応 - pip install lightgbm scikit-learn")
+    print('[WARNING] マルチタイムフレーム予測未対応 - pip install lightgbm scikit-learn')
 
 try:
     from stability_manager import SystemStabilityManager, ErrorLevel
     STABILITY_MANAGER_AVAILABLE = True
-    print("[OK] 技術的安定性システム: エラーハンドリング強化")
+    print('[OK] 技術的安定性システム: エラーハンドリング強化')
 except ImportError:
     STABILITY_MANAGER_AVAILABLE = False
-    print("[WARNING] 安定性管理システム未対応")
+    print('[WARNING] 安定性管理システム未対応')
 
 try:
     from parallel_analyzer import ParallelAnalyzer
     PARALLEL_ANALYZER_AVAILABLE = True
-    print("[OK] 並列分析システム: 高速処理対応")
+    print('[OK] 並列分析システム: 高速処理対応')
 except ImportError:
     PARALLEL_ANALYZER_AVAILABLE = False
-    print("[WARNING] 並列分析システム未対応")
+    print('[WARNING] 並列分析システム未対応')
 
 try:
     from sector_diversification import SectorDiversificationManager
     SECTOR_DIVERSIFICATION_AVAILABLE = True
-    print("[OK] セクター分散システム: 33業界完全分散対応")
+    print('[OK] セクター分散システム: 33業界完全分散対応')
 except ImportError:
     SECTOR_DIVERSIFICATION_AVAILABLE = False
-    print("[WARNING] セクター分散システム未対応")
+    print('[WARNING] セクター分散システム未対応')
 
 try:
     from theme_stock_analyzer import ThemeStockAnalyzer
     THEME_STOCK_AVAILABLE = True
-    print("[OK] テーマ株・材料株システム: ニュース連動分析対応")
+    print('[OK] テーマ株・材料株システム: ニュース連動分析対応')
 except ImportError:
     THEME_STOCK_AVAILABLE = False
-    print("[WARNING] テーマ株・材料株システム未対応")
+    print('[WARNING] テーマ株・材料株システム未対応')
 
 try:
     from prediction_validator import PredictionValidator, Prediction, ValidationPeriod
     PREDICTION_VALIDATOR_AVAILABLE = True
-    print("[OK] 予測精度検証システム: 93%精度目標追跡対応")
+    print('[OK] 予測精度検証システム: 93%精度目標追跡対応')
 except ImportError:
     PREDICTION_VALIDATOR_AVAILABLE = False
-    print("[WARNING] 予測精度検証システム未対応")
+    print('[WARNING] 予測精度検証システム未対応')
 
 try:
     from performance_tracker import PerformanceTracker, Trade, TradeType, TradeResult, RiskLevel
     PERFORMANCE_TRACKER_AVAILABLE = True
-    print("[OK] 包括的パフォーマンス追跡システム: 総合運用分析対応")
+    print('[OK] 包括的パフォーマンス追跡システム: 総合運用分析対応')
 except ImportError:
     PERFORMANCE_TRACKER_AVAILABLE = False
-    print("[WARNING] 包括的パフォーマンス追跡システム未対応")
+    print('[WARNING] 包括的パフォーマンス追跡システム未対応')
 
 # 外部アラートシステムは削除 - Webダッシュボード統合
 ALERT_SYSTEM_AVAILABLE = False
@@ -214,18 +234,18 @@ ALERT_SYSTEM_AVAILABLE = False
 try:
     from advanced_technical_analyzer import AdvancedTechnicalAnalyzer, AdvancedAnalysis, TechnicalSignal, SignalStrength
     ADVANCED_TECHNICAL_AVAILABLE = True
-    print("[OK] 高度技術指標・分析手法拡張システム: 先進的技術分析対応")
+    print('[OK] 高度技術指標・分析手法拡張システム: 先進的技術分析対応')
 except ImportError:
     ADVANCED_TECHNICAL_AVAILABLE = False
-    print("[WARNING] 高度技術指標・分析手法拡張システム未対応")
+    print('[WARNING] 高度技術指標・分析手法拡張システム未対応')
 
 try:
     from real_data_provider_v2 import real_data_provider, MultiSourceDataProvider
     REAL_DATA_PROVIDER_V2_AVAILABLE = True
-    print("[OK] 実データプロバイダーV2: 複数ソース対応・品質管理強化")
+    print('[OK] 実データプロバイダーV2: 複数ソース対応・品質管理強化')
 except ImportError:
     REAL_DATA_PROVIDER_V2_AVAILABLE = False
-    print("[WARNING] 実データプロバイダーV2未対応")
+    print('[WARNING] 実データプロバイダーV2未対応')
 
 import numpy as np
 # アラートシステム削除 - Webダッシュボード統合
@@ -287,7 +307,6 @@ class PersonalAnalysisEngine:
         # 包括的パフォーマンス追跡システム統合
         if PERFORMANCE_TRACKER_AVAILABLE:
             self.performance_tracker = PerformanceTracker()
-        
         # ML予測システムの初期化
         self.ml_models = None
         if ML_AVAILABLE:
@@ -318,7 +337,7 @@ class PersonalAnalysisEngine:
         if OVERNIGHT_MODEL_AVAILABLE:
             self.overnight_model = OvernightPredictionModel()
             self.overnight_model_enabled = True
-            print("[OK] 翌朝場予測モデル: 機械学習ベースの予測対応")
+            print('[OK] 翌朝場予測モデル: 機械学習ベースの予測対応')
         else:
             self.overnight_model = None
             self.overnight_model_enabled = False
@@ -341,8 +360,8 @@ class PersonalAnalysisEngine:
                 if symbol_info:
                     # 実機械学習モデルによる予測
                     try:
-                        if hasattr(self, 'ml_models') and self.ml_models:
-                            ml_prediction = await self.ml_models.predict_symbol_movement(symbol)
+                        if hasattr(self.ml_models, 'predict_symbol_movement') and self.ml_models:
+                            ml_prediction = await self.ml_models.predict_symbol_movement(symbol_key)
                             score = ml_prediction.confidence * 100
                             confidence = ml_prediction.accuracy_score if hasattr(ml_prediction, 'accuracy_score') else 85.0
                         else:
@@ -352,7 +371,7 @@ class PersonalAnalysisEngine:
                             score = min(95, base_score + volatility_bonus)
                             confidence = max(60, min(95, symbol_info.liquidity_score * 0.7 + symbol_info.stability_score * 0.3))
                     except Exception as e:
-                        print(f"[WARNING] ML prediction failed for {symbol}, using fallback: {e}")
+                        print(f"[WARNING] ML prediction failed for {symbol_key}, using fallback: {e}")
                         base_score = 50 + (symbol_info.stability_score * 0.3) + (symbol_info.growth_potential * 0.2)
                         volatility_bonus = 10 if symbol_info.volatility_level.value in ["高ボラ", "中ボラ"] else 0
                         score = min(95, base_score + volatility_bonus)
@@ -389,8 +408,8 @@ class PersonalAnalysisEngine:
                 else:
                     # フォールバック: 基本的なファンダメンタル分析
                     try:
-                        if hasattr(self, 'ml_models') and self.ml_models:
-                            ml_prediction = await self.ml_models.predict_symbol_movement(symbol)
+                        if hasattr(self.ml_models, 'predict_symbol_movement') and self.ml_models:
+                            ml_prediction = await self.ml_models.predict_symbol_movement(symbol_key)
                             confidence = ml_prediction.confidence * 100
                             score = ml_prediction.accuracy_score if hasattr(ml_prediction, 'accuracy_score') else 75.0
                         else:
@@ -413,7 +432,7 @@ class PersonalAnalysisEngine:
                     if not name:
                         # 次にrecommended_symbolsから
                         name = self.recommended_symbols.get(symbol_key, None)
-                        print(f"[DEBUG] Fallback: {symbol_key} -> recommended_symbols.get = {symbol_name}")
+                        print(f"[DEBUG] Fallback: {symbol_key} -> recommended_symbols.get = {name}")
 
                         if not name:
                             # yfinanceから取得
@@ -426,8 +445,8 @@ class PersonalAnalysisEngine:
             else:
                 # 従来の分析（MLモデルまたはファンダメンタル）
                 try:
-                    if hasattr(self, 'ml_models') and self.ml_models:
-                        ml_prediction = await self.ml_models.predict_symbol_movement(symbol)
+                    if hasattr(self.ml_models, 'predict_symbol_movement') and self.ml_models:
+                        ml_prediction = await self.ml_models.predict_symbol_movement(symbol_key)
                         confidence = ml_prediction.confidence * 100
                         score = ml_prediction.accuracy_score if hasattr(ml_prediction, 'accuracy_score') else 75.0
                     else:
@@ -449,7 +468,7 @@ class PersonalAnalysisEngine:
                 if not name:
                     # 次にrecommended_symbolsから
                     name = self.recommended_symbols.get(symbol_key, None)
-                    print(f"[DEBUG] Traditional: {symbol_key} -> recommended_symbols.get = {symbol_name}")
+                    print(f"[DEBUG] Traditional: {symbol_key} -> recommended_symbols.get = {name}")
 
                     if not name:
                         # yfinanceから取得
@@ -534,7 +553,7 @@ class PersonalAnalysisEngine:
             return formatted_results
 
         except Exception as e:
-            self.logger.error(f"Ultra fast analysis failed: {e}")
+            print(f"Ultra fast analysis failed: {e}")
             # フォールバック
             return await self.get_multi_symbol_analysis(symbols)
 
@@ -597,7 +616,7 @@ class PersonalAnalysisEngine:
 
             # 軽量分析（実MLモデルまたはファンダメンタル分析）
             try:
-                if hasattr(self, 'ml_models') and self.ml_models:
+                if hasattr(self.ml_models, 'predict_symbol_movement') and self.ml_models:
                     ml_prediction = await self.ml_models.predict_symbol_movement(symbol)
                     final_score = ml_prediction.confidence * 100
                     confidence = ml_prediction.accuracy_score if hasattr(ml_prediction, 'accuracy_score') else 75.0
@@ -722,7 +741,7 @@ class PersonalAnalysisEngine:
         return {"accuracy": 0.0, "num_samples": 0}
 
     async def _display_overnight_prediction(self):
-        """【新】機械学習モデルによる夜間予測情報表示（翌朝場予想）"""
+        """【新】機械学習モデルによる夜間予測情報表示（翌朝場予測）"""
         print("\n🔮 AIによる翌朝場予測:")
 
         if not self.overnight_model_enabled:
@@ -832,7 +851,7 @@ def parse_arguments():
   python daytrade.py --safe             # 安全モード（低リスク銘柄のみ）
   python daytrade.py --multi 8 --chart  # 複数銘柄分析＋チャート表示
   python daytrade.py --quick --chart --safe # 基本モード＋チャート＋安全モード
-  python daytrade.py --train-overnight-model # 【開発者用】翌朝場予測モデルの再学習
+  python daytrade.py --train-overnight-model # 【開発者用】翌朝場予測の再学習
 
   # Issue #882対応: マルチタイムフレーム予測機能（デフォルト化）
   python daytrade.py --symbol 7203.T # マルチタイムフレーム予測（新デフォルト）
@@ -843,7 +862,7 @@ def parse_arguments():
 
 ★NEW: --symbolでマルチタイムフレーム予測がデフォルト動作になりました
 ★従来のデイトレード予測は --quick オプションで利用できます
-注意: 投資は自己責任で行ってください"""
+注意: 投資は自己責任で！"""
     )
 
     # 個人版用シンプルオプション
@@ -1009,8 +1028,12 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
                 analysis_criteria = "low_risk" if safe_mode else "diversified"
                 if analysis_criteria == "diversified":
                     selected_symbols = engine.symbol_manager.get_diversified_portfolio(symbol_count)
+                elif analysis_criteria == "high_volatility":
+                    selected_symbols = engine.symbol_manager.get_top_symbols_by_criteria("high_volatility", symbol_count)
                 elif analysis_criteria == "low_risk":
                     selected_symbols = engine.symbol_manager.get_top_symbols_by_criteria("low_risk", symbol_count)
+                elif analysis_criteria == "growth":
+                    selected_symbols = engine.symbol_manager.get_top_symbols_by_criteria("growth", symbol_count)
                 else:
                     selected_symbols = engine.symbol_manager.get_top_symbols_by_criteria("liquidity", symbol_count)
 
@@ -1634,7 +1657,7 @@ async def run_daytrading_mode() -> bool:
             print("\n🌙 翌日前場予想ガイド（夜間予測対応）:")
             print("・★強い買い★: 寄り成行で積極エントリー計画")
             print("・●買い●: 寄り後の値動き確認してエントリー")
-            print("・▼強い売り▼/▽売り▼: 寄り付きでの売りエントリー計画")
+            print("・▼強い売り▼/▽売り▽: 寄り付きでの売りエントリー計画")
             print("・■ホールド■: 寄り後の流れ次第で判断")
             print("・…待機…: 前場中盤までエントリーチャンス待ち")
             print("\n🌍 夜間要因:")
@@ -1683,7 +1706,7 @@ class DayTradeWebDashboard:
                 print(f"[OK] ML予測システム: 真の93%精度AI有効化 (タイプ: {ML_TYPE})")
             except Exception as e:
                 print(f"[WARNING] ML予測システム初期化失敗: {e}")
-                self.ml_system = None
+                self.ml_models = None
                 self.use_advanced_ml = False
                 print("[WARNING] フォールバックモード: 改良ランダム値使用")
         else:
@@ -1778,7 +1801,7 @@ class DayTradeWebDashboard:
         if not self.use_advanced_ml:
             # フォールバック：基本分析
             try:
-                if hasattr(self, 'ml_models') and self.ml_models:
+                if hasattr(self.ml_models, 'predict_symbol_movement'):
                     ml_prediction = await self.ml_models.predict_symbol_movement(symbol)
                     return {
                         'confidence': ml_prediction.confidence * 100,
@@ -2447,45 +2470,6 @@ class DayTradeWebDashboard:
         .status-indicator { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
         .status-ok { background: #2ed573; } .status-warning { background: #ffa502; } .status-error { background: #ff3838; }
 
-        /* 取引支援機能 */
-        .trading-actions { display: flex; gap: 5px; margin-top: 5px; }
-        .action-btn { padding: 4px 8px; border: none; border-radius: 4px; font-size: 0.7em; cursor: pointer; transition: all 0.2s; }
-        .btn-order { background: #3742fa; color: white; }
-        .btn-alert { background: #ffa502; color: white; }
-        .action-btn:hover { transform: scale(1.05); opacity: 0.8; }
-
-        /* 価格変動の色分け */
-        .price-change-animation { animation: priceChange 0.5s ease-out; }
-        @keyframes priceChange { 0% { background-color: rgba(255, 255, 255, 0.3); } 100% { background-color: transparent; } }
-
-        /* 最終更新時刻表示 */
-        .last-update { font-size: 0.8em; color: #95a5a6; text-align: center; margin-top: 10px; }
-
-        /* リアルタイム更新アニメーション */
-        .updating { opacity: 0.6; transition: opacity 0.3s ease; }
-
-        /* 進捗バー */
-        .progress-bar { width: 100%; height: 4px; background-color: rgba(255, 255, 255, 0.2); border-radius: 2px; margin: 2px 0; overflow: hidden; }
-        .progress-fill { height: 100%; border-radius: 2px; transition: width 0.3s ease; }
-        .progress-profit { background: linear-gradient(90deg, #2ed573, #7bed9f); }
-        .progress-loss { background: linear-gradient(90deg, #ff4757, #ff6b7d); }
-
-        /* アラート */
-        .alert { position: fixed; top: 20px; right: 20px; padding: 15px 20px; border-radius: 8px; color: white; font-weight: bold; z-index: 1000; animation: slideIn 0.3s ease-out; max-width: 300px; }
-        .alert-success { background: linear-gradient(45deg, #2ed573, #7bed9f); }
-        .alert-warning { background: linear-gradient(45deg, #ffa502, #ff6348); }
-        .alert-danger { background: linear-gradient(45deg, #ff4757, #ff3838); }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-        /* システム状況パネル */
-        .system-status-panel { background: rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-top: 20px; backdrop-filter: blur(10px); }
-        .system-status-panel h3 { margin: 0 0 15px 0; color: #fff; font-size: 18px; }
-        .status-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .status-item:last-child { border-bottom: none; }
-        .status-label { display: flex; align-items: center; }
-        .status-indicator { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
-        .status-ok { background: #2ed573; } .status-warning { background: #ffa502; } .status-error { background: #ff3838; }
-
         /* 価格変動の色分け */
         .price-change-animation { animation: priceChange 0.5s ease-out; }
         @keyframes priceChange { 0% { background-color: rgba(255, 255, 255, 0.3); } 100% { background-color: transparent; } }
@@ -2787,8 +2771,8 @@ class DayTradeWebDashboard:
             const isProfit = currentPrice > openingPrice;
             const progressClass = isProfit ? 'progress-profit' : 'progress-loss';
 
-            return '<div class="progress-bar">' +
-                '<div class="progress-fill ' + progressClass + '" style="width: ' + progressPercent + '%"></div>' +
+            return '<div class="progress-bar">' + 
+                '<div class="progress-fill ' + progressClass + '" style="width: ' + progressPercent + '%"></div>' + 
             '</div>';
         }
 
@@ -3065,7 +3049,7 @@ class DayTradeWebDashboard:
                             '<span class="metric-name">' + day.date + '</span>' +
                             '<span class="metric-value">精度:' + day.accuracy + '% 取引:' + day.trades + '回 収益:+' + day.profit + '%</span>' +
                         '</div>';
-                    }).join('') +
+                    }).join('') + 
                 '</div>';
         }
 
@@ -3081,8 +3065,6 @@ class DayTradeWebDashboard:
                 const recData = await recResp.json();
                 if (recData.status === 'success') {
                     updateMetrics(recData);
-                } else {
-                    console.error('推奨データエラー:', recData.message);
                 }
 
                 // 分析データ更新
@@ -3090,8 +3072,6 @@ class DayTradeWebDashboard:
                 const analysisData = await analysisResp.json();
                 if (analysisData.status === 'success') {
                     updateRecommendationsTable(analysisData.data);
-                } else {
-                    console.error('分析データエラー:', analysisData.message);
                 }
 
                 // チャート更新
@@ -3223,8 +3203,8 @@ class DayTradeWebDashboard:
                         '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
                         '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
                         '<div class="trading-actions">' +
-                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\')">楽天で注文</button>' +
-                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\')">アラート</button>' +
+                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\")">楽天で注文</button>' +
+                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\")">アラート</button>' +
                         '</div>' +
                         '</div>';
                 } else if (rec.current_price) {
@@ -3238,19 +3218,18 @@ class DayTradeWebDashboard:
                         '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
                         '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
                         '<div class="trading-actions">' +
-                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\')">楽天で注文</button>' +
-                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\')">アラート</button>' +
+                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\")">楽天で注文</button>' +
+                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\")">アラート</button>' +
                         '</div>' +
                         '</div>';
                 } else {
                     priceInfo = '<div class="price-info">N/A</div>';
                 }
-
                 const isFavorite = favorites.includes(rec.symbol);
                 const favoriteIcon = isFavorite ? '⭐' : '☆';
 
                 return '<tr>' +
-                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(\'" + rec.symbol.replace(/'/g, '\'\'') + "\')">' + favoriteIcon + '</span></td>' +
+                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(\'" + rec.symbol.replace(/'/g, '\'\'') + "\")">' + favoriteIcon + '</span></td>' +
                     '<td><strong>' + rec.rank + '</strong></td>' +
                     '<td><strong>' + rec.symbol + '</strong></td>' +
                     '<td>' + rec.name + '</td>' +
@@ -3622,7 +3601,7 @@ async def run_multi_timeframe_mode(args) -> bool:
         if not MULTI_TIMEFRAME_AVAILABLE:
             print("❌ マルチタイムフレーム予測機能が利用できません")
             print("必要なライブラリをインストールしてください:")
-            print("pip install lightgbm scikit-learn yfinance")
+            print("pip install lightgbm scikit-learn")
             return False
 
         print("\n🚀 マルチタイムフレーム予測機能 - Issue #882対応")
@@ -3756,27 +3735,28 @@ def output_single_prediction_json(prediction):
 
 def output_multi_prediction_json(prediction):
     """マルチタイムフレーム予測結果のJSON出力"""
-    data = {
-        'symbol': prediction.symbol,
-        'multi_timeframe_prediction': {
-            'consensus_direction': prediction.consensus_direction,
-            'consensus_confidence': prediction.consensus_confidence,
-            'best_timeframe': prediction.best_timeframe.value,
-            'recommended_strategy': prediction.recommended_strategy,
-            'risk_assessment': prediction.risk_assessment,
-            'predictions': {
-                timeframe.value: {
-                    'direction': pred.prediction_direction,
-                    'confidence': pred.confidence,
-                    'expected_return': pred.expected_return,
-                    'risk_level': pred.risk_level
-                }
-                for timeframe, pred in prediction.predictions.items()
+    result = {
+        "symbol": prediction.symbol,
+        "multi_timeframe_prediction": {
+            "consensus_direction": prediction.consensus_direction,
+            "consensus_confidence": prediction.consensus_confidence,
+            "best_timeframe": prediction.best_timeframe.value,
+            "recommended_strategy": prediction.recommended_strategy,
+            "risk_assessment": prediction.risk_assessment,
+            "predictions": {
+                tf.value: {
+                    "direction": pred.prediction_direction,
+                    "confidence": pred.confidence,
+                    "expected_return": pred.expected_return,
+                    "risk_level": pred.risk_level,
+                    "entry_price": pred.entry_price,
+                    "target_price": pred.target_price,
+                    "stop_loss_price": pred.stop_loss_price
+                } for tf, pred in prediction.predictions.items()
             }
-        },
-        'timestamp': datetime.now().isoformat()
+        }
     }
-    print(json.dumps(data, ensure_ascii=False, indent=2))
+    print(json.dumps(result, indent=2, ensure_ascii=False))
 
 def output_portfolio_analysis_json(results):
     """ポートフォリオ分析結果のJSON出力"""
@@ -3802,55 +3782,6 @@ def output_portfolio_analysis_json(results):
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
 
-def output_multi_prediction_json(prediction):
-    """マルチタイムフレーム予測結果JSON出力"""
-    result = {
-        "symbol": prediction.symbol,
-        "multi_timeframe_prediction": {
-            "consensus_direction": prediction.consensus_direction,
-            "consensus_confidence": prediction.consensus_confidence,
-            "best_timeframe": prediction.best_timeframe.value,
-            "recommended_strategy": prediction.recommended_strategy,
-            "risk_assessment": prediction.risk_assessment,
-            "predictions": {
-                tf.value: {
-                    "direction": pred.prediction_direction,
-                    "confidence": pred.confidence,
-                    "expected_return": pred.expected_return,
-                    "risk_level": pred.risk_level,
-                    "entry_price": pred.entry_price,
-                    "target_price": pred.target_price,
-                    "stop_loss_price": pred.stop_loss_price
-                } for tf, pred in prediction.predictions.items()
-            }
-        }
-    }
-    print(json.dumps(result, indent=2, ensure_ascii=False))
-
-def output_portfolio_json(results):
-    """ポートフォリオ分析結果JSON出力"""
-    portfolio_result = {
-        "portfolio_analysis": {
-            "symbols": list(results.keys()),
-            "analysis_count": len(results),
-            "predictions": {}
-        }
-    }
-
-    for symbol, prediction in results.items():
-        portfolio_result["portfolio_analysis"]["predictions"].update({
-            symbol: {
-                "consensus_direction": prediction.consensus_direction,
-                "consensus_confidence": prediction.consensus_confidence,
-                "best_timeframe": prediction.best_timeframe.value,
-                "recommended_strategy": prediction.recommended_strategy,
-                "risk_assessment": prediction.risk_assessment
-            }
-        })
-
-    print(json.dumps(portfolio_result, indent=2, ensure_ascii=False))
-
-
 if __name__ == "__main__":
     try:
         # 引数に --train-overnight-model があれば学習を実行
@@ -3859,10 +3790,10 @@ if __name__ == "__main__":
             try:
                 from overnight_prediction_model import OvernightPredictionModel
                 model = OvernightPredictionModel()
-                asyncio.run(model.train())
+                asyncio.run(model.train_model())
                 print("--- 学習が完了しました ---")
             except ImportError:
-                print("[ERROR] overnight_prediction_model.py が見つかりません。")
+                print("[ERROR] overnight_prediction_model.py が見つからないか、必要なライブラリがインストールされていません。")
             except Exception as e:
                 print(f"[ERROR] 学習中にエラーが発生しました: {e}")
             sys.exit(0)
