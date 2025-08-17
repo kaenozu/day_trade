@@ -641,257 +641,88 @@ def _normalize_arguments(
     current_depth: int = 0,
     seen_objects: Optional[set] = None,
 ) -> Any:
-    """
-    引数を正規化してシリアライズ可能にする（再帰深度制限付き・循環参照検出・イテラティブ最適化）
-
-    Args:
-        args: 正規化する引数
-        max_depth: 最大再帰深度（Noneの場合は設定から取得）
-        current_depth: 現在の再帰深度
-        seen_objects: 循環参照検出用のオブジェクトセット
-
-    Returns:
-        正規化された引数
-
-    Raises:
-        CacheError: 再帰深度制限を超えた場合や循環参照が深すぎる場合
-    """
-    # max_depthが指定されていない場合は設定から取得
     if max_depth is None:
         max_depth = cache_config.max_recursion_depth
-
-    # 循環参照検出用のセットを初期化
     if seen_objects is None:
         seen_objects = set()
 
-    # 深度制限チェック（エラーハンドリング強化）
     if current_depth >= max_depth:
-        # パフォーマンス最適化: 警告ログの条件付き出力
         if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.WARNING):
             logger.warning(
                 f"Recursion depth limit reached ({max_depth}), truncating object of type {type(args).__name__}"
             )
-
-        # 深い構造の場合はより詳細な情報を返す
         if isinstance(args, (dict, list, tuple)):
             return f"<truncated {type(args).__name__} with {len(args)} items at depth {max_depth}>"
         else:
             return f"<truncated {type(args).__name__} at depth {max_depth}>"
 
-    # 循環参照の検出（より堅牢なエラーハンドリング）
     try:
         obj_id = id(args)
+    except TypeError:
+        obj_id = None
+
+    if obj_id is not None:
         if obj_id in seen_objects:
-            # 循環参照のより詳細な情報を提供
-            return f"<circular reference to {type(args).__name__} at depth {current_depth}>"
+            return f"<circular reference to {type(args).__name__}>"
+        seen_objects.add(obj_id)
 
-        # 複雑なオブジェクトの場合のみseenに追加（メモリ効率も考慮）
-        if isinstance(args, (dict, list, tuple)) and args:
-            # 循環参照セットのサイズ制限（メモリリーク防止）
-            if len(seen_objects) < CacheConstants.DEFAULT_MAX_RECURSION_DEPTH * 2:
-                seen_objects.add(obj_id)
-            else:
-                # セットが大きくなりすぎた場合は警告（頻度を制限）
-                # 警告の頻度を制限するためのカウンター（スレッドローカル）
-                if not hasattr(threading.current_thread(), '_cache_warning_count'):
-                    threading.current_thread()._cache_warning_count = 0
-                    threading.current_thread()._last_warning_time = 0
-
-                current_time = time.time()
-                thread = threading.current_thread()
-
-                # 5秒に1回だけ警告を出力
-                if current_time - thread._last_warning_time > 5.0:
-                    if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(
-                            f"Circular reference detection set is large ({len(seen_objects)}), optimizing for {type(args).__name__}"
-                        )
-                    thread._last_warning_time = current_time
-                    thread._cache_warning_count += 1
-
-                    # 100回警告した場合は検出を無効化
-                    if thread._cache_warning_count > 100:
-                        return tuple(args), tuple(kwargs.items())
-
-                # セットをクリアして継続
-                seen_objects.clear()
-                seen_objects.add(obj_id)
-
-    except Exception as e:
-        # id()の取得に失敗した場合はデバッグログに記録
-        if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                f"Failed to get object id for circular reference detection: {e}"
-            )
-        # 循環参照チェックをスキップして処理を続行
-
-    # Pydanticモデル
-    if PYDANTIC_AVAILABLE and isinstance(args, BaseModel):
-        try:
-            model_data = (
-                args.model_dump() if hasattr(args, "model_dump") else args.dict()
-            )
-            return _normalize_arguments(
-                model_data, max_depth, current_depth + 1, seen_objects
-            )
-        except Exception:
-            return f"<pydantic model: {args.__class__.__name__}>"
-
-    # Decimal型
-    elif isinstance(args, Decimal):
-        return str(args)
-
-    # Enum型
-    elif isinstance(args, Enum):
-        return f"<enum {args.__class__.__name__}: {args.value}>"
-
-    # コレクション型（エラーハンドリング強化）
-    elif isinstance(args, (tuple, list)):
-        try:
+    try:
+        if PYDANTIC_AVAILABLE and isinstance(args, BaseModel):
+            try:
+                model_data = args.model_dump() if hasattr(args, "model_dump") else args.dict()
+                return _normalize_arguments(model_data, max_depth, current_depth + 1, seen_objects)
+            except Exception:
+                return f"<pydantic model: {args.__class__.__name__}>"
+        elif isinstance(args, Decimal):
+            return str(args)
+        elif isinstance(args, Enum):
+            return f"<enum {args.__class__.__name__}: {args.value}>"
+        elif isinstance(args, (tuple, list)):
             normalized_items = []
             for i, arg in enumerate(args):
-                try:
-                    normalized_items.append(
-                        _normalize_arguments(
-                            arg, max_depth, current_depth + 1, seen_objects
-                        )
-                    )
-                except CacheError:
-                    # CacheErrorは再発生
-                    raise
-                except Exception as e:
-                    # その他のエラーは個別要素のエラーとして処理
-                    normalized_items.append(f"<item_{i}_error: {e})")
-
-                # 巨大なコレクションの処理を制限
-                if i >= CacheConstants.DEFAULT_MAX_OPERATION_HISTORY:  # 制限値を再利用
-                    normalized_items.append(
-                        f"<truncated: {len(args) - i - 1} more items>"
-                    )
+                normalized_items.append(_normalize_arguments(arg, max_depth, current_depth + 1, seen_objects))
+                if i >= CacheConstants.DEFAULT_MAX_OPERATION_HISTORY:
+                    normalized_items.append(f"<truncated: {len(args) - i - 1} more items>")
                     break
-
             return normalized_items
-        except CacheError:
-            raise
-        except Exception as e:
-            return f"<list/tuple of {len(args)} items, error: {e}>"
-
-    elif isinstance(args, dict):
-        try:
+        elif isinstance(args, dict):
             normalized_dict = {}
             processed_count = 0
             for k, v in args.items():
-                try:
-                    key_str = str(k)
-                    normalized_dict[key_str] = _normalize_arguments(
-                        v, max_depth, current_depth + 1, seen_objects
-                    )
-                    processed_count += 1
-
-                    # 巨大な辞書の処理を制限
-                    if processed_count >= CacheConstants.DEFAULT_MAX_OPERATION_HISTORY:
-                        remaining = len(args) - processed_count
-                        if remaining > 0:
-                            normalized_dict["<truncated>"] = f"{remaining} more keys"
-                        break
-
-                except CacheError:
-                    raise
-                except Exception as e:
-                    normalized_dict[f"<key_error_{k}>"] = f"<error: {e}>"
-
+                key_str = str(k)
+                normalized_dict[key_str] = _normalize_arguments(v, max_depth, current_depth + 1, seen_objects)
+                processed_count += 1
+                if processed_count >= CacheConstants.DEFAULT_MAX_OPERATION_HISTORY:
+                    if len(args) - processed_count > 0:
+                        normalized_dict["<truncated>"] = f"{len(args) - processed_count} more keys"
+                    break
             return normalized_dict
-        except CacheError:
-            raise
-        except Exception as e:
-            return f"<dict with {len(args)} keys, error: {e}>"
-
-    elif isinstance(args, set):
-        try:
+        elif isinstance(args, set):
             normalized_items = []
             for i, item in enumerate(args):
-                try:
-                    normalized_items.append(
-                        _normalize_arguments(
-                            item, max_depth, current_depth + 1, seen_objects
-                        )
-                    )
-                except CacheError:
-                    raise
-                except Exception as e:
-                    normalized_items.append(f"<set_item_error: {e}>")
-
-                # セットサイズの制限
+                normalized_items.append(_normalize_arguments(item, max_depth, current_depth + 1, seen_objects))
                 if i >= CacheConstants.DEFAULT_MAX_OPERATION_HISTORY:
-                    normalized_items.append(
-                        f"<truncated: {len(args) - i - 1} more items>"
-                    )
+                    normalized_items.append(f"<truncated: {len(args) - i - 1} more items>")
                     break
-
             return {"__set__": sorted(normalized_items, key=str)}
-        except CacheError:
-            raise
-        except Exception as e:
-            return f"<set of {len(args)} items, error: {e}>"
-
-    # datetime類
-    elif hasattr(args, "isoformat"):
-        return args.isoformat()
-
-    # オブジェクト（エラーハンドリング強化）
-    elif hasattr(args, "__dict__"):
-        try:
-            # __dict__の存在と内容をチェック
+        elif hasattr(args, "isoformat"):
+            return args.isoformat()
+        elif hasattr(args, "__dict__"):
             obj_dict = getattr(args, "__dict__", {})
             if obj_dict:
-                return _normalize_arguments(
-                    obj_dict, max_depth, current_depth + 1, seen_objects
-                )
+                return _normalize_arguments(obj_dict, max_depth, current_depth + 1, seen_objects)
             else:
                 return f"<empty_object: {args.__class__.__name__}>"
-        except CacheError:
-            raise
-        except Exception as e:
-            return f"<object_error: {args.__class__.__name__}, {e}>"
-
-    # 関数（より安全な処理）
-    elif callable(args):
-        try:
-            name = getattr(args, "__name__", None)
-            if name:
-                return f"<callable: {name}>"
-            else:
-                return f"<callable: {type(args).__name__}>"
-        except Exception as e:
-            return f"<callable_error: {e}>"
-
-    # プリミティブ型（循環参照クリーンアップ付き）
-    else:
-        # 処理完了後、循環参照検出セットからIDを削除（メモリ効率）
-        try:
-            if isinstance(args, (dict, list, tuple)) and args:
-                obj_id = id(args)
-                seen_objects.discard(obj_id)
-        except Exception as e:
-            # クリーンアップに失敗してもエラーにはしない
-            if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"Failed to cleanup circular reference detection: {e}")
-
-        # プリミティブ型の値を返す
-        try:
-            # 特殊な値のチェック
-            if args is None:
-                return None
-            # 文字列の場合は長さをチェック
-            elif (
-                isinstance(args, str)
-                and len(args) > CacheConstants.DEFAULT_MAX_KEY_LENGTH
-            ):
+        elif callable(args):
+            name = getattr(args, "__name__", repr(args))
+            return f"<callable: {name}>"
+        else:
+            if isinstance(args, str) and len(args) > CacheConstants.DEFAULT_MAX_KEY_LENGTH:
                 return f"<long_string: {len(args)} chars>"
-            else:
-                return args
-        except Exception as e:
-            return f"<primitive_error: {type(args).__name__}, {e}>"
+            return args
+    finally:
+        if obj_id is not None:
+            seen_objects.discard(obj_id)
 
 
 def _json_serializer(obj: Any) -> Any:
