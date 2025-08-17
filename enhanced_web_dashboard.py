@@ -1076,12 +1076,28 @@ class EnhancedWebDashboard:
         </html>
         """
 
-    def run(self, debug: bool = False):
+    def run(self, debug: bool = False, production: bool = False):
         """ダッシュボードサーバー起動"""
-        self.logger.info(f"Enhanced Web Dashboard starting on port {self.port}")
+        # プロダクションモードでは強制的にdebug=False
+        if production:
+            debug = False
+            self.logger.info(f"Enhanced Web Dashboard starting in PRODUCTION mode on port {self.port}")
+        else:
+            self.logger.info(f"Enhanced Web Dashboard starting in {'DEBUG' if debug else 'DEVELOPMENT'} mode on port {self.port}")
 
         # バックグラウンドタスク開始
         asyncio.create_task(self.real_time_manager.update_data_loop(self.socketio))
+
+        # プロダクションモードでは追加設定
+        if production:
+            # プロダクション用設定適用
+            self.app.config.update({
+                'ENV': 'production',
+                'DEBUG': False,
+                'TESTING': False,
+                'SECRET_KEY': os.environ.get('SECRET_KEY', os.urandom(32).hex())
+            })
+            self.logger.info("Production security settings applied")
 
         self.socketio.run(self.app, host='0.0.0.0', port=self.port, debug=debug)
 
