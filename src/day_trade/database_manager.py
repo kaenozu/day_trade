@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+#!/usr / bin / env python3
+# -*- coding: utf - 8 -*-
 """
 Database Manager - データベース操作を管理する
 """
@@ -12,12 +12,14 @@ from typing import List, Optional
 from src.day_trade.data_models import Position, PositionStatus, RiskLevel
 
 class DatabaseManager:
-    def __init__(self, db_path: str = 'data/daytrade.db'):
+    """DatabaseManagerクラス"""
+    """__init__関数"""
+    def __init__(self, db_path: str = 'data / daytrade.db') -> None:
         self.db_path = db_path
         self.logger = logging.getLogger(__name__)
         self.conn: Optional[sqlite3.Connection] = None
 
-    def connect(self):
+    def connect(self) -> None:
         """データベースに接続し、テーブルを作成する"""
         try:
             self.conn = sqlite3.connect(self.db_path)
@@ -26,9 +28,9 @@ class DatabaseManager:
             self._create_tables()
         except sqlite3.Error as e:
             self.logger.error(f"データベース接続エラー: {e}")
-            self.conn = None
+            self.conn: Optional[Any] = None
 
-    def _create_tables(self):
+    def _create_tables(self) -> None:
         """ポジション管理用のテーブルを作成する"""
         if not self.conn:
             return
@@ -59,7 +61,7 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"テーブル作成エラー: {e}")
 
-    def save_position(self, position: Position):
+    def save_position(self, position: Position) -> None:
         """ポジションをデータベースに保存（新規作成または更新）"""
         if not self.conn:
             return
@@ -118,7 +120,7 @@ class DatabaseManager:
             self.logger.error(f"オープンポジション読み込みエラー: {e}")
             return []
 
-    def delete_all_positions(self):
+    def delete_all_positions(self) -> None:
         """すべてのポジションを削除する（テスト用）"""
         if not self.conn:
             return
@@ -134,22 +136,22 @@ class DatabaseManager:
     def _row_to_position(self, row: sqlite3.Row) -> Position:
         """データベースの行をPositionオブジェクトに変換"""
         return Position(
-            symbol=row['symbol'],
-            name=row['name'],
-            entry_price=row['entry_price'],
-            quantity=row['quantity'],
-            entry_time=datetime.fromisoformat(row['entry_time']),
-            stop_loss=row['stop_loss'],
-            take_profit=row['take_profit'],
-            current_price=row['current_price'],
-            status=PositionStatus(row['status']),
-            pnl=row['pnl'],
-            pnl_percent=row['pnl_percent'],
-            risk_level=RiskLevel(row['risk_level']),
-            max_holding_time=row['max_holding_time']
+            symbol = row['symbol'],
+            name = row['name'],
+            entry_price = row['entry_price'],
+            quantity = row['quantity'],
+            entry_time = datetime.fromisoformat(row['entry_time']),
+            stop_loss = row['stop_loss'],
+            take_profit = row['take_profit'],
+            current_price = row['current_price'],
+            status = PositionStatus(row['status']),
+            pnl = row['pnl'],
+            pnl_percent = row['pnl_percent'],
+            risk_level = RiskLevel(row['risk_level']),
+            max_holding_time = row['max_holding_time']
         )
 
-    def close(self):
+    def close(self) -> None:
         """データベース接続を閉じる"""
         if self.conn:
             self.conn.close()

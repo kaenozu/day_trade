@@ -59,7 +59,7 @@ class StrategyPerformance:
 
     def update_performance(
         self, success: bool, confidence: float, return_rate: float = 0.0
-    ):
+    ) -> None:
         """パフォーマンスを更新"""
         self.total_signals += 1
         if success:
@@ -114,7 +114,7 @@ class EnsembleTradingStrategy:
         performance_file: Optional[str] = None,
         enable_ml_models: bool = True,
         models_dir: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Args:
             ensemble_strategy: アンサンブル戦略タイプ
@@ -143,7 +143,7 @@ class EnsembleTradingStrategy:
 
         # 機械学習コンポーネント
         self.ml_manager: Optional[MLModelManager] = None
-        self.feature_engineer = None
+        self.feature_engineer: Optional[Any] = None
         self.ml_predictions_history: List[Dict[str, Any]] = []
 
         if self.enable_ml_models:
@@ -227,7 +227,7 @@ class EnsembleTradingStrategy:
 
         return strategies
 
-    def _initialize_ml_models(self):
+    def _initialize_ml_models(self) -> None:
         """機械学習モデルを初期化"""
         if not self.ml_manager:
             return
@@ -322,7 +322,7 @@ class EnsembleTradingStrategy:
                 "default_integrated": 0.1,
             }
 
-    def _load_performance_history(self):
+    def _load_performance_history(self) -> None:
         """パフォーマンス履歴をロード"""
         if not self.performance_file:
             return
@@ -356,7 +356,7 @@ class EnsembleTradingStrategy:
         except Exception as e:
             logger.warning(f"パフォーマンス履歴ロードエラー: {e}")
 
-    def _save_performance_history(self):
+    def _save_performance_history(self) -> None:
         """パフォーマンス履歴を保存"""
         if not self.performance_file:
             return
@@ -638,7 +638,7 @@ class EnsembleTradingStrategy:
             logger.error(f"市場レジーム検出エラー: {e}")
             return "unknown"
 
-    def _update_regime_adaptive_weights(self, market_regime: str):
+    def _update_regime_adaptive_weights(self, market_regime: str) -> None:
         """市場レジームに基づく重み調整"""
         try:
             if market_regime == "high_volatility":
@@ -1225,7 +1225,7 @@ class EnsembleTradingStrategy:
             )
             return 30.0 + (70.0 - 30.0) * (1 - avg_success_rate)
 
-    def _update_adaptive_weights(self):
+    def _update_adaptive_weights(self) -> None:
         """適応型戦略の重みを更新"""
         if not self.strategy_performance:
             return
@@ -1274,7 +1274,7 @@ class EnsembleTradingStrategy:
         success: bool,
         confidence: float,
         return_rate: float = 0.0,
-    ):
+    ) -> None:
         """戦略パフォーマンスを更新"""
         if strategy_name not in self.strategy_performance:
             self.strategy_performance[strategy_name] = StrategyPerformance(
