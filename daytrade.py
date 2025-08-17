@@ -887,7 +887,7 @@ async def run_quick_mode(symbols: Optional[List[str]] = None, generate_chart: bo
 
         # チャート生成（オプション）
         if generate_chart:
-            print() 
+            print()
             print("[チャート] グラフ生成中...")
             try:
                 # ここでチャート関連モジュールを遅延インポート
@@ -1310,11 +1310,11 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
 
         # チャート生成（オプション）
         if generate_chart:
-            print() 
-            print() 
+            print()
+            print()
             print("[チャート] 複数銘柄分析グラフ生成中...")
-            print() 
-            print() 
+            print()
+            print()
             try:
                 # ここでチャート関連モジュールを遅延インポート
                 import matplotlib.pyplot as plt
