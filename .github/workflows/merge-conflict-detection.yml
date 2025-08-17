@@ -111,7 +111,6 @@ jobs:
 
           # Check for common conflict markers that might have been committed
           CONFLICT_MARKERS=$(grep -r "<<<<<<< \|======= \|>>>>>>> " . --exclude-dir=.git --exclude-dir=node_modules --exclude="*.log" || echo "")
-               # <<<<<<< HEAD, =======, >>>>>>> マーカーを削除
 
           if [ -n "$CONFLICT_MARKERS" ]; then
             echo "⚠️ Found potential conflict markers in files:"
