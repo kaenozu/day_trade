@@ -179,39 +179,120 @@ class PersonalDayTradingEngine:
         logger.info(f"デイトレードエンジン初期化完了 - データモード: {self.data_mode}, 時間モード: {self.time_mode}")
 
     def _load_dynamic_symbols(self) -> dict:
-        """動的銘柄取得"""
+        """
+        改善版動的銘柄取得（Issue #849対応）
+
+        1. 設定ファイルからのフォールバック銘柄読み込み
+        2. 動的銘柄選択システム
+        3. 銘柄名辞書統合
+        4. 段階的フォールバック機能
+        """
         try:
+            # 1. 設定ファイルからフォールバック銘柄を読み込み
+            fallback_symbols = self._load_fallback_symbols_from_config()
+
+            # 2. 動的銘柄選択を試行
+            dynamic_symbols = self._try_dynamic_symbol_selection()
+
+            # 3. 銘柄名解決を実行
+            final_symbols = self._resolve_symbol_names(dynamic_symbols, fallback_symbols)
+
+            logger.info(f"銘柄取得完了: {len(final_symbols)}銘柄（動的: {len(dynamic_symbols)}, フォールバック: {len(fallback_symbols)}）")
+            return final_symbols
+
+        except Exception as e:
+            logger.error(f"銘柄取得プロセス失敗: {e}")
+            # 最終フォールバック: 設定ファイルの銘柄のみ使用
+            return self._load_fallback_symbols_from_config()
+
+    def _load_fallback_symbols_from_config(self) -> dict:
+        """設定ファイルからフォールバック銘柄を読み込み"""
+        try:
+            symbol_mapping = self.config.get("symbol_mapping", {})
+            fallback_symbols = symbol_mapping.get("fallback_symbols", {})
+            custom_symbols = symbol_mapping.get("custom_symbols", {})
+
+            # フォールバックとカスタム銘柄を統合
+            combined_symbols = {}
+            combined_symbols.update(fallback_symbols)
+            if isinstance(custom_symbols, dict):
+                combined_symbols.update(custom_symbols)
+
+            logger.info(f"設定ファイルから{len(combined_symbols)}銘柄を読み込み")
+            return combined_symbols
+
+        except Exception as e:
+            logger.warning(f"設定ファイル銘柄読み込み失敗: {e}")
+            # 最小限のデフォルト銘柄
+            return {
+                "7203": "トヨタ自動車",
+                "9984": "ソフトバンクグループ",
+                "8306": "三菱UFJフィナンシャル・グループ"
+            }
+
+    def _try_dynamic_symbol_selection(self) -> list:
+        """動的銘柄選択を試行"""
+        try:
+            # 設定でdynamic selectionが有効な場合のみ実行
+            symbol_selection_config = self.config.get("symbol_selection", {})
+            if not symbol_selection_config.get("enable_dynamic_selection", True):
+                logger.info("動的銘柄選択は設定で無効化されています")
+                return []
+
             from src.day_trade.data.symbol_selector import DynamicSymbolSelector
             selector = DynamicSymbolSelector()
 
-            # デイトレード向け高流動性銘柄を取得
-            symbols = selector.get_liquid_symbols(limit=20)
+            # 設定に基づく銘柄数制限
+            max_symbols = symbol_selection_config.get("max_symbols", 20)
+            symbols = selector.get_liquid_symbols(limit=max_symbols)
 
-            # 辞書形式に変換（銘柄名辞書を最優先使用）
-            symbol_dict = {}
-            for symbol in symbols:
-                # 銘柄名辞書から取得を最優先
-                try:
-                    from src.day_trade.data.symbol_names import get_symbol_name
-                    name = get_symbol_name(symbol)
-                    if name:
-                        symbol_dict[symbol] = name
-                        logger.debug(f"Symbol name loaded from dict: {symbol} -> {name}")
-                        continue
-                except Exception as e:
-                    logger.debug(f"Symbol name dict lookup failed for {symbol}: {e}")
-
-                # フォールバック: 基本的な銘柄名
-                fallback_name = f"銘柄{symbol}"
-                symbol_dict[symbol] = fallback_name
-                logger.debug(f"Symbol name fallback: {symbol} -> {fallback_name}")
-
-            logger.info(f"動的銘柄取得成功: {len(symbol_dict)}銘柄")
-            return symbol_dict
+            logger.info(f"動的銘柄選択成功: {len(symbols)}銘柄")
+            return symbols
 
         except Exception as e:
-            logger.error(f"動的銘柄取得失敗: {e}")
-            raise RuntimeError(f"デイトレード銘柄の取得に失敗しました: {e}") from e
+            logger.warning(f"動的銘柄選択失敗: {e}")
+            return []
+
+    def _resolve_symbol_names(self, dynamic_symbols: list, fallback_symbols: dict) -> dict:
+        """銘柄名解決（動的+フォールバック統合）"""
+        symbol_dict = {}
+
+        # 1. 動的取得銘柄の名前解決
+        for symbol in dynamic_symbols:
+            name = self._resolve_single_symbol_name(symbol)
+            if name:
+                symbol_dict[symbol] = name
+
+        # 2. フォールバック銘柄を追加（重複は動的銘柄を優先）
+        for symbol, name in fallback_symbols.items():
+            if symbol not in symbol_dict:
+                symbol_dict[symbol] = name
+
+        return symbol_dict
+
+    def _resolve_single_symbol_name(self, symbol: str) -> str:
+        """単一銘柄の名前解決"""
+        # 1. 銘柄名辞書から取得（最優先）
+        try:
+            from src.day_trade.data.symbol_names import get_symbol_name
+            name = get_symbol_name(symbol)
+            if name:
+                logger.debug(f"Symbol name from dict: {symbol} -> {name}")
+                return name
+        except Exception as e:
+            logger.debug(f"Symbol name dict lookup failed for {symbol}: {e}")
+
+        # 2. 設定ファイルからの取得
+        fallback_symbols = self.config.get("symbol_mapping", {}).get("fallback_symbols", {})
+        if symbol in fallback_symbols:
+            name = fallback_symbols[symbol]
+            logger.debug(f"Symbol name from config: {symbol} -> {name}")
+            return name
+
+        # 3. フォールバック: 銘柄コードベースの名前
+        fallback_name = f"銘柄{symbol}"
+        logger.debug(f"Symbol name fallback: {symbol} -> {fallback_name}")
+        return fallback_name
 
     def _get_current_trading_session(self) -> TradingSession:
         """現在の取引時間帯を取得（正確な市場時間管理）"""
@@ -388,21 +469,15 @@ class PersonalDayTradingEngine:
         """翌日前場機会分析"""
         symbol_name = self.daytrading_symbols[symbol]
 
-        # AIモデルによる予測に置き換え
-        # 1. 予測に必要な市場データを取得
+        # AIモデルによる予測
         market_data = self._fetch_mock_market_data(symbol, tomorrow_str)
-
-        # 2. 取得したデータから特徴量を生成
         features = self._prepare_features_for_prediction(market_data)
+        prediction_results, _ = await self.model_loader.predict(symbol, features)
 
-        # 3. AIモデルで予測
-        # predictions配列の各要素が、オーバーナイトギャップ、プレマーケットモメンタムなどの予測値に対応すると仮定
-        # この部分のインデックスと意味は、実際のMLモデルの実装に依存
-        # 例: predictions[0] = overnight_gap, predictions[1] = premarket_momentum など
-        prediction_results, system_used = await self.model_loader.predict(symbol, features)
+        return self._build_tomorrow_recommendation_from_prediction(symbol, symbol_name, prediction_results)
 
-        # predictionsとconfidenceの形状を確認し、適切に割り当てる
-        # ここでは単一の予測値を想定
+    def _build_tomorrow_recommendation_from_prediction(self, symbol: str, symbol_name: str, prediction_results: Any) -> DayTradingRecommendation:
+        """AIの予測結果から翌日の推奨を構築する"""
         predicted_values = prediction_results.predictions.flatten()
         confidence_values = prediction_results.confidence.flatten() if prediction_results.confidence is not None else np.array([0.0])
 
@@ -411,45 +486,25 @@ class PersonalDayTradingEngine:
         volume_expectation = predicted_values[2] if len(predicted_values) > 2 else 0.0
         volatility_forecast = predicted_values[3] if len(predicted_values) > 3 else 0.0
 
-        # 信頼度を考慮した上で、ランダム性を残すか、完全にAI予測に置き換えるかを検討する
-        # ここではAI予測を優先
-        confidence = 75.0 # AIモデルの信頼度をここに反映させる
-
-        # 翌日前場シグナル判定
         signal = self._determine_tomorrow_premarket_signal(
             overnight_gap, premarket_momentum, volume_expectation, volatility_forecast
         )
-
-        # 寄り付き戦略
         entry_timing = self._get_tomorrow_entry_strategy(signal, overnight_gap)
-
-        # 翌日用利確・損切り設定
         target_profit, stop_loss = self._calculate_premarket_profit_stop_levels(
             signal, volatility_forecast
         )
-
-        # 前場推奨保有時間
         holding_time = self._get_premarket_holding_time(signal)
 
-        # 翌日予想信頼度 (AIモデルの信頼度を使用)
-        # prediction_results.confidenceが存在し、かつ値が1つ以上ある場合、その平均値を使用
-        # 存在しない場合、または値がない場合は、以前の計算ロジックをフォールバックとして使用するか、固定値を割り当てる
         if confidence_values.size > 0:
-            confidence = np.mean(confidence_values) * 100 # %表示にするため
+            confidence = np.mean(confidence_values) * 100
         else:
-            # フォールバックとして以前のロジックを使用
             confidence = self._calculate_premarket_confidence(
                 signal, volatility_forecast, volume_expectation
             )
 
-        # リスク評価（オーバーナイト考慮）
         risk_level = self._assess_premarket_risk(volatility_forecast, overnight_gap)
-
-        # 市場動向説明
         volume_trend = self._describe_volume_trend(volume_expectation)
         momentum_desc = self._describe_overnight_momentum(overnight_gap, premarket_momentum)
-
-        # 翌日タイミングスコア
         market_timing_score = self._calculate_premarket_timing_score(
             signal, volatility_forecast, volume_expectation
         )
@@ -601,17 +656,14 @@ class PersonalDayTradingEngine:
         """デイトレード機会分析"""
         symbol_name = self.daytrading_symbols[symbol]
 
-        # AIモデルによる予測に置き換え
-        # 1. 予測に必要な市場データを取得
-        market_data = self._fetch_mock_market_data(symbol, str(datetime.now().date()).replace('-', '')) # YYYYMMDD形式に変換
-
-        # 2. 取得したデータから特徴量を生成
+        market_data = self._fetch_mock_market_data(symbol, str(datetime.now().date()).replace('-', ''))
         features = self._prepare_features_for_prediction(market_data)
+        prediction_results, _ = await self.model_loader.predict(symbol, features)
 
-        # 3. AIモデルで予測
-        # predictions配列の各要素が、日中ボラティリティ、出来高比率、価格モメンタムなどの予測値に対応すると仮定
-        prediction_results, system_used = await self.model_loader.predict(symbol, features)
+        return self._build_daytrading_recommendation_from_prediction(symbol, symbol_name, session, prediction_results)
 
+    def _build_daytrading_recommendation_from_prediction(self, symbol: str, symbol_name: str, session: TradingSession, prediction_results: Any) -> DayTradingRecommendation:
+        """AIの予測結果から当日の推奨を構築する"""
         predicted_values = prediction_results.predictions.flatten()
         confidence_values = prediction_results.confidence.flatten() if prediction_results.confidence is not None else np.array([0.0])
 
@@ -619,46 +671,31 @@ class PersonalDayTradingEngine:
         volume_ratio = predicted_values[1] if len(predicted_values) > 1 else 0.0
         price_momentum = predicted_values[2] if len(predicted_values) > 2 else 0.0
 
-        # 時間帯別補正
         session_multiplier = self._get_session_multiplier(session)
         adjusted_volatility = intraday_volatility * session_multiplier
 
-        # シグナル判定
         signal = self._determine_daytrading_signal(
             volatility=adjusted_volatility,
             momentum=price_momentum,
             volume=volume_ratio,
             session=session
         )
-
-        # エントリータイミング
         entry_timing = self._get_entry_timing(signal, session)
-
-        # 利確・損切りライン設定
         target_profit, stop_loss = self._calculate_profit_stop_levels(
             signal, adjusted_volatility
         )
-
-        # 推奨保有時間
         holding_time = self._get_recommended_holding_time(signal, session)
 
-        # 信頼度計算（AIモデルの信頼度を使用）
         if confidence_values.size > 0:
-            confidence = np.mean(confidence_values) * 100 # %表示にするため
+            confidence = np.mean(confidence_values) * 100
         else:
-            # フォールバックとして以前のロジックを使用
             confidence = self._calculate_daytrading_confidence(
                 signal, adjusted_volatility, volume_ratio, session
             )
 
-        # リスクレベル
         risk_level = self._assess_daytrading_risk(adjusted_volatility, signal)
-
-        # 出来高・価格動向の文字化
         volume_trend = self._describe_volume_trend(volume_ratio)
         momentum_desc = self._describe_price_momentum(price_momentum)
-
-        # 市場タイミングスコア（デイトレード適性度）
         market_timing_score = self._calculate_market_timing_score(
             signal, adjusted_volatility, volume_ratio, session
         )
@@ -692,50 +729,110 @@ class PersonalDayTradingEngine:
 
     def _fetch_mock_market_data(self, symbol: str, date_str: str) -> Dict[str, Any]:
         """
-        市場データ取得メソッド
-        YFinanceFetcherを使用して過去の市場データを取得する
+        改善版市場データ取得メソッド（Issue #849対応）
+
+        1. 実データ取得の試行
+        2. 段階的フォールバック機能
+        3. 改善されたエラーハンドリング
+        4. モックデータ通知システム
         """
-        # YFinanceFetcherを使用して履歴データを取得
-        # 'date_str'はYYYYMMDD形式なので、YYYY-MM-DDに変換
-        date_obj = datetime.strptime(date_str, '%Y%m%d')
-        # 過去数日間のデータが必要な場合を考慮し、期間と間隔を設定
-        # ここでは過去1日分のデータを取得する例 (日中ボラティリティなどを計算するため)
-        # 実際には、AIモデルが必要とする期間のデータを取得するように調整
+        try:
+            if self.data_fetcher is None:
+                logger.warning(f"データフェッチャーが初期化されていません - モックデータ使用: {symbol}")
+                return self._generate_intelligent_mock_data(symbol, date_str)
 
-        # for simplicity, let's fetch one day data
-        # To get overnight gap, we might need previous day's closing price
-        # For now, let's just get 5 days of data to simulate some history
-        historical_data = self.data_fetcher.get_historical_data(
-            code=symbol, period="5d", interval="1d"
-        )
+            # YFinanceFetcherで実データ取得を試行
+            date_obj = datetime.strptime(date_str, '%Y%m%d')
 
-        if historical_data is not None and not historical_data.empty:
-            # 最新のデータを取得
+            # データ取得の複数回試行（ネットワーク問題対応）
+            for attempt in range(3):
+                try:
+                    historical_data = self.data_fetcher.get_historical_data(
+                        code=symbol, period="5d", interval="1d"
+                    )
+
+                    if historical_data is not None and not historical_data.empty:
+                        return self._process_real_market_data(historical_data, symbol)
+
+                except Exception as e:
+                    logger.debug(f"データ取得試行{attempt + 1}失敗 {symbol}: {e}")
+                    if attempt < 2:  # 最後の試行でない場合は少し待つ
+                        import time
+                        time.sleep(0.5)
+
+            # 実データ取得失敗 - モックデータフォールバック
+            logger.info(f"実データ取得失敗のためモックデータ使用: {symbol}")
+            return self._generate_intelligent_mock_data(symbol, date_str)
+
+        except Exception as e:
+            logger.error(f"市場データ取得中にエラー発生 {symbol}: {e}")
+            return self._generate_intelligent_mock_data(symbol, date_str)
+
+    def _process_real_market_data(self, historical_data, symbol: str) -> Dict[str, Any]:
+        """実データの処理"""
+        try:
             latest_data = historical_data.iloc[-1]
-            # 昨日の終値 (一つ前のデータ)
-            prev_close = historical_data.iloc[-2]['Close'] if len(historical_data) >= 2 else latest_data['Close'] # Fallback if not enough data
+            prev_close = historical_data.iloc[-2]['Close'] if len(historical_data) >= 2 else latest_data['Close']
 
             return {
-                "Open": latest_data.get("Open", 0),
-                "High": latest_data.get("High", 0),
-                "Low": latest_data.get("Low", 0),
-                "Close": latest_data.get("Close", 0),
-                "Volume": latest_data.get("Volume", 0),
-                "PrevClose": prev_close,
-                "DateTime": latest_data.name # Index contains datetime
+                "Open": float(latest_data.get("Open", 0)),
+                "High": float(latest_data.get("High", 0)),
+                "Low": float(latest_data.get("Low", 0)),
+                "Close": float(latest_data.get("Close", 0)),
+                "Volume": int(latest_data.get("Volume", 0)),
+                "PrevClose": float(prev_close),
+                "DateTime": latest_data.name,
+                "DataSource": "REAL"
             }
+        except Exception as e:
+            logger.warning(f"実データ処理エラー {symbol}: {e}")
+            return self._generate_intelligent_mock_data(symbol, "fallback")
+
+    def _generate_intelligent_mock_data(self, symbol: str, date_str: str) -> Dict[str, Any]:
+        """改善されたモックデータ生成"""
+        # 設定に基づく通知制御
+        mock_notification = self.config.get("data_fallback", {}).get("mock_data_notification", False)
+        if mock_notification:
+            logger.info(f"モックデータを生成中: {symbol}")
+
+        # より現実的な価格レンジ（日本株価帯を考慮）
+        seed_base = hash(symbol + date_str + "market_data") % 100000
+        np.random.seed(seed_base)
+
+        # 銘柄に応じた価格帯設定
+        if len(symbol) == 4 and symbol.isdigit():
+            # 日本株（4桁コード）
+            price_base = int(symbol) * 0.5 + 1000  # 銘柄コードに基づく基準価格
         else:
-            # データ取得失敗時、またはデータがない場合のフォールバック
-            # ここでは依然としてモックデータを返す
-            np.random.seed(hash(symbol + date_str + "market_data") % 100000)
-            return {
-                "Open": np.random.uniform(1000, 2000),
-                "High": np.random.uniform(2000, 2100),
-                "Low": np.random.uniform(900, 1000),
-                "Close": np.random.uniform(1000, 2000),
-                "Volume": int(np.random.uniform(1_000_000, 10_000_000)),
-                "PrevClose": np.random.uniform(1000, 2000),
-            }
+            price_base = 2000  # その他の銘柄
+
+        price_base = min(max(price_base, 100), 10000)  # 100円〜10,000円の範囲
+
+        # より現実的な価格変動
+        daily_volatility = np.random.uniform(0.01, 0.05)  # 1-5%の日中変動
+
+        prev_close = price_base * (1 + np.random.uniform(-0.02, 0.02))
+        gap = np.random.uniform(-0.01, 0.01)  # オーバーナイトギャップ
+        open_price = prev_close * (1 + gap)
+
+        high_price = open_price * (1 + daily_volatility * np.random.uniform(0.3, 1.0))
+        low_price = open_price * (1 - daily_volatility * np.random.uniform(0.3, 1.0))
+        close_price = open_price + (high_price - low_price) * np.random.uniform(-0.5, 0.5)
+
+        # 出来高も現実的に
+        volume_base = 1_000_000 if price_base > 1000 else 5_000_000
+        volume = int(volume_base * np.random.uniform(0.5, 3.0))
+
+        return {
+            "Open": round(open_price, 0),
+            "High": round(high_price, 0),
+            "Low": round(low_price, 0),
+            "Close": round(close_price, 0),
+            "Volume": volume,
+            "PrevClose": round(prev_close, 0),
+            "DateTime": datetime.now(),
+            "DataSource": "MOCK"
+        }
 
     def _prepare_features_for_prediction(self, market_data: Dict[str, Any]) -> np.ndarray:
         """
@@ -1091,43 +1188,6 @@ class PersonalDayTradingEngine:
             logger.error(f"設定ファイル読み込みエラー: {e}")
             return {}
 
-# デイトレード機能のデモ
-async def demo_daytrading_engine():
-    """デイトレードエンジンデモ"""
-    print("=== Day Trade Personal - デイトレード推奨エンジン ===")
-
-    engine = PersonalDayTradingEngine()
-
-    # 現在の時間帯アドバイス
-    print(engine.get_session_advice())
-    print()
-
-    # 今日のデイトレード推奨
-    print("今日のデイトレード推奨 TOP5:")
-    print("-" * 50)
-
-    recommendations = await engine.get_today_daytrading_recommendations(limit=20)
-
-    for i, rec in enumerate(recommendations, 1):
-        signal_icon = {
-            DayTradingSignal.STRONG_BUY: "[強い買い]",
-            DayTradingSignal.BUY: "[●買い●]",
-            DayTradingSignal.STRONG_SELL: "[▼強い売り▼]",
-            DayTradingSignal.SELL: "[▽売り▽]",
-            DayTradingSignal.HOLD: "[■ホールド■]",
-            DayTradingSignal.WAIT: "[…待機…]"
-        }.get(rec.signal, "[?]")
-
-        print(f"{i}. {rec.symbol} ({rec.name})")
-        print(f"   シグナル: {signal_icon}")
-        print(f"   エントリー: {rec.entry_timing}")
-        print(f"   目標利確: +{rec.target_profit}% / 損切り: -{rec.stop_loss}%")
-        print(f"   保有時間: {rec.holding_time}")
-        print(f"   信頼度: {rec.confidence:.0f}% | リスク: {rec.risk_level}")
-        print(f"   出来高: {rec.volume_trend} | 値動き: {rec.price_momentum}")
-        print(f"   タイミングスコア: {rec.market_timing_score:.0f}/100")
-        print()
-
 def create_day_trading_engine(config_path: Optional[str] = None) -> PersonalDayTradingEngine:
     """
     デイトレードエンジンファクトリー関数
@@ -1141,5 +1201,11 @@ def create_day_trading_engine(config_path: Optional[str] = None) -> PersonalDayT
     logger.info("デイトレードエンジンを作成中...")
     return PersonalDayTradingEngine(config_path=config_path)
 
+# Issue #849対応: デモコードは examples/demo_day_trading_engine.py に分離済み
+# デモ実行する場合は以下のコマンドを使用:
+# python examples/demo_day_trading_engine.py
+
 if __name__ == "__main__":
-    asyncio.run(demo_daytrading_engine())
+    print("Day Trading Engine Module - Issue #849対応完了")
+    print("デモ実行: python examples/demo_day_trading_engine.py")
+    print("統合テスト: python -m pytest tests/test_day_trading_engine_improved.py")

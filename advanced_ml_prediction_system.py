@@ -113,129 +113,32 @@ class AdvancedFeatureEngineering:
 
     async def create_advanced_features(self, data: pd.DataFrame) -> pd.DataFrame:
         """高度特徴量作成"""
-
         if len(data) < 100:
             raise ValueError("データが不足しています（最低100データポイント必要）")
 
-        features = pd.DataFrame(index=data.index)
-
-        # 基本価格データ
-        high = data['High'].values
-        low = data['Low'].values
-        close = data['Close'].values
-        volume = data['Volume'].values
-        open_price = data['Open'].values
-
         try:
-            # 1. トレンド指標（16種類）
-            features['sma_5'] = talib.SMA(close, timeperiod=5)
-            features['sma_10'] = talib.SMA(close, timeperiod=10)
-            features['sma_20'] = talib.SMA(close, timeperiod=20)
-            features['sma_50'] = talib.SMA(close, timeperiod=50)
-            features['ema_5'] = talib.EMA(close, timeperiod=5)
-            features['ema_10'] = talib.EMA(close, timeperiod=10)
-            features['ema_20'] = talib.EMA(close, timeperiod=20)
-            features['wma_10'] = talib.WMA(close, timeperiod=10)
-            features['tema_10'] = talib.TEMA(close, timeperiod=10)
-            features['dema_10'] = talib.DEMA(close, timeperiod=10)
-            features['kama_10'] = talib.KAMA(close, timeperiod=10)
-            features['trima_10'] = talib.TRIMA(close, timeperiod=10)
-            features['t3_10'] = talib.T3(close, timeperiod=10)
-            features['mama'], features['fama'] = talib.MAMA(close, fastlimit=0.5, slowlimit=0.05)
-            features['ht_trendline'] = talib.HT_TRENDLINE(close)
+            trend_features = self._create_trend_features(data)
+            momentum_features = self._create_momentum_features(data)
+            volatility_features = self._create_volatility_features(data)
+            volume_features = self._create_volume_features(data)
+            overlay_features = self._create_overlay_features(data)
+            pattern_features = self._create_pattern_features(data)
+            statistical_features = self._create_statistical_features(data)
 
-            # 2. モメンタム指標（20種類）
-            features['rsi_14'] = talib.RSI(close, timeperiod=14)
-            features['rsi_7'] = talib.RSI(close, timeperiod=7)
-            features['rsi_21'] = talib.RSI(close, timeperiod=21)
-            features['mfi_14'] = talib.MFI(high, low, close, volume, timeperiod=14)
-            features['williams_r'] = talib.WILLR(high, low, close, timeperiod=14)
-            features['cci_14'] = talib.CCI(high, low, close, timeperiod=14)
-            features['stoch_k'], features['stoch_d'] = talib.STOCH(high, low, close)
-            features['stochf_k'], features['stochf_d'] = talib.STOCHF(high, low, close)
-            features['stochrsi_k'], features['stochrsi_d'] = talib.STOCHRSI(close)
-            features['ultimate_osc'] = talib.ULTOSC(high, low, close)
-            features['roc_10'] = talib.ROC(close, timeperiod=10)
-            features['roc_5'] = talib.ROC(close, timeperiod=5)
-            features['rocp_10'] = talib.ROCP(close, timeperiod=10)
-            features['rocr_10'] = talib.ROCR(close, timeperiod=10)
-            features['trix_14'] = talib.TRIX(close, timeperiod=14)
-            features['apo'] = talib.APO(close)
-            features['ppo'] = talib.PPO(close)
-            features['cmo_14'] = talib.CMO(close, timeperiod=14)
-            features['dx_14'] = talib.DX(high, low, close, timeperiod=14)
-            features['adx_14'] = talib.ADX(high, low, close, timeperiod=14)
+            # Combine all feature groups
+            features = pd.concat([
+                trend_features,
+                momentum_features,
+                volatility_features,
+                volume_features,
+                overlay_features,
+                pattern_features,
+                statistical_features
+            ], axis=1)
 
-            # 3. ボラティリティ指標（8種類）
-            features['atr_14'] = talib.ATR(high, low, close, timeperiod=14)
-            features['atr_7'] = talib.ATR(high, low, close, timeperiod=7)
-            features['natr_14'] = talib.NATR(high, low, close, timeperiod=14)
-            features['trange'] = talib.TRANGE(high, low, close)
-            features['ht_dcperiod'] = talib.HT_DCPERIOD(close)
-            features['ht_dcphase'] = talib.HT_DCPHASE(close)
-            features['inphase'], features['quadrature'] = talib.HT_PHASOR(close)
-            features['ht_sine'], features['ht_leadsine'] = talib.HT_SINE(close)
-
-            # 4. ボリューム指標（10種類）
-            features['ad'] = talib.AD(high, low, close, volume)
-            features['adosc'] = talib.ADOSC(high, low, close, volume)
-            features['obv'] = talib.OBV(close, volume)
-            features['cmf'] = features['ad'] / volume  # Chaikin Money Flow
-            features['volume_sma_10'] = talib.SMA(volume, timeperiod=10)
-            features['volume_ratio'] = volume / features['volume_sma_10']
-            features['price_volume'] = close * volume
-            features['vwap'] = (features['price_volume'].rolling(20).sum() /
-                              pd.Series(volume).rolling(20).sum())
-            features['volume_oscillator'] = (talib.SMA(volume, 5) - talib.SMA(volume, 10)) / talib.SMA(volume, 10) * 100
-            features['ease_of_movement'] = ((high + low) / 2 - (high.shift(1) + low.shift(1)) / 2) / (volume / ((high - low) * 1000000))
-
-            # 5. オーバーレイ指標（12種類）
-            upperband, middleband, lowerband = talib.BBANDS(close, timeperiod=20)
-            features['bb_upper'] = upperband
-            features['bb_middle'] = middleband
-            features['bb_lower'] = lowerband
-            features['bb_width'] = (upperband - lowerband) / middleband
-            features['bb_position'] = (close - lowerband) / (upperband - lowerband)
-
-            features['sar'] = talib.SAR(high, low)
-            features['sar_ext'] = talib.SAREXT(high, low)
-
-            macd, macdsignal, macdhist = talib.MACD(close)
-            features['macd'] = macd
-            features['macd_signal'] = macdsignal
-            features['macd_hist'] = macdhist
-            features['macd_ratio'] = macd / macdsignal
-
-            # 6. 価格パターン指標（10種類）
-            features['cdl_doji'] = talib.CDLDOJI(open_price, high, low, close)
-            features['cdl_hammer'] = talib.CDLHAMMER(open_price, high, low, close)
-            features['cdl_engulfing'] = talib.CDLENGULFING(open_price, high, low, close)
-            features['cdl_harami'] = talib.CDLHARAMI(open_price, high, low, close)
-            features['cdl_spinning_top'] = talib.CDLSPINNINGTOP(open_price, high, low, close)
-            features['cdl_marubozu'] = talib.CDLMARUBOZU(open_price, high, low, close)
-            features['cdl_shooting_star'] = talib.CDLSHOOTINGSTAR(open_price, high, low, close)
-            features['cdl_hanging_man'] = talib.CDLHANGINGMAN(open_price, high, low, close)
-            features['cdl_morning_star'] = talib.CDLMORNINGSTAR(open_price, high, low, close)
-            features['cdl_evening_star'] = talib.CDLEVENINGSTAR(open_price, high, low, close)
-
-            # 7. 統計的指標（8種類）
-            features['returns'] = close.pct_change()
-            features['log_returns'] = np.log(close / close.shift(1))
-            features['volatility_5'] = features['returns'].rolling(5).std()
-            features['volatility_20'] = features['returns'].rolling(20).std()
-            features['skewness_20'] = features['returns'].rolling(20).skew()
-            features['kurtosis_20'] = features['returns'].rolling(20).kurt()
-            features['var_95'] = features['returns'].rolling(20).quantile(0.05)
-            features['sharpe_ratio_20'] = features['returns'].rolling(20).mean() / features['volatility_20']
-
-            # 8. カスタム複合指標（6種類）
-            features['price_position'] = (close - talib.SMA(close, 20)) / talib.SMA(close, 20)
-            features['volume_price_trend'] = features['volume_ratio'] * features['returns']
-            features['momentum_divergence'] = features['rsi_14'] - (close / close.shift(14) - 1) * 100
-            features['trend_strength'] = abs(features['sma_5'] - features['sma_20']) / features['sma_20']
-            features['volatility_breakout'] = features['atr_14'] / close
-            features['composite_momentum'] = (features['rsi_14'] / 100 + features['stoch_k'] / 100 +
-                                            (features['williams_r'] + 100) / 100) / 3
+            # Custom features that might depend on previously calculated features
+            custom_features = self._create_custom_features(features, data['Close'])
+            features = pd.concat([features, custom_features], axis=1)
 
         except Exception as e:
             self.logger.error(f"特徴量計算エラー: {e}")
@@ -243,11 +146,149 @@ class AdvancedFeatureEngineering:
 
         # NaN値を前方向に補間
         features = features.fillna(method='ffill').fillna(method='bfill')
-
         # 最初の100行を削除（指標計算のため）
         features = features.iloc[100:].copy()
 
         self.logger.info(f"高度特徴量作成完了: {features.shape[1]}特徴量")
+        return features
+
+    def _create_trend_features(self, data: pd.DataFrame) -> pd.DataFrame:
+        """トレンド指標作成"""
+        close = data['Close']
+        features = pd.DataFrame(index=data.index)
+        features['sma_5'] = talib.SMA(close, timeperiod=5)
+        features['sma_10'] = talib.SMA(close, timeperiod=10)
+        features['sma_20'] = talib.SMA(close, timeperiod=20)
+        features['sma_50'] = talib.SMA(close, timeperiod=50)
+        features['ema_5'] = talib.EMA(close, timeperiod=5)
+        features['ema_10'] = talib.EMA(close, timeperiod=10)
+        features['ema_20'] = talib.EMA(close, timeperiod=20)
+        features['wma_10'] = talib.WMA(close, timeperiod=10)
+        features['tema_10'] = talib.TEMA(close, timeperiod=10)
+        features['dema_10'] = talib.DEMA(close, timeperiod=10)
+        features['kama_10'] = talib.KAMA(close, timeperiod=10)
+        features['trima_10'] = talib.TRIMA(close, timeperiod=10)
+        features['t3_10'] = talib.T3(close, timeperiod=10)
+        features['mama'], features['fama'] = talib.MAMA(close, fastlimit=0.5, slowlimit=0.05)
+        features['ht_trendline'] = talib.HT_TRENDLINE(close)
+        return features
+
+    def _create_momentum_features(self, data: pd.DataFrame) -> pd.DataFrame:
+        """モメンタム指標作成"""
+        high, low, close, volume = data['High'], data['Low'], data['Close'], data['Volume']
+        features = pd.DataFrame(index=data.index)
+        features['rsi_14'] = talib.RSI(close, timeperiod=14)
+        features['rsi_7'] = talib.RSI(close, timeperiod=7)
+        features['rsi_21'] = talib.RSI(close, timeperiod=21)
+        features['mfi_14'] = talib.MFI(high, low, close, volume, timeperiod=14)
+        features['williams_r'] = talib.WILLR(high, low, close, timeperiod=14)
+        features['cci_14'] = talib.CCI(high, low, close, timeperiod=14)
+        features['stoch_k'], features['stoch_d'] = talib.STOCH(high, low, close)
+        features['stochf_k'], features['stochf_d'] = talib.STOCHF(high, low, close)
+        features['stochrsi_k'], features['stochrsi_d'] = talib.STOCHRSI(close)
+        features['ultimate_osc'] = talib.ULTOSC(high, low, close)
+        features['roc_10'] = talib.ROC(close, timeperiod=10)
+        features['roc_5'] = talib.ROC(close, timeperiod=5)
+        features['rocp_10'] = talib.ROCP(close, timeperiod=10)
+        features['rocr_10'] = talib.ROCR(close, timeperiod=10)
+        features['trix_14'] = talib.TRIX(close, timeperiod=14)
+        features['apo'] = talib.APO(close)
+        features['ppo'] = talib.PPO(close)
+        features['cmo_14'] = talib.CMO(close, timeperiod=14)
+        features['dx_14'] = talib.DX(high, low, close, timeperiod=14)
+        features['adx_14'] = talib.ADX(high, low, close, timeperiod=14)
+        return features
+
+    def _create_volatility_features(self, data: pd.DataFrame) -> pd.DataFrame:
+        """ボラティリティ指標作成"""
+        high, low, close = data['High'], data['Low'], data['Close']
+        features = pd.DataFrame(index=data.index)
+        features['atr_14'] = talib.ATR(high, low, close, timeperiod=14)
+        features['atr_7'] = talib.ATR(high, low, close, timeperiod=7)
+        features['natr_14'] = talib.NATR(high, low, close, timeperiod=14)
+        features['trange'] = talib.TRANGE(high, low, close)
+        features['ht_dcperiod'] = talib.HT_DCPERIOD(close)
+        features['ht_dcphase'] = talib.HT_DCPHASE(close)
+        features['inphase'], features['quadrature'] = talib.HT_PHASOR(close)
+        features['ht_sine'], features['ht_leadsine'] = talib.HT_SINE(close)
+        return features
+
+    def _create_volume_features(self, data: pd.DataFrame) -> pd.DataFrame:
+        """ボリューム指標作成"""
+        high, low, close, volume = data['High'], data['Low'], data['Close'], data['Volume']
+        features = pd.DataFrame(index=data.index)
+        features['ad'] = talib.AD(high, low, close, volume)
+        features['adosc'] = talib.ADOSC(high, low, close, volume)
+        features['obv'] = talib.OBV(close, volume)
+        features['cmf'] = features['ad'] / volume  # Chaikin Money Flow
+        features['volume_sma_10'] = talib.SMA(volume, timeperiod=10)
+        features['volume_ratio'] = volume / features['volume_sma_10']
+        features['price_volume'] = close * volume
+        features['vwap'] = (features['price_volume'].rolling(20).sum() /
+                          volume.rolling(20).sum())
+        features['volume_oscillator'] = (talib.SMA(volume, 5) - talib.SMA(volume, 10)) / talib.SMA(volume, 10) * 100
+        features['ease_of_movement'] = ((high + low) / 2 - (high.shift(1) + low.shift(1)) / 2) / (volume / ((high - low) * 1000000))
+        return features
+
+    def _create_overlay_features(self, data: pd.DataFrame) -> pd.DataFrame:
+        """オーバーレイ指標作成"""
+        high, low, close = data['High'], data['Low'], data['Close']
+        features = pd.DataFrame(index=data.index)
+        upperband, middleband, lowerband = talib.BBANDS(close, timeperiod=20)
+        features['bb_upper'] = upperband
+        features['bb_middle'] = middleband
+        features['bb_lower'] = lowerband
+        features['bb_width'] = (upperband - lowerband) / middleband
+        features['bb_position'] = (close - lowerband) / (upperband - lowerband)
+        features['sar'] = talib.SAR(high, low)
+        features['sar_ext'] = talib.SAREXT(high, low)
+        macd, macdsignal, macdhist = talib.MACD(close)
+        features['macd'] = macd
+        features['macd_signal'] = macdsignal
+        features['macd_hist'] = macdhist
+        features['macd_ratio'] = macd / macdsignal
+        return features
+
+    def _create_pattern_features(self, data: pd.DataFrame) -> pd.DataFrame:
+        """価格パターン指標作成"""
+        open_price, high, low, close = data['Open'], data['High'], data['Low'], data['Close']
+        features = pd.DataFrame(index=data.index)
+        features['cdl_doji'] = talib.CDLDOJI(open_price, high, low, close)
+        features['cdl_hammer'] = talib.CDLHAMMER(open_price, high, low, close)
+        features['cdl_engulfing'] = talib.CDLENGULFING(open_price, high, low, close)
+        features['cdl_harami'] = talib.CDLHARAMI(open_price, high, low, close)
+        features['cdl_spinning_top'] = talib.CDLSPINNINGTOP(open_price, high, low, close)
+        features['cdl_marubozu'] = talib.CDLMARUBOZU(open_price, high, low, close)
+        features['cdl_shooting_star'] = talib.CDLSHOOTINGSTAR(open_price, high, low, close)
+        features['cdl_hanging_man'] = talib.CDLHANGINGMAN(open_price, high, low, close)
+        features['cdl_morning_star'] = talib.CDLMORNINGSTAR(open_price, high, low, close)
+        features['cdl_evening_star'] = talib.CDLEVENINGSTAR(open_price, high, low, close)
+        return features
+
+    def _create_statistical_features(self, data: pd.DataFrame) -> pd.DataFrame:
+        """統計的指標作成"""
+        close = data['Close']
+        features = pd.DataFrame(index=data.index)
+        features['returns'] = close.pct_change()
+        features['log_returns'] = np.log(close / close.shift(1))
+        features['volatility_5'] = features['returns'].rolling(5).std()
+        features['volatility_20'] = features['returns'].rolling(20).std()
+        features['skewness_20'] = features['returns'].rolling(20).skew()
+        features['kurtosis_20'] = features['returns'].rolling(20).kurt()
+        features['var_95'] = features['returns'].rolling(20).quantile(0.05)
+        features['sharpe_ratio_20'] = features['returns'].rolling(20).mean() / features['volatility_20']
+        return features
+
+    def _create_custom_features(self, existing_features: pd.DataFrame, close: pd.Series) -> pd.DataFrame:
+        """カスタム複合指標作成"""
+        features = pd.DataFrame(index=existing_features.index)
+        features['price_position'] = (close - talib.SMA(close, 20)) / talib.SMA(close, 20)
+        features['volume_price_trend'] = existing_features['volume_ratio'] * existing_features['returns']
+        features['momentum_divergence'] = existing_features['rsi_14'] - (close / close.shift(14) - 1) * 100
+        features['trend_strength'] = abs(existing_features['sma_5'] - existing_features['sma_20']) / existing_features['sma_20']
+        features['volatility_breakout'] = existing_features['atr_14'] / close
+        features['composite_momentum'] = (existing_features['rsi_14'] / 100 + existing_features['stoch_k'] / 100 +
+                                        (existing_features['williams_r'] + 100) / 100) / 3
         return features
 
 class AdvancedMLPredictionSystem:

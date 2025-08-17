@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Day Trade Personal - 個人利用専用版
@@ -1140,10 +1139,10 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
 
                     # ポートフォリオサマリー
                     print(f"ポートフォリオ: {portfolio_summary['portfolio_name']}")
-                    print(f"初期資本: {portfolio_summary['initial_capital']:,.0f}円")
-                    print(f"現在資本: {portfolio_summary['current_capital']:,.0f}円")
+                    print(f"初期資本: {portfolio_summary['initial_capital']:,}円")
+                    print(f"現在資本: {portfolio_summary['current_capital']:,}円")
                     print(f"総リターン: {portfolio_summary['total_return']:.2f}%")
-                    print(f"現金残高: {portfolio_summary['cash_balance']:,.0f}円")
+                    print(f"現金残高: {portfolio_summary['cash_balance']:,}円")
 
                     # 30日パフォーマンス
                     print(f"\n30日間パフォーマンス:")

@@ -810,7 +810,7 @@ class EnhancedHyperparameterOptimizer:
                     FROM enhanced_optimization_results
                     ORDER BY created_at DESC
                     LIMIT 10
-                ")
+                """)
                 recent_results = cursor.fetchall()
 
                 # パラメータ重要度統計
@@ -821,7 +821,7 @@ class EnhancedHyperparameterOptimizer:
                     GROUP BY parameter_name
                     ORDER BY avg_importance DESC
                     LIMIT 10
-                ")
+                """)
                 param_importance_stats = cursor.fetchall()
 
                 return {
@@ -846,7 +846,7 @@ class EnhancedHyperparameterOptimizer:
 def create_enhanced_hyperparameter_optimizer(
     config_path: Optional[str] = None
 ) -> EnhancedHyperparameterOptimizer:
-    """EnhancedHyperparameterOptimizerインスタンスの作成"""
+    """EnhancedHyperparameterOptimizer instance creation"""
     path = Path(config_path) if config_path else None
     return EnhancedHyperparameterOptimizer(config_path=path)
 
