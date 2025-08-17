@@ -1915,7 +1915,16 @@ class DayTradeWebDashboard:
     def setup_app(self):
         """Flaskアプリケーション初期化"""
         self.app = Flask(__name__)
-        self.app.secret_key = 'daytrade_unified_2024'
+        
+        # セキュアなsecret key設定
+        secret_key = os.environ.get('FLASK_SECRET_KEY')
+        if not secret_key:
+            import secrets
+            secret_key = secrets.token_urlsafe(32)
+            print(f"⚠️  本番環境では環境変数FLASK_SECRET_KEYを設定してください")
+            print(f"    例: export FLASK_SECRET_KEY='[32文字以上のランダム文字列]'")
+        
+        self.app.secret_key = secret_key
         self.setup_routes()
 
         # メインエンジン初期化

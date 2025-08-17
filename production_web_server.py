@@ -105,8 +105,16 @@ class ProductionWebServer:
         return secrets.token_hex(32)
     
     def _get_default_password_hash(self) -> str:
-        """デフォルトパスワードハッシュ生成（admin123）"""
-        return generate_password_hash("admin123")
+        """デフォルトパスワードハッシュ生成"""
+        # 環境変数からパスワードを取得
+        admin_password = os.environ.get('ADMIN_PASSWORD')
+        if not admin_password:
+            # セキュアなデフォルトパスワード生成
+            admin_password = secrets.token_urlsafe(16)
+            self.logger.warning(f"⚠️  本番環境では環境変数ADMIN_PASSWORDを設定してください")
+            self.logger.warning(f"    一時的なパスワードが生成されました。ログを確認してください。")
+        
+        return generate_password_hash(admin_password)
     
     def _create_app(self) -> Flask:
         """プロダクション用Flask app作成"""
@@ -366,12 +374,14 @@ if __name__ == "__main__":
     parser.add_argument("--production", action="store_true", help="Run in production mode")
     parser.add_argument("--no-auth", action="store_true", help="Disable authentication")
     parser.add_argument("--username", default="admin", help="Admin username")
-    parser.add_argument("--password", default="admin123", help="Admin password")
+    parser.add_argument("--password", default=None, help="Admin password (環境変数ADMIN_PASSWORDまたは--passwordで設定)")
     
     args = parser.parse_args()
     
     # パスワードハッシュ化
-    password_hash = generate_password_hash(args.password) if FLASK_AVAILABLE else None
+    password_hash = None
+    if FLASK_AVAILABLE and args.password:
+        password_hash = generate_password_hash(args.password)
     
     server = ProductionWebServer(
         host=args.host,
