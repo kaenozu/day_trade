@@ -384,7 +384,7 @@ class PersonalAnalysisEngine:
                     if not name:
                         # 次にrecommended_symbolsから
                         name = self.recommended_symbols.get(symbol_key, None)
-                        print(f"[DEBUG] Fallback: {symbol_key} -> recommended_symbols = {repr(name)}")
+                        print(f"[DEBUG] Fallback: {symbol_key} -> recommended_symbols.get = {symbol_name}")
 
                         if not name:
                             # yfinanceから取得
@@ -412,7 +412,7 @@ class PersonalAnalysisEngine:
                 if not name:
                     # 次にrecommended_symbolsから
                     name = self.recommended_symbols.get(symbol_key, None)
-                    print(f"[DEBUG] Traditional: {symbol_key} -> recommended_symbols = {repr(name)}")
+                    print(f"[DEBUG] Traditional: {symbol_key} -> recommended_symbols.get = {symbol_name}")
 
                     if not name:
                         # yfinanceから取得
@@ -787,7 +787,7 @@ def parse_arguments():
   python daytrade.py --symbols 7203,8306  # 特定銘柄のみ分析
   python daytrade.py --history          # 分析履歴表示
   python daytrade.py --alerts           # アラート確認
-  python daytrade.py --safe             # 安全モード（低リスクのみ）
+  python daytrade.py --safe             # 安全モード（低リスク銘柄のみ）
   python daytrade.py --multi 8 --chart  # 複数銘柄分析＋チャート表示
   python daytrade.py --quick --chart --safe # 基本モード＋チャート＋安全モード
   python daytrade.py --train-overnight-model # 【開発者用】翌朝場予測モデルの再学習
@@ -1310,8 +1310,8 @@ async def run_multi_symbol_mode(symbol_count: int, portfolio_amount: Optional[in
 
         # チャート生成（オプション）
         if generate_chart:
-            print()
-            print()
+            print() 
+            print() 
             print("[チャート] 複数銘柄分析グラフ生成中...")
             print()
             print()
@@ -1660,7 +1660,7 @@ class DayTradeWebDashboard:
                 self.prediction_validator = PredictionValidator()
                 self.backtest_engine = BacktestEngine()
                 self.use_backtest_integration = True
-                print("[OK] バックテスト統合: 過去実績ベース予測有効化")
+                print(f"[OK] バックテスト統合: 過去実績ベース予測有効化")
             except Exception as e:
                 print(f"[WARNING] バックテスト統合初期化失敗: {e}")
                 self.prediction_validator = None
@@ -2059,7 +2059,7 @@ class DayTradeWebDashboard:
             return None
 
 
-async def main():
+def main():
     """メイン処理"""
     show_header()
     args = parse_arguments()
@@ -2365,19 +2365,21 @@ def output_multi_prediction_json(prediction):
     """マルチタイムフレーム予測結果のJSON出力"""
     data = {
         'symbol': prediction.symbol,
-        'consensus_direction': prediction.consensus_direction,
-        'consensus_confidence': prediction.consensus_confidence,
-        'recommended_strategy': prediction.recommended_strategy,
-        'best_timeframe': prediction.best_timeframe.value,
-        'risk_assessment': prediction.risk_assessment,
-        'predictions': {
-            timeframe.value: {
-                'direction': pred.prediction_direction,
-                'confidence': pred.confidence,
-                'expected_return': pred.expected_return,
-                'risk_level': pred.risk_level
+        'multi_timeframe_prediction': {
+            'consensus_direction': prediction.consensus_direction,
+            'consensus_confidence': prediction.consensus_confidence,
+            'best_timeframe': prediction.best_timeframe.value,
+            'recommended_strategy': prediction.recommended_strategy,
+            'risk_assessment': prediction.risk_assessment,
+            'predictions': {
+                timeframe.value: {
+                    'direction': pred.prediction_direction,
+                    'confidence': pred.confidence,
+                    'expected_return': pred.expected_return,
+                    'risk_level': pred.risk_level
+                }
+                for timeframe, pred in prediction.predictions.items()
             }
-            for timeframe, pred in prediction.predictions.items()
         },
         'timestamp': datetime.now().isoformat()
     }
@@ -2457,6 +2459,20 @@ def output_portfolio_json(results):
 
 if __name__ == "__main__":
     try:
+        # 引数に --train-overnight-model があれば学習を実行
+        if '--train-overnight-model' in sys.argv:
+            print("--- 翌朝場予測モデルの学習を開始します ---")
+            try:
+                from overnight_prediction_model import OvernightPredictionModel
+                model = OvernightPredictionModel()
+                asyncio.run(model.train())
+                print("--- 学習が完了しました ---")
+            except ImportError:
+                print("[ERROR] overnight_prediction_model.py が見つかりません。")
+            except Exception as e:
+                print(f"[ERROR] 学習中にエラーが発生しました: {e}")
+            sys.exit(0)
+
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nプログラムを終了します。")
