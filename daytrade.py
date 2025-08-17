@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 
-from model_performance_monitor import EnhancedModelPerformanceMonitor as ModelPerformanceMonitor
+from model_performance_monitor import ModelPerformanceMonitor
 try:
     from overnight_prediction_model import OvernightPredictionModel
     OVERNIGHT_MODEL_AVAILABLE = True
