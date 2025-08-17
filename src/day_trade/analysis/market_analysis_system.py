@@ -29,7 +29,7 @@ class MarketAnalysisSystem:
     ※ 注文実行機能は含まれていません
     """
 
-    def __init__(self, symbols: List[str]):
+    def __init__(self, symbols: List[str]) -> None:
         # 安全確認
         if not is_safe_mode():
             raise RuntimeError("安全性エラー: 自動取引が無効化されていません")
@@ -435,7 +435,7 @@ class ManualTradingSupport:
     自動取引に代わる手動取引支援機能を提供
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         if not is_safe_mode():
             raise RuntimeError("安全性エラー: 自動取引が無効化されていません")
 

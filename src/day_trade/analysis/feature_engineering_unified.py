@@ -232,7 +232,7 @@ else:
 class FeatureEngineeringBase(OptimizationStrategy):
     """特徴量エンジニアリングの基底戦略クラス"""
 
-    def __init__(self, config: OptimizationConfig):
+    def __init__(self, config: OptimizationConfig) -> None:
         super().__init__(config)
         self.feature_config = FeatureConfig.default()
 
@@ -509,9 +509,9 @@ class OptimizedFeatureEngineering(FeatureEngineeringBase):
 class FeatureEngineeringManager:
     """特徴量エンジニアリング統合マネージャー"""
 
-    def __init__(self, config: Optional[OptimizationConfig] = None):
+    def __init__(self, config: Optional[OptimizationConfig] = None) -> None:
         self.config = config or OptimizationConfig.from_env()
-        self._strategy = None
+        self._strategy: Optional[Any] = None
 
     def get_strategy(self) -> OptimizationStrategy:
         """現在の戦略を取得"""
@@ -547,10 +547,10 @@ class FeatureEngineeringManager:
 class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
     """データ最適化版特徴量エンジニアリング実装"""
 
-    def __init__(self, config: OptimizationConfig):
+    def __init__(self, config: OptimizationConfig) -> None:
         super().__init__(config)
-        self.data_optimizer = None
-        self.chunk_processor = None
+        self.data_optimizer: Optional[Any] = None
+        self.chunk_processor: Optional[Any] = None
 
         # データ最適化機能の初期化
         if DATA_OPTIMIZATION_AVAILABLE:

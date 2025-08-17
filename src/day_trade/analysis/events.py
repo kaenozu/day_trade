@@ -32,7 +32,7 @@ class MarketDataEvent(Event):
     # デフォルト値を持つフィールド (kw_only=True の影響を受けない)
     volume: Optional[int] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # super().__post_init__() を削除
         self.type = EventType.MARKET_DATA # ここでタイプを設定
 
@@ -46,7 +46,7 @@ class SignalEvent(Event):
     # デフォルト値を持つフィールド
     strength: float = 0.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # super().__post_init__() を削除
         self.type = EventType.SIGNAL
 
@@ -64,7 +64,7 @@ class OrderEvent(Event):
     price: Optional[float] = None
     stop_price: Optional[float] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # super().__post_init__() を削除
         self.type = EventType.ORDER
 
@@ -82,7 +82,7 @@ class FillEvent(Event):
     slippage: float
     fill_time: datetime
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # super().__post_init__() を削除
         self.type = EventType.FILL
 
