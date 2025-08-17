@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
+#!/usr / bin / env python3
 """
 GPU並列処理エンジン
 Phase F: 次世代機能拡張フェーズ
 
-CUDA/OpenCL による10-100倍高速化処理
+CUDA / OpenCL による10 - 100倍高速化処理
 """
 
 import time
@@ -17,14 +17,14 @@ import pandas as pd
 
 # CuPy可用性チェック
 try:
-    import cupy as cp  # type: ignore[import-untyped]
+    import cupy as cp  # type: ignore[import - untyped]
 
     CUPY_AVAILABLE = True
 except ImportError:
     CUPY_AVAILABLE = False
     cp = None  # type: ignore[misc]
     warnings.warn(
-        "CuPy未インストール - GPU加速機能利用不可", ImportWarning, stacklevel=2
+        "CuPy未インストール - GPU加速機能利用不可", ImportWarning, stacklevel = 2
     )
 
 from ..core.optimization_strategy import (
@@ -37,16 +37,14 @@ from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
-warnings.filterwarnings("ignore", category=RuntimeWarning)
-
+warnings.filterwarnings("ignore", category = RuntimeWarning)
 
 class GPUBackend(Enum):
     """GPU バックエンド種別"""
 
     CUDA = "cuda"  # NVIDIA CUDA
-    OPENCL = "opencl"  # OpenCL (AMD/Intel)
+    OPENCL = "opencl"  # OpenCL (AMD / Intel)
     CPU_FALLBACK = "cpu"  # CPU フォールバック
-
 
 @dataclass
 class GPUDeviceInfo:
@@ -60,7 +58,6 @@ class GPUDeviceInfo:
     compute_capability: Optional[str] = None
     is_available: bool = True
 
-
 @dataclass
 class GPUComputeResult:
     """GPU計算結果"""
@@ -72,11 +69,11 @@ class GPUComputeResult:
     memory_used: float  # MB
     speedup_ratio: Optional[float] = None
 
-
 class GPUMemoryManager:
     """GPU メモリ管理"""
 
-    def __init__(self):
+    def __init__(self) -> None:
+    """__init__関数"""
         self.allocated_blocks = {}
         self.peak_memory_usage = 0
         self.current_memory_usage = 0
@@ -100,7 +97,7 @@ class GPUMemoryManager:
                     }
             else:
                 # フォールバック: NumPy配列
-                memory_block = np.zeros(size, dtype=np.float32)
+                memory_block = np.zeros(size, dtype = np.float32)
                 self.allocated_blocks[block_id] = {
                     "block": memory_block,
                     "size": size,
@@ -120,7 +117,7 @@ class GPUMemoryManager:
             logger.error(f"GPU メモリ割り当てエラー: {e}")
             raise
 
-    def deallocate(self, block_id: str):
+    def deallocate(self, block_id: str) -> None:
         """GPU メモリ解放"""
         if block_id in self.allocated_blocks:
             block_info = self.allocated_blocks[block_id]
@@ -167,11 +164,11 @@ class GPUMemoryManager:
         except (ImportError, Exception):
             return False
 
-
 class GPUAccelerationEngine:
     """GPU並列処理エンジン"""
 
-    def __init__(self, config: Optional[OptimizationConfig] = None):
+    """__init__関数"""
+    def __init__(self, config: Optional[OptimizationConfig] = None) -> None:
         self.config = config or OptimizationConfig()
         self.memory_manager = GPUMemoryManager()
 
@@ -209,7 +206,7 @@ class GPUAccelerationEngine:
 
         # OpenCL チェック
         try:
-            import pyopencl as cl  # type: ignore[import-untyped]
+            import pyopencl as cl  # type: ignore[import - untyped]
 
             platforms = cl.get_platforms()
             if platforms:
@@ -239,15 +236,15 @@ class GPUAccelerationEngine:
 
                         devices.append(
                             GPUDeviceInfo(
-                                device_id=i,
-                                name=device_props["name"].decode("utf-8"),
-                                backend=GPUBackend.CUDA,
-                                memory_total=device_props["totalGlobalMem"]
+                                device_id = i,
+                                name = device_props["name"].decode("utf - 8"),
+                                backend = GPUBackend.CUDA,
+                                memory_total = device_props["totalGlobalMem"]
                                 // 1024
                                 // 1024,  # MB
-                                memory_free=mem_info[0] // 1024 // 1024,  # MB
-                                compute_capability=f"{device_props['major']}.{device_props['minor']}",
-                                is_available=True,
+                                memory_free = mem_info[0] // 1024 // 1024,  # MB
+                                compute_capability = f"{device_props['major']}.{device_props['minor']}",
+                                is_available = True,
                             )
                         )
             except Exception as e:
@@ -262,16 +259,16 @@ class GPUAccelerationEngine:
                     for i, device in enumerate(platform.get_devices()):
                         devices.append(
                             GPUDeviceInfo(
-                                device_id=i,
-                                name=device.name,
-                                backend=GPUBackend.OPENCL,
-                                memory_total=device.global_mem_size
+                                device_id = i,
+                                name = device.name,
+                                backend = GPUBackend.OPENCL,
+                                memory_total = device.global_mem_size
                                 // 1024
                                 // 1024,  # MB
-                                memory_free=device.global_mem_size
+                                memory_free = device.global_mem_size
                                 // 1024
                                 // 1024,  # MB (近似)
-                                is_available=True,
+                                is_available = True,
                             )
                         )
             except Exception as e:
@@ -283,13 +280,13 @@ class GPUAccelerationEngine:
         devices.append(
             GPUDeviceInfo(
                 device_id=-1,
-                name=f"CPU ({psutil.cpu_count()}コア)",
-                backend=GPUBackend.CPU_FALLBACK,
-                memory_total=int(psutil.virtual_memory().total // 1024 // 1024),  # MB
-                memory_free=int(
+                name = f"CPU ({psutil.cpu_count()}コア)",
+                backend = GPUBackend.CPU_FALLBACK,
+                memory_total = int(psutil.virtual_memory().total // 1024 // 1024),  # MB
+                memory_free = int(
                     psutil.virtual_memory().available // 1024 // 1024
                 ),  # MB
-                is_available=True,
+                is_available = True,
             )
         )
 
@@ -339,11 +336,11 @@ class GPUAccelerationEngine:
                 self.performance_stats["total_cpu_time"] += execution_time
 
             return GPUComputeResult(
-                result=result,
-                execution_time=execution_time,
-                backend_used=self.primary_backend,
-                device_info=device_info,
-                memory_used=memory_used,
+                result = result,
+                execution_time = execution_time,
+                backend_used = self.primary_backend,
+                device_info = device_info,
+                memory_used = memory_used,
             )
 
         except Exception as e:
@@ -473,7 +470,7 @@ class GPUAccelerationEngine:
             avg_loss[i] = ((period - 1) * avg_loss[i - 1] + loss[i - 1]) / period
 
         # RSI 計算
-        rs = avg_gain / cp.where(avg_loss != 0, avg_loss, 1e-10)
+        rs = avg_gain / cp.where(avg_loss != 0, avg_loss, 1e - 10)
         rsi = 100 - (100 / (1 + rs))
 
         return rsi
@@ -588,7 +585,7 @@ class GPUAccelerationEngine:
         avg_gain = np.convolve(gain, np.ones(period) / period, mode="valid")
         avg_loss = np.convolve(loss, np.ones(period) / period, mode="valid")
 
-        rs = avg_gain / np.where(avg_loss != 0, avg_loss, 1e-10)
+        rs = avg_gain / np.where(avg_loss != 0, avg_loss, 1e - 10)
         rsi = 100 - (100 / (1 + rs))
 
         return rsi
@@ -607,18 +604,18 @@ class GPUAccelerationEngine:
         device_info = GPUDeviceInfo(
             device_id=-1,
             name="CPU Fallback",
-            backend=GPUBackend.CPU_FALLBACK,
-            memory_total=0,
-            memory_free=0,
-            is_available=True,
+            backend = GPUBackend.CPU_FALLBACK,
+            memory_total = 0,
+            memory_free = 0,
+            is_available = True,
         )
 
         return GPUComputeResult(
-            result=result,
-            execution_time=execution_time,
-            backend_used=GPUBackend.CPU_FALLBACK,
-            device_info=device_info,
-            memory_used=self._estimate_memory_usage(data),
+            result = result,
+            execution_time = execution_time,
+            backend_used = GPUBackend.CPU_FALLBACK,
+            device_info = device_info,
+            memory_used = self._estimate_memory_usage(data),
         )
 
     def _get_device_info(self, device_id: int) -> GPUDeviceInfo:
@@ -632,7 +629,7 @@ class GPUAccelerationEngine:
 
     def _estimate_memory_usage(self, data: pd.DataFrame) -> float:
         """メモリ使用量推定"""
-        return data.memory_usage(deep=True).sum() / 1024 / 1024  # MB
+        return data.memory_usage(deep = True).sum() / 1024 / 1024  # MB
 
     def get_performance_summary(self) -> Dict[str, Any]:
         """パフォーマンス統計取得"""
@@ -645,7 +642,7 @@ class GPUAccelerationEngine:
             "total_computations": self.performance_stats["total_computations"],
             "total_time": total_time,
             "gpu_time_ratio": self.performance_stats["total_gpu_time"]
-            / max(total_time, 1e-10),
+            / max(total_time, 1e - 10),
             "average_computation_time": total_time
             / max(self.performance_stats["total_computations"], 1),
             "primary_backend": self.primary_backend.value,
@@ -686,7 +683,6 @@ class GPUAccelerationEngine:
             },
         }
 
-
 @dataclass
 class GPUAcceleratedResult:
     """GPU加速実行結果"""
@@ -695,15 +691,16 @@ class GPUAcceleratedResult:
     computation_result: GPUComputeResult
     strategy_name: str
 
-
 # Strategy Pattern への統合
 @optimization_strategy("technical_indicators", OptimizationLevel.GPU_ACCELERATED)
 class GPUAcceleratedTechnicalIndicators(OptimizationStrategy):
     """GPU加速テクニカル指標戦略"""
+    """__init__関数"""
 
-    def __init__(self, config: OptimizationConfig):
+    def __init__(self, config: OptimizationConfig) -> None:
         super().__init__(config)
         self.gpu_engine = GPUAccelerationEngine(config)
+    """get_strategy_name関数"""
         logger.info("GPU加速テクニカル指標戦略初期化完了")
 
     def get_strategy_name(self) -> str:
@@ -726,9 +723,9 @@ class GPUAcceleratedTechnicalIndicators(OptimizationStrategy):
 
             # 結果をラップして返す
             return GPUAcceleratedResult(
-                indicators=result.result,
-                computation_result=result,
-                strategy_name=self.get_strategy_name(),
+                indicators = result.result,
+                computation_result = result,
+                strategy_name = self.get_strategy_name(),
             )
 
         except Exception as e:
@@ -736,6 +733,5 @@ class GPUAcceleratedTechnicalIndicators(OptimizationStrategy):
             self.record_execution(execution_time, False)
             logger.error(f"GPU加速実行エラー: {e}")
             raise
-
 
 # GPU_ACCELERATED レベルは optimization_strategy.py で定義済み

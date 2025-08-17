@@ -1,12 +1,13 @@
-"""Day Trade - A CLI-based day trading support application"""
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+"""Day Trade - A CLI - based day trading support application"""
 
 __version__ = "0.1.0"
 __author__ = "Your Name"
 __email__ = "your.email@example.com"
 
-
 # 構造化ロギングを自動設定
-def _setup_application_logging():
+def _setup_application_logging() -> None:
     """アプリケーション起動時の構造化ロギング設定"""
     try:
         from .utils.logging_config import setup_logging
@@ -17,10 +18,9 @@ def _setup_application_logging():
         import logging
 
         logging.basicConfig(
-            level=logging.INFO,
+            level = logging.INFO,
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
-
 
 # アプリケーション初期化時にロギングを設定
 _setup_application_logging()

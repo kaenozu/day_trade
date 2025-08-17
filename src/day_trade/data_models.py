@@ -1,5 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+#!/usr / bin / env python3
+# -*- coding: utf - 8 -*-
 """
 Data Models for Day Trading
 """
@@ -47,7 +49,7 @@ class Position:
     risk_level: RiskLevel = RiskLevel.MEDIUM
     max_holding_time: int = 240  # 分（4時間）
 
-    def update_current_price(self, price: float):
+    def update_current_price(self, price: float) -> None:
         """現在価格更新とPnL計算"""
         self.current_price = price
         self.pnl = (price - self.entry_price) * self.quantity

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr / bin / env python3
 """
 高度テクニカル指標システム（統合最適化版）
 Issue #315: 高度テクニカル指標・ML機能拡張
@@ -37,51 +37,62 @@ try:
 except ImportError:
     import logging
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level = logging.INFO)
 
-    def get_context_logger(name):
+    def get_context_logger(name) -> None:
+    """get_context_logger関数"""
         return logging.getLogger(name)
 
     # モックシステム
+    """UnifiedCacheManagerクラス"""
+    """__init__関数"""
     class UnifiedCacheManager:
-        def __init__(self, **kwargs):
+        def __init__(self, **kwargs) -> None:
+    """get関数"""
             pass
 
-        def get(self, key, default=None):
+    """put関数"""
+        def get(self, key, default = None) -> None:
             return default
 
-        def put(self, key, value, **kwargs):
+    """__init__関数"""
+        def put(self, key, value, **kwargs) -> None:
             return True
+    """start_monitoring関数"""
+    """PerformanceMonitorクラス"""
 
+    """stop_monitoring関数"""
     class PerformanceMonitor:
-        def __init__(self):
+        def __init__(self) -> None:
+    """get_metrics関数"""
             pass
 
-        def start_monitoring(self, name):
+        def start_monitoring(self, name) -> None:
+    """__init__関数"""
             pass
 
-        def stop_monitoring(self, name):
+        def stop_monitoring(self, name) -> None:
             pass
 
-        def get_metrics(self, name):
+        def get_metrics(self, name) -> None:
+    """AdvancedParallelMLEngineクラス"""
             return {"processing_time": 0, "memory_usage": 0}
 
     class AdvancedParallelMLEngine:
-        def __init__(self, **kwargs):
+        def __init__(self, **kwargs) -> None:
             pass
 
-        async def batch_process_symbols(self, **kwargs):
+    """generate_unified_cache_key関数"""
+        async def batch_process_symbols(self, **kwargs) -> None:
             return {}
 
-    def generate_unified_cache_key(*args, **kwargs):
+    def generate_unified_cache_key(*args, **kwargs) -> None:
         return f"advanced_technical_{hash(str(args) + str(kwargs))}"
-
 
 logger = get_context_logger(__name__)
 
 # 警告抑制
-warnings.filterwarnings("ignore", category=FutureWarning)
-
+warnings.filterwarnings("ignore", category = FutureWarning)
 
 @dataclass
 class BollingerBandsAnalysis:
@@ -91,7 +102,7 @@ class BollingerBandsAnalysis:
     middle_band: float  # SMA
     lower_band: float
     current_price: float
-    bb_position: float  # 0-1での位置 (0=下限, 1=上限)
+    bb_position: float  # 0 - 1での位置 (0=下限, 1=上限)
     squeeze_ratio: float  # バンド幅比率（低い=スクイーズ）
     volatility_regime: str  # "low", "normal", "high"
     breakout_probability: float  # ブレイクアウト確率
@@ -99,7 +110,6 @@ class BollingerBandsAnalysis:
     signal: str  # "BUY", "SELL", "HOLD"
     confidence: float  # 信頼度
     performance_score: float  # パフォーマンススコア
-
 
 @dataclass
 class IchimokuAnalysis:
@@ -121,7 +131,6 @@ class IchimokuAnalysis:
     confidence: float
     performance_score: float
 
-
 @dataclass
 class ComplexMAAnalysis:
     """複合移動平均分析結果"""
@@ -141,7 +150,6 @@ class ComplexMAAnalysis:
     confidence: float
     performance_score: float
 
-
 @dataclass
 class FibonacciAnalysis:
     """フィボナッチ分析結果"""
@@ -154,7 +162,6 @@ class FibonacciAnalysis:
     signal: str
     confidence: float
     performance_score: float
-
 
 class AdvancedTechnicalIndicatorsOptimized:
     """
@@ -175,7 +182,7 @@ class AdvancedTechnicalIndicatorsOptimized:
         cache_ttl_minutes: int = 5,
         max_concurrent: int = 20,
         confidence_threshold: float = 0.7,
-    ):
+    ) -> None:
         """
         初期化
 
@@ -194,34 +201,34 @@ class AdvancedTechnicalIndicatorsOptimized:
         if enable_cache:
             try:
                 self.cache_manager = UnifiedCacheManager(
-                    l1_memory_mb=64,  # 高速アクセス用
-                    l2_memory_mb=256,  # 中間キャッシュ
-                    l3_disk_mb=1024,  # 大容量永続キャッシュ
+                    l1_memory_mb = 64,  # 高速アクセス用
+                    l2_memory_mb = 256,  # 中間キャッシュ
+                    l3_disk_mb = 1024,  # 大容量永続キャッシュ
                 )
                 self.cache_enabled = True
                 logger.info("統合キャッシュシステム有効化（Issue #324連携）")
             except Exception as e:
                 logger.warning(f"統合キャッシュ初期化失敗: {e}")
-                self.cache_manager = None
+                self.cache_manager: Optional[Any] = None
                 self.cache_enabled = False
         else:
-            self.cache_manager = None
+            self.cache_manager: Optional[Any] = None
             self.cache_enabled = False
 
         # Issue #323: 並列処理エンジン連携
         if enable_parallel:
             try:
                 self.parallel_engine = AdvancedParallelMLEngine(
-                    cpu_workers=max_concurrent, cache_enabled=enable_cache
+                    cpu_workers = max_concurrent, cache_enabled = enable_cache
                 )
                 self.parallel_enabled = True
                 logger.info("高度並列処理システム有効化（Issue #323連携）")
             except Exception as e:
                 logger.warning(f"並列処理初期化失敗: {e}")
-                self.parallel_engine = None
+                self.parallel_engine: Optional[Any] = None
                 self.parallel_enabled = False
         else:
-            self.parallel_engine = None
+            self.parallel_engine: Optional[Any] = None
             self.parallel_enabled = False
 
         # Issue #325: パフォーマンス監視システム
@@ -271,7 +278,7 @@ class AdvancedTechnicalIndicatorsOptimized:
                     "optimized_analysis",
                     symbol,
                     {"period": period, "std_dev": std_dev, "optimization": True},
-                    time_bucket_minutes=self.cache_ttl_minutes,
+                    time_bucket_minutes = self.cache_ttl_minutes,
                 )
                 cached_result = self.cache_manager.get(cache_key)
                 if cached_result:
@@ -295,8 +302,8 @@ class AdvancedTechnicalIndicatorsOptimized:
             )
 
             # 最適化されたBollinger Bands計算
-            sma = close_prices.rolling(window=period, min_periods=period // 2).mean()
-            std = close_prices.rolling(window=period, min_periods=period // 2).std()
+            sma = close_prices.rolling(window = period, min_periods = period // 2).mean()
+            std = close_prices.rolling(window = period, min_periods = period // 2).std()
 
             upper_band = sma + (std * std_dev)
             lower_band = sma - (std * std_dev)
@@ -316,7 +323,7 @@ class AdvancedTechnicalIndicatorsOptimized:
             # Issue #322: 多角的分析による高精度スクイーズ判定
             # ボラティリティ履歴分析
             bb_width_series = (upper_band - lower_band) / sma
-            avg_bb_width = bb_width_series.rolling(window=50).mean().iloc[-1]
+            avg_bb_width = bb_width_series.rolling(window = 50).mean().iloc[-1]
             current_bb_width = (current_upper - current_lower) / current_middle
             squeeze_ratio = current_bb_width / avg_bb_width if avg_bb_width > 0 else 1.0
 
@@ -371,18 +378,18 @@ class AdvancedTechnicalIndicatorsOptimized:
 
             # 分析結果作成
             analysis = BollingerBandsAnalysis(
-                upper_band=current_upper,
-                middle_band=current_middle,
-                lower_band=current_lower,
-                current_price=current_price,
-                bb_position=bb_position,
-                squeeze_ratio=squeeze_ratio,
-                volatility_regime=volatility_regime,
-                breakout_probability=breakout_probability,
-                trend_strength=trend_strength,
-                signal=signal,
-                confidence=confidence,
-                performance_score=performance_score,
+                upper_band = current_upper,
+                middle_band = current_middle,
+                lower_band = current_lower,
+                current_price = current_price,
+                bb_position = bb_position,
+                squeeze_ratio = squeeze_ratio,
+                volatility_regime = volatility_regime,
+                breakout_probability = breakout_probability,
+                trend_strength = trend_strength,
+                signal = signal,
+                confidence = confidence,
+                performance_score = performance_score,
             )
 
             # Issue #324: 統合キャッシュ保存
@@ -390,7 +397,7 @@ class AdvancedTechnicalIndicatorsOptimized:
                 self.cache_manager.put(
                     cache_key,
                     asdict(analysis),
-                    priority=5.0,  # 高優先度（高度分析結果）
+                    priority = 5.0,  # 高優先度（高度分析結果）
                 )
 
             # パフォーマンス統計更新
@@ -446,7 +453,7 @@ class AdvancedTechnicalIndicatorsOptimized:
                         "senkou_b": senkou_b_period,
                         "optimization": True,
                     },
-                    time_bucket_minutes=self.cache_ttl_minutes,
+                    time_bucket_minutes = self.cache_ttl_minutes,
                 )
                 cached_result = self.cache_manager.get(cache_key)
                 if cached_result:
@@ -472,16 +479,16 @@ class AdvancedTechnicalIndicatorsOptimized:
             # 最適化された一目均衡表計算
             # 転換線の高速計算
             tenkan_high = high.rolling(
-                tenkan_period, min_periods=tenkan_period // 2
+                tenkan_period, min_periods = tenkan_period // 2
             ).max()
             tenkan_low = low.rolling(
-                tenkan_period, min_periods=tenkan_period // 2
+                tenkan_period, min_periods = tenkan_period // 2
             ).min()
             tenkan_sen = (tenkan_high + tenkan_low) / 2
 
             # 基準線の高速計算
-            kijun_high = high.rolling(kijun_period, min_periods=kijun_period // 2).max()
-            kijun_low = low.rolling(kijun_period, min_periods=kijun_period // 2).min()
+            kijun_high = high.rolling(kijun_period, min_periods = kijun_period // 2).max()
+            kijun_low = low.rolling(kijun_period, min_periods = kijun_period // 2).min()
             kijun_sen = (kijun_high + kijun_low) / 2
 
             # 先行スパンA
@@ -489,10 +496,10 @@ class AdvancedTechnicalIndicatorsOptimized:
 
             # 先行スパンB
             senkou_b_high = high.rolling(
-                senkou_b_period, min_periods=senkou_b_period // 2
+                senkou_b_period, min_periods = senkou_b_period // 2
             ).max()
             senkou_b_low = low.rolling(
-                senkou_b_period, min_periods=senkou_b_period // 2
+                senkou_b_period, min_periods = senkou_b_period // 2
             ).min()
             senkou_span_b = ((senkou_b_high + senkou_b_low) / 2).shift(kijun_period)
 
@@ -671,26 +678,26 @@ class AdvancedTechnicalIndicatorsOptimized:
             )
 
             analysis = IchimokuAnalysis(
-                tenkan_sen=current_tenkan,
-                kijun_sen=current_kijun,
-                senkou_span_a=current_senkou_a,
-                senkou_span_b=current_senkou_b,
-                chikou_span=current_chikou,
-                current_price=current_price,
-                cloud_thickness=cloud_thickness,
-                cloud_color=cloud_color,
-                price_vs_cloud=price_vs_cloud,
-                tk_cross=tk_cross,
-                chikou_signal=chikou_signal,
-                overall_signal=overall_signal,
-                trend_strength=trend_strength,
-                confidence=confidence,
-                performance_score=performance_score,
+                tenkan_sen = current_tenkan,
+                kijun_sen = current_kijun,
+                senkou_span_a = current_senkou_a,
+                senkou_span_b = current_senkou_b,
+                chikou_span = current_chikou,
+                current_price = current_price,
+                cloud_thickness = cloud_thickness,
+                cloud_color = cloud_color,
+                price_vs_cloud = price_vs_cloud,
+                tk_cross = tk_cross,
+                chikou_signal = chikou_signal,
+                overall_signal = overall_signal,
+                trend_strength = trend_strength,
+                confidence = confidence,
+                performance_score = performance_score,
             )
 
             # 統合キャッシュ保存
             if self.cache_enabled:
-                self.cache_manager.put(cache_key, asdict(analysis), priority=5.0)
+                self.cache_manager.put(cache_key, asdict(analysis), priority = 5.0)
 
             # パフォーマンス統計更新
             processing_time = time.time() - start_time
@@ -793,7 +800,7 @@ class AdvancedTechnicalIndicatorsOptimized:
             tasks.append(task)
 
         # 並列実行
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio.gather(*tasks, return_exceptions = True)
 
         # 結果整理
         final_results = {}
@@ -842,7 +849,7 @@ class AdvancedTechnicalIndicatorsOptimized:
         # 並列実行
         if analysis_tasks:
             task_results = await asyncio.gather(
-                *[task[1] for task in analysis_tasks], return_exceptions=True
+                *[task[1] for task in analysis_tasks], return_exceptions = True
             )
 
             for i, (analysis_name, _) in enumerate(analysis_tasks):
@@ -860,20 +867,20 @@ class AdvancedTechnicalIndicatorsOptimized:
         """複合移動平均分析（最適化版）"""
         # 簡易実装（詳細は既存実装と同様）
         return ComplexMAAnalysis(
-            ma_5=0.0,
-            ma_25=0.0,
-            ma_75=0.0,
-            ma_200=0.0,
-            current_price=data["Close"].iloc[-1],
+            ma_5 = 0.0,
+            ma_25 = 0.0,
+            ma_75 = 0.0,
+            ma_200 = 0.0,
+            current_price = data["Close"].iloc[-1],
             ma_alignment="mixed",
-            golden_cross=False,
-            death_cross=False,
+            golden_cross = False,
+            death_cross = False,
             support_resistance={},
             trend_phase="accumulation",
-            momentum_score=0.0,
+            momentum_score = 0.0,
             signal="HOLD",
-            confidence=0.5,
-            performance_score=0.5,
+            confidence = 0.5,
+            performance_score = 0.5,
         )
 
     async def _analyze_fibonacci_optimized(
@@ -885,11 +892,11 @@ class AdvancedTechnicalIndicatorsOptimized:
             retracement_levels={},
             extension_levels={},
             current_level="50%",
-            support_level=data["Low"].min(),
-            resistance_level=data["High"].max(),
+            support_level = data["Low"].min(),
+            resistance_level = data["High"].max(),
             signal="HOLD",
-            confidence=0.5,
-            performance_score=0.5,
+            confidence = 0.5,
+            performance_score = 0.5,
         )
 
     def _generate_optimized_bb_signal(
@@ -1008,38 +1015,38 @@ class AdvancedTechnicalIndicatorsOptimized:
     def _create_default_bb_analysis(self) -> BollingerBandsAnalysis:
         """デフォルトBollinger Bands分析結果"""
         return BollingerBandsAnalysis(
-            upper_band=0.0,
-            middle_band=0.0,
-            lower_band=0.0,
-            current_price=0.0,
-            bb_position=0.5,
-            squeeze_ratio=1.0,
+            upper_band = 0.0,
+            middle_band = 0.0,
+            lower_band = 0.0,
+            current_price = 0.0,
+            bb_position = 0.5,
+            squeeze_ratio = 1.0,
             volatility_regime="normal",
-            breakout_probability=0.5,
-            trend_strength=0.0,
+            breakout_probability = 0.5,
+            trend_strength = 0.0,
             signal="HOLD",
-            confidence=0.5,
-            performance_score=0.5,
+            confidence = 0.5,
+            performance_score = 0.5,
         )
 
     def _create_default_ichimoku_analysis(self) -> IchimokuAnalysis:
         """デフォルト一目均衡表分析結果"""
         return IchimokuAnalysis(
-            tenkan_sen=0.0,
-            kijun_sen=0.0,
-            senkou_span_a=0.0,
-            senkou_span_b=0.0,
-            chikou_span=0.0,
-            current_price=0.0,
-            cloud_thickness=0.0,
+            tenkan_sen = 0.0,
+            kijun_sen = 0.0,
+            senkou_span_a = 0.0,
+            senkou_span_b = 0.0,
+            chikou_span = 0.0,
+            current_price = 0.0,
+            cloud_thickness = 0.0,
             cloud_color="neutral",
             price_vs_cloud="in",
             tk_cross="neutral",
             chikou_signal="neutral",
             overall_signal="HOLD",
-            trend_strength=0.0,
-            confidence=0.5,
-            performance_score=0.5,
+            trend_strength = 0.0,
+            confidence = 0.5,
+            performance_score = 0.5,
         )
 
     def get_optimization_performance_stats(self) -> Dict[str, Any]:
@@ -1067,16 +1074,15 @@ class AdvancedTechnicalIndicatorsOptimized:
             },
         }
 
-
 # テスト実行用
 if __name__ == "__main__":
     import asyncio
 
-    async def test_optimized_system():
+    async def test_optimized_system() -> None:
         print("=== 統合最適化版高度テクニカル指標システムテスト ===")
 
         # テストデータ生成
-        dates = pd.date_range(start="2024-01-01", periods=100)
+        dates = pd.date_range(start="2024 - 01 - 01", periods = 100)
         test_data = pd.DataFrame(
             {
                 "Open": np.random.uniform(2000, 2500, 100),
@@ -1085,15 +1091,15 @@ if __name__ == "__main__":
                 "Close": np.random.uniform(2000, 2500, 100),
                 "Volume": np.random.randint(500000, 2000000, 100),
             },
-            index=dates,
+            index = dates,
         )
 
         # システム初期化
         analyzer = AdvancedTechnicalIndicatorsOptimized(
-            enable_cache=True,
-            enable_parallel=True,
-            enable_ml_optimization=True,
-            max_concurrent=10,
+            enable_cache = True,
+            enable_parallel = True,
+            enable_ml_optimization = True,
+            max_concurrent = 10,
         )
 
         # Bollinger Bands分析テスト
