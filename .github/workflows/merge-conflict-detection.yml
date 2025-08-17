@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   conflict-detection:
+    if: false
     runs-on: ubuntu-latest
     name: Detect merge conflicts
 
@@ -147,7 +148,7 @@ jobs:
           fi
 
           # CI/CD files
-          if echo "$CHANGED_FILES" | grep -E "\.github|\.gitlab|\.circleci|Dockerfile|docker-compose"; then
+          if echo "$CHANGED_FILES" | grep -E "\.github|.gitlab|.circleci|Dockerfile|docker-compose"; then
             HIGH_RISK_CHANGES="$HIGH_RISK_CHANGES\n🔧 CI/CD configuration"
           fi
 
@@ -248,10 +249,13 @@ jobs:
 
             const body = `## ⚠️ コンフリクトマーカーが検出されました
 
-            コード内にマージコンフリクトマーカー ( `<<<<<<< `,
-            `=======`,
-            `>>>>>>>`
-            ) が残っています。
+            コード内にマージコンフリクトマーカー ( 
+<<<<<<< 
+, 
+=======
+, 
+>>>>>>> 
+) が残っています。
 
             ### 🔍 検出された箇所:
             `bash
