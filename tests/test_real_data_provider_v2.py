@@ -22,8 +22,8 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from real_data_provider_v2 import (
     DataSourceConfigManager,
-    YahooFinanceProviderV2,
-    MultiSourceDataProvider,
+    ImprovedYahooFinanceProvider,
+    ImprovedImprovedMultiSourceDataProvider,
     DataSource,
     DataQuality,
     DataSourceInfo,
@@ -134,8 +134,8 @@ class TestDataSourceConfigManager:
         assert config_manager.is_data_source_enabled('yahoo_finance') == True
 
 
-class TestYahooFinanceProviderV2:
-    """YahooFinanceProviderV2のテストクラス"""
+class TestImprovedYahooFinanceProvider:
+    """ImprovedYahooFinanceProviderのテストクラス"""
 
     @pytest.fixture
     def mock_config_manager(self):
@@ -177,7 +177,7 @@ class TestYahooFinanceProviderV2:
 
     def test_initialization_with_config(self, mock_config_manager):
         """外部設定による初期化テスト"""
-        provider = YahooFinanceProviderV2(mock_config_manager)
+        provider = ImprovedYahooFinanceProvider(mock_config_manager)
 
         assert provider.daily_limit == 1000
         assert provider.min_request_interval == 0.6  # 60/100
@@ -186,7 +186,7 @@ class TestYahooFinanceProviderV2:
 
     def test_symbol_variations_generation(self, mock_config_manager):
         """銘柄コードバリエーション生成テスト"""
-        provider = YahooFinanceProviderV2(mock_config_manager)
+        provider = ImprovedYahooFinanceProvider(mock_config_manager)
 
         # 数字のみの銘柄コード
         variations = provider._generate_symbol_variations("7203")
@@ -199,7 +199,7 @@ class TestYahooFinanceProviderV2:
 
     def test_data_quality_validation_basic(self, mock_config_manager):
         """基本的なデータ品質チェックテスト"""
-        provider = YahooFinanceProviderV2(mock_config_manager)
+        provider = ImprovedYahooFinanceProvider(mock_config_manager)
 
         # 正常なデータ
         good_data = pd.DataFrame({
@@ -227,7 +227,7 @@ class TestYahooFinanceProviderV2:
 
     def test_data_quality_validation_iqr(self, mock_config_manager):
         """IQR法による異常値検知テスト"""
-        provider = YahooFinanceProviderV2(mock_config_manager)
+        provider = ImprovedYahooFinanceProvider(mock_config_manager)
 
         # 正常な価格範囲のデータ
         normal_data = pd.DataFrame({
@@ -250,8 +250,8 @@ class TestYahooFinanceProviderV2:
         assert provider._validate_data_quality(outlier_data) == False
 
 
-class TestMultiSourceDataProvider:
-    """MultiSourceDataProviderのテストクラス"""
+class TestImprovedMultiSourceDataProvider:
+    """ImprovedMultiSourceDataProviderのテストクラス"""
 
     @pytest.fixture
     def mock_config_manager(self):
@@ -272,7 +272,7 @@ class TestMultiSourceDataProvider:
     @patch('real_data_provider_v2.SYMBOL_SELECTOR_AVAILABLE', False)
     def test_initialization_without_symbol_selector(self, mock_config_manager):
         """symbol_selector無しでの初期化テスト"""
-        provider = MultiSourceDataProvider(config_manager=mock_config_manager)
+        provider = ImprovedMultiSourceDataProvider(config_manager=mock_config_manager)
 
         assert provider.symbol_selector is None
         assert len(provider.providers) == 2  # yahoo_finance + stooq
@@ -281,7 +281,7 @@ class TestMultiSourceDataProvider:
 
     def test_provider_prioritization(self, mock_config_manager):
         """プロバイダー優先度決定テスト"""
-        provider = MultiSourceDataProvider(config_manager=mock_config_manager)
+        provider = ImprovedMultiSourceDataProvider(config_manager=mock_config_manager)
 
         # 品質スコアを設定
         provider.source_info[DataSource.YAHOO_FINANCE].current_quality_score = 90.0
@@ -295,7 +295,7 @@ class TestMultiSourceDataProvider:
     @pytest.mark.asyncio
     async def test_stock_data_retrieval_success(self, mock_config_manager):
         """株価データ取得成功テスト"""
-        provider = MultiSourceDataProvider(config_manager=mock_config_manager)
+        provider = ImprovedMultiSourceDataProvider(config_manager=mock_config_manager)
 
         # モックデータの作成
         mock_data = pd.DataFrame({
@@ -321,7 +321,7 @@ class TestMultiSourceDataProvider:
     @pytest.mark.asyncio
     async def test_fallback_mechanism(self, mock_config_manager):
         """フォールバック機能テスト"""
-        provider = MultiSourceDataProvider(config_manager=mock_config_manager)
+        provider = ImprovedMultiSourceDataProvider(config_manager=mock_config_manager)
 
         # Yahoo Financeが失敗、Stooqが成功するシナリオ
         mock_yahoo_provider = AsyncMock()
@@ -346,7 +346,7 @@ class TestMultiSourceDataProvider:
 
     def test_performance_metrics_tracking(self, mock_config_manager):
         """性能メトリクス追跡テスト"""
-        provider = MultiSourceDataProvider(config_manager=mock_config_manager)
+        provider = ImprovedMultiSourceDataProvider(config_manager=mock_config_manager)
 
         # 初期状態の確認
         assert provider.performance_metrics.total_requests == 0
@@ -434,7 +434,7 @@ class TestIntegration:
 
             # 設定管理とデータプロバイダーの初期化
             config_manager = DataSourceConfigManager(config_path)
-            provider = MultiSourceDataProvider(config_manager=config_manager)
+            provider = ImprovedMultiSourceDataProvider(config_manager=config_manager)
 
             # 設定が正しく読み込まれているか確認
             assert config_manager.is_data_source_enabled('yahoo_finance') == True

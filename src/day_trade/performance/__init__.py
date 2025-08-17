@@ -1,128 +1,124 @@
 #!/usr/bin/env python3
 """
-パフォーマンス最適化パッケージ
-Issue #434: 本番環境パフォーマンス最終最適化
-Issue #443: HFT超低レイテンシ最適化 - <10μs実現戦略
+パフォーマンス統合モジュール
 
-HFT超低レイテンシとGPU加速による極限性能システム
-Rust FFI統合による究極の低レイテンシ(<10μs)実現
+全ての最適化機能を統合するメインモジュール
 """
 
-from .gpu_accelerator import (
-    GPUAccelerator,
-    GPUConfig,
-    get_gpu_accelerator,
-    gpu_accelerated,
-)
-from .hft_optimizer import HFTConfig, HFTOptimizer, get_hft_optimizer, hft_optimized
+import asyncio
+import atexit
+from typing import Dict, Any
 
-# Issue #443: 超低レイテンシシステム
-try:
-    from .system_optimization import (
-        SystemOptimizationConfig,
-        SystemOptimizer,
-        setup_ultra_low_latency_system,
-    )
-    from .ultra_low_latency_core import (
-        UltraLowLatencyConfig,
-        UltraLowLatencyCore,
-        create_ultra_low_latency_core,
-    )
-
-    ULTRA_LOW_LATENCY_AVAILABLE = True
-except ImportError:
-    ULTRA_LOW_LATENCY_AVAILABLE = False
-
-__all__ = [
-    # 既存システム
-    "GPUAccelerator",
-    "GPUConfig",
-    "get_gpu_accelerator",
-    "gpu_accelerated",
-    "HFTOptimizer",
-    "HFTConfig",
-    "get_hft_optimizer",
-    "hft_optimized",
-    # 超低レイテンシシステム可用性フラグ
-    "ULTRA_LOW_LATENCY_AVAILABLE",
-]
-
-# 超低レイテンシシステムが利用可能な場合に追加
-if ULTRA_LOW_LATENCY_AVAILABLE:
-    __all__.extend(
-        [
-            "UltraLowLatencyCore",
-            "UltraLowLatencyConfig",
-            "create_ultra_low_latency_core",
-            "SystemOptimizer",
-            "SystemOptimizationConfig",
-            "setup_ultra_low_latency_system",
-        ]
-    )
-
-__version__ = "2.0.0"  # 超低レイテンシ対応によるメジャーバージョンアップ
+from .lazy_imports import optimized_imports
+from .optimized_cache import cache_manager
+from .database_optimizer import get_db_manager
+from .memory_optimizer import start_memory_monitoring, stop_memory_monitoring, get_memory_stats
+from .async_optimizer import task_manager, hybrid_executor
 
 
-# パフォーマンス情報取得関数
-def get_performance_info():
-    """パフォーマンス最適化システム情報取得"""
-    info = {
-        "version": __version__,
-        "systems": {
-            "hft_optimizer": "HFT <50μs最適化システム",
-            "gpu_accelerator": "GPU加速処理システム",
-        },
-        "features": [
-            "SIMD並列処理",
-            "メモリプール事前割り当て",
-            "CPUキャッシュ最適化",
-            "CUDA GPU加速",
-            "PyTorch/TensorFlow統合",
-        ],
-    }
+class PerformanceManager:
+    """パフォーマンス管理統合クラス"""
 
-    if ULTRA_LOW_LATENCY_AVAILABLE:
-        info["systems"]["ultra_low_latency"] = "超低レイテンシ <10μs実現システム"
-        info["features"].extend(
-            [
-                "Rust FFI統合",
-                "Lock-freeデータ構造",
-                "システムレベル最適化",
-                "リアルタイムスケジューラ",
-                "CPU親和性制御",
-                "RDTSC高精度タイミング",
-            ]
-        )
+    def __init__(self):
+        self.initialized = False
+        self.db_managers = {}
 
-    return info
+    def initialize(self, config: Dict[str, Any] = None):
+        """パフォーマンス最適化初期化"""
+        if self.initialized:
+            return
+
+        print("🚀 パフォーマンス最適化初期化中...")
+
+        # デフォルト設定
+        if config is None:
+            config = {
+                'memory_monitoring': True,
+                'cache_enabled': True,
+                'async_optimization': True,
+                'db_optimization': True
+            }
+
+        # メモリ監視開始
+        if config.get('memory_monitoring', True):
+            start_memory_monitoring()
+            print("  ✅ メモリ監視開始")
+
+        # キャッシュ初期化
+        if config.get('cache_enabled', True):
+            cache_manager.clear_all()  # 初期化時にクリア
+            print("  ✅ キャッシュシステム初期化")
+
+        # クリーンアップ登録
+        atexit.register(self.cleanup)
+
+        self.initialized = True
+        print("🎯 パフォーマンス最適化完了")
+
+    def get_db_manager(self, db_path: str):
+        """データベースマネージャー取得"""
+        if db_path not in self.db_managers:
+            self.db_managers[db_path] = get_db_manager(db_path)
+        return self.db_managers[db_path]
+
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """パフォーマンス統計取得"""
+        stats = {
+            'timestamp': asyncio.get_event_loop().time(),
+            'memory': get_memory_stats(),
+            'cache': cache_manager.get_global_stats(),
+            'async_tasks': task_manager.get_stats(),
+        }
+
+        # データベース統計
+        db_stats = {}
+        for db_path, manager in self.db_managers.items():
+            db_stats[db_path] = manager.get_performance_stats()
+        stats['databases'] = db_stats
+
+        return stats
+
+    def cleanup(self):
+        """リソースクリーンアップ"""
+        if not self.initialized:
+            return
+
+        print("パフォーマンス最適化クリーンアップ中...")
+
+        # メモリ監視停止
+        stop_memory_monitoring()
+
+        # 非同期リソースクリーンアップ
+        hybrid_executor.cleanup()
+
+        # キャッシュクリア
+        cache_manager.clear_all()
+
+        print("✅ クリーンアップ完了")
 
 
-# システム能力検証関数
-def verify_system_capabilities():
-    """システム能力検証"""
-    capabilities = {
-        "hft_basic": True,
-        "gpu_acceleration": False,
-        "ultra_low_latency": ULTRA_LOW_LATENCY_AVAILABLE,
-        "system_optimization": False,
-    }
+# グローバルマネージャー
+performance_manager = PerformanceManager()
 
-    try:
-        # GPU能力チェック
-        gpu = get_gpu_accelerator()
-        if gpu.cuda_available or gpu.pytorch_available:
-            capabilities["gpu_acceleration"] = True
-    except Exception:
-        pass
+# 便利な関数
+def initialize_performance(config: Dict[str, Any] = None):
+    """パフォーマンス最適化初期化"""
+    performance_manager.initialize(config)
 
-    try:
-        # システム最適化能力チェック
-        if ULTRA_LOW_LATENCY_AVAILABLE:
-            import platform
+def get_performance_stats() -> Dict[str, Any]:
+    """パフォーマンス統計取得"""
+    return performance_manager.get_performance_stats()
 
-            if platform.system() in ["Linux", "Windows"]:
-                capabilities["system_optimization"] = True
-    except Exception:
-        pass
+def get_optimized_db(db_path: str):
+    """最適化されたDB取得"""
+    return performance_manager.get_db_manager(db_path)
 
-    return capabilities
+# 自動初期化（インポート時）
+def auto_initialize():
+    """自動初期化"""
+    import os
+    if os.environ.get('DAY_TRADE_AUTO_OPTIMIZE', '1') == '1':
+        initialize_performance()
+
+# モジュールインポート時に自動実行
+auto_initialize()

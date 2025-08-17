@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr / bin / env python3
 """
 Issue #619対応: 高度テクニカル指標計算（統合システム使用）
 
@@ -24,9 +24,8 @@ from .technical_indicators_consolidated import (
 
 logger = get_context_logger(__name__)
 
-warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", category=UserWarning)
-
+warnings.filterwarnings("ignore", category = FutureWarning)
+warnings.filterwarnings("ignore", category = UserWarning)
 
 class AdvancedTechnicalIndicators:
     """
@@ -39,7 +38,8 @@ class AdvancedTechnicalIndicators:
     新しいコードでは technical_indicators_consolidated.TechnicalIndicatorsManager を使用してください。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+    """__init__関数"""
         # Issue #619対応: 統合システムに委譲
         self._manager = TechnicalIndicatorsManager(IndicatorConfig())
         logger.info("高度テクニカル指標計算初期化完了 (統合システム使用)")
@@ -51,7 +51,7 @@ class AdvancedTechnicalIndicators:
 
     def calculate_ema(self, data: pd.DataFrame, period: int = 20) -> np.ndarray:
         """指数移動平均計算（統合システム委譲）"""
-        result = self._manager.calculate_indicators(data, ["ema"], period=period)
+        result = self._manager.calculate_indicators(data, ["ema"], period = period)
         return list(result.values())[0][0].values
 
     def calculate_rsi(self, data: pd.DataFrame, period: int = 14) -> np.ndarray:
@@ -77,7 +77,7 @@ class AdvancedTechnicalIndicators:
         """ボリンジャーバンド計算（統合システム委譲）"""
         result = self._manager.calculate_indicators(
             data, ["bollinger_bands"],
-            period=period, std_dev=std_dev
+            period = period, std_dev = std_dev
         )
         return list(result.values())[0][0].values
 
@@ -90,7 +90,7 @@ class AdvancedTechnicalIndicators:
         """ストキャスティクス計算（統合システム委譲）"""
         result = self._manager.calculate_indicators(
             data, ["stochastic"],
-            k_period=k_period, d_period=d_period
+            k_period = k_period, d_period = d_period
         )
         return list(result.values())[0][0].values
 
@@ -105,17 +105,16 @@ class AdvancedTechnicalIndicators:
         """一目均衡表計算（統合システム委譲）"""
         result = self._manager.calculate_indicators(
             data, ["ichimoku"],
-            conversion_period=conversion_period,
-            base_period=base_period,
-            leading_span_b_period=leading_span_b_period,
-            lagging_span_period=lagging_span_period
+            conversion_period = conversion_period,
+            base_period = base_period,
+            leading_span_b_period = leading_span_b_period,
+            lagging_span_period = lagging_span_period
         )
         return list(result.values())[0][0].values
 
     def get_performance_summary(self) -> Dict[str, Any]:
         """パフォーマンス概要取得（統合システム委譲）"""
         return self._manager.get_performance_summary()
-
 
 # Issue #619対応: 直接関数として利用可能にする（後方互換性）
 
