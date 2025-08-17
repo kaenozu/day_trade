@@ -110,7 +110,8 @@ jobs:
           echo "🔍 Checking for potential conflict patterns..."
 
           # Check for common conflict markers that might have been committed
-          CONFLICT_MARKERS=$(grep -r "<<<<<<< \|======= \|>>>>>>> " . --exclude-dir=.git --exclude-dir=node_modules --exclude="*.log" || echo "")
+          CONFLICT_MARKERS=$(grep -r "<<<<<<<\|=======|>>>>>>> " . --exclude-dir=.git --exclude-dir=node_modules --exclude="*.log" || echo "")
+               # <<<<<<< HEAD, =======, >>>>>>> マーカーを削除
 
           if [ -n "$CONFLICT_MARKERS" ]; then
             echo "⚠️ Found potential conflict markers in files:"
@@ -179,52 +180,54 @@ jobs:
 
             const body = `## ⚠️ マージコンフリクトが検出されました
 
-            このプルリクエストを \`${{ env.base_branch }}\` ブランチにマージする際にコンフリクトが発生します。
+            このプルリクエストを 
+```${{ env.base_branch }}
+``` ブランチにマージする際にコンフリクトが発生します。
 
             ### 🔧 コンフリクトの解決手順:
 
             1. **ローカルで最新の変更を取得:**
-               \`\`\`bash
+               ```bash
                git checkout ${{ env.current_branch }}
                git fetch origin
                git pull origin ${{ env.current_branch }}
-               \`\`\`
+               ```
 
             2. **ベースブランチの最新変更をマージ:**
-               \`\`\`bash
+               ```bash
                git merge origin/${{ env.base_branch }}
-               \`\`\`
+               ```
 
             3. **コンフリクトを手動で解決:**
-               \`\`\`bash
+               ```bash
                # エディターでコンフリクトファイルを編集
                # <<<<<<< HEAD, =======, >>>>>>> マーカーを削除
                git add <解決したファイル名>
-               \`\`\`
+               ```
 
             4. **マージをコミット:**
-               \`\`\`bash
+               ```bash
                git commit -m "Resolve merge conflicts with ${{ env.base_branch }}"
                git push origin ${{ env.current_branch }}
-               \`\`\`
+               ```
 
             ### 📋 コンフリクトファイル:
-            \`\`\`
+            ```
             ${conflictedFiles}
-            \`\`\`
+            ```
 
             ### 🔍 詳細出力:
             <details>
             <summary>マージ試行の詳細ログ</summary>
 
-            \`\`\`
+            ```
             ${mergeOutput}
-            \`\`\`
+            ```
             </details>
 
             コンフリクトが解決されると、このチェックは自動的に再実行されます。
 
-            ---
+            --- 
             🤖 **自動生成されたコメント** - マージコンフリクト検知システム
             `;
 
@@ -244,19 +247,25 @@ jobs:
 
             const body = `## ⚠️ コンフリクトマーカーが検出されました
 
-            コード内にマージコンフリクトマーカー (\`<<<<<<<\`, \`=======\`, \`>>>>>>>\`) が残っています。
+            コード内にマージコンフリクトマーカー (
+``` <<<<<<<
+```, 
+``` =======
+```, 
+``` >>>>>>>
+```) が残っています。
 
             ### 🔍 検出された箇所:
-            \`\`\`
+            ```
             ${conflictMarkers}
-            \`\`\`
+            ```
 
             ### 🔧 修正方法:
             1. 上記ファイルを開いて、コンフリクトマーカーを探してください
             2. 適切なコードを選択し、マーカーを削除してください
             3. 変更をコミット・プッシュしてください
 
-            ---
+            --- 
             🤖 **自動生成されたコメント** - マージコンフリクト検知システム
             `;
 
@@ -285,9 +294,9 @@ jobs:
             <details>
             <summary>変更ファイル一覧</summary>
 
-            \`\`\`
+            ```
             ${changedFiles}
-            \`\`\`
+            ```
             </details>
 
             ### ⚠️ 注意事項:
@@ -295,7 +304,7 @@ jobs:
             - 可能であれば段階的なマージを検討してください
             - テスト環境での十分な検証を行ってください
 
-            ---
+            --- 
             🤖 **自動生成されたコメント** - マージコンフリクト検知システム
             `;
 
