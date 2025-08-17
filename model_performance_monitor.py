@@ -1226,7 +1226,7 @@ class ModelPerformanceMonitor:
                     triggered=False,
                     scope=scope,
                     affected_symbols=affected_symbols,
-                    error=f"Unknown retraining scope: {scope}"
+                    error=f"Unknown retraining scope: {scope.value}"
                 )
 
             # 実行時間の計算
@@ -1282,7 +1282,7 @@ class ModelPerformanceMonitor:
                 ''', (
                     trigger_id,
                     datetime.now().isoformat(),
-                    result.scope,
+                    result.scope.value,
                     ','.join(result.affected_symbols),
                     f"性能低下により{result.scope.value}再学習を実行",
                     'INFO' if result.triggered else 'WARNING',
