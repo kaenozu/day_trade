@@ -1,0 +1,260 @@
+# 予測精度向上システム設定
+# Issue #885対応：予測精度向上のための包括的アプローチ
+
+# システム基本設定
+system:
+  name: "予測精度向上統合システム"
+  version: "1.0.0"
+  enabled: true
+  debug_mode: false
+
+# 特徴量エンジニアリング設定
+feature_engineering:
+  # 特徴量種別の有効化
+  include_technical: true        # テクニカル指標
+  include_statistical: true      # 統計的特徴量
+  include_temporal: true         # 時系列特徴量
+
+  # 特徴量選択
+  feature_selection_k: 20        # 選択する特徴量数
+  selection_method: "SelectKBest" # 選択手法
+
+  # テクニカル指標設定
+  technical_indicators:
+    moving_averages: [5, 10, 20, 50, 200]     # 移動平均期間
+    bollinger_periods: [20]                    # ボリンジャーバンド期間
+    rsi_periods: [14]                          # RSI期間
+    macd_params: {fast: 12, slow: 26, signal: 9}  # MACD設定
+    stochastic_period: 14                      # ストキャスティクス期間
+    atr_period: 14                            # ATR期間
+
+  # 統計的特徴量設定
+  statistical_features:
+    return_periods: [1, 3, 5, 10, 20]         # リターン計算期間
+    rolling_windows: [5, 10, 20, 60]          # ローリング統計期間
+    zscore_windows: [20, 60]                  # Z-score計算期間
+    price_position_periods: [10, 20, 50]      # 価格位置計算期間
+
+  # 時系列特徴量設定
+  temporal_features:
+    include_date_features: true               # 日付関連特徴量
+    lag_periods: [1, 2, 3, 5, 10]            # ラグ特徴量期間
+    seasonal_components: true                 # 季節成分
+    trend_components: true                    # トレンド成分
+
+# モデル最適化設定
+model_optimization:
+  # 基本設定
+  enable_ensemble: true                       # アンサンブル有効化
+  enable_hyperparameter_tuning: true         # ハイパーパラメータ最適化有効化
+
+  # 最適化対象モデル
+  models_to_optimize:
+    - "random_forest"
+    - "xgboost"
+    - "lightgbm"
+    - "logistic_regression"
+    - "gradient_boosting"
+
+  # アンサンブル設定
+  ensemble_methods:
+    - "voting"        # 投票
+    - "stacking"      # スタッキング
+    - "blending"      # ブレンディング
+
+  # モデル固有設定
+  model_configs:
+    random_forest:
+      n_estimators_range: [50, 300]
+      max_depth_range: [3, 20]
+      min_samples_split_range: [2, 20]
+      min_samples_leaf_range: [1, 10]
+
+    xgboost:
+      n_estimators_range: [50, 300]
+      max_depth_range: [3, 10]
+      learning_rate_range: [0.01, 0.3]
+      subsample_range: [0.6, 1.0]
+      colsample_bytree_range: [0.6, 1.0]
+
+    lightgbm:
+      n_estimators_range: [50, 300]
+      max_depth_range: [3, 10]
+      learning_rate_range: [0.01, 0.3]
+      subsample_range: [0.6, 1.0]
+      colsample_bytree_range: [0.6, 1.0]
+
+# ハイパーパラメータ最適化設定
+hyperparameter_optimization:
+  # Optuna設定
+  optimization_direction: "maximize"         # 最適化方向
+  n_trials: 100                             # 試行回数
+  timeout_seconds: 3600                     # タイムアウト時間
+  n_jobs: -1                                # 並列ジョブ数
+
+  # サンプリング設定
+  sampler: "TPESampler"                     # サンプラー種別
+  pruner: "MedianPruner"                    # プルーナー種別
+
+  # 早期停止設定
+  early_stopping:
+    enabled: true
+    patience: 10                            # 忍耐期間
+    min_improvement: 0.001                  # 最小改善値
+
+# 検証戦略設定
+validation:
+  # 検証手法
+  strategy: "time_series_split"             # 検証戦略
+  n_splits: 5                               # 分割数
+  test_size: 0.2                            # テストサイズ
+
+  # 時系列特化設定
+  time_series_validation:
+    gap: 0                                  # ギャップ期間
+    max_train_size: null                    # 最大訓練サイズ
+
+  # ウォークフォワード設定
+  walk_forward:
+    step_size: 50                           # ステップサイズ
+    window_size: 200                        # ウィンドウサイズ
+
+  # ブロック交差検証設定
+  blocked_cv:
+    n_blocks: 5                             # ブロック数
+    purge_gap: 0                            # パージギャップ
+
+# 過学習防止設定
+overfitting_prevention:
+  # 検知設定
+  enable_detection: true                    # 過学習検知有効化
+  overfitting_threshold: 0.1                # 過学習判定閾値
+
+  # 正則化設定
+  enable_regularization: true               # 正則化有効化
+  regularization_strength: "auto"           # 正則化強度
+
+  # 早期停止設定
+  early_stopping:
+    enabled: true
+    monitor_metric: "validation_loss"        # 監視指標
+    patience: 10                            # 忍耐期間
+    restore_best_weights: true              # 最良重み復元
+
+  # ドロップアウト設定（ニューラルネット用）
+  dropout:
+    enabled: false
+    rate: 0.3                               # ドロップアウト率
+
+# データ品質強化設定
+data_quality:
+  # 品質チェック有効化
+  enable_quality_check: true               # 品質チェック有効
+  quality_threshold: 70.0                  # 品質閾値
+
+  # 異常検知設定
+  anomaly_detection:
+    enable_price_spike_detection: true      # 価格スパイク検知
+    enable_volume_anomaly_detection: true   # 出来高異常検知
+    price_change_threshold: 0.1             # 価格変動閾値
+    volume_spike_threshold: 5.0             # 出来高スパイク閾値
+
+  # データクリーニング
+  data_cleaning:
+    remove_outliers: true                   # 外れ値除去
+    outlier_method: "iqr"                   # 外れ値検知手法
+    fill_missing_values: true               # 欠損値補完
+    missing_value_method: "forward_fill"     # 補完手法
+
+# コンセプトドリフト対応設定
+concept_drift:
+  # 検知設定
+  enable_drift_detection: true             # ドリフト検知有効化
+  detection_window: 100                    # 検知ウィンドウ
+  drift_threshold: 0.05                    # ドリフト閾値
+
+  # 適応戦略
+  adaptation_strategy: "incremental"        # 適応戦略
+  retraining_frequency: "weekly"           # 再学習頻度
+  adaptation_rate: 0.1                     # 適応率
+
+  # 統計的検定
+  statistical_tests:
+    - "ks_test"                            # コルモゴロフ・スミルノフ検定
+    - "chi2_test"                          # カイ二乗検定
+    - "jensen_shannon"                     # ジェンセン・シャノン距離
+
+# ドメイン知識統合設定
+domain_knowledge:
+  # 金融ドメイン知識
+  financial_features:
+    enable_market_indicators: true          # 市場指標
+    enable_fundamental_ratios: true         # ファンダメンタル比率
+    enable_sector_analysis: true            # セクター分析
+    enable_market_sentiment: true           # 市場センチメント
+
+  # 時系列ドメイン知識
+  time_series_domain:
+    enable_seasonality: true                # 季節性
+    enable_trend_analysis: true             # トレンド分析
+    enable_cycle_detection: true            # サイクル検知
+    enable_regime_detection: true           # レジーム検知
+
+  # 規則ベース特徴量
+  rule_based_features:
+    enable_technical_patterns: true         # テクニカルパターン
+    enable_support_resistance: true         # サポート・レジスタンス
+    enable_breakout_signals: true           # ブレイクアウトシグナル
+
+# パフォーマンス設定
+performance:
+  # 並列処理
+  n_jobs: -1                               # 並列ジョブ数
+  parallel_backend: "threading"            # 並列バックエンド
+
+  # メモリ最適化
+  memory_optimization: true                # メモリ最適化有効化
+  max_memory_usage_gb: 4                   # 最大メモリ使用量
+
+  # キャッシュ設定
+  enable_caching: true                     # キャッシュ有効化
+  cache_size_mb: 512                       # キャッシュサイズ
+
+# ログ設定
+logging:
+  level: "INFO"                            # ログレベル
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+  # ファイル出力
+  files:
+    enhancement: "logs/accuracy_enhancement.log"
+    optimization: "logs/hyperparameter_optimization.log"
+    validation: "logs/model_validation.log"
+
+# 実験管理設定
+experiment_tracking:
+  # MLflow設定
+  enable_mlflow: false                     # MLflow有効化
+  tracking_uri: "sqlite:///experiments.db" # トラッキングURI
+  experiment_name: "accuracy_enhancement"  # 実験名
+
+  # 結果保存
+  save_results: true                       # 結果保存
+  results_directory: "results/accuracy_enhancement"
+  save_models: true                        # モデル保存
+  save_plots: true                         # プロット保存
+
+# 統合設定
+integration:
+  # 既存システム連携
+  data_quality_monitor: true               # データ品質監視
+  model_performance_monitor: true          # モデル性能監視
+  real_data_provider: true                 # リアルデータプロバイダー
+  ml_prediction_models: true               # ML予測モデル
+
+  # API設定
+  api_endpoints:
+    enhance: "/api/accuracy/enhance"        # 精度向上エンドポイント
+    optimize: "/api/accuracy/optimize"      # 最適化エンドポイント
+    validate: "/api/accuracy/validate"      # 検証エンドポイント
+    report: "/api/accuracy/report"          # レポートエンドポイント

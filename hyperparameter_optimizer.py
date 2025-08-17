@@ -846,7 +846,7 @@ class EnhancedHyperparameterOptimizer:
 def create_enhanced_hyperparameter_optimizer(
     config_path: Optional[str] = None
 ) -> EnhancedHyperparameterOptimizer:
-    """EnhancedHyperparameterOptimizerインスタンスの作成"""
+    """EnhancedHyperparameterOptimizer instance creation"""
     path = Path(config_path) if config_path else None
     return EnhancedHyperparameterOptimizer(config_path=path)
 
