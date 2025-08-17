@@ -20,16 +20,38 @@ from datetime import datetime, timedelta
 import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
-from ml_prediction_models import (
-    MLPredictionModels,
-    ModelType,
-    PredictionTask,
-    ModelPerformance,
-    PredictionResult,
-    EnsemblePrediction,
-    ModelMetadata,
-    TrainingConfig
-)
+try:
+    from ml_prediction_models_improved import (
+        MLPredictionModels,
+        ModelType,
+        PredictionTask,
+        ModelPerformance,
+        PredictionResult,
+        EnsemblePrediction,
+        ModelMetadata,
+        TrainingConfig,
+        DataQuality,
+        DataPreparationPipeline,
+        ModelMetadataManager,
+        EnhancedEnsemblePredictor,
+        BaseModelTrainer,
+        RandomForestTrainer,
+        create_improved_ml_prediction_models
+    )
+    ML_IMPROVED_AVAILABLE = True
+except ImportError:
+    # フォールバック: 元のモジュール
+    from ml_prediction_models import (
+        MLPredictionModels,
+        ModelType,
+        PredictionTask,
+        ModelPerformance,
+        PredictionResult,
+        EnsemblePrediction,
+        ModelMetadata,
+        TrainingConfig
+    )
+    ML_IMPROVED_AVAILABLE = False
 
 # 条件付きインポート
 try:
