@@ -1,194 +1,140 @@
 # 依存関係管理ガイド
 
-## 概要
+このプロジェクトでは、**pyproject.toml** を中心とした最新の依存関係管理方式を採用しています。
 
-Day Tradeプロジェクトでは、モダンなPythonパッケージ管理手法を採用しています。
+## ファイル構成
 
-## 管理手法
+### 主要な管理ファイル
 
-### 主要ファイル
+- **`pyproject.toml`**: モダンなPython依存関係管理の標準
+  - `dependencies`: 本番環境で必要な依存関係
+  - `project.optional-dependencies.dev`: 開発用依存関係
 
-- **pyproject.toml**: プロジェクトの設定と依存関係の定義
-- **requirements.txt**: 本番用依存関係（pip-toolsで生成）
-- **requirements-dev.txt**: 開発用依存関係（legacy）
+### レガシーファイル（互換性維持）
 
-### 推奨ワークフロー
+- **`requirements.txt`**: 本番環境用（レガシーサポート）
+- **`requirements-dev.txt`**: 開発用（レガシーサポート）
 
-#### 1. 開発環境のセットアップ
+## バージョン管理戦略
 
-```bash
-# プロジェクトをクローン後
-make install-dev
-
-# または手動で
-pip install -e ".[dev]"
-```
-
-#### 2. 依存関係の追加
-
-新しい依存関係は`pyproject.toml`に追加してください：
-
-```toml
-# 本番用依存関係
-dependencies = [
-    "new-package>=1.0.0",
-]
-
-# 開発用依存関係
-[project.optional-dependencies]
-dev = [
-    "new-dev-package>=2.0.0",
-]
-```
-
-#### 3. 依存関係の確認
-
-```bash
-# 古いパッケージをチェック
-make deps-check
-
-# または直接実行
-python scripts/dependency_manager.py check
-```
-
-#### 4. 依存関係の更新
-
-```bash
-# 更新可能なパッケージをドライラン表示
-make deps-update
-
-# 実際に更新
-python scripts/dependency_manager.py update
-```
-
-#### 5. セキュリティチェック
-
-```bash
-# セキュリティ脆弱性チェック
-safety check
-
-# 依存関係レポート生成
-make deps-report
-```
-
-## ツール
-
-### dependency_manager.py
-
-プロジェクト専用の依存関係管理ツールです。
-
-```bash
-# 使用可能コマンド
-python scripts/dependency_manager.py --help
-
-# レポート生成
-python scripts/dependency_manager.py report
-
-# 古いパッケージチェック
-python scripts/dependency_manager.py check
-
-# パッケージ更新
-python scripts/dependency_manager.py update
-
-# requirements.txt同期
-python scripts/dependency_manager.py sync
-```
-
-### Makeコマンド
-
-```bash
-# 依存関係チェック
-make deps-check
-
-# 依存関係更新
-make deps-update
-
-# 依存関係レポート
-make deps-report
-
-# requirements.txt同期
-make deps-sync
-```
-
-## ベストプラクティス
-
-### 1. バージョン制約
-
-適切なバージョン制約を使用してください：
+### 厳密なバージョン制約
 
 ```toml
 dependencies = [
-    "pandas>=2.0.0,<3.0.0",  # メジャーバージョン固定
-    "numpy>=1.24.0",         # 最小バージョン指定
-    "click~=8.1.0",          # 互換バージョン
+    "click>=8.1.0,<9.0",  # メジャーバージョン固定
+    "pandas>=2.0.0,<3.0", # 破壊的変更を回避
+    "numpy>=1.24.0,<2.0", # NumPy 2.x の breaking changes 対応
 ]
 ```
 
-### 2. 定期的な更新
+### セマンティックバージョニング対応
 
-- 月1回程度の頻度で依存関係を確認
-- セキュリティアップデートは即座に適用
-- メジャーバージョンアップは慎重に検討
+- **パッチレベル更新**: 自動許可 (bug fixes)
+- **マイナーレベル更新**: 制限付き許可 (backward compatible)
+- **メジャーレベル更新**: 手動検証が必要 (breaking changes)
 
-### 3. 環境分離
+## 使用方法
+
+### 本番環境の依存関係インストール
 
 ```bash
-# 本番用のみ
+# requirements.txtを使用
+pip install -r requirements.txt
+
+# または pyproject.toml を使用
 pip install -e .
-
-# 開発用含む
-pip install -e ".[dev]"
 ```
 
-### 4. CI/CD統合
-
-```yaml
-# .github/workflows/dependencies.yml
-- name: Check dependencies
-  run: |
-    make deps-check
-    safety check
-```
-
-## トラブルシューティング
-
-### よくある問題
-
-#### 1. パッケージインストールエラー
+### 開発環境の依存関係インストール
 
 ```bash
-# pip更新
-pip install --upgrade pip
+# requirements-dev.txt を使用
+pip install -r requirements.txt -r requirements-dev.txt
 
-# キャッシュクリア
-pip cache purge
-
-# 強制再インストール
-pip install --force-reinstall package_name
+# または pyproject.toml を使用（推奨）
+pip install -e .[dev]
 ```
 
-#### 2. 依存関係の競合
+## 依存関係の追加・更新
 
-```bash
-# 依存関係ツリー表示
-pip show --files package_name
+### 本番用依存関係を追加する場合
 
-# 競合チェック
-pip check
-```
+1. `requirements.txt` に追加
+2. `pyproject.toml` の `dependencies` セクションに同じバージョンで追加
 
-#### 3. セキュリティ脆弱性
+### 開発用依存関係を追加する場合
+
+1. `requirements-dev.txt` に追加
+2. `pyproject.toml` の `project.optional-dependencies.dev` セクションに同じバージョンで追加
+
+### バージョン管理方針
+
+- **最小バージョン指定**: `>=x.y.z` 形式を使用
+- **一貫性確保**: `requirements.txt` と `pyproject.toml` のバージョンを同期
+- **セキュリティ考慮**: 定期的に依存関係の脆弱性をチェック
+
+## 品質管理
+
+### セキュリティチェック
 
 ```bash
 # 脆弱性チェック
 safety check
 
-# 特定パッケージ更新
-pip install --upgrade vulnerable_package
+# セキュリティ監査
+bandit -r src/
 ```
 
-## 参考情報
+### 依存関係の最新化
 
-- [PEP 621 - Storing project metadata in pyproject.toml](https://peps.python.org/pep-0621/)
-- [pip-tools Documentation](https://pip-tools.readthedocs.io/)
-- [Safety Documentation](https://pyup.io/safety/)
+```bash
+# 現在のバージョン確認
+pip list --outdated
+
+# requirements.txt の更新（pip-tools使用時）
+pip-compile --upgrade requirements.in
+pip-compile --upgrade requirements-dev.in
+```
+
+## CI/CD統合
+
+GitHub Actions では `pip install -e .[dev]` を使用して開発用依存関係を含めてインストールしています：
+
+```yaml
+- name: Install dependencies (cached)
+  run: |
+    python -m pip install --upgrade pip
+    pip install -e .[dev]
+```
+
+## ベストプラクティス
+
+1. **本番と開発の分離**: 本番環境には不要な開発用ツールをインストールしない
+2. **バージョン固定**: 重要な依存関係は適切にバージョン範囲を指定
+3. **定期更新**: セキュリティパッチと機能更新を定期的に確認
+4. **テスト**: 依存関係更新後は必ずテストを実行
+5. **ドキュメント更新**: 重要な依存関係変更時はドキュメントも更新
+
+## トラブルシューティング
+
+### 依存関係の競合が発生した場合
+
+```bash
+# 競合の確認
+pip check
+
+# 仮想環境の再構築
+pip freeze > backup-requirements.txt
+deactivate
+rm -rf venv
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -e .[dev]
+```
+
+### インストールエラーが発生した場合
+
+1. Python バージョンの確認 (>=3.8 が必要)
+2. pip の最新化: `pip install --upgrade pip`
+3. システム依存ライブラリの確認
+4. 仮想環境の使用を確認

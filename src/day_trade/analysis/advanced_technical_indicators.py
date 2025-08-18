@@ -1,4 +1,4 @@
-#!/usr / bin / env python3
+#!/usr/bin/env python3
 """
 Issue #619対応: 高度テクニカル指標計算（統合システム使用）
 
@@ -24,8 +24,10 @@ from .technical_indicators_consolidated import (
 
 logger = get_context_logger(__name__)
 
-warnings.filterwarnings("ignore", category = FutureWarning)
-warnings.filterwarnings("ignore", category = UserWarning)
+# 警告フィルタリング
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+
 
 class AdvancedTechnicalIndicators:
     """
@@ -39,7 +41,7 @@ class AdvancedTechnicalIndicators:
     """
 
     def __init__(self) -> None:
-    """__init__関数"""
+        """テクニカル指標計算クラスの初期化"""
         # Issue #619対応: 統合システムに委譲
         self._manager = TechnicalIndicatorsManager(IndicatorConfig())
         logger.info("高度テクニカル指標計算初期化完了 (統合システム使用)")
@@ -51,8 +53,12 @@ class AdvancedTechnicalIndicators:
 
     def calculate_ema(self, data: pd.DataFrame, period: int = 20) -> np.ndarray:
         """指数移動平均計算（統合システム委譲）"""
-        result = self._manager.calculate_indicators(data, ["ema"], period = period)
-        return list(result.values())[0][0].values
+        try:
+            result = self._manager.calculate_indicators(data, ["ema"], period=period)
+            return list(result.values())[0][0].values
+        except Exception as e:
+            logger.error(f"EMA計算エラー: {e}")
+            raise
 
     def calculate_rsi(self, data: pd.DataFrame, period: int = 14) -> np.ndarray:
         """RSI計算（統合システム委譲）"""
@@ -75,11 +81,15 @@ class AdvancedTechnicalIndicators:
         std_dev: float = 2.0
     ) -> Dict[str, np.ndarray]:
         """ボリンジャーバンド計算（統合システム委譲）"""
-        result = self._manager.calculate_indicators(
-            data, ["bollinger_bands"],
-            period = period, std_dev = std_dev
-        )
-        return list(result.values())[0][0].values
+        try:
+            result = self._manager.calculate_indicators(
+                data, ["bollinger_bands"],
+                period=period, std_dev=std_dev
+            )
+            return list(result.values())[0][0].values
+        except Exception as e:
+            logger.error(f"ボリンジャーバンド計算エラー: {e}")
+            raise
 
     def calculate_stochastic(
         self,
@@ -88,11 +98,15 @@ class AdvancedTechnicalIndicators:
         d_period: int = 3
     ) -> Dict[str, np.ndarray]:
         """ストキャスティクス計算（統合システム委譲）"""
-        result = self._manager.calculate_indicators(
-            data, ["stochastic"],
-            k_period = k_period, d_period = d_period
-        )
-        return list(result.values())[0][0].values
+        try:
+            result = self._manager.calculate_indicators(
+                data, ["stochastic"],
+                k_period=k_period, d_period=d_period
+            )
+            return list(result.values())[0][0].values
+        except Exception as e:
+            logger.error(f"ストキャスティクス計算エラー: {e}")
+            raise
 
     def calculate_ichimoku(
         self,
@@ -103,18 +117,23 @@ class AdvancedTechnicalIndicators:
         lagging_span_period: int = 26
     ) -> Dict[str, np.ndarray]:
         """一目均衡表計算（統合システム委譲）"""
-        result = self._manager.calculate_indicators(
-            data, ["ichimoku"],
-            conversion_period = conversion_period,
-            base_period = base_period,
-            leading_span_b_period = leading_span_b_period,
-            lagging_span_period = lagging_span_period
-        )
-        return list(result.values())[0][0].values
+        try:
+            result = self._manager.calculate_indicators(
+                data, ["ichimoku"],
+                conversion_period=conversion_period,
+                base_period=base_period,
+                leading_span_b_period=leading_span_b_period,
+                lagging_span_period=lagging_span_period
+            )
+            return list(result.values())[0][0].values
+        except Exception as e:
+            logger.error(f"一目均衡表計算エラー: {e}")
+            raise
 
     def get_performance_summary(self) -> Dict[str, Any]:
         """パフォーマンス概要取得（統合システム委譲）"""
         return self._manager.get_performance_summary()
+
 
 # Issue #619対応: 直接関数として利用可能にする（後方互換性）
 
@@ -122,9 +141,11 @@ def calculate_advanced_sma(data: pd.DataFrame, period: int = 20) -> np.ndarray:
     """高度SMA計算（統合システム使用）"""
     return calculate_sma(data, period)
 
+
 def calculate_advanced_rsi(data: pd.DataFrame, period: int = 14) -> np.ndarray:
     """高度RSI計算（統合システム使用）"""
     return calculate_rsi(data, period)
+
 
 def calculate_advanced_macd(
     data: pd.DataFrame,

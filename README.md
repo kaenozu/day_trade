@@ -17,7 +17,7 @@ cd day_trade
 pip install -r requirements.txt
 
 # 3. 分析実行！
-python daytrade.py
+python main.py
 ```
 
 **これだけで93%精度のAI分析結果が表示されます！**

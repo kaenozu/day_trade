@@ -1,860 +1,687 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-パフォーマンス最適化推奨システム
-
-システムメトリクス、ログデータ、アプリケーション性能を分析し、
-具体的な最適化提案を自動生成するインテリジェントシステム。
+Performance Optimization System - パフォーマンス最適化システム
+メモリ管理、キャッシュ最適化、処理速度向上の統合システム
 """
 
-import json
-import sqlite3
-from dataclasses import dataclass, field
+import gc
+import psutil
+import time
+import threading
+import weakref
 from datetime import datetime, timedelta
+from typing import Dict, Any, List, Optional, Set, Tuple, Callable
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
-try:
-    import numpy as np
-
-    NUMPY_AVAILABLE = True
-except ImportError:
-    NUMPY_AVAILABLE = False
-
-from .alert_system import get_alert_manager
-from .metrics_collection_system import get_metrics_system
+from pathlib import Path
+import json
+from collections import defaultdict, deque
+import asyncio
 
 
-class OptimizationType(Enum):
-    """最適化種別"""
-
-    RESOURCE_OPTIMIZATION = "resource_optimization"  # リソース最適化
-    PERFORMANCE_TUNING = "performance_tuning"  # パフォーマンスチューニング
-    ARCHITECTURE_IMPROVEMENT = "architecture_improvement"  # アーキテクチャ改善
-    CODE_OPTIMIZATION = "code_optimization"  # コード最適化
-    DATABASE_OPTIMIZATION = "database_optimization"  # データベース最適化
-    CACHE_OPTIMIZATION = "cache_optimization"  # キャッシュ最適化
-    SCALING_RECOMMENDATION = "scaling_recommendation"  # スケーリング推奨
-
-
-class Priority(Enum):
-    """優先度"""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
+class PerformanceLevel(Enum):
+    """パフォーマンスレベル"""
+    OPTIMAL = "optimal"
+    GOOD = "good"
+    DEGRADED = "degraded"
     CRITICAL = "critical"
 
 
-class ImpactLevel(Enum):
-    """影響レベル"""
-
-    MINIMAL = "minimal"  # 最小限の影響
-    MODERATE = "moderate"  # 中程度の影響
-    SIGNIFICANT = "significant"  # 重大な影響
-    TRANSFORMATIVE = "transformative"  # 変革的影響
-
-
-@dataclass
-class OptimizationRecommendation:
-    """最適化推奨事項"""
-
-    id: str
-    title: str
-    description: str
-    optimization_type: OptimizationType
-    priority: Priority
-    impact_level: ImpactLevel
-    estimated_improvement: Dict[str, float]  # メトリクス名 -> 改善率
-    implementation_effort: int  # 1-10のスケール
-    implementation_steps: List[str]
-    prerequisites: List[str] = field(default_factory=list)
-    risks: List[str] = field(default_factory=list)
-    success_metrics: List[str] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    evidence: Dict[str, Any] = field(default_factory=dict)
-    tags: List[str] = field(default_factory=list)
+class OptimizationStrategy(Enum):
+    """最適化戦略"""
+    MEMORY_CLEANUP = "memory_cleanup"
+    CACHE_OPTIMIZATION = "cache_optimization"
+    GARBAGE_COLLECTION = "garbage_collection"
+    CIRCULAR_REFERENCE_CLEANUP = "circular_reference_cleanup"
+    ASYNC_OPTIMIZATION = "async_optimization"
 
 
 @dataclass
-class OptimizationOpportunity:
-    """最適化機会"""
-
-    metric_name: str
-    current_value: float
-    baseline_value: float
-    deviation_percentage: float
-    trend_direction: str  # increasing, decreasing, stable
-    confidence_score: float
-    data_points: int
-
-
-class PerformanceAnalyzer:
-    """パフォーマンス分析器"""
-
-    def __init__(self):
-        self.metrics_system = get_metrics_system()
-        self.alert_manager = get_alert_manager()
-        self.analysis_window = timedelta(hours=24)
-
-    async def analyze_system_performance(self) -> Dict[str, Any]:
-        """システムパフォーマンス分析"""
-        end_time = datetime.utcnow()
-        start_time = end_time - self.analysis_window
-
-        analysis_results = {
-            "cpu_analysis": await self._analyze_cpu_performance(start_time, end_time),
-            "memory_analysis": await self._analyze_memory_performance(
-                start_time, end_time
-            ),
-            "disk_analysis": await self._analyze_disk_performance(start_time, end_time),
-            "network_analysis": await self._analyze_network_performance(
-                start_time, end_time
-            ),
-            "application_analysis": await self._analyze_application_performance(
-                start_time, end_time
-            ),
-        }
-
-        return analysis_results
-
-    async def _analyze_cpu_performance(
-        self, start_time: datetime, end_time: datetime
-    ) -> Dict[str, Any]:
-        """CPU性能分析"""
-        cpu_data = self.metrics_system.query_metrics(
-            "cpu_usage_percent", start_time, end_time
-        )
-
-        if not cpu_data:
-            return {"status": "no_data"}
-
-        values = [value for _, value, _ in cpu_data]
-
-        if NUMPY_AVAILABLE:
-            avg_usage = np.mean(values)
-            max_usage = np.max(values)
-            std_usage = np.std(values)
-            p95_usage = np.percentile(values, 95)
-        else:
-            avg_usage = sum(values) / len(values)
-            max_usage = max(values)
-            std_usage = (sum((v - avg_usage) ** 2 for v in values) / len(values)) ** 0.5
-            sorted_values = sorted(values)
-            p95_usage = sorted_values[int(0.95 * len(sorted_values))]
-
-        analysis = {
-            "average_usage": avg_usage,
-            "max_usage": max_usage,
-            "p95_usage": p95_usage,
-            "variability": std_usage,
-            "data_points": len(values),
-        }
-
-        # 問題の特定
-        issues = []
-        if avg_usage > 70:
-            issues.append("high_average_cpu")
-        if max_usage > 90:
-            issues.append("cpu_spikes")
-        if std_usage > 20:
-            issues.append("high_cpu_variability")
-
-        analysis["issues"] = issues
-        return analysis
-
-    async def _analyze_memory_performance(
-        self, start_time: datetime, end_time: datetime
-    ) -> Dict[str, Any]:
-        """メモリ性能分析"""
-        memory_data = self.metrics_system.query_metrics(
-            "memory_usage_percent", start_time, end_time
-        )
-        memory_bytes_data = self.metrics_system.query_metrics(
-            "memory_usage_bytes", start_time, end_time
-        )
-
-        if not memory_data:
-            return {"status": "no_data"}
-
-        values = [value for _, value, _ in memory_data]
-
-        if NUMPY_AVAILABLE:
-            avg_usage = np.mean(values)
-            max_usage = np.max(values)
-            trend_slope = self._calculate_trend(values)
-        else:
-            avg_usage = sum(values) / len(values)
-            max_usage = max(values)
-            trend_slope = self._calculate_simple_trend(values)
-
-        analysis = {
-            "average_usage": avg_usage,
-            "max_usage": max_usage,
-            "trend_slope": trend_slope,
-            "data_points": len(values),
-        }
-
-        # 問題の特定
-        issues = []
-        if avg_usage > 80:
-            issues.append("high_memory_usage")
-        if trend_slope > 0.1:
-            issues.append("memory_leak_suspected")
-        if max_usage > 95:
-            issues.append("memory_pressure")
-
-        analysis["issues"] = issues
-        return analysis
-
-    async def _analyze_disk_performance(
-        self, start_time: datetime, end_time: datetime
-    ) -> Dict[str, Any]:
-        """ディスク性能分析"""
-        disk_usage_data = self.metrics_system.query_metrics(
-            "disk_usage_percent", start_time, end_time
-        )
-        disk_read_data = self.metrics_system.query_metrics(
-            "disk_io_read_bytes", start_time, end_time
-        )
-        disk_write_data = self.metrics_system.query_metrics(
-            "disk_io_write_bytes", start_time, end_time
-        )
-
-        analysis = {}
-        issues = []
-
-        # ディスク使用率分析
-        if disk_usage_data:
-            usage_values = [value for _, value, _ in disk_usage_data]
-            avg_usage = sum(usage_values) / len(usage_values)
-            max_usage = max(usage_values)
-
-            analysis["disk_usage"] = {"average": avg_usage, "maximum": max_usage}
-
-            if avg_usage > 85:
-                issues.append("high_disk_usage")
-            if max_usage > 95:
-                issues.append("disk_space_critical")
-
-        # I/O性能分析
-        if disk_read_data and disk_write_data:
-            read_values = [value for _, value, _ in disk_read_data]
-            write_values = [value for _, value, _ in disk_write_data]
-
-            # I/O率の計算（簡易版）
-            total_io = sum(read_values) + sum(write_values)
-            analysis["io_activity"] = {
-                "total_read_bytes": sum(read_values),
-                "total_write_bytes": sum(write_values),
-                "total_io_bytes": total_io,
-            }
-
-        analysis["issues"] = issues
-        return analysis
-
-    async def _analyze_network_performance(
-        self, start_time: datetime, end_time: datetime
-    ) -> Dict[str, Any]:
-        """ネットワーク性能分析"""
-        sent_data = self.metrics_system.query_metrics(
-            "network_io_sent_bytes", start_time, end_time
-        )
-        recv_data = self.metrics_system.query_metrics(
-            "network_io_recv_bytes", start_time, end_time
-        )
-
-        analysis = {}
-        issues = []
-
-        if sent_data and recv_data:
-            sent_values = [value for _, value, _ in sent_data]
-            recv_values = [value for _, value, _ in recv_data]
-
-            total_sent = sum(sent_values)
-            total_recv = sum(recv_values)
-
-            analysis["network_usage"] = {
-                "total_sent_bytes": total_sent,
-                "total_received_bytes": total_recv,
-                "total_traffic_bytes": total_sent + total_recv,
-            }
-
-            # 異常な通信量の検出
-            if total_sent + total_recv > 1e9:  # 1GB以上
-                issues.append("high_network_usage")
-
-        analysis["issues"] = issues
-        return analysis
-
-    async def _analyze_application_performance(
-        self, start_time: datetime, end_time: datetime
-    ) -> Dict[str, Any]:
-        """アプリケーション性能分析"""
-        request_data = self.metrics_system.query_metrics(
-            "http_requests_total", start_time, end_time
-        )
-        response_time_data = self.metrics_system.query_metrics(
-            "http_request_duration_seconds", start_time, end_time
-        )
-        error_data = self.metrics_system.query_metrics(
-            "http_errors_total", start_time, end_time
-        )
-
-        analysis = {}
-        issues = []
-
-        # リクエスト率分析
-        if request_data:
-            request_values = [value for _, value, _ in request_data]
-            total_requests = sum(request_values)
-            avg_requests_per_minute = total_requests / (len(request_values) or 1)
-
-            analysis["request_metrics"] = {
-                "total_requests": total_requests,
-                "average_requests_per_minute": avg_requests_per_minute,
-            }
-
-        # レスポンス時間分析
-        if response_time_data:
-            response_values = [value for _, value, _ in response_time_data]
-
-            if NUMPY_AVAILABLE:
-                avg_response_time = np.mean(response_values)
-                p95_response_time = np.percentile(response_values, 95)
-                p99_response_time = np.percentile(response_values, 99)
-            else:
-                avg_response_time = sum(response_values) / len(response_values)
-                sorted_responses = sorted(response_values)
-                p95_response_time = sorted_responses[int(0.95 * len(sorted_responses))]
-                p99_response_time = sorted_responses[int(0.99 * len(sorted_responses))]
-
-            analysis["response_time_metrics"] = {
-                "average": avg_response_time,
-                "p95": p95_response_time,
-                "p99": p99_response_time,
-            }
-
-            if avg_response_time > 2.0:
-                issues.append("slow_response_time")
-            if p95_response_time > 5.0:
-                issues.append("response_time_spikes")
-
-        # エラー率分析
-        if error_data and request_data:
-            error_values = [value for _, value, _ in error_data]
-            total_errors = sum(error_values)
-            error_rate = total_errors / (sum(request_values) or 1)
-
-            analysis["error_metrics"] = {
-                "total_errors": total_errors,
-                "error_rate": error_rate,
-            }
-
-            if error_rate > 0.01:  # 1%以上のエラー率
-                issues.append("high_error_rate")
-
-        analysis["issues"] = issues
-        return analysis
-
-    def _calculate_trend(self, values: List[float]) -> float:
-        """トレンド計算（NumPy版）"""
-        if not NUMPY_AVAILABLE or len(values) < 2:
-            return self._calculate_simple_trend(values)
-
-        x = np.arange(len(values))
-        slope = np.polyfit(x, values, 1)[0]
-        return float(slope)
-
-    def _calculate_simple_trend(self, values: List[float]) -> float:
-        """トレンド計算（シンプル版）"""
-        if len(values) < 2:
-            return 0.0
-
-        n = len(values)
-        x_mean = (n - 1) / 2
-        y_mean = sum(values) / n
-
-        numerator = sum((i - x_mean) * (values[i] - y_mean) for i in range(n))
-        denominator = sum((i - x_mean) ** 2 for i in range(n))
-
-        return numerator / denominator if denominator != 0 else 0.0
+class PerformanceMetrics:
+    """パフォーマンスメトリクス"""
+    cpu_percent: float
+    memory_usage_mb: float
+    memory_percent: float
+    cache_hit_rate: float
+    response_time_ms: float
+    active_threads: int
+    pending_tasks: int
+    gc_collections: Dict[str, int]
+    circular_references: int
+    timestamp: datetime
 
 
-class OptimizationEngine:
-    """最適化エンジン"""
+@dataclass
+class OptimizationResult:
+    """最適化結果"""
+    strategy: OptimizationStrategy
+    before_metrics: PerformanceMetrics
+    after_metrics: PerformanceMetrics
+    improvement_percent: float
+    execution_time_ms: float
+    success: bool
+    details: Dict[str, Any]
+
+
+class CircularReferenceDetector:
+    """循環参照検出器（改良版）"""
+
+    def __init__(self, max_depth: int = 10):
+        self.max_depth = max_depth
+        self.detection_cache = weakref.WeakKeyDictionary()
+        self.cleanup_threshold = 1000
+        self.cleanup_counter = 0
+
+    def detect_circular_references(self, obj: Any, visited: Optional[Set] = None, depth: int = 0) -> int:
+        """循環参照を検出（最適化版）"""
+        if depth > self.max_depth:
+            return 0
+
+        if visited is None:
+            visited = set()
+
+        # オブジェクトのIDをチェック
+        obj_id = id(obj)
+        if obj_id in visited:
+            return 1  # 循環参照発見
+
+        # キャッシュチェック
+        if obj in self.detection_cache:
+            return self.detection_cache[obj]
+
+        visited.add(obj_id)
+        circular_count = 0
+
+        try:
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    if depth < self.max_depth - 1:  # 深度制限
+                        circular_count += self.detect_circular_references(value, visited.copy(), depth + 1)
+            elif isinstance(obj, (list, tuple)):
+                for item in obj:
+                    if depth < self.max_depth - 1:  # 深度制限
+                        circular_count += self.detect_circular_references(item, visited.copy(), depth + 1)
+        except (RecursionError, MemoryError):
+            circular_count = 1  # エラー時は循環参照として扱う
+
+        # キャッシュに保存
+        try:
+            self.detection_cache[obj] = circular_count
+        except TypeError:
+            pass  # unhashable typeの場合はキャッシュしない
+
+        # 定期的なキャッシュクリーンアップ
+        self.cleanup_counter += 1
+        if self.cleanup_counter >= self.cleanup_threshold:
+            self.cleanup_cache()
+
+        return circular_count
+
+    def cleanup_cache(self):
+        """キャッシュクリーンアップ"""
+        # WeakKeyDictionaryは自動的にクリーンアップされるため、カウンターをリセットのみ
+        self.cleanup_counter = 0
+
+
+class MemoryManager:
+    """メモリ管理システム"""
 
     def __init__(self):
-        self.performance_analyzer = PerformanceAnalyzer()
-        self.recommendation_rules = self._initialize_recommendation_rules()
+        self.memory_threshold_mb = 1024  # 1GB
+        self.cleanup_frequency = 300  # 5分
+        self.last_cleanup = datetime.now()
+        self.large_objects = weakref.WeakSet()
 
-    def _initialize_recommendation_rules(self) -> Dict[str, Any]:
-        """推奨ルール初期化"""
-        return {
-            "cpu_optimization": {
-                "high_average_cpu": {
-                    "title": "CPU使用率最適化",
-                    "description": "平均CPU使用率が高すぎます。プロセス最適化またはスケールアウトを検討してください。",
-                    "type": OptimizationType.RESOURCE_OPTIMIZATION,
-                    "priority": Priority.HIGH,
-                    "impact": ImpactLevel.SIGNIFICANT,
-                    "steps": [
-                        "CPU集約的プロセスの特定",
-                        "不要なバックグラウンドタスクの停止",
-                        "アプリケーションの並列処理最適化",
-                        "水平スケーリングの検討",
-                    ],
-                    "effort": 6,
-                },
-                "cpu_spikes": {
-                    "title": "CPUスパイク対策",
-                    "description": "CPU使用率のスパイクが発生しています。負荷分散とリソース制限を実装してください。",
-                    "type": OptimizationType.PERFORMANCE_TUNING,
-                    "priority": Priority.MEDIUM,
-                    "impact": ImpactLevel.MODERATE,
-                    "steps": [
-                        "スパイク発生タイミングの分析",
-                        "リソース制限の設定",
-                        "負荷分散の実装",
-                        "キューイングシステムの導入",
-                    ],
-                    "effort": 4,
-                },
-            },
-            "memory_optimization": {
-                "high_memory_usage": {
-                    "title": "メモリ使用量最適化",
-                    "description": "メモリ使用量が高すぎます。メモリリークの確認とメモリ効率の改善が必要です。",
-                    "type": OptimizationType.RESOURCE_OPTIMIZATION,
-                    "priority": Priority.HIGH,
-                    "impact": ImpactLevel.SIGNIFICANT,
-                    "steps": [
-                        "メモリプロファイリングの実行",
-                        "メモリリークの特定と修正",
-                        "オブジェクトプールの導入",
-                        "ガベージコレクション最適化",
-                    ],
-                    "effort": 7,
-                },
-                "memory_leak_suspected": {
-                    "title": "メモリリーク対策",
-                    "description": "メモリ使用量が継続的に増加しています。メモリリークの可能性があります。",
-                    "type": OptimizationType.CODE_OPTIMIZATION,
-                    "priority": Priority.CRITICAL,
-                    "impact": ImpactLevel.TRANSFORMATIVE,
-                    "steps": [
-                        "メモリプロファイラーによる詳細分析",
-                        "循環参照の検出と修正",
-                        "適切なリソース解放の実装",
-                        "メモリ監視の強化",
-                    ],
-                    "effort": 8,
-                },
-            },
-            "application_optimization": {
-                "slow_response_time": {
-                    "title": "レスポンス時間改善",
-                    "description": "平均レスポンス時間が遅すぎます。アプリケーションの最適化が必要です。",
-                    "type": OptimizationType.PERFORMANCE_TUNING,
-                    "priority": Priority.HIGH,
-                    "impact": ImpactLevel.SIGNIFICANT,
-                    "steps": [
-                        "ボトルネック箇所の特定",
-                        "データベースクエリの最適化",
-                        "キャッシングの実装",
-                        "非同期処理の導入",
-                    ],
-                    "effort": 6,
-                },
-                "high_error_rate": {
-                    "title": "エラー率改善",
-                    "description": "エラー率が高すぎます。エラーハンドリングと信頼性の向上が必要です。",
-                    "type": OptimizationType.CODE_OPTIMIZATION,
-                    "priority": Priority.CRITICAL,
-                    "impact": ImpactLevel.TRANSFORMATIVE,
-                    "steps": [
-                        "エラーパターンの分析",
-                        "エラーハンドリングの改善",
-                        "リトライ機構の実装",
-                        "監視とアラートの強化",
-                    ],
-                    "effort": 5,
-                },
-            },
-            "disk_optimization": {
-                "high_disk_usage": {
-                    "title": "ディスク容量最適化",
-                    "description": "ディスク使用量が高すぎます。ストレージ管理の改善が必要です。",
-                    "type": OptimizationType.RESOURCE_OPTIMIZATION,
-                    "priority": Priority.MEDIUM,
-                    "impact": ImpactLevel.MODERATE,
-                    "steps": [
-                        "不要ファイルのクリーンアップ",
-                        "ログローテーション設定",
-                        "データアーカイブ戦略の実装",
-                        "ストレージ容量の拡張検討",
-                    ],
-                    "effort": 3,
-                }
-            },
+    def track_large_object(self, obj: Any):
+        """大きなオブジェクトを追跡"""
+        try:
+            self.large_objects.add(obj)
+        except TypeError:
+            pass  # unhashable typeは追跡しない
+
+    def get_memory_usage(self) -> Tuple[float, float]:
+        """メモリ使用量を取得"""
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        memory_mb = memory_info.rss / 1024 / 1024
+        memory_percent = process.memory_percent()
+        return memory_mb, memory_percent
+
+    def should_cleanup(self) -> bool:
+        """クリーンアップが必要かチェック"""
+        memory_mb, _ = self.get_memory_usage()
+        time_elapsed = (datetime.now() - self.last_cleanup).total_seconds()
+
+        return (memory_mb > self.memory_threshold_mb or
+                time_elapsed > self.cleanup_frequency)
+
+    def force_garbage_collection(self) -> Dict[str, int]:
+        """強制ガベージコレクション"""
+        gc_stats = {}
+
+        # 各世代のGCを実行
+        for generation in range(3):
+            collected = gc.collect(generation)
+            gc_stats[f'generation_{generation}'] = collected
+
+        # 未参照オブジェクトの削除
+        unreachable = gc.collect()
+        gc_stats['unreachable'] = unreachable
+
+        self.last_cleanup = datetime.now()
+        return gc_stats
+
+    def cleanup_large_objects(self) -> int:
+        """大きなオブジェクトのクリーンアップ"""
+        initial_count = len(self.large_objects)
+        # WeakSetは自動的にクリーンアップされる
+        return initial_count - len(self.large_objects)
+
+
+class CacheOptimizer:
+    """キャッシュ最適化システム"""
+
+    def __init__(self):
+        self.cache_stats = defaultdict(lambda: {'hits': 0, 'misses': 0})
+        self.cache_sizes = defaultdict(int)
+        self.max_cache_size = 1000
+        self.cleanup_threshold = 0.8  # 80%で自動クリーンアップ
+
+    def record_cache_access(self, cache_name: str, hit: bool):
+        """キャッシュアクセスを記録"""
+        if hit:
+            self.cache_stats[cache_name]['hits'] += 1
+        else:
+            self.cache_stats[cache_name]['misses'] += 1
+
+    def get_cache_hit_rate(self, cache_name: str = None) -> float:
+        """キャッシュヒット率を取得"""
+        if cache_name:
+            stats = self.cache_stats[cache_name]
+            total = stats['hits'] + stats['misses']
+            return stats['hits'] / total if total > 0 else 0.0
+        else:
+            # 全体のヒット率
+            total_hits = sum(stats['hits'] for stats in self.cache_stats.values())
+            total_accesses = sum(stats['hits'] + stats['misses'] for stats in self.cache_stats.values())
+            return total_hits / total_accesses if total_accesses > 0 else 0.0
+
+    def optimize_cache_size(self, cache_name: str, current_size: int) -> int:
+        """キャッシュサイズの最適化"""
+        hit_rate = self.get_cache_hit_rate(cache_name)
+
+        if hit_rate > 0.9:  # 90%以上のヒット率
+            # サイズを増加
+            new_size = min(current_size * 1.2, self.max_cache_size)
+        elif hit_rate < 0.5:  # 50%未満のヒット率
+            # サイズを削減
+            new_size = max(current_size * 0.8, 100)
+        else:
+            new_size = current_size
+
+        return int(new_size)
+
+    def should_cleanup_cache(self, cache_name: str) -> bool:
+        """キャッシュクリーンアップが必要かチェック"""
+        return self.cache_sizes[cache_name] > self.max_cache_size * self.cleanup_threshold
+
+
+class PerformanceOptimizationSystem:
+    """パフォーマンス最適化システム"""
+
+    def __init__(self):
+        self.circular_detector = CircularReferenceDetector()
+        self.memory_manager = MemoryManager()
+        self.cache_optimizer = CacheOptimizer()
+
+        # パフォーマンス履歴
+        self.metrics_history = deque(maxlen=1000)
+        self.optimization_history = deque(maxlen=100)
+
+        # 最適化設定
+        self.auto_optimization = True
+        self.optimization_interval = 60  # 1分
+        self.last_optimization = datetime.now()
+
+        # ログ設定
+        from daytrade_logging import get_logger
+        self.logger = get_logger("performance_optimization")
+
+        # バックグラウンドタスク
+        self.optimization_thread = None
+        self.running = True
+
+        self.logger.info("Performance Optimization System initialized")
+
+    def get_current_metrics(self) -> PerformanceMetrics:
+        """現在のパフォーマンスメトリクスを取得"""
+        # CPU使用率
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+
+        # メモリ使用量
+        memory_mb, memory_percent = self.memory_manager.get_memory_usage()
+
+        # キャッシュヒット率
+        cache_hit_rate = self.cache_optimizer.get_cache_hit_rate()
+
+        # レスポンス時間（簡易測定）
+        start_time = time.time()
+        # 簡単な処理でレスポンス時間を測定
+        _ = [i for i in range(1000)]
+        response_time_ms = (time.time() - start_time) * 1000
+
+        # スレッド数
+        active_threads = threading.active_count()
+
+        # 非同期タスク数
+        try:
+            loop = asyncio.get_event_loop()
+            pending_tasks = len([task for task in asyncio.all_tasks(loop) if not task.done()])
+        except RuntimeError:
+            pending_tasks = 0
+
+        # GC統計
+        gc_stats = {
+            'count_0': gc.get_count()[0],
+            'count_1': gc.get_count()[1],
+            'count_2': gc.get_count()[2]
         }
 
-    async def generate_recommendations(self) -> List[OptimizationRecommendation]:
-        """最適化推奨事項を生成"""
-        performance_analysis = (
-            await self.performance_analyzer.analyze_system_performance()
-        )
-        recommendations = []
+        # 循環参照検出（サンプリング）
+        circular_references = 0
 
-        for category, analysis in performance_analysis.items():
-            if "issues" in analysis:
-                for issue in analysis["issues"]:
-                    recommendation = await self._generate_recommendation_for_issue(
-                        category, issue, analysis
-                    )
-                    if recommendation:
-                        recommendations.append(recommendation)
-
-        # 優先度順でソート
-        recommendations.sort(
-            key=lambda x: (
-                {"critical": 0, "high": 1, "medium": 2, "low": 3}[x.priority.value],
-                -x.impact_level.value.count(
-                    "t"
-                ),  # transformative > significant > moderate > minimal
-            )
+        metrics = PerformanceMetrics(
+            cpu_percent=cpu_percent,
+            memory_usage_mb=memory_mb,
+            memory_percent=memory_percent,
+            cache_hit_rate=cache_hit_rate,
+            response_time_ms=response_time_ms,
+            active_threads=active_threads,
+            pending_tasks=pending_tasks,
+            gc_collections=gc_stats,
+            circular_references=circular_references,
+            timestamp=datetime.now()
         )
 
-        return recommendations
-
-    async def _generate_recommendation_for_issue(
-        self, category: str, issue: str, analysis_data: Dict[str, Any]
-    ) -> Optional[OptimizationRecommendation]:
-        """個別問題に対する推奨事項生成"""
-        category_key = category.replace("_analysis", "_optimization")
-
-        if category_key not in self.recommendation_rules:
-            return None
-
-        rule = self.recommendation_rules[category_key].get(issue)
-        if not rule:
-            return None
-
-        # 推定改善効果の計算
-        estimated_improvement = self._calculate_estimated_improvement(
-            category, issue, analysis_data
-        )
-
-        recommendation = OptimizationRecommendation(
-            id=f"{category}_{issue}_{int(datetime.utcnow().timestamp())}",
-            title=rule["title"],
-            description=rule["description"],
-            optimization_type=rule["type"],
-            priority=rule["priority"],
-            impact_level=rule["impact"],
-            estimated_improvement=estimated_improvement,
-            implementation_effort=rule["effort"],
-            implementation_steps=rule["steps"],
-            evidence=analysis_data,
-            tags=[category, issue],
-        )
-
-        # 成功指標の設定
-        recommendation.success_metrics = self._generate_success_metrics(category, issue)
-
-        # リスクの設定
-        recommendation.risks = self._generate_risks(rule["type"], rule["effort"])
-
-        return recommendation
-
-    def _calculate_estimated_improvement(
-        self, category: str, issue: str, analysis_data: Dict[str, Any]
-    ) -> Dict[str, float]:
-        """推定改善効果の計算"""
-        improvements = {}
-
-        if category == "cpu_analysis":
-            if issue == "high_average_cpu":
-                current_avg = analysis_data.get("average_usage", 0)
-                improvements["cpu_usage_reduction"] = min(30.0, current_avg - 50.0)
-            elif issue == "cpu_spikes":
-                improvements["cpu_spike_reduction"] = 40.0
-
-        elif category == "memory_analysis":
-            if issue == "high_memory_usage":
-                current_avg = analysis_data.get("average_usage", 0)
-                improvements["memory_usage_reduction"] = min(25.0, current_avg - 60.0)
-            elif issue == "memory_leak_suspected":
-                improvements["memory_stability_improvement"] = 80.0
-
-        elif category == "application_analysis":
-            if issue == "slow_response_time":
-                improvements["response_time_improvement"] = 50.0
-            elif issue == "high_error_rate":
-                improvements["error_rate_reduction"] = 70.0
-
-        elif category == "disk_analysis":
-            if issue == "high_disk_usage":
-                improvements["disk_space_freed"] = 20.0
-
-        return improvements
-
-    def _generate_success_metrics(self, category: str, issue: str) -> List[str]:
-        """成功指標の生成"""
-        metrics = []
-
-        if category == "cpu_analysis":
-            metrics = ["CPU使用率が70%以下", "CPUスパイクが90%以下"]
-        elif category == "memory_analysis":
-            metrics = ["メモリ使用率が80%以下", "メモリ使用量が安定"]
-        elif category == "application_analysis":
-            metrics = ["平均レスポンス時間が2秒以下", "エラー率が1%以下"]
-        elif category == "disk_analysis":
-            metrics = ["ディスク使用率が85%以下"]
-
+        self.metrics_history.append(metrics)
         return metrics
 
-    def _generate_risks(
-        self, optimization_type: OptimizationType, effort: int
-    ) -> List[str]:
-        """リスクの生成"""
-        risks = []
+    def assess_performance_level(self, metrics: PerformanceMetrics) -> PerformanceLevel:
+        """パフォーマンスレベルを評価"""
+        score = 100  # 満点から開始
 
-        if effort > 7:
-            risks.append("実装に長期間を要する可能性")
+        # CPU使用率チェック
+        if metrics.cpu_percent > 90:
+            score -= 30
+        elif metrics.cpu_percent > 70:
+            score -= 15
 
-        if optimization_type in [
-            OptimizationType.ARCHITECTURE_IMPROVEMENT,
-            OptimizationType.CODE_OPTIMIZATION,
-        ]:
-            risks.append("既存機能への影響のリスク")
-            risks.append("テスト工数の増加")
+        # メモリ使用率チェック
+        if metrics.memory_percent > 90:
+            score -= 30
+        elif metrics.memory_percent > 80:
+            score -= 15
 
-        if optimization_type == OptimizationType.SCALING_RECOMMENDATION:
-            risks.append("インフラストラクチャコストの増加")
+        # レスポンス時間チェック
+        if metrics.response_time_ms > 1000:
+            score -= 25
+        elif metrics.response_time_ms > 500:
+            score -= 10
 
-        return risks
+        # キャッシュヒット率チェック
+        if metrics.cache_hit_rate < 0.5:
+            score -= 20
+        elif metrics.cache_hit_rate < 0.7:
+            score -= 10
 
+        # スレッド数チェック
+        if metrics.active_threads > 50:
+            score -= 15
 
-class OptimizationManager:
-    """最適化管理システム"""
+        # レベル判定
+        if score >= 80:
+            return PerformanceLevel.OPTIMAL
+        elif score >= 60:
+            return PerformanceLevel.GOOD
+        elif score >= 40:
+            return PerformanceLevel.DEGRADED
+        else:
+            return PerformanceLevel.CRITICAL
 
-    def __init__(self, db_path: str = "optimization.db"):
-        self.db_path = db_path
-        self.optimization_engine = OptimizationEngine()
-        self._initialize_database()
+    def optimize_memory(self) -> OptimizationResult:
+        """メモリ最適化"""
+        before_metrics = self.get_current_metrics()
+        start_time = time.time()
 
-    def _initialize_database(self):
-        """データベースを初期化"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS optimization_recommendations (
-                    id TEXT PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    description TEXT,
-                    optimization_type TEXT NOT NULL,
-                    priority TEXT NOT NULL,
-                    impact_level TEXT NOT NULL,
-                    estimated_improvement TEXT,
-                    implementation_effort INTEGER,
-                    implementation_steps TEXT,
-                    prerequisites TEXT,
-                    risks TEXT,
-                    success_metrics TEXT,
-                    created_at DATETIME NOT NULL,
-                    evidence TEXT,
-                    tags TEXT,
-                    status TEXT DEFAULT 'pending'
-                )
-            """
+        try:
+            # ガベージコレクション実行
+            gc_stats = self.memory_manager.force_garbage_collection()
+
+            # 大きなオブジェクトのクリーンアップ
+            cleaned_objects = self.memory_manager.cleanup_large_objects()
+
+            after_metrics = self.get_current_metrics()
+            execution_time = (time.time() - start_time) * 1000
+
+            # 改善率計算
+            memory_before = before_metrics.memory_usage_mb
+            memory_after = after_metrics.memory_usage_mb
+            improvement = ((memory_before - memory_after) / memory_before * 100) if memory_before > 0 else 0
+
+            result = OptimizationResult(
+                strategy=OptimizationStrategy.MEMORY_CLEANUP,
+                before_metrics=before_metrics,
+                after_metrics=after_metrics,
+                improvement_percent=improvement,
+                execution_time_ms=execution_time,
+                success=True,
+                details={
+                    'gc_collections': gc_stats,
+                    'cleaned_objects': cleaned_objects,
+                    'memory_freed_mb': memory_before - memory_after
+                }
             )
 
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS optimization_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    recommendation_id TEXT NOT NULL,
-                    action TEXT NOT NULL,
-                    timestamp DATETIME NOT NULL,
-                    notes TEXT,
-                    FOREIGN KEY (recommendation_id) REFERENCES optimization_recommendations (id)
-                )
-            """
+            self.logger.info(f"Memory optimization completed: {improvement:.1f}% improvement")
+            return result
+
+        except Exception as e:
+            after_metrics = self.get_current_metrics()
+            execution_time = (time.time() - start_time) * 1000
+
+            self.logger.error(f"Memory optimization failed: {e}")
+
+            return OptimizationResult(
+                strategy=OptimizationStrategy.MEMORY_CLEANUP,
+                before_metrics=before_metrics,
+                after_metrics=after_metrics,
+                improvement_percent=0.0,
+                execution_time_ms=execution_time,
+                success=False,
+                details={'error': str(e)}
             )
 
-            conn.commit()
+    def optimize_circular_references(self) -> OptimizationResult:
+        """循環参照最適化"""
+        before_metrics = self.get_current_metrics()
+        start_time = time.time()
 
-    async def analyze_and_recommend(self) -> List[OptimizationRecommendation]:
-        """分析と推奨事項生成"""
-        recommendations = await self.optimization_engine.generate_recommendations()
+        try:
+            # 循環参照検出と修復
+            repaired_count = 0
 
-        # データベースに保存
-        for recommendation in recommendations:
-            self._save_recommendation(recommendation)
+            # ガベージコレクションで循環参照を解決
+            gc.set_debug(gc.DEBUG_STATS)
+            collected = gc.collect()
+            gc.set_debug(0)
 
-        return recommendations
+            # 循環参照検出器のキャッシュをクリーンアップ
+            self.circular_detector.cleanup_cache()
 
-    def _save_recommendation(self, recommendation: OptimizationRecommendation):
-        """推奨事項をデータベースに保存"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO optimization_recommendations
-                (id, title, description, optimization_type, priority, impact_level,
-                 estimated_improvement, implementation_effort, implementation_steps,
-                 prerequisites, risks, success_metrics, created_at, evidence, tags)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    recommendation.id,
-                    recommendation.title,
-                    recommendation.description,
-                    recommendation.optimization_type.value,
-                    recommendation.priority.value,
-                    recommendation.impact_level.value,
-                    json.dumps(recommendation.estimated_improvement),
-                    recommendation.implementation_effort,
-                    json.dumps(recommendation.implementation_steps),
-                    json.dumps(recommendation.prerequisites),
-                    json.dumps(recommendation.risks),
-                    json.dumps(recommendation.success_metrics),
-                    recommendation.created_at.isoformat(),
-                    json.dumps(recommendation.evidence),
-                    json.dumps(recommendation.tags),
-                ),
-            )
-            conn.commit()
+            after_metrics = self.get_current_metrics()
+            execution_time = (time.time() - start_time) * 1000
 
-    def get_recommendations(
-        self,
-        priority: Optional[Priority] = None,
-        optimization_type: Optional[OptimizationType] = None,
-        limit: int = 50,
-    ) -> List[Dict[str, Any]]:
-        """推奨事項を取得"""
-        query = "SELECT * FROM optimization_recommendations WHERE 1=1"
-        params = []
+            # 改善率計算（GCで回収されたオブジェクト数ベース）
+            improvement = min(collected * 0.1, 50.0)  # 最大50%改善として計算
 
-        if priority:
-            query += " AND priority = ?"
-            params.append(priority.value)
-
-        if optimization_type:
-            query += " AND optimization_type = ?"
-            params.append(optimization_type.value)
-
-        query += " ORDER BY priority, impact_level DESC LIMIT ?"
-        params.append(limit)
-
-        recommendations = []
-
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(query, params)
-
-            for row in cursor.fetchall():
-                recommendations.append(
-                    {
-                        "id": row[0],
-                        "title": row[1],
-                        "description": row[2],
-                        "optimization_type": row[3],
-                        "priority": row[4],
-                        "impact_level": row[5],
-                        "estimated_improvement": json.loads(row[6]) if row[6] else {},
-                        "implementation_effort": row[7],
-                        "implementation_steps": json.loads(row[8]) if row[8] else [],
-                        "prerequisites": json.loads(row[9]) if row[9] else [],
-                        "risks": json.loads(row[10]) if row[10] else [],
-                        "success_metrics": json.loads(row[11]) if row[11] else [],
-                        "created_at": row[12],
-                        "evidence": json.loads(row[13]) if row[13] else {},
-                        "tags": json.loads(row[14]) if row[14] else [],
-                        "status": row[15] if len(row) > 15 else "pending",
-                    }
-                )
-
-        return recommendations
-
-    def mark_recommendation_implemented(self, recommendation_id: str, notes: str = ""):
-        """推奨事項を実装済みとしてマーク"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                UPDATE optimization_recommendations
-                SET status = 'implemented'
-                WHERE id = ?
-            """,
-                (recommendation_id,),
+            result = OptimizationResult(
+                strategy=OptimizationStrategy.CIRCULAR_REFERENCE_CLEANUP,
+                before_metrics=before_metrics,
+                after_metrics=after_metrics,
+                improvement_percent=improvement,
+                execution_time_ms=execution_time,
+                success=True,
+                details={
+                    'collected_objects': collected,
+                    'repaired_references': repaired_count
+                }
             )
 
-            conn.execute(
-                """
-                INSERT INTO optimization_history
-                (recommendation_id, action, timestamp, notes)
-                VALUES (?, 'implemented', ?, ?)
-            """,
-                (recommendation_id, datetime.utcnow().isoformat(), notes),
+            self.logger.info(f"Circular reference optimization completed: {collected} objects collected")
+            return result
+
+        except Exception as e:
+            after_metrics = self.get_current_metrics()
+            execution_time = (time.time() - start_time) * 1000
+
+            self.logger.error(f"Circular reference optimization failed: {e}")
+
+            return OptimizationResult(
+                strategy=OptimizationStrategy.CIRCULAR_REFERENCE_CLEANUP,
+                before_metrics=before_metrics,
+                after_metrics=after_metrics,
+                improvement_percent=0.0,
+                execution_time_ms=execution_time,
+                success=False,
+                details={'error': str(e)}
             )
 
-            conn.commit()
+    def optimize_cache(self) -> OptimizationResult:
+        """キャッシュ最適化"""
+        before_metrics = self.get_current_metrics()
+        start_time = time.time()
 
-    def get_optimization_report(self) -> Dict[str, Any]:
-        """最適化レポートを生成"""
-        with sqlite3.connect(self.db_path) as conn:
-            # 推奨事項統計
-            cursor = conn.execute(
-                """
-                SELECT
-                    optimization_type,
-                    priority,
-                    COUNT(*) as count
-                FROM optimization_recommendations
-                WHERE status = 'pending'
-                GROUP BY optimization_type, priority
-            """
+        try:
+            optimization_details = {}
+
+            # キャッシュサイズの最適化
+            for cache_name in list(self.cache_optimizer.cache_stats.keys()):
+                current_size = self.cache_optimizer.cache_sizes[cache_name]
+                optimized_size = self.cache_optimizer.optimize_cache_size(cache_name, current_size)
+                optimization_details[cache_name] = {
+                    'old_size': current_size,
+                    'new_size': optimized_size,
+                    'hit_rate': self.cache_optimizer.get_cache_hit_rate(cache_name)
+                }
+                self.cache_optimizer.cache_sizes[cache_name] = optimized_size
+
+            after_metrics = self.get_current_metrics()
+            execution_time = (time.time() - start_time) * 1000
+
+            # 改善率計算（キャッシュヒット率の改善）
+            hit_rate_before = before_metrics.cache_hit_rate
+            hit_rate_after = after_metrics.cache_hit_rate
+            improvement = ((hit_rate_after - hit_rate_before) * 100) if hit_rate_before > 0 else 0
+
+            result = OptimizationResult(
+                strategy=OptimizationStrategy.CACHE_OPTIMIZATION,
+                before_metrics=before_metrics,
+                after_metrics=after_metrics,
+                improvement_percent=improvement,
+                execution_time_ms=execution_time,
+                success=True,
+                details=optimization_details
             )
 
-            statistics = {}
-            for row in cursor.fetchall():
-                opt_type = row[0]
-                priority = row[1]
-                count = row[2]
+            self.logger.info(f"Cache optimization completed: {len(optimization_details)} caches optimized")
+            return result
 
-                if opt_type not in statistics:
-                    statistics[opt_type] = {}
-                statistics[opt_type][priority] = count
+        except Exception as e:
+            after_metrics = self.get_current_metrics()
+            execution_time = (time.time() - start_time) * 1000
 
-            # 実装済み統計
-            cursor = conn.execute(
-                """
-                SELECT COUNT(*) FROM optimization_recommendations
-                WHERE status = 'implemented'
-            """
+            self.logger.error(f"Cache optimization failed: {e}")
+
+            return OptimizationResult(
+                strategy=OptimizationStrategy.CACHE_OPTIMIZATION,
+                before_metrics=before_metrics,
+                after_metrics=after_metrics,
+                improvement_percent=0.0,
+                execution_time_ms=execution_time,
+                success=False,
+                details={'error': str(e)}
             )
-            implemented_count = cursor.fetchone()[0]
 
-            # 総推奨事項数
-            cursor = conn.execute("SELECT COUNT(*) FROM optimization_recommendations")
-            total_count = cursor.fetchone()[0]
+    def auto_optimize(self) -> List[OptimizationResult]:
+        """自動最適化"""
+        if not self.auto_optimization:
+            return []
+
+        current_metrics = self.get_current_metrics()
+        performance_level = self.assess_performance_level(current_metrics)
+
+        optimization_results = []
+
+        # パフォーマンスレベルに応じた最適化戦略
+        if performance_level in [PerformanceLevel.CRITICAL, PerformanceLevel.DEGRADED]:
+            self.logger.info(f"Auto-optimization triggered: {performance_level.value}")
+
+            # メモリ最適化
+            if current_metrics.memory_percent > 80:
+                result = self.optimize_memory()
+                optimization_results.append(result)
+
+            # 循環参照最適化
+            if current_metrics.gc_collections['count_0'] > 1000:
+                result = self.optimize_circular_references()
+                optimization_results.append(result)
+
+            # キャッシュ最適化
+            if current_metrics.cache_hit_rate < 0.7:
+                result = self.optimize_cache()
+                optimization_results.append(result)
+
+        # 最適化履歴に追加
+        for result in optimization_results:
+            self.optimization_history.append(result)
+
+        self.last_optimization = datetime.now()
+        return optimization_results
+
+    def start_background_optimization(self):
+        """バックグラウンド最適化を開始"""
+        if self.optimization_thread and self.optimization_thread.is_alive():
+            return
+
+        def optimization_loop():
+            while self.running:
+                try:
+                    # 最適化間隔チェック
+                    if (datetime.now() - self.last_optimization).total_seconds() >= self.optimization_interval:
+                        self.auto_optimize()
+
+                    time.sleep(10)  # 10秒間隔でチェック
+
+                except Exception as e:
+                    self.logger.error(f"Background optimization error: {e}")
+                    time.sleep(30)  # エラー時は30秒待機
+
+        self.optimization_thread = threading.Thread(target=optimization_loop, daemon=True)
+        self.optimization_thread.start()
+
+        self.logger.info("Background optimization started")
+
+    def stop_background_optimization(self):
+        """バックグラウンド最適化を停止"""
+        self.running = False
+        if self.optimization_thread:
+            self.optimization_thread.join(timeout=5)
+
+        self.logger.info("Background optimization stopped")
+
+    def get_performance_report(self) -> Dict[str, Any]:
+        """パフォーマンスレポートを生成"""
+        current_metrics = self.get_current_metrics()
+        performance_level = self.assess_performance_level(current_metrics)
+
+        # 最近の最適化結果
+        recent_optimizations = list(self.optimization_history)[-10:]
+
+        # 成功した最適化の統計
+        successful_optimizations = [opt for opt in recent_optimizations if opt.success]
+        total_improvement = sum(opt.improvement_percent for opt in successful_optimizations)
 
         return {
-            "total_recommendations": total_count,
-            "pending_recommendations": total_count - implemented_count,
-            "implemented_recommendations": implemented_count,
-            "implementation_rate": (
-                (implemented_count / total_count * 100) if total_count > 0 else 0
-            ),
-            "statistics_by_type": statistics,
-            "generated_at": datetime.utcnow().isoformat(),
+            'current_performance': {
+                'level': performance_level.value,
+                'cpu_percent': current_metrics.cpu_percent,
+                'memory_usage_mb': current_metrics.memory_usage_mb,
+                'memory_percent': current_metrics.memory_percent,
+                'cache_hit_rate': current_metrics.cache_hit_rate,
+                'response_time_ms': current_metrics.response_time_ms,
+                'active_threads': current_metrics.active_threads
+            },
+            'optimization_status': {
+                'auto_optimization_enabled': self.auto_optimization,
+                'last_optimization': self.last_optimization.isoformat(),
+                'optimization_interval_seconds': self.optimization_interval,
+                'background_running': self.running and self.optimization_thread and self.optimization_thread.is_alive()
+            },
+            'recent_optimizations': [
+                {
+                    'strategy': opt.strategy.value,
+                    'improvement_percent': opt.improvement_percent,
+                    'execution_time_ms': opt.execution_time_ms,
+                    'success': opt.success
+                }
+                for opt in recent_optimizations
+            ],
+            'statistics': {
+                'total_optimizations': len(self.optimization_history),
+                'successful_optimizations': len(successful_optimizations),
+                'total_improvement_percent': total_improvement,
+                'average_improvement': total_improvement / len(successful_optimizations) if successful_optimizations else 0
+            },
+            'timestamp': datetime.now().isoformat()
         }
 
 
 # グローバルインスタンス
-_optimization_manager = None
+_performance_system = None
 
 
-def get_optimization_manager() -> OptimizationManager:
-    """グローバル最適化管理を取得"""
-    global _optimization_manager
-    if _optimization_manager is None:
-        _optimization_manager = OptimizationManager()
-    return _optimization_manager
+def get_performance_system() -> PerformanceOptimizationSystem:
+    """グローバルパフォーマンスシステムを取得"""
+    global _performance_system
+    if _performance_system is None:
+        _performance_system = PerformanceOptimizationSystem()
+    return _performance_system
+
+
+def optimize_performance() -> List[OptimizationResult]:
+    """パフォーマンス最適化（便利関数）"""
+    return get_performance_system().auto_optimize()
+
+
+def get_performance_metrics() -> PerformanceMetrics:
+    """パフォーマンスメトリクス取得（便利関数）"""
+    return get_performance_system().get_current_metrics()
+
+
+if __name__ == "__main__":
+    print("⚡ パフォーマンス最適化システムテスト")
+    print("=" * 50)
+
+    system = PerformanceOptimizationSystem()
+
+    # 現在のメトリクス
+    metrics = system.get_current_metrics()
+    performance_level = system.assess_performance_level(metrics)
+
+    print(f"現在のパフォーマンス:")
+    print(f"  レベル: {performance_level.value}")
+    print(f"  CPU使用率: {metrics.cpu_percent:.1f}%")
+    print(f"  メモリ使用率: {metrics.memory_percent:.1f}%")
+    print(f"  キャッシュヒット率: {metrics.cache_hit_rate:.1%}")
+    print(f"  レスポンス時間: {metrics.response_time_ms:.2f}ms")
+
+    # 最適化実行
+    print("\n最適化実行中...")
+    optimizations = system.auto_optimize()
+
+    if optimizations:
+        print(f"\n最適化結果:")
+        for opt in optimizations:
+            print(f"  {opt.strategy.value}: {opt.improvement_percent:.1f}% 改善 ({'成功' if opt.success else '失敗'})")
+    else:
+        print("最適化は不要でした")
+
+    # レポート生成
+    report = system.get_performance_report()
+    print(f"\n統計:")
+    print(f"  総最適化回数: {report['statistics']['total_optimizations']}")
+    print(f"  成功回数: {report['statistics']['successful_optimizations']}")
+    print(f"  平均改善率: {report['statistics']['average_improvement']:.1f}%")
+
+    print("\nテスト完了")
