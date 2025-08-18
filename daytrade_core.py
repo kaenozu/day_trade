@@ -12,6 +12,11 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent / "src"))
 
 from src.day_trade.core.application import DayTradeApplication
+from src.day_trade.core.lightweight_application import LightweightDayTradeApplication
+
+# エイリアス定義
+DayTradeCore = DayTradeApplication
+DayTradeCoreLight = LightweightDayTradeApplication
 
 
 def main():
