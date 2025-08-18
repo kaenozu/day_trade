@@ -70,7 +70,7 @@ except ImportError:
     DATA_PROVIDER_AVAILABLE = False
 
 try:
-    from model_performance_monitor import EnhancedModelPerformanceMonitor
+    from ..monitoring.model_performance_monitor import EnhancedModelPerformanceMonitor
     PERFORMANCE_MONITOR_AVAILABLE = True
 except ImportError:
     PERFORMANCE_MONITOR_AVAILABLE = False
@@ -696,7 +696,7 @@ class EnhancedWebDashboard:
 
         # Flask・SocketIOアプリ初期化
         self.app = Flask(__name__)
-        
+
         # セキュアなsecret key設定
         secret_key = os.environ.get('ENHANCED_DASHBOARD_SECRET_KEY')
         if not secret_key:
@@ -704,7 +704,7 @@ class EnhancedWebDashboard:
             secret_key = secrets.token_urlsafe(32)
             self.logger.warning(f"⚠️  本番環境では環境変数ENHANCED_DASHBOARD_SECRET_KEYを設定してください")
             self.logger.warning(f"    例: export ENHANCED_DASHBOARD_SECRET_KEY='[32文字以上のランダム文字列]'")
-        
+
         self.app.secret_key = secret_key
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
 

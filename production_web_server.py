@@ -49,8 +49,8 @@ except ImportError:
 
 class ProductionWebServer:
     """プロダクション対応Webサーバー"""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  host: str = "127.0.0.1",
                  port: int = 8080,
                  secret_key: Optional[str] = None,
@@ -59,7 +59,7 @@ class ProductionWebServer:
                  password_hash: Optional[str] = None):
         """
         初期化
-        
+
         Args:
             host: ホスト（本番では127.0.0.1推奨）
             port: ポート番号
@@ -70,27 +70,27 @@ class ProductionWebServer:
         """
         if not FLASK_AVAILABLE:
             raise ImportError("Flask required for production web server")
-            
+
         self.host = host
         self.port = port
         self.auth_enabled = auth_enabled
         self.username = username
-        
+
         # セキュリティ設定
         self.secret_key = secret_key or self._generate_secret_key()
         self.password_hash = password_hash or self._get_default_password_hash()
-        
+
         # ロギング設定（最初に初期化）
         self.logger = self._setup_logging()
-        
+
         # Flask アプリケーション設定
         self.app = self._create_app()
-        self.socketio = SocketIO(self.app, 
+        self.socketio = SocketIO(self.app,
                                cors_allowed_origins="*",
                                async_mode='threading',
                                logger=False,
                                engineio_logger=False)
-        
+
         # Dashboard統合
         self.dashboard = None
         if DASHBOARD_AVAILABLE:
@@ -99,11 +99,11 @@ class ProductionWebServer:
                 self.logger.info("Enhanced Web Dashboard integrated")
             except Exception as e:
                 self.logger.warning(f"Dashboard integration failed: {e}")
-        
+
     def _generate_secret_key(self) -> str:
         """セキュアな秘密鍵生成"""
         return secrets.token_hex(32)
-    
+
     def _get_default_password_hash(self) -> str:
         """デフォルトパスワードハッシュ生成"""
         # 環境変数からパスワードを取得
@@ -113,13 +113,13 @@ class ProductionWebServer:
             admin_password = secrets.token_urlsafe(16)
             self.logger.warning(f"⚠️  本番環境では環境変数ADMIN_PASSWORDを設定してください")
             self.logger.warning(f"    一時的なパスワードが生成されました。ログを確認してください。")
-        
+
         return generate_password_hash(admin_password)
-    
+
     def _create_app(self) -> Flask:
         """プロダクション用Flask app作成"""
         app = Flask(__name__)
-        
+
         # セキュリティ設定
         app.secret_key = self.secret_key
         app.config.update(
@@ -129,38 +129,38 @@ class ProductionWebServer:
             PERMANENT_SESSION_LIFETIME=3600,  # 1時間
             WTF_CSRF_ENABLED=False  # 簡易版では無効化
         )
-        
+
         # プロキシ対応（リバースプロキシ使用時）
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
-        
+
         # 基本認証ルート
         if self.auth_enabled:
             self._setup_auth_routes(app)
-        
+
         # 基本ルート
         self._setup_basic_routes(app)
-        
+
         return app
-    
+
     def _setup_auth_routes(self, app: Flask):
         """認証関連ルート設定"""
-        
+
         @app.before_request
         def require_login():
             # 静的ファイルとログインページは除外
             if request.endpoint in ['login', 'static'] or request.path.startswith('/static'):
                 return
-            
+
             if 'logged_in' not in session:
                 return redirect(url_for('login'))
-        
+
         @app.route('/login', methods=['GET', 'POST'])
         def login():
             if request.method == 'POST':
                 username = request.form.get('username')
                 password = request.form.get('password')
-                
-                if (username == self.username and 
+
+                if (username == self.username and
                     check_password_hash(self.password_hash, password)):
                     session['logged_in'] = True
                     session['username'] = username
@@ -168,17 +168,17 @@ class ProductionWebServer:
                     return redirect('/')
                 else:
                     return render_template_string(LOGIN_TEMPLATE, error="Invalid credentials")
-            
+
             return render_template_string(LOGIN_TEMPLATE)
-        
+
         @app.route('/logout')
         def logout():
             session.clear()
             return redirect(url_for('login'))
-    
+
     def _setup_basic_routes(self, app: Flask):
         """基本ルート設定"""
-        
+
         @app.route('/')
         def index():
             if self.dashboard:
@@ -186,7 +186,7 @@ class ProductionWebServer:
                 return self.dashboard.get_dashboard_data()
             else:
                 return render_template_string(SIMPLE_DASHBOARD_TEMPLATE)
-        
+
         @app.route('/health')
         def health():
             """ヘルスチェックエンドポイント"""
@@ -196,7 +196,7 @@ class ProductionWebServer:
                 'version': '1.0.0',
                 'auth_enabled': self.auth_enabled
             })
-        
+
         @app.route('/api/status')
         def api_status():
             """APIステータス"""
@@ -206,54 +206,54 @@ class ProductionWebServer:
                 'auth_enabled': self.auth_enabled,
                 'uptime': datetime.now().isoformat()
             })
-    
+
     def _setup_logging(self) -> logging.Logger:
         """プロダクション用ログ設定"""
         logger = logging.getLogger('production_web_server')
         logger.setLevel(logging.INFO)
-        
+
         # コンソールハンドラー
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
-        
+
         # ファイルハンドラー
         log_dir = Path('logs')
         log_dir.mkdir(exist_ok=True)
         file_handler = logging.FileHandler(log_dir / 'production_web.log')
         file_handler.setLevel(logging.INFO)
-        
+
         # フォーマット設定
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
         console_handler.setFormatter(formatter)
         file_handler.setFormatter(formatter)
-        
+
         logger.addHandler(console_handler)
         logger.addHandler(file_handler)
-        
+
         return logger
-    
+
     def run_development(self):
         """開発モード実行（デバッグ有効）"""
         self.logger.info(f"Starting development server on {self.host}:{self.port}")
-        self.socketio.run(self.app, 
-                         host=self.host, 
-                         port=self.port, 
+        self.socketio.run(self.app,
+                         host=self.host,
+                         port=self.port,
                          debug=True,
                          use_reloader=False)  # socketioとの競合回避
-    
+
     def run_production(self):
         """プロダクションモード実行（デバッグ無効）"""
         self.logger.info(f"Starting production server on {self.host}:{self.port}")
         self.logger.info("For production deployment, use: gunicorn -w 4 -b 0.0.0.0:8080 production_web_server:app")
-        
+
         # 開発環境でのプロダクションモード
-        self.socketio.run(self.app, 
-                         host=self.host, 
-                         port=self.port, 
+        self.socketio.run(self.app,
+                         host=self.host,
+                         port=self.port,
                          debug=False)
-    
+
     def get_wsgi_app(self):
         """WSGI アプリケーション取得（Gunicorn用）"""
         return self.app
@@ -285,25 +285,25 @@ LOGIN_TEMPLATE = '''
             <h2>🚀 Day Trade Personal</h2>
             <p>93%精度AI システム</p>
         </div>
-        
+
         {% if error %}
         <div class="error">{{ error }}</div>
         {% endif %}
-        
+
         <form method="post">
             <div class="form-group">
                 <label for="username">ユーザー名:</label>
                 <input type="text" id="username" name="username" required>
             </div>
-            
+
             <div class="form-group">
                 <label for="password">パスワード:</label>
                 <input type="password" id="password" name="password" required>
             </div>
-            
+
             <button type="submit" class="btn">ログイン</button>
         </form>
-        
+
         <div class="info">
             デフォルト: admin / admin123
         </div>
@@ -331,13 +331,13 @@ SIMPLE_DASHBOARD_TEMPLATE = '''
         <h1>🚀 Day Trade Personal</h1>
         <h2>プロダクション Web ダッシュボード</h2>
     </div>
-    
+
     <div class="status">
         <h3>システム状態</h3>
         <p class="success">✅ プロダクションモードで動作中</p>
         <p class="info">🔒 認証システム有効</p>
         <p class="info">📊 ダッシュボード待機中</p>
-        
+
         <h3>利用可能エンドポイント</h3>
         <ul>
             <li><a href="/health">ヘルスチェック</a></li>
@@ -367,7 +367,7 @@ app = create_production_app()
 
 if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Day Trade Personal - Production Web Server")
     parser.add_argument("--host", default="127.0.0.1", help="Host address")
     parser.add_argument("--port", type=int, default=8080, help="Port number")
@@ -375,14 +375,14 @@ if __name__ == "__main__":
     parser.add_argument("--no-auth", action="store_true", help="Disable authentication")
     parser.add_argument("--username", default="admin", help="Admin username")
     parser.add_argument("--password", default=None, help="Admin password (環境変数ADMIN_PASSWORDまたは--passwordで設定)")
-    
+
     args = parser.parse_args()
-    
+
     # パスワードハッシュ化
     password_hash = None
     if FLASK_AVAILABLE and args.password:
         password_hash = generate_password_hash(args.password)
-    
+
     server = ProductionWebServer(
         host=args.host,
         port=args.port,
@@ -390,7 +390,7 @@ if __name__ == "__main__":
         username=args.username,
         password_hash=password_hash
     )
-    
+
     if args.production:
         server.run_production()
     else:
