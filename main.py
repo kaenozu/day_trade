@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Day Trade Personal - リファクタリング版メインエントリーポイント
+株価分析システム - メインエントリーポイント
 
 使用方法:
-  python main.py           # デイトレード推奨（デフォルト）
+  python main.py           # 分析実行（デフォルト）
   python main.py --quick   # 基本分析
   python main.py --web     # Webダッシュボード
   python main.py --help    # 詳細オプション

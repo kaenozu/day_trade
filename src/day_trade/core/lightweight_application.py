@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Day Trade Personal - 軽量アプリケーションクラス
+株価分析システム - 軽量アプリケーションクラス
 
-メモリ効率を重視した最小限のアプリケーション
+メモリ効率を重視した最小限の分析アプリケーション
 """
 
 import asyncio
@@ -10,8 +10,8 @@ import sys
 from typing import Optional
 
 
-class LightweightDayTradeApplication:
-    """軽量版Day Tradeアプリケーション"""
+class LightweightStockAnalysisApplication:
+    """軽量版株価分析アプリケーション"""
 
     def __init__(self, debug: bool = False, use_cache: bool = True):
         """軽量初期化
