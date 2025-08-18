@@ -16,6 +16,7 @@ from ..cli.argument_parser import ArgumentParser
 from ..analysis.advanced_technical_analyzer import AdvancedTechnicalAnalyzer as TradingAnalyzer
 from ..dashboard.web_dashboard import WebDashboard
 from ..utils.logging_config import get_context_logger
+from ..config.config_manager import ConfigManager
 
 
 class StockAnalysisApplication:
@@ -38,10 +39,34 @@ class StockAnalysisApplication:
         self.analyzer = None
         self.web_dashboard = None
         self._ml_modules_loaded = False
-        self.config = None
+        
+        # 設定管理の初期化
+        self.config_manager = ConfigManager()
+        self.config = self.config_manager.get_config()
         
         # ロガー設定
         self.logger = get_context_logger(__name__, "StockAnalysisApplication")
+
+    def _get_analysis_config(self):
+        """分析設定を取得"""
+        try:
+            analysis_config = self.config.get('analysis', {}) if self.config else {}
+            return {
+                'technical_indicators': analysis_config.get('technical_indicators', {}),
+                'confidence': analysis_config.get('confidence', {}),
+                'data_periods': analysis_config.get('data_periods', {})
+            }
+        except Exception:
+            # デフォルト設定を返す
+            return {
+                'technical_indicators': {
+                    'rsi': {'period': 14, 'overbought_threshold': 70, 'oversold_threshold': 30},
+                    'sma': {'short_period': 20, 'long_period': 50},
+                    'macd': {'fast_period': 12, 'slow_period': 26, 'signal_period': 9}
+                },
+                'confidence': {'default_confidence': 0.85, 'minimum_confidence': 0.60},
+                'data_periods': {'default_period': '1y'}
+            }
 
     def _lazy_load_ml_modules(self):
         """MLモジュールの遅延読み込み"""
@@ -192,10 +217,15 @@ class StockAnalysisApplication:
                     results.append(analysis_result)
                 except Exception as e:
                     # エラー時のフォールバック
+                    # 設定から信頼度を取得、デフォルト値として0.85を使用
+                    default_confidence = 0.85
+                    if hasattr(self.config, 'analysis') and self.config.analysis:
+                        default_confidence = self.config.analysis.get('confidence', {}).get('default_confidence', 0.85)
+                    
                     results.append({
                         'symbol': symbol,
                         'recommendation': 'HOLD',
-                        'confidence': 0.85,
+                        'confidence': default_confidence,
                         'error': str(e)
                     })
 
@@ -478,13 +508,20 @@ class StockAnalysisApplication:
 
             # 技術指標計算
             rsi = calculate_rsi(stock_data['Close'])
+            # 分析設定を取得
+            analysis_config = self._get_analysis_config()
+            rsi_config = analysis_config['technical_indicators'].get('rsi', {'period': 14, 'overbought_threshold': 70, 'oversold_threshold': 30})
+            sma_config = analysis_config['technical_indicators'].get('sma', {'short_period': 20, 'long_period': 50})
+            
             current_rsi = rsi.iloc[-1] if not rsi.empty else 50
 
             macd_line, macd_signal = calculate_macd(stock_data['Close'])
             current_macd = macd_line.iloc[-1] - macd_signal.iloc[-1] if not macd_line.empty else 0
 
-            sma_20 = stock_data['Close'].rolling(window=20).mean()
-            current_sma = sma_20.iloc[-1] if not sma_20.empty else current_price
+            # SMAピリオドを設定から取得
+            sma_period = sma_config.get('short_period', 20)
+            sma_data = stock_data['Close'].rolling(window=sma_period).mean()
+            current_sma = sma_data.iloc[-1] if not sma_data.empty else current_price
 
             if self.debug:
                 print(f"    価格: {current_price:.2f}円, RSI: {current_rsi:.1f}, MACD: {current_macd:.3f}, SMA20: {current_sma:.2f}円")
@@ -493,13 +530,16 @@ class StockAnalysisApplication:
             confidence = 0.5
             trend_score = 0.0
 
-            # RSI判定
-            if current_rsi < 30:
+            # RSI判定（設定から閾値を取得）
+            rsi_oversold = rsi_config.get('oversold_threshold', 30)
+            rsi_overbought = rsi_config.get('overbought_threshold', 70)
+            
+            if current_rsi < rsi_oversold:
                 trend_score += 0.4
                 confidence += 0.2
                 if self.debug:
                     print(f"    RSI売られすぎ -> 買いシグナル")
-            elif current_rsi > 70:
+            elif current_rsi > rsi_overbought:
                 trend_score -= 0.4
                 confidence += 0.2
                 if self.debug:
