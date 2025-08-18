@@ -1,0 +1,5 @@
+batch_size: 32
+cache_predictions: true
+enabled: true
+gpu_enabled: false
+model_path: models/

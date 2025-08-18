@@ -1,28 +1,23 @@
 # 開発・テスト用依存関係
-
 # テストフレームワーク
-pytest>=7.0.0
-pytest-cov>=4.0.0
-pytest-xdist>=3.0.0
-pytest-mock>=3.0.0
-pytest-benchmark>=4.0.0
-
 # コードカバレッジ
-coverage>=7.0.0
-
 # コード品質
-flake8>=6.0.0
-black>=23.0.0
-mypy>=1.0.0
-
 # パフォーマンス測定
-memory-profiler>=0.60.0
-line-profiler>=4.0.0
-
 # モック・テストデータ
+# ドキュメント
+
+black>=23.0.0
+coverage>=7.0.0
 factory-boy>=3.2.0
 faker>=18.0.0
-
-# ドキュメント
-sphinx>=6.0.0
+flake8>=6.0.0
+line-profiler>=4.0.0
+memory-profiler>=0.60.0
+mypy>=1.0.0
+pytest-benchmark>=4.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.0.0
+pytest-xdist>=3.0.0
+pytest>=7.0.0
 sphinx-rtd-theme>=1.2.0
+sphinx>=6.0.0

@@ -1,0 +1,381 @@
+#==============================================================================
+# AlertManager 設定 - Issue #442 Phase 4
+# 智的アラート管理・通知・エスカレーション
+#==============================================================================
+
+# グローバル設定
+global:
+  # SMTP設定
+  smtp_smarthost: 'mail.daytrade.local:587'
+  smtp_from: 'alerts@daytrade.local'
+  smtp_auth_username: 'alerts@daytrade.local'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+  # 外部リンク
+  resolve_timeout: 5m
+  http_config:
+    follow_redirects: true
+
+# テンプレート設定
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# === ルーティング設定 ===
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'default-team'
+
+  # ルーティングルール
+  routes:
+    # === HFT クリティカルアラート ===
+    - match:
+        severity: critical
+        service: trading
+      group_by: ['alertname']
+      group_wait: 0s
+      group_interval: 30s
+      repeat_interval: 5m
+      receiver: 'hft-critical-team'
+      continue: false
+
+    # === システムクリティカル ===
+    - match:
+        severity: critical
+      group_by: ['alertname', 'instance']
+      group_wait: 30s
+      group_interval: 1m
+      repeat_interval: 10m
+      receiver: 'sre-team'
+      routes:
+        # データベース関連
+        - match:
+            service: database
+          receiver: 'database-team'
+        # セキュリティ関連
+        - match:
+            service: security
+          receiver: 'security-team'
+
+    # === ビジネスアラート ===
+    - match:
+        alert_type: large_loss
+      group_by: ['alertname']
+      group_wait: 0s
+      group_interval: 30s
+      repeat_interval: 15m
+      receiver: 'risk-management-team'
+
+    # === パフォーマンスアラート ===
+    - match_re:
+        alertname: '.*(Latency|Performance).*'
+      group_by: ['alertname', 'service']
+      group_wait: 1m
+      group_interval: 5m
+      repeat_interval: 30m
+      receiver: 'performance-team'
+
+    # === セキュリティアラート ===
+    - match:
+        service: security
+      group_by: ['alertname', 'source_ip']
+      group_wait: 30s
+      group_interval: 2m
+      repeat_interval: 1h
+      receiver: 'security-team'
+
+    # === 可用性アラート ===
+    - match_re:
+        alertname: '.*(Down|Unavailable).*'
+      group_by: ['alertname', 'instance']
+      group_wait: 30s
+      group_interval: 1m
+      repeat_interval: 15m
+      receiver: 'sre-team'
+
+    # === 警告レベル ===
+    - match:
+        severity: warning
+      group_by: ['alertname', 'service']
+      group_wait: 5m
+      group_interval: 10m
+      repeat_interval: 2h
+      receiver: 'monitoring-team'
+
+# === 通知抑制設定 ===
+inhibit_rules:
+  # サービス停止時は他のアラートを抑制
+  - source_match:
+      severity: 'critical'
+      alertname: 'ServiceDown'
+    target_match:
+      service: '{{ $sourceLabels.service }}'
+    equal: ['service', 'instance']
+
+  # データベース停止時は関連アラート抑制
+  - source_match:
+      severity: 'critical'
+      service: 'database'
+    target_match_re:
+      alertname: '.*(Connection|Query|Database).*'
+    equal: ['instance']
+
+  # ネットワーク障害時は関連アラート抑制
+  - source_match:
+      alertname: 'NetworkDown'
+    target_match_re:
+      alertname: '.*(Latency|Timeout|Connection).*'
+    equal: ['instance']
+
+# === 受信者設定 ===
+receivers:
+  # === デフォルト ===
+  - name: 'default-team'
+    email_configs:
+      - to: 'ops@daytrade.local'
+        subject: '🔔 Day Trade Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          **Alert:** {{ .Annotations.summary }}
+          **Description:** {{ .Annotations.description }}
+          **Severity:** {{ .Labels.severity }}
+          **Service:** {{ .Labels.service }}
+          **Time:** {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+
+  # === HFT クリティカルチーム ===
+  - name: 'hft-critical-team'
+    # Slack通知
+    slack_configs:
+      - api_url: '${SLACK_HFT_WEBHOOK}'
+        channel: '#hft-alerts'
+        username: 'AlertManager'
+        icon_emoji: ':rotating_light:'
+        title: '🚨 HFT CRITICAL ALERT'
+        text: |
+          {{ range .Alerts }}
+          **{{ .Annotations.summary }}**
+          • Service: {{ .Labels.service }}
+          • Instance: {{ .Labels.instance }}
+          • Symbol: {{ .Labels.symbol | default "N/A" }}
+          • Severity: {{ .Labels.severity }}
+          • Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+        send_resolved: true
+
+    # PagerDuty通知
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_HFT_KEY}'
+        severity: 'critical'
+        description: |
+          {{ .GroupLabels.alertname }}: {{ .GroupLabels.service }}
+        details:
+          alert_count: '{{ len .Alerts }}'
+          cluster: '{{ .GroupLabels.cluster }}'
+
+    # SMS通知（緊急時）
+    webhook_configs:
+      - url: 'https://sms-gateway.daytrade.local/api/alert'
+        http_config:
+          bearer_token: '${SMS_API_TOKEN}'
+        send_resolved: true
+
+    # メール通知
+    email_configs:
+      - to: 'hft-team@daytrade.local'
+        subject: '🚨 HFT CRITICAL: {{ .GroupLabels.alertname }}'
+        headers:
+          Priority: 'high'
+          X-Priority: '1'
+        body: |
+          <!DOCTYPE html>
+          <html>
+          <head><title>HFT Critical Alert</title></head>
+          <body style="font-family: Arial, sans-serif;">
+          <h2 style="color: red;">🚨 HFT CRITICAL ALERT</h2>
+          {{ range .Alerts }}
+          <div style="border: 1px solid red; padding: 10px; margin: 10px;">
+          <h3>{{ .Annotations.summary }}</h3>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Service:</strong> {{ .Labels.service }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance }}</p>
+          <p><strong>Time:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+          <p><strong>Runbook:</strong> <a href="{{ .Annotations.runbook_url }}">{{ .Annotations.runbook_url }}</a></p>
+          </div>
+          {{ end }}
+          </body>
+          </html>
+
+  # === SREチーム ===
+  - name: 'sre-team'
+    slack_configs:
+      - api_url: '${SLACK_SRE_WEBHOOK}'
+        channel: '#sre-alerts'
+        username: 'AlertManager'
+        icon_emoji: ':warning:'
+        title: '⚠️ System Alert'
+        text: |
+          {{ range .Alerts }}
+          **{{ .Annotations.summary }}**
+          Service: {{ .Labels.service }}
+          Instance: {{ .Labels.instance }}
+          Severity: {{ .Labels.severity }}
+          {{ end }}
+        send_resolved: true
+
+    email_configs:
+      - to: 'sre@daytrade.local'
+        subject: '⚠️ System Alert: {{ .GroupLabels.alertname }}'
+
+  # === リスク管理チーム ===
+  - name: 'risk-management-team'
+    slack_configs:
+      - api_url: '${SLACK_RISK_WEBHOOK}'
+        channel: '#risk-alerts'
+        username: 'AlertManager'
+        icon_emoji: ':chart_with_downwards_trend:'
+        title: '📉 Risk Alert'
+        text: |
+          {{ range .Alerts }}
+          **Large Loss Detected**
+          {{ .Annotations.description }}
+          Time: {{ .StartsAt.Format "15:04:05" }}
+          {{ end }}
+        send_resolved: true
+
+    # 重要リスクアラートは即座に電話通知
+    webhook_configs:
+      - url: 'https://voice-alert.daytrade.local/api/call'
+        http_config:
+          bearer_token: '${VOICE_API_TOKEN}'
+        send_resolved: false
+
+  # === セキュリティチーム ===
+  - name: 'security-team'
+    slack_configs:
+      - api_url: '${SLACK_SECURITY_WEBHOOK}'
+        channel: '#security-alerts'
+        username: 'AlertManager'
+        icon_emoji: ':shield:'
+        title: '🛡️ Security Alert'
+        text: |
+          {{ range .Alerts }}
+          **{{ .Annotations.summary }}**
+          Type: {{ .Labels.alert_type }}
+          Source IP: {{ .Labels.source_ip | default "Unknown" }}
+          User: {{ .Labels.user_id | default "Anonymous" }}
+          {{ end }}
+        send_resolved: true
+
+    email_configs:
+      - to: 'security@daytrade.local'
+        subject: '🛡️ Security Alert: {{ .GroupLabels.alertname }}'
+
+  # === データベースチーム ===
+  - name: 'database-team'
+    slack_configs:
+      - api_url: '${SLACK_DB_WEBHOOK}'
+        channel: '#database-alerts'
+        username: 'AlertManager'
+        icon_emoji: ':database:'
+        title: '🗄️ Database Alert'
+        send_resolved: true
+
+    email_configs:
+      - to: 'dba@daytrade.local'
+        subject: '🗄️ Database Alert: {{ .GroupLabels.alertname }}'
+
+  # === パフォーマンスチーム ===
+  - name: 'performance-team'
+    slack_configs:
+      - api_url: '${SLACK_PERF_WEBHOOK}'
+        channel: '#performance-alerts'
+        username: 'AlertManager'
+        icon_emoji: ':chart_with_upwards_trend:'
+        title: '📊 Performance Alert'
+        send_resolved: true
+
+  # === 監視チーム ===
+  - name: 'monitoring-team'
+    email_configs:
+      - to: 'monitoring@daytrade.local'
+        subject: '📊 Monitoring Alert: {{ .GroupLabels.alertname }}'
+
+  # === Webhook統合 ===
+  - name: 'webhook-integrations'
+    webhook_configs:
+      # ServiceNow統合
+      - url: 'https://servicenow.daytrade.local/api/incident'
+        http_config:
+          basic_auth:
+            username: 'alertmanager'
+            password: '${SERVICENOW_PASSWORD}'
+        send_resolved: true
+
+      # JIRA統合
+      - url: 'https://jira.daytrade.local/rest/api/2/issue'
+        http_config:
+          bearer_token: '${JIRA_API_TOKEN}'
+        send_resolved: false
+
+      # Grafana annotation
+      - url: 'http://grafana-apm:3000/api/annotations'
+        http_config:
+          bearer_token: '${GRAFANA_API_TOKEN}'
+
+# === 時間ベースの抑制設定 ===
+time_intervals:
+  - name: business_hours
+    time_intervals:
+      - times:
+        - start_time: '09:00'
+          end_time: '18:00'
+        weekdays: ['monday:friday']
+
+  - name: trading_hours
+    time_intervals:
+      - times:
+        - start_time: '09:30'
+          end_time: '16:00'
+        weekdays: ['monday:friday']
+
+# === アクティブ/非アクティブ期間 ===
+mute_time_intervals:
+  - name: maintenance_window
+    time_intervals:
+      - times:
+        - start_time: '02:00'
+          end_time: '04:00'
+        weekdays: ['sunday']
+
+#==============================================================================
+# AlertManager 特化機能:
+#
+# 🚨 階層化アラート管理:
+#   - HFT: 即座通知（Slack + PagerDuty + SMS）
+#   - Critical: 1分以内（Slack + Email）
+#   - Warning: 5分後（Email）
+#
+# 🎯 智的ルーティング:
+#   - サービス別チーム自動振り分け
+#   - 重要度別エスカレーション
+#   - 地理的分散対応
+#
+# 🔇 アラート抑制:
+#   - 上位障害時の関連アラート抑制
+#   - メンテナンス時間のミュート
+#   - 重複アラートの統合
+#
+# 📱 マルチチャネル通知:
+#   - Slack, Email, SMS, 電話
+#   - PagerDuty統合
+#   - ServiceNow/JIRA連携
+#
+# ⏰ 時間ベース制御:
+#   - 営業時間別通知設定
+#   - メンテナンス窓の自動抑制
+#   - タイムゾーン考慮
+#==============================================================================
