@@ -35,26 +35,26 @@ try:
     from sqlalchemy import String, DECIMAL, DateTime, Boolean, Integer
     from sqlalchemy.orm import Mapped, mapped_column
     from datetime import datetime
-
+    
     class SampleStock(Base):
         __tablename__ = 'sample_stocks'
-
+        
         id: Mapped[int] = mapped_column(Integer, primary_key=True)
         code: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)
         name: Mapped[str] = mapped_column(String(100), nullable=False)
         market: Mapped[str] = mapped_column(String(20), nullable=True)
         created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
         updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
+    
     class SamplePriceData(Base):
         __tablename__ = 'sample_price_data'
-
+        
         id: Mapped[int] = mapped_column(Integer, primary_key=True)
         stock_code: Mapped[str] = mapped_column(String(10), nullable=False)
         price: Mapped[float] = mapped_column(DECIMAL(10, 2), nullable=False)
         volume: Mapped[int] = mapped_column(Integer, nullable=True)
         timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-
+        
     logger.info("サンプルモデル作成完了")
 except Exception as e:
     logger.warning(f"モデル作成失敗: {e}")
@@ -77,7 +77,7 @@ def get_database_url():
     db_url = os.getenv('DATABASE_URL')
     if db_url:
         return db_url
-
+    
     # フォールバック: 設定ファイルの値を使用
     return config.get_main_option("sqlalchemy.url")
 
@@ -104,11 +104,11 @@ def run_migrations_online() -> None:
     # エンジン設定を更新
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = get_database_url()
-
+    
     # データベースURLからDBタイプを判定
     db_url = get_database_url()
     connect_args = {}
-
+    
     if db_url.startswith('postgresql'):
         # PostgreSQL固有設定
         connect_args = {
@@ -118,7 +118,7 @@ def run_migrations_online() -> None:
     elif db_url.startswith('sqlite'):
         # SQLite設定
         connect_args = {}
-
+    
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
@@ -128,7 +128,7 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection,
+            connection=connection, 
             target_metadata=target_metadata,
             compare_type=True,
             compare_server_default=True,

@@ -4,18 +4,18 @@
 database:
   # SQLiteテスト設定
   url: "sqlite:///./test_unified_system.db"
-
+  
   # 接続プール設定
   pool_size: 5
   max_overflow: 10
   pool_timeout: 30
   pool_recycle: 3600
   pool_pre_ping: true
-
+  
   # パフォーマンス設定
   echo: false
   echo_pool: false
-
+  
   # 接続引数（SQLite用）
   connect_args: {}
 

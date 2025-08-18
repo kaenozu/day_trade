@@ -119,25 +119,25 @@ EOF
 # config/production/database.yaml
 database:
   url: "postgresql://daytrading_prod:${PROD_DB_PASSWORD}@${PROD_DB_HOST:localhost}:5432/daytrading_prod"
-
+  
   # 接続プール設定（本番最適化）
   pool_size: 20
   max_overflow: 30
   pool_timeout: 30
   pool_recycle: 3600
   pool_pre_ping: true
-
+  
   # SSL設定
   ssl_mode: "require"
   ssl_cert: "${SSL_CERT_PATH}"
   ssl_key: "${SSL_KEY_PATH}"
   ssl_ca: "${SSL_CA_PATH}"
-
+  
   # パフォーマンス設定
   echo: false
   echo_pool: false
   isolation_level: "READ_COMMITTED"
-
+  
   # 接続引数
   connect_args:
     sslmode: "require"
@@ -152,7 +152,7 @@ backup:
   backup_path: "/opt/daytrading/backups"
   compression: true
   auto_start_scheduler: true
-
+  
   # バックアップ前確認
   backup_before_migration: true
   verification_enabled: true
@@ -166,7 +166,7 @@ monitoring:
   connection_pool_warning_threshold: 0.8
   deadlock_detection: true
   auto_start: true
-
+  
   # アラートルール
   alert_rules:
     - name: "critical_memory_usage"
@@ -198,7 +198,7 @@ environments:
       pool_size: 50
       max_overflow: 100
       url: "postgresql://daytrading_prod:${PROD_DB_PASSWORD}@${PROD_DB_HOST}:5432/daytrading_prod"
-
+      
   staging:
     database:
       pool_size: 10
@@ -254,29 +254,29 @@ def main():
     try:
         # 設定ファイルパス
         config_path = "config/production/database.yaml"
-
+        
         # 統合システム初期化
         logger.info("統合データベース管理システム初期化開始")
         unified_manager = initialize_unified_database_manager(
             config_path=config_path,
             auto_start=True  # 監視・バックアップ自動開始
         )
-
+        
         # システム状態確認
         status = unified_manager.get_system_status()
         logger.info(f"初期化完了 - ヘルス状態: {status['overall_health']}")
-
+        
         # 初期ヘルスチェック
         health_check = unified_manager.run_health_check()
         logger.info(f"ヘルスチェック結果: {health_check['overall_status']}")
-
+        
         # 初回バックアップ作成
         backup_result = unified_manager.create_backup("initial_production")
         logger.info(f"初回バックアップ作成: {backup_result['status']}")
-
+        
         logger.info("本番環境初期化が正常に完了しました")
         return True
-
+        
     except Exception as e:
         logger.error(f"初期化失敗: {e}")
         return False
@@ -485,7 +485,7 @@ def send_alert(subject, message):
         msg['Subject'] = f"[Day Trading Alert] {subject}"
         msg['From'] = "system@your-trading-domain.com"
         msg['To'] = "admin@your-trading-domain.com"
-
+        
         server = smtplib.SMTP('localhost')
         server.send_message(msg)
         server.quit()
@@ -499,21 +499,21 @@ def main():
         if not manager:
             send_alert("システムエラー", "統合データベース管理システムにアクセスできません")
             return False
-
+        
         # ヘルスチェック実行
         health = manager.run_health_check()
-
+        
         # 結果をJSONで出力（ログ用）
         print(json.dumps(health, indent=2))
-
+        
         # 問題がある場合はアラート送信
         if health['overall_status'] != 'healthy':
             issues = '\n'.join(health.get('issues', ['不明なエラー']))
             send_alert(f"システム異常検知", f"ヘルス状態: {health['overall_status']}\n\n問題:\n{issues}")
             return False
-
+        
         return True
-
+        
     except Exception as e:
         send_alert("監視スクリプトエラー", f"ヘルスチェック実行失敗: {e}")
         return False
