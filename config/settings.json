@@ -748,5 +748,42 @@
     "url": "sqlite:///data/trading.db",
     "backup_enabled": true,
     "backup_interval_hours": 24
+  },
+
+  "analysis": {
+    "technical_indicators": {
+      "rsi": {
+        "period": 14,
+        "overbought_threshold": 70,
+        "oversold_threshold": 30
+      },
+      "sma": {
+        "short_period": 20,
+        "long_period": 50
+      },
+      "ema": {
+        "short_period": 12,
+        "long_period": 26
+      },
+      "macd": {
+        "fast_period": 12,
+        "slow_period": 26,
+        "signal_period": 9
+      },
+      "bollinger_bands": {
+        "period": 20,
+        "std_dev": 2
+      }
+    },
+    "confidence": {
+      "default_confidence": 0.85,
+      "minimum_confidence": 0.60,
+      "high_confidence": 0.90
+    },
+    "data_periods": {
+      "default_period": "1y",
+      "short_term": "3mo",
+      "long_term": "2y"
+    }
   }
 }
