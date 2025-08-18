@@ -7,9 +7,10 @@ Issue #901 対応: プロダクション Web サーバー実装
 
 import sys
 import logging
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any
-from flask import Flask, render_template_string, jsonify, request
+from flask import Flask, render_template, jsonify, request
 import threading
 from datetime import datetime
 
@@ -21,14 +22,32 @@ class DayTradeWebServer:
         self.port = port
         self.debug = debug
         self.app = Flask(__name__)
-        self.app.secret_key = 'day-trade-personal-2025'
+        self.app.secret_key = os.environ.get('SECRET_KEY', 'day-trade-personal-2025')
+        
+        def _setup_logging(self):
+        """ログ設定"""
+        # ログフォーマットの設定
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        
+        # ファイルハンドラーの設定
+        file_handler = logging.FileHandler('daytrade_web.log')
+        file_handler.setFormatter(formatter)
+        
+        # ロガーの設定
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.INFO)
+        logger.addHandler(file_handler)
+        
+        # Werkzeugのログレベルを設定
+        if not self.debug:
+            logging.getLogger('werkzeug').setLevel(logging.WARNING)
+        
+        self.logger = logger
         
         # ルート設定
         self._setup_routes()
-        
-        # ログ設定
-        if not debug:
-            logging.getLogger('werkzeug').setLevel(logging.WARNING)
     
     def _setup_routes(self):
         """Webルート設定"""
@@ -36,8 +55,7 @@ class DayTradeWebServer:
         @self.app.route('/')
         def index():
             """メインダッシュボード"""
-            return render_template_string(self._get_dashboard_template(), 
-                                        title="Day Trade Personal - メインダッシュボード")
+            return render_template('index.html', title="Day Trade Personal - メインダッシュボード")
         
         @self.app.route('/api/status')
         def api_status():
@@ -69,8 +87,9 @@ class DayTradeWebServer:
                     'status': 'completed'
                 })
             except Exception as e:
+                # 汎用的なエラーメッセージを返す
                 return jsonify({
-                    'error': str(e),
+                    'error': 'Internal server error',
                     'status': 'error'
                 }), 500
         
@@ -92,122 +111,7 @@ class DayTradeWebServer:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-        .header p {
-            font-size: 1.2rem;
-            opacity: 0.9;
-        }
-        .dashboard {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-        }
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-        }
-        .card h3 {
-            color: #4a5568;
-            margin-bottom: 15px;
-            font-size: 1.3rem;
-        }
-        .status {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #48bb78;
-            margin-right: 8px;
-        }
-        .btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: background 0.3s ease;
-        }
-        .btn:hover {
-            background: #5a67d8;
-        }
-        .feature-list {
-            list-style: none;
-        }
-        .feature-list li {
-            padding: 5px 0;
-            display: flex;
-            align-items: center;
-        }
-        .feature-list li::before {
-            content: "✅";
-            margin-right: 8px;
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .stat-item {
-            text-align: center;
-            padding: 15px;
-            background: #f7fafc;
-            border-radius: 8px;
-        }
-        .stat-number {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #667eea;
-        }
-        .stat-label {
-            color: #718096;
-            margin-top: 5px;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            padding: 20px;
-            color: rgba(255,255,255,0.8);
-        }
-        @media (max-width: 768px) {
-            .header h1 { font-size: 2rem; }
-            .dashboard { grid-template-columns: 1fr; }
-            .stats { grid-template-columns: 1fr; }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
@@ -269,43 +173,7 @@ class DayTradeWebServer:
         </div>
     </div>
     
-    <script>
-        async function runAnalysis() {
-            const resultDiv = document.getElementById('analysisResult');
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = '分析中...';
-            
-            try {
-                const response = await fetch('/api/analysis/7203');
-                const data = await response.json();
-                
-                resultDiv.innerHTML = `
-                    <strong>トヨタ自動車 (${data.symbol})</strong><br>
-                    推奨: ${data.recommendation}<br>
-                    信頼度: ${(data.confidence * 100).toFixed(1)}%<br>
-                    価格: ¥${data.price}<br>
-                    変動: ${data.change > 0 ? '+' : ''}${data.change}%
-                `;
-            } catch (error) {
-                resultDiv.innerHTML = 'エラーが発生しました: ' + error.message;
-            }
-        }
-        
-        // システム状態を定期更新
-        async function updateStatus() {
-            try {
-                const response = await fetch('/api/status');
-                const data = await response.json();
-                console.log('システム状態:', data.status);
-            } catch (error) {
-                console.error('状態更新エラー:', error);
-            }
-        }
-        
-        // 10秒ごとに状態更新
-        setInterval(updateStatus, 10000);
-        updateStatus();
-    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
         '''
@@ -313,6 +181,12 @@ class DayTradeWebServer:
     def run(self) -> int:
         """Webサーバー起動"""
         try:
+            self.logger.info("Day Trade Personal Web Server 起動中...")
+            self.logger.info(f"ポート: {self.port}")
+            self.logger.info(f"URL: http://localhost:{self.port}")
+            self.logger.info(f"プロダクション対応: 有効")
+            self.logger.info(f"セキュリティ強化: 有効")
+            
             print(f"Day Trade Personal Web Server 起動中...")
             print(f"ポート: {self.port}")
             print(f"URL: http://localhost:{self.port}")
@@ -331,9 +205,11 @@ class DayTradeWebServer:
             return 0
             
         except KeyboardInterrupt:
+            self.logger.info("サーバーを停止します...")
             print("\nサーバーを停止します...")
             return 0
         except Exception as e:
+            self.logger.error(f"サーバー起動エラー: {e}")
             print(f"サーバー起動エラー: {e}")
             return 1
 
