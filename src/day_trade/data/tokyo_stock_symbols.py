@@ -11,14 +11,14 @@ import logging
 
 class TokyoStockExchange:
     """東証銘柄管理クラス"""
-    
+
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        
+
     def get_all_symbols(self) -> List[str]:
         """東証全銘柄コードを取得"""
         return list(self._get_symbol_database().keys())
-        
+
     def get_major_symbols(self) -> List[str]:
         """主要銘柄を取得"""
         major_codes = [
@@ -31,7 +31,7 @@ class TokyoStockExchange:
             '8002', '8053', '9062', '9064', '9021', '9022', '9202'
         ]
         return major_codes
-        
+
     def get_by_sector(self, sector: str) -> List[str]:
         """業種別銘柄を取得"""
         sector_map = {
@@ -49,24 +49,24 @@ class TokyoStockExchange:
             'transportation': ['9021', '9022', '9062', '9064']
         }
         return sector_map.get(sector.lower(), [])
-        
+
     def get_company_info(self, symbol: str) -> Optional[Dict[str, str]]:
         """企業情報を取得"""
         database = self._get_symbol_database()
         return database.get(symbol)
-        
+
     def search_by_name(self, keyword: str) -> List[str]:
         """企業名による検索"""
         database = self._get_symbol_database()
         keyword_lower = keyword.lower()
-        
+
         matches = []
         for symbol, info in database.items():
             if keyword_lower in info['name'].lower() or keyword_lower in info.get('name_en', '').lower():
                 matches.append(symbol)
-                
+
         return matches
-        
+
     def get_market_cap_ranking(self, top_n: int = 100) -> List[str]:
         """時価総額上位銘柄を取得"""
         # 実際の実装では市場データAPIから取得
@@ -84,7 +84,7 @@ class TokyoStockExchange:
             '8035',  # 東京エレクトロン
         ]
         return top_symbols[:top_n]
-        
+
     def _get_symbol_database(self) -> Dict[str, Dict[str, str]]:
         """銘柄データベース（拡張可能）"""
         return {
@@ -98,31 +98,31 @@ class TokyoStockExchange:
             '6954': {'name': 'ファナック', 'name_en': 'Fanuc', 'sector': 'tech', 'market': 'prime'},
             '8035': {'name': '東京エレクトロン', 'name_en': 'Tokyo Electron', 'sector': 'tech', 'market': 'prime'},
             '9432': {'name': 'NTT', 'name_en': 'NTT', 'sector': 'telecom', 'market': 'prime'},
-            
+
             # 自動車
             '7203': {'name': 'トヨタ自動車', 'name_en': 'Toyota Motor', 'sector': 'automotive', 'market': 'prime'},
             '7267': {'name': 'ホンダ', 'name_en': 'Honda', 'sector': 'automotive', 'market': 'prime'},
             '7269': {'name': 'スズキ', 'name_en': 'Suzuki', 'sector': 'automotive', 'market': 'prime'},
             '7270': {'name': 'SUBARU', 'name_en': 'Subaru', 'sector': 'automotive', 'market': 'prime'},
-            
+
             # 金融
             '8306': {'name': '三菱UFJ銀行', 'name_en': 'MUFG Bank', 'sector': 'finance', 'market': 'prime'},
             '8316': {'name': '三井住友銀行', 'name_en': 'Sumitomo Mitsui Banking', 'sector': 'finance', 'market': 'prime'},
             '8411': {'name': 'みずほ銀行', 'name_en': 'Mizuho Bank', 'sector': 'finance', 'market': 'prime'},
             '8331': {'name': '千葉銀行', 'name_en': 'Chiba Bank', 'sector': 'finance', 'market': 'prime'},
             '8354': {'name': 'ふくおか銀行', 'name_en': 'Fukuoka Bank', 'sector': 'finance', 'market': 'prime'},
-            
+
             # 小売・消費
             '3382': {'name': 'セブン&アイ', 'name_en': 'Seven & i Holdings', 'sector': 'retail', 'market': 'prime'},
             '9983': {'name': 'ファーストリテイリング', 'name_en': 'Fast Retailing', 'sector': 'retail', 'market': 'prime'},
             '2914': {'name': '日本たばこ産業', 'name_en': 'Japan Tobacco', 'sector': 'retail', 'market': 'prime'},
-            
+
             # 医薬品
             '4502': {'name': '武田薬品工業', 'name_en': 'Takeda Pharmaceutical', 'sector': 'pharma', 'market': 'prime'},
             '4503': {'name': 'アステラス製薬', 'name_en': 'Astellas Pharma', 'sector': 'pharma', 'market': 'prime'},
             '4568': {'name': '第一三共', 'name_en': 'Daiichi Sankyo', 'sector': 'pharma', 'market': 'prime'},
             '4523': {'name': 'エーザイ', 'name_en': 'Eisai', 'sector': 'pharma', 'market': 'prime'},
-            
+
             # 製造業
             '6501': {'name': '日立製作所', 'name_en': 'Hitachi', 'sector': 'manufacturing', 'market': 'prime'},
             '6503': {'name': '三菱電機', 'name_en': 'Mitsubishi Electric', 'sector': 'manufacturing', 'market': 'prime'},
@@ -130,35 +130,35 @@ class TokyoStockExchange:
             '6594': {'name': '日本電産', 'name_en': 'Nidec', 'sector': 'manufacturing', 'market': 'prime'},
             '6702': {'name': '富士通', 'name_en': 'Fujitsu', 'sector': 'tech', 'market': 'prime'},
             '6971': {'name': '京セラ', 'name_en': 'Kyocera', 'sector': 'manufacturing', 'market': 'prime'},
-            
+
             # 商社
             '8001': {'name': '伊藤忠商事', 'name_en': 'Itochu', 'sector': 'trading', 'market': 'prime'},
             '8002': {'name': '丸紅', 'name_en': 'Marubeni', 'sector': 'trading', 'market': 'prime'},
             '8053': {'name': '住友商事', 'name_en': 'Sumitomo Corp', 'sector': 'trading', 'market': 'prime'},
-            
+
             # 運輸
             '9021': {'name': 'JR東海', 'name_en': 'JR Central', 'sector': 'transportation', 'market': 'prime'},
             '9022': {'name': 'JR東日本', 'name_en': 'JR East', 'sector': 'transportation', 'market': 'prime'},
             '9062': {'name': '日本通運', 'name_en': 'Nippon Express', 'sector': 'transportation', 'market': 'prime'},
             '9064': {'name': 'ヤマト運輸', 'name_en': 'Yamato Transport', 'sector': 'transportation', 'market': 'prime'},
             '9202': {'name': 'ANA', 'name_en': 'ANA Holdings', 'sector': 'transportation', 'market': 'prime'},
-            
+
             # エネルギー・素材
             '5020': {'name': 'ENEOS', 'name_en': 'ENEOS Holdings', 'sector': 'energy', 'market': 'prime'},
             '1605': {'name': '国際石油開発帝石', 'name_en': 'INPEX', 'sector': 'energy', 'market': 'prime'},
             '4063': {'name': '信越化学工業', 'name_en': 'Shin-Etsu Chemical', 'sector': 'materials', 'market': 'prime'},
             '5401': {'name': '新日鐵住金', 'name_en': 'Nippon Steel', 'sector': 'materials', 'market': 'prime'},
-            
+
             # 公益事業
             '9501': {'name': '東京電力', 'name_en': 'TEPCO', 'sector': 'utilities', 'market': 'prime'},
             '9502': {'name': '中部電力', 'name_en': 'Chubu Electric', 'sector': 'utilities', 'market': 'prime'},
             '9503': {'name': '関西電力', 'name_en': 'Kansai Electric', 'sector': 'utilities', 'market': 'prime'},
             '9531': {'name': '東京ガス', 'name_en': 'Tokyo Gas', 'sector': 'utilities', 'market': 'prime'},
-            
+
             # 不動産
             '8802': {'name': '三菱地所', 'name_en': 'Mitsubishi Estate', 'sector': 'real_estate', 'market': 'prime'},
             '8804': {'name': '東京建物', 'name_en': 'Tokyo Tatemono', 'sector': 'real_estate', 'market': 'prime'},
-            
+
             # その他注目銘柄
             '4755': {'name': '楽天', 'name_en': 'Rakuten', 'sector': 'tech', 'market': 'prime'},
             '6098': {'name': 'リクルート', 'name_en': 'Recruit Holdings', 'sector': 'services', 'market': 'prime'},
@@ -167,11 +167,11 @@ class TokyoStockExchange:
             '3436': {'name': 'SUMCO', 'name_en': 'SUMCO', 'sector': 'materials', 'market': 'prime'},
             '6367': {'name': 'ダイキン工業', 'name_en': 'Daikin Industries', 'sector': 'manufacturing', 'market': 'prime'},
         }
-        
+
     def get_tier1_symbols(self) -> List[str]:
         """Tier 1: 主要銘柄（現在の74銘柄）"""
         return list(self._get_symbol_database().keys())
-        
+
     def get_tier2_symbols(self) -> List[str]:
         """Tier 2: 中型株・成長株（+200銘柄）"""
         tier2_symbols = [
@@ -204,7 +204,7 @@ class TokyoStockExchange:
             '7201', '7202', '7205', '7211', '7269', '7270', '7272', '7276'
         ]
         return tier2_symbols
-        
+
     def get_tier3_symbols(self) -> List[str]:
         """Tier 3: 小型株・特殊銘柄（+500銘柄）"""
         tier3_symbols = [
@@ -283,24 +283,24 @@ class TokyoStockExchange:
             '4056', '4057', '4058', '4059', '4060', '4062', '4095', '4097', '4099'
         ]
         return tier3_symbols
-        
+
     def get_extended_symbol_set(self, include_small_cap: bool = False) -> List[str]:
         """拡張銘柄セット取得（後方互換性のため残存）"""
         if include_small_cap:
             return self.get_comprehensive_symbols()
         else:
             return self.get_extended_symbols()
-            
+
     def get_extended_symbols(self) -> List[str]:
         """Tier 1 + Tier 2: 主要銘柄 + 中型株（~274銘柄）"""
         symbols = self.get_tier1_symbols() + self.get_tier2_symbols()
         return sorted(list(set(symbols)))  # 重複除去・ソート
-        
+
     def get_comprehensive_symbols(self) -> List[str]:
         """Tier 1 + Tier 2 + Tier 3: 包括的銘柄（~774銘柄）"""
         symbols = self.get_tier1_symbols() + self.get_tier2_symbols() + self.get_tier3_symbols()
         return sorted(list(set(symbols)))  # 重複除去・ソート
-        
+
     def get_all_tse_symbols(self) -> List[str]:
         """全東証銘柄（研究・バックテスト用）"""
         # 実際の実装では外部APIまたはCSVファイルから4000銘柄を取得
@@ -326,12 +326,12 @@ def get_diversified_portfolio(count: int = 10) -> List[str]:
     """分散ポートフォリオ用銘柄選定"""
     sectors = ['tech', 'automotive', 'finance', 'pharma', 'manufacturing']
     diversified = []
-    
+
     for sector in sectors:
         sector_symbols = tse.get_by_sector(sector)
         if sector_symbols:
             diversified.extend(sector_symbols[:count//len(sectors)])
-            
+
     # 不足分は時価総額上位から補完
     if len(diversified) < count:
         top_symbols = tse.get_market_cap_ranking(count)
@@ -340,5 +340,5 @@ def get_diversified_portfolio(count: int = 10) -> List[str]:
                 diversified.append(symbol)
                 if len(diversified) >= count:
                     break
-                    
+
     return diversified[:count]
