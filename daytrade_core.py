@@ -1,28 +1,32 @@
 #!/usr/bin/env python3
 """
-Day Trade Personal - コアエントリーポイント
+Day Trade Personal - Core Entry Point
 
-リファクタリング後の軽量メインファイル
+Refactored lightweight main file
 """
 
 import sys
 from pathlib import Path
 
-# システムパス追加
+# Add system path
 sys.path.append(str(Path(__file__).parent / "src"))
 
 from src.day_trade.core.application import DayTradeApplication
 from src.day_trade.core.lightweight_application import LightweightDayTradeApplication
 
-# エイリアス定義
+# Alias definitions
 DayTradeCore = DayTradeApplication
 DayTradeCoreLight = LightweightDayTradeApplication
 
 
 def main():
-    """メイン実行関数"""
-    app = DayTradeApplication()
-    return app.run()
+    """Main execution function"""
+    try:
+        app = DayTradeApplication()
+        return app.run()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return 1
 
 
 if __name__ == "__main__":
