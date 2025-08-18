@@ -79,10 +79,10 @@ async def test_async_function_monitoring(self):
     async def async_test_function():
         await asyncio.sleep(0.01)
         return "async_result"
-
+    
     result = await async_test_function()
     assert result == "async_result"
-
+    
     metrics = global_optimization_engine.profiler.get_metrics(
         component="test", operation="async_test"
     )
@@ -137,7 +137,7 @@ def test_memory_exhaustion_handling(self):
     @error_boundary(suppress_errors=True, fallback_value="memory_error_handled")
     def memory_intensive_operation():
         raise MemoryError("メモリ不足")
-
+    
     result = memory_intensive_operation()
     assert result == "memory_error_handled"
 ```
@@ -196,7 +196,7 @@ Mock/patch活用
 # 統一エラー境界
 @error_boundary(
     component_name="component",
-    operation_name="operation",
+    operation_name="operation", 
     suppress_errors=True,
     fallback_value="fallback"
 )
