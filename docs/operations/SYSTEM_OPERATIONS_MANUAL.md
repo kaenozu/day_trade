@@ -141,10 +141,10 @@ cursor = conn.cursor()
 # 今日の取引統計
 today = datetime.now().strftime('%Y-%m-%d')
 cursor.execute('''
-    SELECT COUNT(*) as trade_count, 
+    SELECT COUNT(*) as trade_count,
            AVG(execution_time) as avg_time,
            SUM(profit_loss) as total_pnl
-    FROM trades 
+    FROM trades
     WHERE DATE(created_at) = ?
 ''', (today,))
 
@@ -301,12 +301,12 @@ manager = get_unified_database_manager()
 if manager:
     backups = manager.list_backups()
     week_ago = datetime.now() - timedelta(days=7)
-    
+
     recent_backups = [
-        b for b in backups 
+        b for b in backups
         if datetime.fromisoformat(b['created_at']) >= week_ago
     ]
-    
+
     print(f'過去1週間のバックアップ: {len(recent_backups)}件')
     for backup in recent_backups:
         print(f'- {backup[\"filename\"]}: {backup[\"size_mb\"]}MB ({backup[\"status\"]})')
@@ -337,11 +337,11 @@ manager = get_unified_database_manager()
 if manager and manager.monitoring_system:
     # 過去1週間のメトリクス取得
     metrics_history = manager.monitoring_system.get_metrics_history(hours=168)  # 7日
-    
+
     if metrics_history:
         cpu_avg = sum(m['cpu_usage'] for m in metrics_history) / len(metrics_history)
         memory_avg = sum(m['memory_usage_mb'] for m in metrics_history) / len(metrics_history)
-        
+
         print(f'過去1週間の平均:')
         print(f'- CPU使用率: {cpu_avg:.1f}%')
         print(f'- メモリ使用量: {memory_avg:.1f}MB')
@@ -379,7 +379,7 @@ if manager and manager.production_db_manager:
         # 統計情報更新
         session.execute(text('ANALYZE;'))
         print('統計情報更新完了')
-        
+
         # バキューム（軽量版）
         session.execute(text('VACUUM (ANALYZE);'))
         print('バキューム完了')
@@ -415,13 +415,13 @@ manager = get_unified_database_manager()
 if manager:
     # 総合ヘルスチェック
     health = manager.run_health_check()
-    
+
     # システム状況サマリー
     status = manager.get_system_status()
-    
+
     # データベース情報
     db_info = manager.production_db_manager.get_database_info()
-    
+
     print('=== 月次システム分析レポート ===')
     print(f'総合ヘルス: {health[\"overall_status\"]}')
     print(f'システム稼働率: {status[\"overall_health\"]}')
@@ -484,7 +484,7 @@ sudo systemctl start daytrading
    ```bash
    # 環境変数確認
    cat .env
-   
+
    # 設定ファイル構文確認
    python -c "import yaml; yaml.safe_load(open('config/production/database.yaml'))"
    ```
@@ -492,7 +492,7 @@ sudo systemctl start daytrading
 3. **データベース接続確認**:
    ```bash
    sudo systemctl status postgresql
-   
+
    # 接続テスト
    python -c "
    from src.day_trade.infrastructure.database.unified_database_manager import get_unified_database_manager
@@ -581,7 +581,7 @@ if manager and manager.production_db_manager:
         # インデックス再構築
         session.execute(text('REINDEX DATABASE daytrading_prod;'))
         print('インデックス再構築完了')
-        
+
         # 完全バキューム（メンテナンス時間中のみ）
         session.execute(text('VACUUM FULL ANALYZE;'))
         print('完全バキューム完了')
@@ -686,7 +686,7 @@ pip-audit
    ```bash
    # システム停止
    sudo systemctl stop daytrading
-   
+
    # 緊急バックアップ
    python -c "
    from src.day_trade.infrastructure.database.unified_database_manager import get_unified_database_manager

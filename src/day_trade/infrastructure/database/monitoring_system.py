@@ -32,29 +32,29 @@ logger = get_logger(__name__)
 class DatabaseMetrics:
     """データベースメトリクス"""
     timestamp: datetime
-    
+
     # 接続関連
     active_connections: int
     max_connections: int
     connection_pool_usage: float
-    
+
     # パフォーマンス関連
     queries_per_second: float
     average_query_time: float
     slow_queries_count: int
-    
+
     # リソース関連
     cpu_usage: float
     memory_usage_mb: float
     disk_usage_percent: float
     disk_io_read_mb: float
     disk_io_write_mb: float
-    
+
     # エラー関連
     connection_errors: int
     query_errors: int
     deadlocks: int
-    
+
     # データベース固有
     database_size_mb: float
     table_count: int
@@ -91,48 +91,48 @@ class Alert:
 
 class MonitoringError(SystemError):
     """監視システム専用エラー"""
-    
+
     def __init__(self, message: str, monitor_type: str = None, **kwargs):
         super().__init__(message, operation=f"monitoring_{monitor_type}", **kwargs)
 
 
 class DatabaseMonitoringSystem:
     """データベース監視システム"""
-    
+
     def __init__(self, engine: Engine, config: Dict[str, Any]):
         self.engine = engine
         self.config = config
         self.monitoring_config = config.get('monitoring', {})
-        
+
         # 監視設定
         self.enabled = self.monitoring_config.get('enabled', True)
         self.interval_seconds = self.monitoring_config.get('interval_seconds', 30)
         self.metrics_retention_hours = self.monitoring_config.get('metrics_retention_hours', 24)
         self.max_metrics_count = int(self.metrics_retention_hours * 3600 / self.interval_seconds)
-        
+
         # データ保存
         self.metrics_history: deque = deque(maxlen=self.max_metrics_count)
         self.active_alerts: Dict[str, Alert] = {}
         self.alert_history: List[Alert] = []
-        
+
         # アラートルール
         self.alert_rules: List[AlertRule] = []
         self._load_default_alert_rules()
-        
+
         # アラート通知コールバック
         self.alert_callbacks: List[Callable[[Alert], None]] = []
-        
+
         # 監視状態
         self._monitoring_thread: Optional[threading.Thread] = None
         self._monitoring_running = False
-        
+
         # 統計情報
         self._last_metrics: Optional[DatabaseMetrics] = None
         self._alert_counts = defaultdict(int)
-        
+
         # データベース種別検出
         self.database_type = self._detect_database_type()
-        
+
     def _detect_database_type(self) -> str:
         """データベース種別検出"""
         try:
@@ -143,7 +143,7 @@ class DatabaseMonitoringSystem:
                 return 'unknown'
         except Exception:
             return 'unknown'
-    
+
     def _load_default_alert_rules(self) -> None:
         """デフォルトアラートルール読み込み"""
         default_rules = [
@@ -218,16 +218,16 @@ class DatabaseMonitoringSystem:
                 description="デッドロックが発生"
             )
         ]
-        
+
         # 設定からカスタムルールを追加
         custom_rules = self.monitoring_config.get('alert_rules', [])
         for rule_config in custom_rules:
             rule = AlertRule(**rule_config)
             default_rules.append(rule)
-        
+
         self.alert_rules = default_rules
         logger.info(f"アラートルール読み込み完了: {len(self.alert_rules)}件")
-    
+
     @error_boundary(
         component_name="monitoring_system",
         operation_name="collect_metrics",
@@ -237,19 +237,19 @@ class DatabaseMonitoringSystem:
         """メトリクス収集"""
         try:
             timestamp = datetime.now()
-            
+
             # データベース接続情報
             connection_info = self._get_connection_metrics()
-            
+
             # パフォーマンス情報
             performance_info = self._get_performance_metrics()
-            
+
             # システムリソース情報
             system_info = self._get_system_metrics()
-            
+
             # データベース情報
             database_info = self._get_database_metrics()
-            
+
             metrics = DatabaseMetrics(
                 timestamp=timestamp,
                 **connection_info,
@@ -257,29 +257,29 @@ class DatabaseMonitoringSystem:
                 **system_info,
                 **database_info
             )
-            
+
             # メトリクス履歴に追加
             self.metrics_history.append(metrics)
             self._last_metrics = metrics
-            
+
             logger.debug(
                 "メトリクス収集完了",
                 active_connections=metrics.active_connections,
                 cpu_usage=metrics.cpu_usage,
                 memory_usage_mb=metrics.memory_usage_mb
             )
-            
+
             return metrics
-            
+
         except Exception as e:
             logger.error(f"メトリクス収集失敗: {e}")
             return None
-    
+
     def _get_connection_metrics(self) -> Dict[str, Any]:
         """接続関連メトリクス取得"""
         try:
             pool = self.engine.pool
-            
+
             # SQLAlchemy版に応じた属性アクセス
             try:
                 active_connections = getattr(pool, 'checkedout', lambda: 0)()
@@ -292,13 +292,13 @@ class DatabaseMonitoringSystem:
                 active_connections = 0
                 max_connections = 0
                 connection_pool_usage = 0.0
-            
+
             return {
                 "active_connections": active_connections,
                 "max_connections": max_connections,
                 "connection_pool_usage": connection_pool_usage
             }
-            
+
         except Exception as e:
             logger.warning(f"接続メトリクス取得失敗: {e}")
             return {
@@ -306,7 +306,7 @@ class DatabaseMonitoringSystem:
                 "max_connections": 0,
                 "connection_pool_usage": 0.0
             }
-    
+
     def _get_performance_metrics(self) -> Dict[str, Any]:
         """パフォーマンスメトリクス取得"""
         try:
@@ -317,9 +317,9 @@ class DatabaseMonitoringSystem:
                 metrics = self._get_sqlite_performance()
             else:
                 metrics = self._get_generic_performance()
-            
+
             return metrics
-            
+
         except Exception as e:
             logger.warning(f"パフォーマンスメトリクス取得失敗: {e}")
             return {
@@ -327,36 +327,36 @@ class DatabaseMonitoringSystem:
                 "average_query_time": 0.0,
                 "slow_queries_count": 0
             }
-    
+
     def _get_postgresql_performance(self) -> Dict[str, Any]:
         """PostgreSQLパフォーマンスメトリクス"""
         try:
             with self.engine.connect() as conn:
                 # アクティブクエリ数
                 result = conn.execute(text("""
-                    SELECT COUNT(*) FROM pg_stat_activity 
+                    SELECT COUNT(*) FROM pg_stat_activity
                     WHERE state = 'active' AND query != '<IDLE>'
                 """))
                 active_queries = result.scalar()
-                
+
                 # 実行時間の長いクエリ
                 result = conn.execute(text("""
-                    SELECT COUNT(*) FROM pg_stat_activity 
-                    WHERE state = 'active' 
+                    SELECT COUNT(*) FROM pg_stat_activity
+                    WHERE state = 'active'
                     AND now() - query_start > interval '5 seconds'
                 """))
                 slow_queries = result.scalar()
-                
+
                 return {
                     "queries_per_second": float(active_queries) / self.interval_seconds,
                     "average_query_time": 0.0,  # 詳細計算は複雑なため簡略化
                     "slow_queries_count": slow_queries
                 }
-                
+
         except Exception as e:
             logger.debug(f"PostgreSQL固有メトリクス取得失敗: {e}")
             return self._get_generic_performance()
-    
+
     def _get_sqlite_performance(self) -> Dict[str, Any]:
         """SQLiteパフォーマンスメトリクス"""
         # SQLiteは限定的な統計情報のため基本値を返す
@@ -365,7 +365,7 @@ class DatabaseMonitoringSystem:
             "average_query_time": 0.0,
             "slow_queries_count": 0
         }
-    
+
     def _get_generic_performance(self) -> Dict[str, Any]:
         """汎用パフォーマンスメトリクス"""
         return {
@@ -373,26 +373,26 @@ class DatabaseMonitoringSystem:
             "average_query_time": 0.0,
             "slow_queries_count": 0
         }
-    
+
     def _get_system_metrics(self) -> Dict[str, Any]:
         """システムリソースメトリクス取得"""
         try:
             # CPU使用率
             cpu_usage = psutil.cpu_percent(interval=None)
-            
+
             # メモリ使用量
             memory = psutil.virtual_memory()
             memory_usage_mb = memory.used / 1024 / 1024
-            
+
             # ディスク使用率（データベースファイルのあるディスク）
             disk_usage = psutil.disk_usage('.')
             disk_usage_percent = (disk_usage.used / disk_usage.total) * 100
-            
+
             # ディスクI/O（簡易版）
             disk_io = psutil.disk_io_counters()
             disk_io_read_mb = disk_io.read_bytes / 1024 / 1024 if disk_io else 0
             disk_io_write_mb = disk_io.write_bytes / 1024 / 1024 if disk_io else 0
-            
+
             return {
                 "cpu_usage": cpu_usage,
                 "memory_usage_mb": memory_usage_mb,
@@ -403,7 +403,7 @@ class DatabaseMonitoringSystem:
                 "query_errors": 0,      # 実装簡略化
                 "deadlocks": 0          # 実装簡略化
             }
-            
+
         except Exception as e:
             logger.warning(f"システムメトリクス取得失敗: {e}")
             return {
@@ -416,7 +416,7 @@ class DatabaseMonitoringSystem:
                 "query_errors": 0,
                 "deadlocks": 0
             }
-    
+
     def _get_database_metrics(self) -> Dict[str, Any]:
         """データベース固有メトリクス取得"""
         try:
@@ -426,11 +426,11 @@ class DatabaseMonitoringSystem:
                 return self._get_sqlite_database_metrics()
             else:
                 return self._get_generic_database_metrics()
-                
+
         except Exception as e:
             logger.warning(f"データベースメトリクス取得失敗: {e}")
             return self._get_generic_database_metrics()
-    
+
     def _get_postgresql_database_metrics(self) -> Dict[str, Any]:
         """PostgreSQLデータベースメトリクス"""
         try:
@@ -440,34 +440,34 @@ class DatabaseMonitoringSystem:
                     SELECT pg_size_pretty(pg_database_size(current_database()))
                 """))
                 db_size_str = result.scalar()
-                
+
                 # テーブル数
                 result = conn.execute(text("""
-                    SELECT COUNT(*) FROM information_schema.tables 
+                    SELECT COUNT(*) FROM information_schema.tables
                     WHERE table_schema = 'public'
                 """))
                 table_count = result.scalar()
-                
+
                 # インデックス数
                 result = conn.execute(text("""
-                    SELECT COUNT(*) FROM pg_indexes 
+                    SELECT COUNT(*) FROM pg_indexes
                     WHERE schemaname = 'public'
                 """))
                 index_count = result.scalar()
-                
+
                 # サイズを数値に変換（簡易版）
                 database_size_mb = self._parse_size_string(db_size_str)
-                
+
                 return {
                     "database_size_mb": database_size_mb,
                     "table_count": table_count,
                     "index_count": index_count
                 }
-                
+
         except Exception as e:
             logger.debug(f"PostgreSQL固有データベースメトリクス取得失敗: {e}")
             return self._get_generic_database_metrics()
-    
+
     def _get_sqlite_database_metrics(self) -> Dict[str, Any]:
         """SQLiteデータベースメトリクス"""
         try:
@@ -484,30 +484,30 @@ class DatabaseMonitoringSystem:
                         database_size_mb = 0.0
                 else:
                     database_size_mb = 0.0
-                
+
                 # テーブル数
                 result = conn.execute(text("""
-                    SELECT COUNT(*) FROM sqlite_master 
+                    SELECT COUNT(*) FROM sqlite_master
                     WHERE type = 'table' AND name != 'sqlite_sequence'
                 """))
                 table_count = result.scalar()
-                
+
                 # インデックス数
                 result = conn.execute(text("""
                     SELECT COUNT(*) FROM sqlite_master WHERE type = 'index'
                 """))
                 index_count = result.scalar()
-                
+
                 return {
                     "database_size_mb": database_size_mb,
                     "table_count": table_count,
                     "index_count": index_count
                 }
-                
+
         except Exception as e:
             logger.debug(f"SQLite固有データベースメトリクス取得失敗: {e}")
             return self._get_generic_database_metrics()
-    
+
     def _get_generic_database_metrics(self) -> Dict[str, Any]:
         """汎用データベースメトリクス"""
         return {
@@ -515,14 +515,14 @@ class DatabaseMonitoringSystem:
             "table_count": 0,
             "index_count": 0
         }
-    
+
     def _parse_size_string(self, size_str: str) -> float:
         """サイズ文字列を数値に変換"""
         if not size_str:
             return 0.0
-        
+
         size_str = size_str.strip().lower()
-        
+
         try:
             if 'mb' in size_str:
                 return float(size_str.replace('mb', '').strip())
@@ -537,30 +537,30 @@ class DatabaseMonitoringSystem:
                 return float(size_str) / 1024 / 1024
         except:
             return 0.0
-    
+
     def check_alerts(self, metrics: DatabaseMetrics) -> List[Alert]:
         """アラートチェック"""
         new_alerts = []
-        
+
         for rule in self.alert_rules:
             if not rule.enabled:
                 continue
-            
+
             # メトリクス値取得
             metric_value = getattr(metrics, rule.metric_name, None)
             if metric_value is None:
                 continue
-            
+
             # 閾値チェック
             is_triggered = self._evaluate_threshold(metric_value, rule.operator, rule.threshold)
-            
+
             alert_id = f"{rule.name}_{rule.metric_name}"
-            
+
             if is_triggered:
                 # 既存アラートがある場合はスキップ
                 if alert_id in self.active_alerts:
                     continue
-                
+
                 # 新しいアラート作成
                 alert = Alert(
                     id=alert_id,
@@ -573,39 +573,39 @@ class DatabaseMonitoringSystem:
                     timestamp=metrics.timestamp,
                     resolved=False
                 )
-                
+
                 self.active_alerts[alert_id] = alert
                 new_alerts.append(alert)
                 self._alert_counts[rule.severity] += 1
-                
+
                 logger.warning(
                     f"アラート発生: {alert.message}",
                     severity=alert.severity,
                     metric=rule.metric_name,
                     value=metric_value
                 )
-                
+
             else:
                 # アラート解決チェック
                 if alert_id in self.active_alerts:
                     alert = self.active_alerts[alert_id]
                     alert.resolved = True
                     alert.resolved_at = metrics.timestamp
-                    
+
                     self.alert_history.append(alert)
                     del self.active_alerts[alert_id]
-                    
+
                     logger.info(
                         f"アラート解決: {alert.message}",
                         duration_seconds=(alert.resolved_at - alert.timestamp).total_seconds()
                     )
-        
+
         # アラート通知実行
         for alert in new_alerts:
             self._notify_alert(alert)
-        
+
         return new_alerts
-    
+
     def _evaluate_threshold(self, value: float, operator: str, threshold: float) -> bool:
         """閾値評価"""
         if operator == '>':
@@ -621,7 +621,7 @@ class DatabaseMonitoringSystem:
         else:
             logger.warning(f"不明な比較演算子: {operator}")
             return False
-    
+
     def _notify_alert(self, alert: Alert) -> None:
         """アラート通知"""
         try:
@@ -629,60 +629,60 @@ class DatabaseMonitoringSystem:
                 callback(alert)
         except Exception as e:
             logger.error(f"アラート通知失敗: {e}")
-    
+
     def add_alert_callback(self, callback: Callable[[Alert], None]) -> None:
         """アラート通知コールバック追加"""
         self.alert_callbacks.append(callback)
         logger.info("アラート通知コールバック追加")
-    
+
     def start_monitoring(self) -> None:
         """監視開始"""
         if not self.enabled:
             logger.info("監視が無効のため開始しません")
             return
-        
+
         if self._monitoring_running:
             logger.warning("監視は既に実行中です")
             return
-        
+
         self._monitoring_running = True
         self._monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
         self._monitoring_thread.start()
-        
+
         logger.info(f"データベース監視開始: {self.interval_seconds}秒間隔")
-    
+
     def stop_monitoring(self) -> None:
         """監視停止"""
         self._monitoring_running = False
-        
+
         if self._monitoring_thread and self._monitoring_thread.is_alive():
             logger.info("監視停止中...")
             self._monitoring_thread.join(timeout=10)
-        
+
         logger.info("データベース監視停止")
-    
+
     def _monitoring_loop(self) -> None:
         """監視ループ"""
         logger.info("データベース監視ループ開始")
-        
+
         while self._monitoring_running:
             try:
                 # メトリクス収集
                 metrics = self.collect_metrics()
-                
+
                 if metrics:
                     # アラートチェック
                     self.check_alerts(metrics)
-                
+
                 # インターバル待機
                 time.sleep(self.interval_seconds)
-                
+
             except Exception as e:
                 logger.error(f"監視ループエラー: {e}")
                 time.sleep(60)  # エラー時は1分待機
-        
+
         logger.info("データベース監視ループ終了")
-    
+
     def get_monitoring_status(self) -> Dict[str, Any]:
         """監視状態取得"""
         return {
@@ -695,32 +695,32 @@ class DatabaseMonitoringSystem:
             "alert_rules_count": len([rule for rule in self.alert_rules if rule.enabled]),
             "last_collection": self._last_metrics.timestamp.isoformat() if self._last_metrics else None
         }
-    
+
     def get_current_metrics(self) -> Optional[Dict[str, Any]]:
         """現在のメトリクス取得"""
         if self._last_metrics:
             return asdict(self._last_metrics)
         return None
-    
+
     def get_metrics_history(self, hours: int = 1) -> List[Dict[str, Any]]:
         """メトリクス履歴取得"""
         cutoff_time = datetime.now() - timedelta(hours=hours)
-        
+
         recent_metrics = [
             asdict(metrics) for metrics in self.metrics_history
             if metrics.timestamp >= cutoff_time
         ]
-        
+
         return recent_metrics
-    
+
     def get_active_alerts(self) -> List[Dict[str, Any]]:
         """アクティブアラート取得"""
         return [asdict(alert) for alert in self.active_alerts.values()]
-    
+
     def get_alert_statistics(self) -> Dict[str, Any]:
         """アラート統計取得"""
         total_alerts = len(self.alert_history) + len(self.active_alerts)
-        
+
         return {
             "total_alerts": total_alerts,
             "active_alerts": len(self.active_alerts),
@@ -743,12 +743,12 @@ def get_monitoring_system() -> Optional[DatabaseMonitoringSystem]:
 def initialize_monitoring_system(engine: Engine, config: Dict[str, Any]) -> DatabaseMonitoringSystem:
     """監視システム初期化"""
     global _monitoring_system
-    
+
     _monitoring_system = DatabaseMonitoringSystem(engine, config)
-    
+
     # 自動監視開始
     if config.get('monitoring', {}).get('auto_start', False):
         _monitoring_system.start_monitoring()
-    
+
     logger.info("データベース監視システム初期化完了")
     return _monitoring_system
