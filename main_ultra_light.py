@@ -14,14 +14,14 @@ def ultra_light_analysis(symbols, debug=False):
     print("Day Trade Personal - 超軽量版")
     print("最小メモリ使用版 v2.0")
     print("="*50)
-    
+
     print("超軽量クイック分析モード")
     if debug:
         print("デバッグモード: ON")
-    
+
     symbols = symbols or ['7203', '8306', '9984', '6758']
     print(f"分析対象銘柄: {', '.join(symbols)}")
-    
+
     # 最小限の分析シミュレーション
     for symbol in symbols:
         print(f"{symbol} の超軽量分析中...")
@@ -29,12 +29,12 @@ def ultra_light_analysis(symbols, debug=False):
             print("  - 最小データ取得...")
             print("  - 基本判定...")
         print(f"  {symbol} 分析完了")
-    
+
     # 超軽量結果表示
     print("\n" + "="*50)
     print("超軽量分析結果")
     print("="*50)
-    
+
     for symbol in symbols:
         recommendation = 'BUY' if hash(symbol) % 3 == 0 else 'HOLD'
         confidence = 80.0  # 超軽量版では基本精度
@@ -42,7 +42,7 @@ def ultra_light_analysis(symbols, debug=False):
         print(f"推奨: {recommendation}")
         print(f"信頼度: {confidence:.1f}%")
         print("-" * 30)
-    
+
     print("超軽量分析を完了しました")
     print("メモリ使用量を最小限に抑えた軽量版です")
     return 0
@@ -54,7 +54,7 @@ def main():
         description="Day Trade Personal - 超軽量版",
         epilog="メモリ効率最優先の最小限バージョン"
     )
-    
+
     parser.add_argument(
         '--symbols', '-s',
         nargs='+',
@@ -70,9 +70,9 @@ def main():
         action='store_true',
         help='クイック分析（デフォルト）'
     )
-    
+
     args = parser.parse_args()
-    
+
     try:
         return ultra_light_analysis(args.symbols, args.debug)
     except KeyboardInterrupt:
