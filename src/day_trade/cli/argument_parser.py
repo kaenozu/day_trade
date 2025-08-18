@@ -50,7 +50,12 @@ class ArgumentParser:
         self.parser.add_argument(
             '--symbols', '-s',
             nargs='+',
-            help='対象銘柄コード（デフォルト: トヨタ, 三菱UFJ, SBG, ソニー）'
+            help='対象銘柄コード（デフォルト: 高・中優先度銘柄）'
+        )
+        self.parser.add_argument(
+            '--all-symbols',
+            action='store_true',
+            help='東証全銘柄を分析対象に設定（Issue #912対応）'
         )
         self.parser.add_argument(
             '--port', '-p',
@@ -72,6 +77,11 @@ class ArgumentParser:
             '--config',
             type=str,
             help='設定ファイルパス'
+        )
+        self.parser.add_argument(
+            '--verbose',
+            action='store_true',
+            help='詳細表示モード（従来の縦並び表示）'
         )
 
     def parse_args(self, args: Optional[List[str]] = None):

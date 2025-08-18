@@ -51,9 +51,23 @@ class DayTradeApplication:
     def run(self) -> int:
         """アプリケーション実行"""
         try:
+            # 静寂ログ設定
+            from ..utils.quiet_logging import setup_quiet_logging
+            
             # 引数解析
             parser = ArgumentParser()
             args = parser.parse_args()
+            
+            # デバッグモードに応じてログ設定
+            setup_quiet_logging(debug=args.debug)
+            
+            # 美しいスタートアップバナー表示
+            if not args.debug:
+                try:
+                    from ..utils.display_formatter import formatter
+                    formatter.print_startup_banner()
+                except ImportError:
+                    pass
 
             # モード別実行
             if args.web:
@@ -69,7 +83,11 @@ class DayTradeApplication:
             print("\n操作が中断されました")
             return 0
         except Exception as e:
-            print(f"エラーが発生しました: {e}")
+            try:
+                from ..utils.display_formatter import formatter
+                formatter.print_error_box(str(e))
+            except ImportError:
+                print(f"エラーが発生しました: {e}")
             return 1
 
     def _run_web_mode(self, args) -> int:
@@ -146,19 +164,39 @@ class DayTradeApplication:
             # 重いモジュールを必要時のみ読み込み
             self._lazy_load_ml_modules()
             self.analyzer = TradingAnalyzer()
-            symbols = args.symbols or self._get_default_symbols()
+            
+            # 銘柄リスト決定（--all-symbolsオプション対応）
+            if args.symbols:
+                symbols = args.symbols
+            elif getattr(args, 'all_symbols', False):
+                symbols = self._get_all_symbols()
+                if self.debug:
+                    print(f"⚡ 全銘柄分析モード: {len(symbols)}銘柄")
+            else:
+                symbols = self._get_default_symbols()
 
-            print(f"📈 詳細分析開始: {', '.join(symbols)}")
-            # 仮の結果生成（実際の分析は後で実装）
+            print(f"📈 詳細分析開始: {len(symbols)}銘柄")
+            if len(symbols) <= 10:
+                print(f"    対象: {', '.join(symbols)}")
+            else:
+                print(f"    対象: {', '.join(symbols[:5])} ... (+{len(symbols)-5}銘柄)")
+                
+            # 実際の分析結果生成
             results = []
             for symbol in symbols:
-                results.append({
-                    'symbol': symbol,
-                    'recommendation': 'HOLD',
-                    'confidence': 0.93
-                })
+                try:
+                    analysis_result = self._analyze_symbol_with_ai(symbol)
+                    results.append(analysis_result)
+                except Exception as e:
+                    # エラー時のフォールバック
+                    results.append({
+                        'symbol': symbol,
+                        'recommendation': 'HOLD',
+                        'confidence': 0.85,
+                        'error': str(e)
+                    })
 
-            self._display_results(results)
+            self._display_results(results, getattr(args, 'verbose', False))
             return 0
         except Exception as e:
             print(f"❌ デフォルト分析エラー: {e}")
@@ -172,7 +210,14 @@ class DayTradeApplication:
         if verbose:
             self._display_results_detailed(results)
         else:
-            self._display_results_compact(results)
+            # 新しい美しい表示フォーマットを使用
+            try:
+                from ..utils.display_formatter import formatter
+                formatter.print_analysis_header(len(results))
+                formatter.print_analysis_results(results)
+            except ImportError:
+                # フォールバック: 従来の横並び表示
+                self._display_results_compact(results)
     
     def _display_results_compact(self, results):
         """簡潔な横並び表示"""
@@ -302,7 +347,7 @@ class DayTradeApplication:
                 traceback.print_exc()
             return 1
 
-    async def run_daytrading_analysis(self, symbols: list) -> int:
+    async def run_daytrading_analysis(self, symbols: list, all_symbols: bool = False, verbose: bool = False) -> int:
         """デイトレード分析実行（CLI用）"""
         print("🎯 デイトレード推奨分析モード")
         if self.debug:
@@ -311,11 +356,21 @@ class DayTradeApplication:
         try:
             # 銘柄リストの確認とフォールバック
             if not symbols:
-                symbols = self._get_default_symbols()
-                if self.debug:
-                    print(f"⚡ デフォルト銘柄を使用: {symbols}")
-
-            print(f"📈 デイトレード分析対象: {', '.join(symbols)}")
+                # --all-symbols オプションの確認
+                if all_symbols:
+                    symbols = self._get_all_symbols()
+                    if self.debug:
+                        print(f"⚡ 全銘柄分析モード: {len(symbols)}銘柄")
+                else:
+                    symbols = self._get_default_symbols()
+                    if self.debug:
+                        print(f"⚡ デフォルト銘柄を使用: {len(symbols)}銘柄")
+                    
+            print(f"📈 デイトレード分析対象: {len(symbols)}銘柄")
+            if len(symbols) <= 10:
+                print(f"    銘柄: {', '.join(symbols)}")
+            else:
+                print(f"    銘柄: {', '.join(symbols[:5])} ... (+{len(symbols)-5}銘柄)")
             print("⚡ リアルタイム市場データ分析中...")
 
             # 実際の分析エンジンを使用
@@ -323,9 +378,22 @@ class DayTradeApplication:
             if not self.analyzer:
                 self.analyzer = TradingAnalyzer()
 
-            results = []
-            for symbol in symbols:
+            # プログレス表示の準備
+            if len(symbols) > 5:
                 try:
+                    from ..utils.display_formatter import formatter
+                    use_progress = True
+                except ImportError:
+                    use_progress = False
+            else:
+                use_progress = False
+
+            results = []
+            for i, symbol in enumerate(symbols, 1):
+                try:
+                    if use_progress and i % 5 == 0:  # 5銘柄ごとにプログレス表示
+                        formatter.print_progress_bar(i, len(symbols), symbol)
+                        
                     if self.debug:
                         print(f"🔍 {symbol} の分析開始...")
                     # 実際のAI分析を実行
@@ -346,7 +414,7 @@ class DayTradeApplication:
                         'error': str(e)
                     })
 
-            self._display_results(results)
+            self._display_results(results, verbose)
             print("🚀 今日のデイトレード推奨を完了しました")
             return 0
         except Exception as e:
@@ -523,11 +591,10 @@ class DayTradeApplication:
                 if self.debug:
                     print(f"⚡ 設定ファイルから{len(symbols)}銘柄を読み込み")
 
-                # 銘柄数が多すぎる場合は上位10銘柄に制限
-                if len(symbols) > 10:
-                    symbols = symbols[:10]
-                    if self.debug:
-                        print(f"⚡ 上位10銘柄に制限: {symbols}")
+                # デイトレード分析では制限なし（全銘柄対応）
+                # 従来の10銘柄制限を撤廃してパフォーマンス重視の分析ツールとして改良
+                if self.debug:
+                    print(f"⚡ 分析対象: 全{len(symbols)}銘柄（制限なし）")
 
                 # フォールバック: デフォルト銘柄
                 if not symbols:
@@ -541,6 +608,48 @@ class DayTradeApplication:
                     print(f"⚠️ 設定ファイルが見つかりません: {config_path}")
                 return ['7203', '8306', '9984', '6758']
 
+        except Exception as e:
+            if self.debug:
+                print(f"⚠️ 設定ファイル読み込みエラー: {e}")
+            # フォールバック
+            return ['7203', '8306', '9984', '6758']
+            
+    def _get_all_symbols(self) -> list:
+        """東証全銘柄を取得（Issue #912対応）"""
+        try:
+            # 東証銘柄データベースを使用
+            from ..data.tokyo_stock_symbols import tse
+            return tse.get_extended_symbol_set(include_small_cap=True)
+        except ImportError:
+            # フォールバック: 設定ファイルから全銘柄取得
+            return self._get_all_symbols_from_config()
+            
+    def _get_all_symbols_from_config(self) -> list:
+        """設定ファイルから全銘柄を取得"""
+        try:
+            import json
+            from pathlib import Path
+            
+            config_path = Path(__file__).parent.parent.parent.parent / "config" / "settings.json"
+            
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                
+                # 全銘柄を取得（優先度に関係なく）
+                symbols = []
+                for symbol_info in config.get('watchlist', {}).get('symbols', []):
+                    symbols.append(symbol_info['code'])
+                        
+                if self.debug:
+                    print(f"⚡ 設定ファイルから全{len(symbols)}銘柄を読み込み")
+                    
+                return symbols if symbols else ['7203', '8306', '9984', '6758']
+            else:
+                if self.debug:
+                    print(f"⚠️ 設定ファイルが見つかりません: {config_path}")
+                return ['7203', '8306', '9984', '6758']
+                
         except Exception as e:
             if self.debug:
                 print(f"⚠️ 設定ファイル読み込みエラー: {e}")
