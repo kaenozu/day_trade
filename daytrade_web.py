@@ -86,23 +86,35 @@ class DayTradeWebServer:
             try:
                 import random
                 
-                # 拡張銘柄リスト（15銘柄に拡大）
+                # Issue #929対応: 20銘柄に拡大（個人投資家向け多様化）
                 symbols = [
-                    {'code': '7203', 'name': 'トヨタ自動車', 'sector': '自動車'},
-                    {'code': '8306', 'name': '三菱UFJ銀行', 'sector': '金融'},
-                    {'code': '9984', 'name': 'ソフトバンクグループ', 'sector': 'テクノロジー'},
-                    {'code': '6758', 'name': 'ソニー', 'sector': 'テクノロジー'},
-                    {'code': '4689', 'name': 'Z Holdings', 'sector': 'テクノロジー'},
-                    {'code': '9434', 'name': 'ソフトバンク', 'sector': '通信'},
-                    {'code': '8001', 'name': '伊藤忠商事', 'sector': '商社'},
-                    {'code': '7267', 'name': 'ホンダ', 'sector': '自動車'},
-                    {'code': '6861', 'name': 'キーエンス', 'sector': '精密機器'},
-                    {'code': '4755', 'name': '楽天グループ', 'sector': 'テクノロジー'},
-                    {'code': '4502', 'name': '武田薬品工業', 'sector': '製薬'},
-                    {'code': '9983', 'name': 'ファーストリテイリング', 'sector': 'アパレル'},
-                    {'code': '7974', 'name': '任天堂', 'sector': 'ゲーム'},
-                    {'code': '6954', 'name': 'ファナック', 'sector': '工作機械'},
-                    {'code': '8316', 'name': '三井住友FG', 'sector': '金融'}
+                    # 大型株（安定重視）
+                    {'code': '7203', 'name': 'トヨタ自動車', 'sector': '自動車', 'category': '大型株', 'stability': '高安定'},
+                    {'code': '8306', 'name': '三菱UFJ銀行', 'sector': '金融', 'category': '大型株', 'stability': '高安定'},
+                    {'code': '9984', 'name': 'ソフトバンクグループ', 'sector': 'テクノロジー', 'category': '大型株', 'stability': '中安定'},
+                    {'code': '6758', 'name': 'ソニー', 'sector': 'テクノロジー', 'category': '大型株', 'stability': '中安定'},
+                    {'code': '7267', 'name': 'ホンダ', 'sector': '自動車', 'category': '大型株', 'stability': '高安定'},
+                    
+                    # 中型株（成長期待）
+                    {'code': '4689', 'name': 'Z Holdings', 'sector': 'テクノロジー', 'category': '中型株', 'stability': '中安定'},
+                    {'code': '9434', 'name': 'ソフトバンク', 'sector': '通信', 'category': '中型株', 'stability': '中安定'},
+                    {'code': '6861', 'name': 'キーエンス', 'sector': '精密機器', 'category': '中型株', 'stability': '中安定'},
+                    {'code': '4755', 'name': '楽天グループ', 'sector': 'テクノロジー', 'category': '中型株', 'stability': '低安定'},
+                    {'code': '6954', 'name': 'ファナック', 'sector': '工作機械', 'category': '中型株', 'stability': '中安定'},
+                    
+                    # 高配当株（収益重視）
+                    {'code': '8001', 'name': '伊藤忠商事', 'sector': '商社', 'category': '高配当株', 'stability': '高安定'},
+                    {'code': '8316', 'name': '三井住友FG', 'sector': '金融', 'category': '高配当株', 'stability': '高安定'},
+                    {'code': '4502', 'name': '武田薬品工業', 'sector': '製薬', 'category': '高配当株', 'stability': '高安定'},
+                    {'code': '8058', 'name': '三菱商事', 'sector': '商社', 'category': '高配当株', 'stability': '高安定'},
+                    {'code': '2914', 'name': '日本たばこ産業', 'sector': 'その他', 'category': '高配当株', 'stability': '高安定'},
+                    
+                    # 成長株（将来性重視）
+                    {'code': '9983', 'name': 'ファーストリテイリング', 'sector': 'アパレル', 'category': '成長株', 'stability': '中安定'},
+                    {'code': '7974', 'name': '任天堂', 'sector': 'ゲーム', 'category': '成長株', 'stability': '低安定'},
+                    {'code': '4063', 'name': '信越化学工業', 'sector': '化学', 'category': '成長株', 'stability': '中安定'},
+                    {'code': '6594', 'name': '日本電産', 'sector': '電気機器', 'category': '成長株', 'stability': '中安定'},
+                    {'code': '4568', 'name': '第一三共', 'sector': '製薬', 'category': '成長株', 'stability': '中安定'}
                 ]
                 
                 recommendations = []
@@ -110,16 +122,28 @@ class DayTradeWebServer:
                     confidence = round(random.uniform(0.60, 0.95), 2)
                     rec_type = random.choice(['BUY', 'SELL', 'HOLD'])
                     
+                    # Issue #929対応: わかりやすい表示
+                    friendly_confidence = self._get_friendly_confidence_label(confidence)
+                    star_rating = self._get_star_rating(confidence)
+                    
                     recommendations.append({
                         'symbol': stock['code'],
                         'name': stock['name'],
                         'sector': stock['sector'],
+                        'category': stock['category'],
+                        'stability': stock['stability'],
                         'recommendation': rec_type,
+                        'recommendation_friendly': self._get_friendly_recommendation(rec_type),
                         'confidence': confidence,
+                        'confidence_friendly': friendly_confidence,
+                        'star_rating': star_rating,
                         'price': 1000 + hash(stock['code']) % 2000,
                         'change': round((hash(stock['code']) % 200 - 100) / 10, 2),
                         'reason': self._get_recommendation_reason(rec_type, confidence),
-                        'risk_level': 'HIGH' if confidence > 0.85 else 'MEDIUM' if confidence > 0.70 else 'LOW'
+                        'friendly_reason': self._get_friendly_reason(rec_type, confidence),
+                        'risk_level': 'HIGH' if confidence > 0.85 else 'MEDIUM' if confidence > 0.70 else 'LOW',
+                        'risk_friendly': self._get_friendly_risk(confidence),
+                        'who_suitable': self._get_suitable_investor_type(stock['category'], stock['stability'])
                     })
                 
                 # 信頼度で降順ソート
@@ -186,6 +210,101 @@ class DayTradeWebServer:
             return f"{base_reason} (中信頼度)"
         else:
             return f"{base_reason} (要注意)"
+    
+    def _get_friendly_confidence_label(self, confidence: float) -> str:
+        """Issue #929対応: わかりやすい信頼度表示"""
+        if confidence >= 0.9:
+            return "超おすすめ！"
+        elif confidence >= 0.8:
+            return "かなりおすすめ"
+        elif confidence >= 0.7:
+            return "おすすめ"
+        elif confidence >= 0.6:
+            return "まあまあ"
+        else:
+            return "様子見"
+    
+    def _get_star_rating(self, confidence: float) -> str:
+        """Issue #929対応: ★評価表示"""
+        if confidence >= 0.9:
+            return "★★★★★"
+        elif confidence >= 0.8:
+            return "★★★★☆"
+        elif confidence >= 0.7:
+            return "★★★☆☆"
+        elif confidence >= 0.6:
+            return "★★☆☆☆"
+        else:
+            return "★☆☆☆☆"
+    
+    def _get_friendly_recommendation(self, rec_type: str) -> str:
+        """Issue #929対応: わかりやすい推奨表示"""
+        friendly_map = {
+            'BUY': '今がチャンス！',
+            'SELL': 'ちょっと心配',
+            'HOLD': 'いい感じでキープ'
+        }
+        return friendly_map.get(rec_type, '様子見')
+    
+    def _get_friendly_reason(self, rec_type: str, confidence: float) -> str:
+        """Issue #929対応: わかりやすい理由説明"""
+        friendly_reasons = {
+            'BUY': [
+                '上昇の勢いが続いています',
+                '買いのタイミングが来ています',
+                '業績が好調で期待できます',
+                '価格が底打ちして反発中',
+                '注目度が高まっています'
+            ],
+            'SELL': [
+                '下落の心配があります',
+                '利益確定のタイミング',
+                '業績に少し不安要素',
+                '高値圏で調整の可能性',
+                '慎重になった方が良さそう'
+            ],
+            'HOLD': [
+                '今は様子見が無難',
+                '重要な発表を待ちましょう',
+                '方向性がはっきりしない',
+                '全体相場の動向を見極め中',
+                'リスクとリターンが釣り合っている'
+            ]
+        }
+        
+        import random
+        base_reason = random.choice(friendly_reasons.get(rec_type, ['分析中']))
+        
+        if confidence > 0.85:
+            return f"{base_reason}（自信度：高）"
+        elif confidence > 0.70:
+            return f"{base_reason}（自信度：中）"
+        else:
+            return f"{base_reason}（自信度：低）"
+    
+    def _get_friendly_risk(self, confidence: float) -> str:
+        """Issue #929対応: わかりやすいリスク表示"""
+        if confidence > 0.85:
+            return "比較的安全"
+        elif confidence > 0.70:
+            return "普通のリスク"
+        else:
+            return "慎重に検討を"
+    
+    def _get_suitable_investor_type(self, category: str, stability: str) -> str:
+        """Issue #929対応: こんな人におすすめ"""
+        recommendations = {
+            ('大型株', '高安定'): '安定重視の初心者におすすめ',
+            ('大型株', '中安定'): 'バランス重視の方におすすめ',
+            ('中型株', '中安定'): '成長期待で中級者におすすめ',
+            ('中型株', '低安定'): '将来性重視の経験者向け',
+            ('高配当株', '高安定'): '配当収入を求める方におすすめ',
+            ('成長株', '中安定'): '将来性重視の方におすすめ',
+            ('成長株', '低安定'): 'ハイリスク・ハイリターン志向'
+        }
+        
+        key = (category, stability)
+        return recommendations.get(key, 'バランス型の投資家におすすめ')
     
     def _get_dashboard_template(self) -> str:
         """ダッシュボードHTMLテンプレート"""
@@ -432,6 +551,61 @@ class DayTradeWebServer:
                 font-style: italic;
                 margin-top: 10px;
             }
+            /* Issue #929対応: わかりやすい表示のスタイル */
+            .stock-category {
+                background: #e2e8f0;
+                color: #2d3748;
+                font-size: 0.7rem;
+                padding: 2px 6px;
+                border-radius: 3px;
+                margin-left: 8px;
+                font-weight: normal;
+            }
+            .star-rating {
+                color: #f6ad55;
+                font-size: 1.1rem;
+                margin-top: 4px;
+                font-weight: bold;
+            }
+            .stock-details {
+                background: #f7fafc;
+                padding: 8px;
+                border-radius: 4px;
+                margin: 8px 0;
+                font-size: 0.8rem;
+            }
+            .detail-row {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 4px;
+            }
+            .detail-label {
+                color: #718096;
+                font-weight: bold;
+            }
+            .detail-value {
+                color: #2d3748;
+            }
+            .who-suitable {
+                background: #e6fffa;
+                color: #285e61;
+                padding: 4px 6px;
+                border-radius: 3px;
+                margin-top: 6px;
+                font-size: 0.75rem;
+                text-align: center;
+                font-weight: bold;
+            }
+            .reason-friendly {
+                background: #fef5e7;
+                color: #744210;
+                padding: 8px;
+                border-radius: 4px;
+                font-size: 0.85rem;
+                margin-top: 8px;
+                border-left: 3px solid #f6ad55;
+                font-weight: 500;
+            }
         </style>
         </div>
         
@@ -510,14 +684,19 @@ class DayTradeWebServer:
                     const changeColor = stock.change >= 0 ? '#48bb78' : '#f56565';
                     const changePrefix = stock.change >= 0 ? '+' : '';
                     
+                    // Issue #929対応: わかりやすい表示の実装
                     recommendationsHtml += `
                         <div class="recommendation-card ${recClass} ${confidenceClass}">
                             <div class="stock-header">
                                 <div>
-                                    <div class="stock-name">${stock.name}</div>
+                                    <div class="stock-name">
+                                        ${stock.name}
+                                        <span class="stock-category">${stock.category}</span>
+                                    </div>
                                     <div class="stock-symbol">${stock.symbol} | ${stock.sector}</div>
+                                    <div class="star-rating">${stock.star_rating}</div>
                                 </div>
-                                <div class="rec-badge ${badgeClass}">${stock.recommendation}</div>
+                                <div class="rec-badge ${badgeClass}">${stock.recommendation_friendly || stock.recommendation}</div>
                             </div>
                             <div class="price-info">
                                 <div>
@@ -527,16 +706,25 @@ class DayTradeWebServer:
                                     </span>
                                 </div>
                                 <div>
-                                    <span style="font-size: 0.9rem; color: #4a5568;">
-                                        信頼度: ${(stock.confidence * 100).toFixed(1)}%
+                                    <span style="font-size: 0.9rem; color: #4a5568; font-weight: bold;">
+                                        ${stock.confidence_friendly || 'おすすめ度: ' + (stock.confidence * 100).toFixed(1) + '%'}
                                     </span>
                                 </div>
                             </div>
-                            <div style="display: flex; justify-content: space-between; margin: 8px 0;">
-                                <span style="font-size: 0.8rem; color: #718096;">リスク: ${stock.risk_level}</span>
-                                <span style="font-size: 0.8rem; color: #718096;">更新: ${new Date(data.timestamp).toLocaleTimeString()}</span>
+                            <div class="stock-details">
+                                <div class="detail-row">
+                                    <span class="detail-label">安全度:</span>
+                                    <span class="detail-value">${stock.risk_friendly || stock.risk_level}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">安定性:</span>
+                                    <span class="detail-value">${stock.stability}</span>
+                                </div>
+                                <div class="who-suitable">${stock.who_suitable}</div>
                             </div>
-                            <div class="reason">${stock.reason}</div>
+                            <div class="reason-friendly">
+                                ${stock.friendly_reason || stock.reason}
+                            </div>
                         </div>
                     `;
                 });
