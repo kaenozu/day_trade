@@ -1,0 +1,197 @@
+# モデル性能監視システム設定ファイル
+# Model Performance Monitoring System Configuration
+
+# 性能閾値設定
+performance_thresholds:
+  # 基本的な性能閾値
+  accuracy: 90.0                    # 全体精度閾値（%）
+  prediction_accuracy: 85.0         # 予測精度閾値（%）
+  return_prediction: 75.0           # 収益予測精度閾値（%）
+  volatility_prediction: 80.0       # ボラティリティ予測精度閾値（%）
+
+  # 個別銘柄向け閾値
+  symbol_specific:
+    high_volume_stocks:              # 高ボリューム銘柄（トヨタ、ソフトバンクなど）
+      accuracy: 88.0
+      prediction_accuracy: 83.0
+    mid_volume_stocks:               # 中ボリューム銘柄
+      accuracy: 85.0
+      prediction_accuracy: 80.0
+    low_volume_stocks:               # 低ボリューム銘柄
+      accuracy: 82.0
+      prediction_accuracy: 78.0
+
+# 監視対象設定
+monitoring:
+  # デフォルト監視対象銘柄
+  default_symbols:
+    - "7203"    # トヨタ自動車
+    - "8306"    # 三菱UFJ
+    - "4751"    # サイバーエージェント
+    - "9984"    # ソフトバンクG
+    - "6758"    # ソニー
+    - "7974"    # 任天堂
+
+  # 動的監視設定
+  dynamic_monitoring:
+    enabled: true                    # 動的監視の有効化
+    symbol_selector_integration: true # symbol_selectorとの連携
+    max_symbols: 10                  # 最大監視銘柄数
+    update_interval_hours: 24        # 監視対象更新間隔（時間）
+
+  # 性能評価設定
+  validation_hours: 168              # 検証期間（1週間）
+  min_samples: 10                    # 最小サンプル数
+  validation_methods:
+    - "prediction_accuracy"          # 予測精度検証
+    - "return_correlation"           # 収益相関検証
+    - "risk_adjusted_return"         # リスク調整済み収益
+
+# 再学習トリガー設定
+retraining:
+  # 基本設定
+  granular_mode: true                # 段階的再学習の有効化
+  cooldown_hours: 24                 # 再学習間隔（時間）
+  parallel_training: false           # 並列学習の有効化
+
+  # 再学習閾値（段階別）
+  global_threshold: 80.0             # 全体再学習閾値（%）
+  symbol_specific_threshold: 85.0    # 銘柄別再学習閾値（%）
+  partial_threshold: 88.0            # 部分再学習閾値（%）
+
+  # 再学習スコープ設定
+  scopes:
+    global:                          # 全体再学習
+      description: "全モデル・全銘柄の完全再学習"
+      trigger_conditions:
+        - "accuracy < global_threshold"
+        - "critical_system_errors > 5"
+      estimated_time: 3600             # 推定時間（秒）
+
+    partial:                         # 部分再学習
+      description: "低性能銘柄群の集中再学習"
+      trigger_conditions:
+        - "symbol_performance_variance > 0.1"
+        - "accuracy < partial_threshold"
+      estimated_time: 1800             # 推定時間（秒）
+
+    symbol:                          # 銘柄別再学習
+      description: "特定銘柄のモデル再学習"
+      trigger_conditions:
+        - "symbol_accuracy < symbol_specific_threshold"
+        - "symbol_error_rate > 0.15"
+      estimated_time: 600              # 推定時間（秒）
+
+    incremental:                     # 増分学習
+      description: "最新データによる増分学習"
+      trigger_conditions:
+        - "data_drift_detected"
+        - "performance_degradation > 0.05"
+      estimated_time: 300              # 推定時間（秒）
+
+# 性能分析設定
+analysis:
+  # 性能追跡
+  performance_tracking:
+    history_retention_days: 30       # 性能履歴保持日数
+    detailed_logging: true           # 詳細ログの有効化
+    performance_trends: true         # 性能トレンド分析
+
+  # 統計分析
+  statistical_analysis:
+    correlation_analysis: true       # 相関分析
+    variance_analysis: true          # 分散分析
+    trend_detection: true            # トレンド検出
+    anomaly_detection: true          # 異常値検出
+
+  # レポート生成
+  reporting:
+    daily_summary: true              # 日次サマリー
+    weekly_detailed: true            # 週次詳細レポート
+    monthly_comprehensive: true      # 月次包括レポート
+    export_formats: ["json", "csv", "yaml"]  # エクスポート形式
+
+# アラートシステム設定
+alerts:
+  # アラートレベル
+  levels:
+    info:
+      threshold: 95.0                # 情報レベル閾値
+      notification: false            # 通知の有効化
+    warning:
+      threshold: 90.0                # 警告レベル閾値
+      notification: true
+    critical:
+      threshold: 85.0                # 緊急レベル閾値
+      notification: true
+      immediate_action: true         # 即座のアクション
+
+  # 通知設定
+  notifications:
+    enabled: true                    # 通知機能の有効化
+    channels:
+      - "log"                        # ログ出力
+      - "database"                   # データベース記録
+      # - "email"                    # メール通知（将来実装）
+      # - "slack"                    # Slack通知（将来実装）
+
+  # アラート履歴
+  history:
+    retention_days: 7                # アラート履歴保持日数
+    max_entries: 1000                # 最大エントリ数
+
+# システム設定
+system:
+  # ログ設定
+  log_level: "INFO"                  # ログレベル (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+  # データベース設定
+  database:
+    backup_enabled: true             # バックアップの有効化
+    backup_interval_hours: 24        # バックアップ間隔（時間）
+    vacuum_interval_days: 7          # VACUUMの実行間隔（日）
+
+  # パフォーマンス設定
+  performance:
+    max_concurrent_validations: 3    # 最大同時検証数
+    validation_timeout_minutes: 30   # 検証タイムアウト（分）
+    cache_enabled: true              # キャッシュの有効化
+    cache_ttl_minutes: 60            # キャッシュ有効期限（分）
+
+# 外部システム連携設定
+integrations:
+  # symbol_selector連携
+  symbol_selector:
+    enabled: true                    # 連携の有効化
+    priority_adjustment: true        # 優先度調整
+    performance_feedback: true       # 性能フィードバック
+
+  # risk_manager連携
+  risk_manager:
+    enabled: true                    # 連携の有効化
+    performance_alerts: true         # 性能アラート共有
+    degradation_warnings: true       # 性能劣化警告
+
+  # dashboard連携
+  dashboard:
+    enabled: false                   # ダッシュボード連携（将来実装）
+    real_time_updates: false         # リアルタイム更新
+    api_endpoint: null               # APIエンドポイント
+
+# 開発・テスト設定
+development:
+  # テストモード
+  test_mode: false                   # テストモードの有効化
+  mock_data: false                   # モックデータの使用
+
+  # デバッグ設定
+  debug:
+    enabled: false                   # デバッグモードの有効化
+    verbose_logging: false           # 詳細ログ
+    performance_profiling: false     # パフォーマンスプロファイリング
+
+  # 実験的機能
+  experimental:
+    ai_assisted_tuning: false        # AI支援チューニング（将来実装）
+    auto_threshold_adjustment: false # 自動閾値調整（将来実装）
+    advanced_analytics: false        # 高度分析機能（将来実装）

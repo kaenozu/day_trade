@@ -1,0 +1,5 @@
+encryption_key: ${ENCRYPTION_KEY:}
+max_login_attempts: 5
+password_min_length: 8
+secret_key: ${SECRET_KEY:default-secret-key}
+session_timeout: 3600

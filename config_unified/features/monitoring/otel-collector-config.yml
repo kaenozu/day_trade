@@ -1,0 +1,288 @@
+#==============================================================================
+# OpenTelemetry Collector 設定 - Issue #442
+# 分散トレーシング・メトリクス・ログの統合収集
+#==============================================================================
+
+# 受信器 (Receivers)
+receivers:
+  # OTLP受信器 (アプリケーションからのテレメトリデータ)
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size: 8388608  # 8MB
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://localhost:3000"
+            - "http://localhost:8080"
+
+  # Prometheus スクレイピング
+  prometheus:
+    config:
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+      scrape_configs:
+        # Day Trade アプリケーション
+        - job_name: 'day-trade-app'
+          static_configs:
+            - targets: ['app:8000', 'app:8080']
+          metrics_path: /metrics
+          scrape_interval: 5s
+          scrape_timeout: 3s
+
+        # システムメトリクス
+        - job_name: 'node-exporter'
+          static_configs:
+            - targets: ['node-exporter:9100']
+
+        # コンテナメトリクス
+        - job_name: 'cadvisor'
+          static_configs:
+            - targets: ['cadvisor:8080']
+
+        # OpenTelemetry Collector自体
+        - job_name: 'otel-collector'
+          static_configs:
+            - targets: ['localhost:8888']
+
+  # ファイルログ受信器
+  filelog:
+    include:
+      - /var/log/day-trade/*.log
+      - /var/log/containers/*.log
+    include_file_name: false
+    include_file_path: true
+    operators:
+      - type: json_parser
+        id: parser-json
+        parse_from: attributes.log
+        parse_to: body
+      - type: time_parser
+        parse_from: attributes.timestamp
+        layout_type: strptime
+        layout: '%Y-%m-%dT%H:%M:%S.%fZ'
+
+  # Jaeger受信器（他のJaegerクライアントとの互換性）
+  jaeger:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:14250
+      thrift_http:
+        endpoint: 0.0.0.0:14268
+      thrift_compact:
+        endpoint: 0.0.0.0:6831
+      thrift_binary:
+        endpoint: 0.0.0.0:6832
+
+  # Zipkin受信器（互換性のため）
+  zipkin:
+    endpoint: 0.0.0.0:9411
+
+# プロセッサ (Processors)
+processors:
+  # バッチプロセッサ
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # メモリ制限プロセッサ
+  memory_limiter:
+    limit_mib: 512
+    spike_limit_mib: 128
+    check_interval: 5s
+
+  # リソース属性プロセッサ
+  resource:
+    attributes:
+      - key: environment
+        value: "production"
+        action: upsert
+      - key: service.namespace
+        value: "day-trade"
+        action: upsert
+      - key: deployment.environment
+        value: "docker"
+        action: upsert
+
+  # 属性プロセッサ（機密情報マスキング）
+  attributes:
+    actions:
+      # 機密情報をマスク
+      - key: user.password
+        action: delete
+      - key: auth.token
+        action: delete
+      - key: credit_card
+        action: delete
+      # 便利な属性を追加
+      - key: service.instance.id
+        value: "${env:HOSTNAME}"
+        action: upsert
+
+  # サンプリングプロセッサ（本番環境でのパフォーマンス調整）
+  probabilistic_sampler:
+    hash_seed: 22
+    sampling_percentage: 10  # 10%サンプリング（本番用）
+
+  # スパンプロセッサ（スパンの強化）
+  span:
+    name:
+      # 長いスパン名を短縮
+      to_attributes:
+        rules:
+          - "^(.{50}).*$"
+      # HTTPメソッドとパスを組み合わせ
+      from_attributes: ["http.method", "http.route"]
+      separator: " "
+
+# エクスポーター (Exporters)
+exporters:
+  # Jaegerエクスポーター
+  jaeger:
+    endpoint: jaeger-all-in-one:14250
+    tls:
+      insecure: true
+
+  # Prometheusエクスポーター
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: day_trade
+    const_labels:
+      environment: production
+    enable_open_metrics: true
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # Elasticsearchエクスポーター (ログ用)
+  elasticsearch:
+    endpoints: ["http://elasticsearch:9200"]
+    index: "day-trade-logs-%Y.%m.%d"
+    pipeline: "day-trade-pipeline"
+    timeout: 30s
+    retry:
+      enabled: true
+      max_requests: 3
+      initial_interval: 100ms
+      max_interval: 1s
+    sending_queue:
+      enabled: true
+      num_consumers: 10
+      queue_size: 5000
+
+  # Lokiエクスポーター (ログ用)
+  loki:
+    endpoint: "http://loki:3100/loki/api/v1/push"
+    tenant_id: "day-trade"
+    labels:
+      attributes:
+        service.name: "service_name"
+        service.instance.id: "service_instance_id"
+      resource:
+        container.name: "container_name"
+
+  # ログ出力（デバッグ用）
+  logging:
+    loglevel: info
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  # ファイルエクスポーター（バックアップ用）
+  file:
+    path: /tmp/otel-collector-traces.json
+    rotation:
+      max_megabytes: 100
+      max_days: 3
+      max_backups: 3
+
+# 拡張機能 (Extensions)
+extensions:
+  # ヘルスチェック
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: "/health"
+
+  # メトリクス（監視用）
+  pprof:
+    endpoint: 0.0.0.0:1888
+
+  # zPages（デバッグ用）
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+  # ファイルストレージ（チェックポイント用）
+  file_storage:
+    directory: /tmp/otel-collector-storage
+
+# サービス設定
+service:
+  # 拡張機能の有効化
+  extensions: [health_check, pprof, zpages, file_storage]
+
+  # パイプライン設定
+  pipelines:
+    # トレースパイプライン
+    traces:
+      receivers: [otlp, jaeger, zipkin]
+      processors: [memory_limiter, resource, attributes, probabilistic_sampler, batch]
+      exporters: [jaeger, logging]
+
+    # メトリクスパイプライン
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus, logging]
+
+    # ログパイプライン
+    logs:
+      receivers: [otlp, filelog]
+      processors: [memory_limiter, resource, attributes, batch]
+      exporters: [elasticsearch, loki, logging]
+
+  # テレメトリ設定
+  telemetry:
+    logs:
+      level: "info"
+      development: false
+      sampling:
+        initial: 5
+        thereafter: 200
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888
+    traces:
+      processors: [batch]
+
+#==============================================================================
+# OpenTelemetry Collector の特徴:
+#
+# 📡 マルチプロトコル受信:
+#   - OTLP (gRPC/HTTP)
+#   - Jaeger (複数プロトコル)
+#   - Zipkin互換
+#   - Prometheus スクレイピング
+#
+# 🔄 高性能データ処理:
+#   - バッチ処理による効率化
+#   - メモリ制限による安定性
+#   - サンプリングによる負荷軽減
+#
+# 🛡️ セキュリティ対応:
+#   - 機密情報の自動マスキング
+#   - 属性ベースのフィルタリング
+#   - TLS設定対応
+#
+# 📊 多様なエクスポート:
+#   - Jaeger (分散トレーシング)
+#   - Prometheus (メトリクス)
+#   - Elasticsearch/Loki (ログ)
+#   - File (バックアップ)
+#
+# ⚡ HFT対応:
+#   - 低レイテンシ設計
+#   - 効率的なバッファリング
+#   - 非同期処理
+#==============================================================================

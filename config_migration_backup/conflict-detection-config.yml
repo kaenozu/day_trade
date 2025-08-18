@@ -1,0 +1,154 @@
+# マージコンフリクト検知設定
+# Issue #883対応：CI でコンフリクト検知システム
+
+# 基本設定
+detection:
+  enabled: true
+  check_all_branches: true
+  auto_comment: true
+
+# 除外パターン
+exclude_patterns:
+  # 一時ファイル・ログファイル
+  - "*.log"
+  - "*.tmp"
+  - "*.temp"
+  - "*~"
+  - "*.swp"
+  - "*.swo"
+
+  # ビルド成果物
+  - "dist/"
+  - "build/"
+  - "node_modules/"
+  - "__pycache__/"
+  - "*.pyc"
+  - "*.pyo"
+  - "*.egg-info/"
+
+  # 環境固有ファイル
+  - ".env"
+  - ".env.local"
+  - ".DS_Store"
+  - "Thumbs.db"
+
+  # データファイル
+  - "data_cache/"
+  - "*.parquet"
+  - "*.db"
+  - "*.sqlite"
+  - "*.sql"
+
+  # テスト成果物
+  - "test_outputs/"
+  - "reports/"
+  - "coverage/"
+  - ".pytest_cache/"
+  - ".coverage"
+
+  # Git管理外
+  - ".git/"
+  - ".gitignore"
+
+# 高リスク変更検知パターン
+high_risk_patterns:
+  configuration_files:
+    - "*.yml"
+    - "*.yaml"
+    - "*.json"
+    - "*.ini"
+    - "*.cfg"
+    - "*.conf"
+    - "*.toml"
+
+  database_files:
+    - "*migration*"
+    - "*schema*"
+    - "*database*"
+    - "*.sql"
+    - "alembic/"
+
+  ci_cd_files:
+    - ".github/"
+    - ".gitlab/"
+    - ".circleci/"
+    - "Dockerfile*"
+    - "docker-compose*"
+    - "*.Dockerfile"
+
+  core_system_files:
+    - "main.py"
+    - "app.py"
+    - "core/*.py"
+    - "base/*.py"
+    - "foundation/*.py"
+    - "daytrade.py"
+    - "day_trading_engine.py"
+
+  security_files:
+    - "*security*"
+    - "*auth*"
+    - "*permission*"
+    - "requirements*.txt"
+    - "pyproject.toml"
+    - "setup.py"
+
+# 通知設定
+notifications:
+  # コンフリクト検知時
+  conflict_detected:
+    enabled: true
+    include_file_list: true
+    include_merge_output: true
+    provide_resolution_steps: true
+
+  # コンフリクトマーカー検知時
+  conflict_markers:
+    enabled: true
+    show_locations: true
+    provide_fix_instructions: true
+
+  # 高リスク変更検知時
+  high_risk_changes:
+    enabled: true
+    show_risk_categories: true
+    recommend_detailed_review: true
+
+# 自動修正設定
+auto_fix:
+  # コンフリクトマーカーの自動削除（危険なため無効）
+  remove_conflict_markers: false
+
+  # 空白・改行の自動修正
+  fix_whitespace: true
+
+  # フォーマットの自動修正
+  run_formatters: false
+
+# レポート設定
+reporting:
+  # 詳細ログの保存
+  save_detailed_logs: true
+
+  # 統計情報の収集
+  collect_statistics: true
+
+  # 成功時の通知
+  notify_on_success: false
+
+  # アーティファクトの保存期間（日）
+  artifact_retention_days: 7
+
+# パフォーマンス最適化
+performance:
+  # 大きなファイルのスキップ（MB）
+  skip_large_files_mb: 50
+
+  # 最大検証ファイル数
+  max_files_to_check: 1000
+
+  # タイムアウト設定（秒）
+  timeout_seconds: 300
+
+  # 並列処理数
+  parallel_jobs: 2

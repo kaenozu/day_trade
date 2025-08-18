@@ -1,0 +1,5 @@
+application:
+  debug: false
+  log_level: WARNING
+security:
+  strict_mode: true
