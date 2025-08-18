@@ -3,15 +3,42 @@
 """
 Day Trade Web Server - プロダクション対応Webサーバー
 Issue #901 対応: プロダクション Web サーバー実装
+Issue #933 対応: バージョン統一とパフォーマンス監視強化
 """
 
 import sys
 import logging
+import time
 from pathlib import Path
 from typing import Optional, Dict, Any
 from flask import Flask, render_template_string, jsonify, request
 import threading
 from datetime import datetime
+
+# バージョン統一 - Issue #933対応
+try:
+    from version import get_version_info, __version_extended__, __version_full__
+    VERSION_INFO = get_version_info()
+except ImportError:
+    # フォールバック
+    VERSION_INFO = {
+        "version": "2.1.0",
+        "version_extended": "2.1.0_extended",
+        "release_name": "Extended",
+        "build_date": "2025-08-18"
+    }
+    __version_extended__ = "2.1.0_extended"
+    __version_full__ = "Day Trade Personal v2.1.0 Extended"
+
+# パフォーマンス監視 - Issue #933対応
+try:
+    from performance_monitor import performance_monitor, track_performance
+    PERFORMANCE_MONITORING = True
+except ImportError:
+    performance_monitor = None
+    PERFORMANCE_MONITORING = False
+    def track_performance(func):
+        return func  # フォールバック用デコレーター
 
 
 class DayTradeWebServer:
@@ -36,21 +63,34 @@ class DayTradeWebServer:
         @self.app.route('/')
         def index():
             """メインダッシュボード"""
-            return render_template_string(self._get_dashboard_template(), 
-                                        title="Day Trade Personal - メインダッシュボード")
+            start_time = time.time() if PERFORMANCE_MONITORING else 0
+            
+            response = render_template_string(self._get_dashboard_template(), 
+                                            title="Day Trade Personal - メインダッシュボード")
+            
+            if PERFORMANCE_MONITORING and performance_monitor:
+                duration = time.time() - start_time
+                performance_monitor.track_api_response_time('/', duration)
+            
+            return response
         
         @self.app.route('/api/status')
         def api_status():
-            """システム状態API"""
+            """システム状態API - Issue #933対応: 統一バージョン情報"""
             return jsonify({
                 'status': 'running',
                 'timestamp': datetime.now().isoformat(),
-                'version': '2.0.0',
+                'version': VERSION_INFO['version'],
+                'version_extended': VERSION_INFO['version_extended'],
+                'release_name': VERSION_INFO['release_name'],
+                'build_date': VERSION_INFO['build_date'],
                 'features': [
                     'Real-time Analysis',
                     'Security Enhanced',
                     'Performance Optimized',
-                    'Production Ready'
+                    'Production Ready',
+                    '20-Stock Recommendations',
+                    'Unified Version Management'
                 ]
             })
         
@@ -157,7 +197,8 @@ class DayTradeWebServer:
                     'hold_count': len([r for r in recommendations if r['recommendation'] == 'HOLD']),
                     'recommendations': recommendations,
                     'timestamp': datetime.now().isoformat(),
-                    'version': '2.1.0_extended'
+                    'version': VERSION_INFO['version_extended'],
+                    'api_version': VERSION_INFO['version']
                 })
                 
             except Exception as e:
@@ -174,6 +215,75 @@ class DayTradeWebServer:
                 'timestamp': datetime.now().isoformat(),
                 'uptime': 'running'
             })
+        
+        @self.app.route('/api/performance')
+        def api_performance():
+            """パフォーマンス監視API - Issue #933対応"""
+            if not PERFORMANCE_MONITORING or not performance_monitor:
+                return jsonify({
+                    'error': 'Performance monitoring not available',
+                    'monitoring_enabled': False
+                }), 501
+            
+            try:
+                summary = performance_monitor.get_performance_summary()
+                return jsonify({
+                    'monitoring_enabled': True,
+                    'performance_summary': summary,
+                    'timestamp': datetime.now().isoformat()
+                })
+            except Exception as e:
+                return jsonify({
+                    'error': str(e),
+                    'status': 'error'
+                }), 500
+        
+        @self.app.route('/api/performance/detailed')
+        def api_performance_detailed():
+            """詳細パフォーマンスメトリクス API - Issue #933対応"""
+            if not PERFORMANCE_MONITORING or not performance_monitor:
+                return jsonify({
+                    'error': 'Performance monitoring not available',
+                    'monitoring_enabled': False
+                }), 501
+            
+            try:
+                detailed = performance_monitor.get_detailed_metrics()
+                summary = performance_monitor.get_performance_summary()
+                return jsonify({
+                    'monitoring_enabled': True,
+                    'performance_summary': summary,
+                    'detailed_metrics': detailed,
+                    'timestamp': datetime.now().isoformat()
+                })
+            except Exception as e:
+                return jsonify({
+                    'error': str(e),
+                    'status': 'error'
+                }), 500
+        
+        @self.app.route('/api/performance/report')
+        def api_performance_report():
+            """パフォーマンスレポート API - Issue #933対応"""
+            if not PERFORMANCE_MONITORING or not performance_monitor:
+                return jsonify({
+                    'error': 'Performance monitoring not available',
+                    'monitoring_enabled': False
+                }), 501
+            
+            try:
+                report = performance_monitor.generate_performance_report()
+                return jsonify({
+                    'monitoring_enabled': True,
+                    'report': report,
+                    'report_lines': report.split('\n'),
+                    'timestamp': datetime.now().isoformat()
+                })
+            except Exception as e:
+                return jsonify({
+                    'error': str(e),
+                    'status': 'error'
+                }), 500
     
     def _get_recommendation_reason(self, rec_type: str, confidence: float) -> str:
         """推奨理由を生成"""
