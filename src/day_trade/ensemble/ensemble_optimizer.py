@@ -41,8 +41,13 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.base import BaseEstimator, RegressorMixin, clone
 import optuna
 
-# 遺伝的アルゴリズム
-from deap import base, creator, tools, algorithms
+# 遺伝的アルゴリズム（オプショナル）
+try:
+    from deap import base, creator, tools, algorithms
+    DEAP_AVAILABLE = True
+except ImportError:
+    DEAP_AVAILABLE = False
+    base = creator = tools = algorithms = None
 
 # ログ設定
 logger = logging.getLogger(__name__)
