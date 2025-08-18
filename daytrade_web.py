@@ -40,6 +40,14 @@ except ImportError:
     def track_performance(func):
         return func  # フォールバック用デコレーター
 
+# データ永続化 - Issue #933 Phase 3対応
+try:
+    from data_persistence import data_persistence
+    DATA_PERSISTENCE = True
+except ImportError:
+    data_persistence = None
+    DATA_PERSISTENCE = False
+
 
 class DayTradeWebServer:
     """プロダクション対応Webサーバー"""
@@ -49,6 +57,9 @@ class DayTradeWebServer:
         self.debug = debug
         self.app = Flask(__name__)
         self.app.secret_key = 'day-trade-personal-2025'
+        
+        # セッション管理 - Issue #933 Phase 3対応
+        self.session_id = f"web_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         # ルート設定
         self._setup_routes()
@@ -96,13 +107,16 @@ class DayTradeWebServer:
         
         @self.app.route('/api/analysis/<symbol>')
         def api_analysis(symbol):
-            """株価分析API"""
+            """株価分析API - Issue #933 Phase 3対応: データ永続化統合"""
+            start_time = time.time() if PERFORMANCE_MONITORING else 0
+            
             try:
                 import random
                 recommendations = ['BUY', 'SELL', 'HOLD']
                 confidence = round(random.uniform(0.60, 0.95), 2)
                 
-                return jsonify({
+                # 分析結果
+                result = {
                     'symbol': symbol,
                     'recommendation': random.choice(recommendations),
                     'confidence': confidence,
@@ -113,8 +127,35 @@ class DayTradeWebServer:
                     'volume': random.randint(100000, 5000000),
                     'market_cap': f"{random.randint(1000, 50000)}億円",
                     'sector': random.choice(['テクノロジー', '金融', '製造業', 'ヘルスケア', 'エネルギー'])
-                })
+                }
+                
+                # パフォーマンス監視とデータ永続化
+                if PERFORMANCE_MONITORING and performance_monitor:
+                    duration = time.time() - start_time
+                    performance_monitor.track_api_response_time(f'/api/analysis/{symbol}', duration)
+                
+                if DATA_PERSISTENCE and data_persistence:
+                    duration_ms = (time.time() - start_time) * 1000 if start_time else 0
+                    data_persistence.save_analysis_result(
+                        symbol=symbol,
+                        analysis_type='web_api_analysis',
+                        duration_ms=duration_ms,
+                        result_data=result,
+                        confidence_score=confidence,
+                        session_id=self.session_id
+                    )
+                
+                return jsonify(result)
+                
             except Exception as e:
+                if DATA_PERSISTENCE and data_persistence:
+                    data_persistence.save_error_log(
+                        error_type='api_analysis_error',
+                        error_message=str(e),
+                        context_data={'symbol': symbol, 'endpoint': f'/api/analysis/{symbol}'},
+                        session_id=self.session_id
+                    )
+                
                 return jsonify({
                     'error': str(e),
                     'status': 'error'
@@ -277,6 +318,81 @@ class DayTradeWebServer:
                     'monitoring_enabled': True,
                     'report': report,
                     'report_lines': report.split('\n'),
+                    'timestamp': datetime.now().isoformat()
+                })
+            except Exception as e:
+                return jsonify({
+                    'error': str(e),
+                    'status': 'error'
+                }), 500
+        
+        # Issue #933 Phase 3対応: データ永続化API
+        @self.app.route('/api/data/statistics')
+        def api_data_statistics():
+            """データ統計 API"""
+            if not DATA_PERSISTENCE or not data_persistence:
+                return jsonify({
+                    'error': 'Data persistence not available',
+                    'persistence_enabled': False
+                }), 501
+            
+            try:
+                hours = request.args.get('hours', 24, type=int)
+                analysis_stats = data_persistence.get_analysis_statistics(hours)
+                api_stats = data_persistence.get_api_statistics(hours)
+                
+                return jsonify({
+                    'persistence_enabled': True,
+                    'analysis_statistics': analysis_stats,
+                    'api_statistics': api_stats,
+                    'session_id': self.session_id,
+                    'timestamp': datetime.now().isoformat()
+                })
+            except Exception as e:
+                return jsonify({
+                    'error': str(e),
+                    'status': 'error'
+                }), 500
+        
+        @self.app.route('/api/data/database-info')
+        def api_database_info():
+            """データベース情報 API"""
+            if not DATA_PERSISTENCE or not data_persistence:
+                return jsonify({
+                    'error': 'Data persistence not available',
+                    'persistence_enabled': False
+                }), 501
+            
+            try:
+                db_info = data_persistence.get_database_info()
+                return jsonify({
+                    'persistence_enabled': True,
+                    'database_info': db_info,
+                    'timestamp': datetime.now().isoformat()
+                })
+            except Exception as e:
+                return jsonify({
+                    'error': str(e),
+                    'status': 'error'
+                }), 500
+        
+        @self.app.route('/api/data/export')
+        def api_data_export():
+            """データエクスポート API"""
+            if not DATA_PERSISTENCE or not data_persistence:
+                return jsonify({
+                    'error': 'Data persistence not available',
+                    'persistence_enabled': False
+                }), 501
+            
+            try:
+                export_format = request.args.get('format', 'json')
+                result = data_persistence.export_data(format=export_format)
+                
+                return jsonify({
+                    'persistence_enabled': True,
+                    'export_result': result,
+                    'format': export_format,
                     'timestamp': datetime.now().isoformat()
                 })
             except Exception as e:
