@@ -71,7 +71,7 @@ class GPUComputeResult:
 
 class GPUMemoryManager:
     """GPUメモリ管理クラス
-
+    
     GPUメモリの効率的な割り当て、解放、統計情報の管理を行う
     """
 
@@ -169,7 +169,7 @@ class GPUMemoryManager:
 
 class GPUAccelerationEngine:
     """GPU並列処理エンジン
-
+    
     CUDA/OpenCLを使用してテクニカル指標の計算を高速化するエンジン
     """
 

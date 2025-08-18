@@ -23,7 +23,7 @@ ImportError: cannot import name 'Money' from 'day_trade.domain.common.value_obje
 class Money:
     amount: Decimal
     currency: str = "JPY"
-
+    
     def add(self, other: 'Money') -> 'Money':
         if self.currency != other.currency:
             raise ValueError("通貨が異なります")
@@ -32,14 +32,14 @@ class Money:
 @dataclass  
 class Price:
     value: Decimal
-
+    
     def to_money(self, quantity: 'Quantity') -> Money:
         return Money(self.value * quantity.value)
 
 @dataclass
 class Quantity:
     value: int
-
+    
     def __post_init__(self):
         if self.value <= 0:
             raise ValueError("数量は正の値である必要があります")
@@ -47,7 +47,7 @@ class Quantity:
 @dataclass
 class Symbol:
     code: str
-
+    
     def __post_init__(self):
         if not self.code or len(self.code) < 3:
             raise ValueError("無効な銘柄コードです")
@@ -270,7 +270,7 @@ performance_monitoring=cls._safe_bool_conversion(data.get("performance_monitorin
 
 # After:
 performance_monitoring=cls._safe_bool_conversion(
-    data.get("performance_monitoring"),
+    data.get("performance_monitoring"), 
     defaults["performance_monitoring"]
 ),
 ```
@@ -395,7 +395,7 @@ result = await test_async_function()
 class SecureConfigManager:
     def __init__(self, encryption_key: bytes):
         self.cipher = Fernet(encryption_key)
-
+    
     def store_sensitive(self, key: str, value: str) -> None:
         encrypted_value = self.cipher.encrypt(value.encode())
         self._storage[key] = encrypted_value
@@ -404,7 +404,7 @@ class SecureConfigManager:
 @dataclass
 class Symbol(ValueObject):
     code: str
-
+    
     def __post_init__(self):
         # 入力サニタイゼーション強化
         sanitized = re.sub(r'[^A-Z0-9]', '', self.code.upper())
@@ -549,16 +549,16 @@ exception_info = ''.join(
 async def start(self, config: Dict[str, Any]) -> None:
     """
     統一アプリケーションを開始します。
-
+    
     Args:
         config: アプリケーション設定辞書
             - database: データベース接続設定
             - trading: 取引システム設定
             - logging: ログシステム設定
-
+            
     Raises:
         ApplicationError: 設定不正または起動失敗時
-
+        
     Note:
         起動順序: 設定検証 → コンポーネント初期化 → リソース開始
     """
@@ -593,7 +593,7 @@ async def test_async_error_boundary():
     async def failing_async_function():
         await asyncio.sleep(0.1)
         raise ValueError("非同期エラー")
-
+    
     result = await failing_async_function()
     assert result is None  # フォールバック値
 
