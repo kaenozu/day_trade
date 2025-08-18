@@ -165,21 +165,20 @@ class DayTradeApplication:
             self._lazy_load_ml_modules()
             self.analyzer = TradingAnalyzer()
             
-            # 銘柄リスト決定（--all-symbolsオプション対応）
+            # 銘柄リスト決定（段階的拡張オプション対応）
             if args.symbols:
                 symbols = args.symbols
-            elif getattr(args, 'all_symbols', False):
-                symbols = self._get_all_symbols()
-                if self.debug:
-                    print(f"⚡ 全銘柄分析モード: {len(symbols)}銘柄")
             else:
-                symbols = self._get_default_symbols()
+                symbols = self._get_symbols_by_tier(args)
 
             print(f"📈 詳細分析開始: {len(symbols)}銘柄")
             if len(symbols) <= 10:
                 print(f"    対象: {', '.join(symbols)}")
             else:
                 print(f"    対象: {', '.join(symbols[:5])} ... (+{len(symbols)-5}銘柄)")
+                
+            # パフォーマンス警告表示
+            self._show_performance_warning(len(symbols))
                 
             # 実際の分析結果生成
             results = []
@@ -354,9 +353,8 @@ class DayTradeApplication:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
 
         try:
-            # 銘柄リストの確認とフォールバック
+            # 銘柄リストの確認とフォールバック（CLI用のため簡易実装）
             if not symbols:
-                # --all-symbols オプションの確認
                 if all_symbols:
                     symbols = self._get_all_symbols()
                     if self.debug:
@@ -371,6 +369,9 @@ class DayTradeApplication:
                 print(f"    銘柄: {', '.join(symbols)}")
             else:
                 print(f"    銘柄: {', '.join(symbols[:5])} ... (+{len(symbols)-5}銘柄)")
+                
+            # パフォーマンス警告表示
+            self._show_performance_warning(len(symbols))
             print("⚡ リアルタイム市場データ分析中...")
 
             # 実際の分析エンジンを使用
@@ -614,14 +615,40 @@ class DayTradeApplication:
             # フォールバック
             return ['7203', '8306', '9984', '6758']
             
-    def _get_all_symbols(self) -> list:
-        """東証全銘柄を取得（Issue #912対応）"""
+    def _get_symbols_by_tier(self, args) -> list:
+        """段階的な銘柄セット取得"""
         try:
-            # 東証銘柄データベースを使用
             from ..data.tokyo_stock_symbols import tse
-            return tse.get_extended_symbol_set(include_small_cap=True)
+            
+            if getattr(args, 'extended', False):
+                symbols = tse.get_extended_symbols()  # ~274銘柄
+                tier_name = "拡張セット"
+            elif getattr(args, 'comprehensive', False):
+                symbols = tse.get_comprehensive_symbols()  # ~774銘柄
+                tier_name = "包括セット"
+            elif getattr(args, 'all_symbols', False):
+                symbols = tse.get_all_tse_symbols()  # 研究用
+                tier_name = "全東証銘柄"
+            else:
+                symbols = self._get_default_symbols()  # 74銘柄
+                tier_name = "デフォルト"
+                
+            if self.debug:
+                print(f"⚡ {tier_name}: {len(symbols)}銘柄")
+                
+            return symbols
+            
         except ImportError:
-            # フォールバック: 設定ファイルから全銘柄取得
+            if self.debug:
+                print("⚠️ 東証データベース読み込み失敗、設定ファイルを使用")
+            return self._get_default_symbols()
+            
+    def _get_all_symbols(self) -> list:
+        """東証全銘柄を取得（後方互換性）"""
+        try:
+            from ..data.tokyo_stock_symbols import tse
+            return tse.get_all_tse_symbols()
+        except ImportError:
             return self._get_all_symbols_from_config()
             
     def _get_all_symbols_from_config(self) -> list:
@@ -694,3 +721,17 @@ class DayTradeApplication:
             self.config = {'watchlist': {'symbols': []}}
             if self.debug:
                 print(f"⚠️ 設定ファイル読み込みエラー: {e}")
+                
+    def _show_performance_warning(self, symbol_count: int):
+        """銘柄数に応じたパフォーマンス警告表示"""
+        if symbol_count > 500:
+            print("⚠️  【パフォーマンス警告】")
+            print(f"    • {symbol_count}銘柄の分析には約{symbol_count*0.4:.0f}秒かかります")
+            print("    • 研究・バックテスト用途での使用を推奨")
+            print("    • デイトレードには--extendedオプション（274銘柄）が実用的")
+        elif symbol_count > 200:
+            print("💡 【分析情報】")
+            print(f"    • {symbol_count}銘柄の分析には約{symbol_count*0.4:.0f}秒かかります")
+        elif symbol_count > 74:
+            print("ℹ️  【拡張モード】")
+            print(f"    • {symbol_count}銘柄（中型株含む）を分析中")

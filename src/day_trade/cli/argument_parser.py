@@ -52,10 +52,22 @@ class ArgumentParser:
             nargs='+',
             help='対象銘柄コード（デフォルト: 高・中優先度銘柄）'
         )
-        self.parser.add_argument(
+        # 段階的銘柄拡張オプション
+        symbol_group = self.parser.add_mutually_exclusive_group()
+        symbol_group.add_argument(
+            '--extended',
+            action='store_true',
+            help='拡張銘柄セット（~274銘柄：主要株+中型株）'
+        )
+        symbol_group.add_argument(
+            '--comprehensive',
+            action='store_true',
+            help='包括的銘柄セット（~774銘柄：小型株含む）'
+        )
+        symbol_group.add_argument(
             '--all-symbols',
             action='store_true',
-            help='東証全銘柄を分析対象に設定（Issue #912対応）'
+            help='全東証銘柄（研究・バックテスト用）'
         )
         self.parser.add_argument(
             '--port', '-p',
