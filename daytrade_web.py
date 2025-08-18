@@ -433,24 +433,14 @@ class DayTradeWebServer:
             min-height: 100vh;
             color: #333;
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .header {
             text-align: center;
             color: white;
             margin-bottom: 30px;
         }
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-        .header p {
-            font-size: 1.2rem;
-            opacity: 0.9;
-        }
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .header p { font-size: 1.2rem; opacity: 0.9; }
         .dashboard {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -463,9 +453,7 @@ class DayTradeWebServer:
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             transition: transform 0.3s ease;
         }
-        .card:hover {
-            transform: translateY(-5px);
-        }
+        .card:hover { transform: translateY(-5px); }
         .card h3 {
             color: #4a5568;
             margin-bottom: 15px;
@@ -493,9 +481,7 @@ class DayTradeWebServer:
             font-size: 1rem;
             transition: background 0.3s ease;
         }
-        .btn:hover {
-            background: #5a67d8;
-        }
+        .btn:hover { background: #5a67d8; }
         .feature-list {
             list-style: none;
         }
@@ -525,10 +511,7 @@ class DayTradeWebServer:
             font-weight: bold;
             color: #667eea;
         }
-        .stat-label {
-            color: #718096;
-            margin-top: 5px;
-        }
+        .stat-label { color: #718096; margin-top: 5px; }
         .footer {
             text-align: center;
             margin-top: 40px;
@@ -616,9 +599,7 @@ class DayTradeWebServer:
                 box-shadow: 0 5px 15px rgba(0,0,0,0.1);
                 transition: transform 0.3s ease;
             }
-            .recommendation-card:hover {
-                transform: translateY(-3px);
-            }
+            .recommendation-card:hover { transform: translateY(-3px); }
             .rec-buy { border-left: 5px solid #48bb78; }
             .rec-sell { border-left: 5px solid #f56565; }
             .rec-hold { border-left: 5px solid #ed8936; }
@@ -636,10 +617,7 @@ class DayTradeWebServer:
                 font-size: 1.1rem;
                 color: #2d3748;
             }
-            .stock-symbol {
-                color: #718096;
-                font-size: 0.9rem;
-            }
+            .stock-symbol { color: #718096; font-size: 0.9rem; }
             .rec-badge {
                 padding: 4px 8px;
                 border-radius: 4px;
@@ -689,13 +667,8 @@ class DayTradeWebServer:
                 justify-content: space-between;
                 margin-bottom: 4px;
             }
-            .detail-label {
-                color: #718096;
-                font-weight: bold;
-            }
-            .detail-value {
-                color: #2d3748;
-            }
+            .detail-label { color: #718096; font-weight: bold; }
+            .detail-value { color: #2d3748; }
             .who-suitable {
                 background: #e6fffa;
                 color: #285e61;
@@ -738,7 +711,7 @@ class DayTradeWebServer:
                 resultDiv.innerHTML = `
                     <strong>トヨタ自動車 (${data.symbol})</strong><br>
                     推奨: ${data.recommendation}<br>
-                    信頼度: ${(data.confidence * 100).toFixed(1)}%<br>
+                    信頼度: ${(data.confidence * 100).toFixed(1)}%
                     価格: ¥${data.price}<br>
                     変動: ${data.change > 0 ? '+' : ''}${data.change}%
                 `;

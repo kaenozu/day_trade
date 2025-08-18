@@ -131,39 +131,39 @@ class DayTradeCore:
         if not symbols:
             symbols = ['7203', '8306', '9984']  # トヨタ, MUFG, SBG
         
-        print("Day Trade Personal - 93%精度AIシステム")
-        print("基本分析モード - 高速処理 (Issue #923対応)")
+        print("🚀 Day Trade Personal - 93%精度AIシステム")
+        print("📊 基本分析モード - 高速処理 (Issue #923対応)")
         print("=" * 50)
         
         try:
             for symbol in symbols:
-                print(f"\n[分析] {symbol} 分析中...")
+                print(f"\n📈 {symbol} 分析中...")
                 
                 # 統一分析インターフェース使用 - Issue #923対応
                 result = self.unified_analyzer.analyze_symbol(symbol)
                 
                 # 結果表示
                 rec_emoji = {
-                    'BUY': '[買い]',
-                    'SELL': '[売り]', 
-                    'HOLD': '[様子見]'
-                }.get(result['recommendation'], '[不明]')
+                    'BUY': '🟢',
+                    'SELL': '🔴', 
+                    'HOLD': '🟡'
+                }.get(result['recommendation'], '⚪')
                 
                 print(f"{rec_emoji} {result['recommendation']} (信頼度: {result['confidence']*100:.1f}%)")
-                print(f"[価格] 価格: ¥{result['price']:,}")
+                print(f"💰 価格: ¥{result['price']:,}")
                 if result['change_pct'] >= 0:
-                    print(f"[変動+] 変動: +{result['change_pct']:.1f}%")
+                    print(f"📊 変動: +{result['change_pct']:.1f}%")
                 else:
-                    print(f"[変動-] 変動: {result['change_pct']:.1f}%")
-                print(f"[分析種別] 分析タイプ: {result.get('analysis_type', 'standard')}")
+                    print(f"📉 変動: {result['change_pct']:.1f}%")
+                print(f"分析タイプ: {result.get('analysis_type', 'standard')}")
             
-            print(f"\n[完了] {len(symbols)}銘柄の分析完了")
-            print("[注意] 投資判断は自己責任で行ってください")
+            print(f"\n✅ {len(symbols)}銘柄の分析完了")
+            print("💡 投資判断は自己責任で行ってください")
             
             return 0
             
         except Exception as e:
-            print(f"[エラー] 分析エラー: {e}")
+            print(f"❌ 分析エラー: {e}")
             if self.debug:
                 import traceback
                 traceback.print_exc()
@@ -178,25 +178,25 @@ class DayTradeCore:
                 '9434', '8001', '7267', '6861'   # 追加4銘柄
             ]
         
-        print("[システム] Day Trade Personal - 93%精度AIシステム") 
-        print("[変動+] 複数銘柄分析モード - 8銘柄同時分析")
+        print("🚀 Day Trade Personal - 93%精度AIシステム") 
+        print("📊 複数銘柄分析モード - 8銘柄同時分析")
         print("=" * 50)
         
         try:
             results = []
             
             for i, symbol in enumerate(symbols):
-                print(f"\n[{i+1}/{len(symbols)}] [分析] {symbol} 分析中...")
+                print(f"\n[{i+1}/{len(symbols)}] 📈 {symbol} 分析中...")
                 
                 result = self.unified_analyzer.analyze_symbol(symbol)
                 results.append(result)
                 
                 # 簡易結果表示
                 rec_emoji = {
-                    'BUY': '[買い]',
-                    'SELL': '[売り]',
-                    'HOLD': '[様子見]'
-                }.get(result['recommendation'], '[不明]')
+                    'BUY': '🟢',
+                    'SELL': '🔴',
+                    'HOLD': '🟡'
+                }.get(result['recommendation'], '⚪')
                 
                 print(f"  {rec_emoji} {result['recommendation']} ({result['confidence']*100:.0f}%)")
             
@@ -208,17 +208,17 @@ class DayTradeCore:
             sell_count = sum(1 for r in results if r['recommendation'] == 'SELL') 
             hold_count = sum(1 for r in results if r['recommendation'] == 'HOLD')
             
-            print(f"[買い] 買い推奨: {buy_count}銘柄")
-            print(f"[売り] 売り推奨: {sell_count}銘柄")
-            print(f"[様子見] 様子見: {hold_count}銘柄")
+            print(f"🟢 買い推奨: {buy_count}銘柄")
+            print(f"🔴 売り推奨: {sell_count}銘柄")
+            print(f"🟡 様子見: {hold_count}銘柄")
             
             avg_confidence = sum(r['confidence'] for r in results) / len(results)
-            print(f"[スコア] 平均信頼度: {avg_confidence*100:.1f}%")
+            print(f"🎯 平均信頼度: {avg_confidence*100:.1f}%")
             
             return 0
             
         except Exception as e:
-            print(f"[エラー] 分析エラー: {e}")
+            print(f"❌ 分析エラー: {e}")
             if self.debug:
                 import traceback
                 traceback.print_exc()
@@ -232,7 +232,7 @@ class DayTradeCore:
         
         print("システム品質レポート:")
         print("  セキュリティ: 98/100 (優秀)")
-        print("  パフォーマンス: 95/100 (優秀)")  
+        print("  パフォーマンス: 95/100 (優秀)")
         print("  コード品質: 92/100 (優良)")
         print("  テスト品質: 90/100 (優良)")
         print("\n総合評価: A+ (93/100)")
@@ -258,15 +258,15 @@ class DayTradeCore:
             # デイトレード専用銘柄
             symbols = ['4478', '4485', '4382', '3900']  # 高ボラティリティ銘柄
         
-        print("[システム] Day Trade Personal - 93%精度AIシステム")
-        print("[高速] デイトレード推奨モード - 高ボラティリティ銘柄")
+        print("🚀 Day Trade Personal - 93%精度AIシステム")
+        print("⚡ デイトレード推奨モード - 高ボラティリティ銘柄")
         print("=" * 50)
         
         try:
             daytrading_results = []
             
             for symbol in symbols:
-                print(f"\n[分析] {symbol} デイトレード分析中...")
+                print(f"\n📈 {symbol} デイトレード分析中...")
                 
                 result = self.unified_analyzer.analyze_symbol(symbol)
                 
@@ -278,31 +278,31 @@ class DayTradeCore:
                 
                 # 結果表示
                 rec_emoji = {
-                    'BUY': '[買い]',
-                    'SELL': '[売り]',
-                    'HOLD': '[様子見]'
-                }.get(result['recommendation'], '[不明]')
+                    'BUY': '🟢',
+                    'SELL': '🔴',
+                    'HOLD': '🟡'
+                }.get(result['recommendation'], '⚪')
                 
                 print(f"{rec_emoji} {result['recommendation']} (信頼度: {result['confidence']*100:.1f}%)")
-                print(f"[高速] ボラティリティ: {result['volatility']:.1f}%")
-                print(f"[スコア] デイトレスコア: {result['daytrading_score']:.2f}")
+                print(f"⚡ ボラティリティ: {result['volatility']:.1f}%")
+                print(f"🎯 デイトレスコア: {result['daytrading_score']:.2f}")
             
             # ランキング表示
             daytrading_results.sort(key=lambda x: x['daytrading_score'], reverse=True)
             
-            print(f"\n[ランキング] デイトレード推奨ランキング")
+            print(f"\n🏆 デイトレード推奨ランキング")
             print("-" * 30)
             
             for i, result in enumerate(daytrading_results[:3], 1):
                 print(f"{i}位: {result['symbol']} (スコア: {result['daytrading_score']:.2f})")
             
-            print(f"\n[注意] デイトレードは高リスク・高リターンです")
-            print("[警告]  十分なリスク管理を行ってください")
+            print(f"\n💡 デイトレードは高リスク・高リターンです")
+            print("⚠️  十分なリスク管理を行ってください")
             
             return 0
             
         except Exception as e:
-            print(f"[エラー] 分析エラー: {e}")
+            print(f"❌ 分析エラー: {e}")
             if self.debug:
                 import traceback
                 traceback.print_exc()
