@@ -17,6 +17,15 @@ asyncio-mqtt>=0.11.0       # 非同期処理（オプション）
 # sqlite3 は標準ライブラリなのでインストール不要
 aiosqlite>=0.17.0          # 非同期SQLite
 
+# 本番データベース（オプション）
+psycopg2-binary>=2.9.0     # PostgreSQL接続（本番環境用）
+sqlalchemy>=2.0.0          # ORM
+alembic>=1.8.0             # データベースマイグレーション
+
+# 監視・バックアップ機能
+schedule>=1.2.0            # タスクスケジューラー
+psutil>=5.8.0              # システムリソース監視
+
 # 設定・ログ
 PyYAML>=6.0                # 設定ファイル読込
 python-dotenv>=0.19.0      # 環境変数管理
