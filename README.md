@@ -201,7 +201,7 @@ python daytrade_web.py --debug
 
 #### Web UI機能
 - **ダッシュボード**: システム状態・統計情報
-- **推奨銘柄表示**: 20銘柄のカード表示
+- **推奨銘柄表示**: 35銘柄のカード表示（多様化・リスク分散強化）
 - **リアルタイム更新**: 自動的にデータ更新
 - **レスポンシブ**: PC・タブレット・スマホ対応
 
@@ -212,7 +212,7 @@ python daytrade_web.py --debug
 # システム状態確認
 curl http://localhost:8000/api/status
 
-# 推奨銘柄取得（20銘柄）
+# 推奨銘柄取得（35銘柄）
 curl http://localhost:8000/api/recommendations
 
 # 特定銘柄分析
