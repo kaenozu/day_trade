@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Day Trade Personal - コマンドライン引数パーサー
+
+リファクタリング後のメインアプリケーション用引数パーサー
+"""
+
+import argparse
+from typing import List, Optional
+
+
+class ArgumentParser:
+    """コマンドライン引数パーサー"""
+
+    def __init__(self):
+        self.parser = argparse.ArgumentParser(
+            description="Day Trade Personal - 個人利用専用版",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="93%精度AIシステムでデイトレード支援"
+        )
+        self._setup_arguments()
+
+    def _setup_arguments(self):
+        """引数を設定"""
+        # メインモード（排他的）
+        mode_group = self.parser.add_mutually_exclusive_group()
+        mode_group.add_argument(
+            '--quick', '-q',
+            action='store_true',
+            help='基本分析モード（高速）'
+        )
+        mode_group.add_argument(
+            '--multi', '-m',
+            action='store_true',
+            help='複数銘柄分析モード'
+        )
+        mode_group.add_argument(
+            '--web', '-w',
+            action='store_true',
+            help='Webダッシュボード起動'
+        )
+        mode_group.add_argument(
+            '--validate', '-v',
+            action='store_true',
+            help='予測精度検証モード'
+        )
+
+        # 共通オプション
+        self.parser.add_argument(
+            '--symbols', '-s',
+            nargs='+',
+            help='対象銘柄コード（デフォルト: 279銘柄の拡張セット）'
+        )
+        # 段階的銘柄拡張オプション
+        symbol_group = self.parser.add_mutually_exclusive_group()
+        symbol_group.add_argument(
+            '--basic',
+            action='store_true',
+            help='基本銘柄セット（55銘柄：主要株のみ、高速）'
+        )
+        symbol_group.add_argument(
+            '--extended',
+            action='store_true',
+            help='拡張銘柄セット（279銘柄：主要株+中型株）※デフォルト'
+        )
+        symbol_group.add_argument(
+            '--comprehensive',
+            action='store_true',
+            help='包括的銘柄セット（926銘柄：小型株含む）'
+        )
+        symbol_group.add_argument(
+            '--all-symbols',
+            action='store_true',
+            help='全東証銘柄（研究・バックテスト用）'
+        )
+        self.parser.add_argument(
+            '--port', '-p',
+            type=int,
+            default=8000,
+            help='Webサーバーポート（デフォルト: 8000）'
+        )
+        self.parser.add_argument(
+            '--debug', '-d',
+            action='store_true',
+            help='デバッグモード'
+        )
+        self.parser.add_argument(
+            '--no-cache',
+            action='store_true',
+            help='キャッシュを使用しない'
+        )
+        self.parser.add_argument(
+            '--config',
+            type=str,
+            help='設定ファイルパス'
+        )
+        self.parser.add_argument(
+            '--verbose',
+            action='store_true',
+            help='詳細表示モード（従来の縦並び表示）'
+        )
+
+    def parse_args(self, args: Optional[List[str]] = None):
+        """引数を解析"""
+        return self.parser.parse_args(args)
+
+    def print_help(self):
+        """ヘルプを表示"""
+        self.parser.print_help()

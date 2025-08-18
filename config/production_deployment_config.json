@@ -1,0 +1,30 @@
+{
+  "system_settings": {
+    "trading_mode": "analysis_only",
+    "risk_limit": 0.02,
+    "max_positions": 5,
+    "monitoring_interval": 300,
+    "auto_rebalance": true
+  },
+  "performance_thresholds": {
+    "max_cpu_usage": 70,
+    "max_memory_usage": 80,
+    "max_response_time": 10,
+    "min_success_rate": 80
+  },
+  "notification_settings": {
+    "alert_channels": [
+      "log",
+      "system"
+    ],
+    "critical_alerts": true,
+    "performance_reports": true,
+    "daily_summary": true
+  },
+  "failsafe_settings": {
+    "auto_shutdown_on_error": true,
+    "max_consecutive_errors": 5,
+    "emergency_stop_loss": 0.1,
+    "backup_mode": "manual_override"
+  }
+}

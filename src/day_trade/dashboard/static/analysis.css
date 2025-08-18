@@ -1,0 +1,277 @@
+/* 分析ダッシュボード専用CSS */
+
+body {
+    background-color: #f8f9fa;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    margin-bottom: 1rem;
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* 銘柄選択エリア */
+#symbol-select {
+    border: 2px solid #dee2e6;
+    border-radius: 0.5rem;
+}
+
+#symbol-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+#symbol-select option:checked {
+    background-color: #0d6efd;
+    color: white;
+}
+
+/* 分析ボタン */
+#analyze-btn {
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.3s ease;
+}
+
+#analyze-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+#analyze-btn:disabled {
+    opacity: 0.65;
+    transform: none;
+    box-shadow: none;
+}
+
+/* クイック選択ボタン */
+.btn-outline-primary:hover,
+.btn-outline-success:hover,
+.btn-outline-warning:hover,
+.btn-outline-danger:hover {
+    transform: scale(1.02);
+    transition: transform 0.2s ease;
+}
+
+/* プログレスバー */
+.progress {
+    height: 1.5rem;
+    border-radius: 0.75rem;
+}
+
+#progress-bar {
+    border-radius: 0.75rem;
+}
+
+/* 推奨カード */
+.recommendation-item {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background-color: white;
+    transition: all 0.2s ease;
+}
+
+.recommendation-item:hover {
+    border-color: #0d6efd;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.symbol-code {
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+    color: #495057;
+}
+
+.company-name {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.confidence-bar {
+    height: 0.375rem;
+    background-color: #e9ecef;
+    border-radius: 0.1875rem;
+    overflow: hidden;
+    margin-top: 0.25rem;
+}
+
+.confidence-fill {
+    height: 100%;
+    border-radius: 0.1875rem;
+    transition: width 0.5s ease;
+}
+
+.confidence-fill.high {
+    background-color: #28a745;
+}
+
+.confidence-fill.medium {
+    background-color: #ffc107;
+}
+
+.confidence-fill.low {
+    background-color: #dc3545;
+}
+
+/* テーブル */
+#results-table {
+    font-size: 0.9rem;
+}
+
+#results-table th {
+    background-color: #f8f9fa;
+    border-top: none;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.recommendation-badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+}
+
+.recommendation-buy {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.recommendation-sell {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f1b0b7;
+}
+
+.recommendation-hold {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffd60a;
+}
+
+.recommendation-skip {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+}
+
+/* 接続状態 */
+#connection-status.disconnected {
+    background-color: #dc3545 !important;
+}
+
+/* アラート */
+.alert-custom {
+    border-radius: 0.5rem;
+    border-left: 4px solid;
+}
+
+.alert-custom.alert-danger {
+    border-left-color: #dc3545;
+    background-color: #f8d7da;
+}
+
+.alert-custom.alert-warning {
+    border-left-color: #ffc107;
+    background-color: #fff3cd;
+}
+
+.alert-custom.alert-success {
+    border-left-color: #28a745;
+    background-color: #d4edda;
+}
+
+/* スピナー */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+    
+    #symbol-select {
+        size: 6;
+    }
+    
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+    
+    #analyze-btn {
+        font-size: 1rem;
+        padding: 0.5rem 1rem;
+    }
+}
+
+/* アニメーション */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.slide-in-right {
+    animation: slideInRight 0.4s ease-out;
+}
+
+/* ツールチップスタイル */
+.tooltip-inner {
+    background-color: #343a40;
+    border-radius: 0.375rem;
+    font-size: 0.8rem;
+}
+
+/* カスタムスクロールバー */
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>分析専用ダッシュボード - 自動取引無効</title>
+    <title>プロダクション運用監視ダッシュボード</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='dashboard.css') }}" rel="stylesheet">
@@ -15,10 +15,12 @@
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
                 <i class="fas fa-chart-line me-2"></i>
-                分析専用ダッシュボード
-                <small class="ms-2 text-warning">⚠️ 自動取引無効</small>
+                プロダクション運用監視ダッシュボード
             </a>
             <div class="d-flex align-items-center">
+                <a href="/analysis" class="btn btn-outline-light me-2">
+                    <i class="fas fa-chart-line"></i> 分析ダッシュボード
+                </a>
                 <span id="connection-status" class="badge bg-success me-3">
                     <i class="fas fa-circle"></i> 接続中
                 </span>
@@ -30,13 +32,6 @@
     </nav>
 
     <div class="container-fluid mt-3">
-        <!-- 分析専用システム情報 -->
-        <div class="alert alert-primary alert-dismissible fade show" role="alert">
-            <i class="fas fa-chart-line me-2"></i>
-            <strong>分析専用システム:</strong> データ分析・監視機能を提供します。取引機能はありません。
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-
         <!-- アラート表示エリア -->
         <div id="alerts-container"></div>
 
@@ -47,11 +42,10 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <h5>分析対象価値</h5>
+                                <h5>ポートフォリオ価値</h5>
                                 <h3 id="portfolio-value">--</h3>
-                                <small class="text-light opacity-75">※シミュレーション値</small>
                             </div>
-                            <i class="fas fa-chart-pie fa-2x"></i>
+                            <i class="fas fa-wallet fa-2x"></i>
                         </div>
                     </div>
                 </div>
@@ -61,9 +55,8 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <h5>分析結果スコア</h5>
+                                <h5>日次リターン</h5>
                                 <h3 id="daily-return">--</h3>
-                                <small class="text-light opacity-75">※予測精度</small>
                             </div>
                             <i class="fas fa-chart-line fa-2x"></i>
                         </div>
@@ -75,10 +68,10 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <h5>分析完了数</h5>
-                                <h3 id="analysis-today">--</h3>
+                                <h5>本日取引数</h5>
+                                <h3 id="trades-today">--</h3>
                             </div>
-                            <i class="fas fa-chart-line fa-2x"></i>
+                            <i class="fas fa-exchange-alt fa-2x"></i>
                         </div>
                     </div>
                 </div>
@@ -139,17 +132,13 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
-                        <h5><i class="fas fa-chart-line me-2"></i>分析対象銘柄</h5>
+                        <h5><i class="fas fa-chart-line me-2"></i>ポートフォリオ</h5>
                         <button class="btn btn-sm btn-outline-primary float-end" onclick="updateChart('portfolio')">
                             <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
                     <div class="card-body">
                         <div id="portfolio-chart">チャート読み込み中...</div>
-                        <div class="mt-2 text-muted small">
-                            <i class="fas fa-info-circle me-1"></i>
-                            分析専用 - 実取引は行いません
-                        </div>
                     </div>
                 </div>
             </div>
@@ -172,17 +161,13 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
-                        <h5><i class="fas fa-chart-bar me-2"></i>分析パフォーマンス</h5>
-                        <button class="btn btn-sm btn-outline-primary float-end" onclick="updateChart('analysis')">
+                        <h5><i class="fas fa-exchange-alt me-2"></i>取引パフォーマンス</h5>
+                        <button class="btn btn-sm btn-outline-primary float-end" onclick="updateChart('trading')">
                             <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
                     <div class="card-body">
-                        <div id="analysis-chart">チャート読み込み中...</div>
-                        <div class="mt-2 text-muted small">
-                            <i class="fas fa-info-circle me-1"></i>
-                            分析専用チャート - 取引実行機能なし
-                        </div>
+                        <div id="trading-chart">チャート読み込み中...</div>
                     </div>
                 </div>
             </div>

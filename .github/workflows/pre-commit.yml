@@ -31,7 +31,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pre-commit
-          key: pre-commit-${{ runner.os }}-v5-${{ hashFiles('.pre-commit-config.yaml') }}
+          key: pre-commit-${{ runner.os }}-v5-${{ hashFiles('config/.pre-commit-config.yaml') }}
           restore-keys: |
             pre-commit-${{ runner.os }}-v5-
 
@@ -52,7 +52,7 @@ jobs:
       - name: Run pre-commit hooks
         run: |
           echo "🔍 Running pre-commit hooks..."
-          pre-commit run --all-files --show-diff-on-failure
+          pre-commit run --all-files --show-diff-on-failure --config config/.pre-commit-config.yaml
 
           # 修正された変更があるかチェック
           if [[ $(git status --porcelain) ]]; then
@@ -83,7 +83,7 @@ jobs:
           name: pre-commit-changes-${{ github.run_number }}
           path: |
             pre-commit-changes.patch
-            .pre-commit-config.yaml
+            config/.pre-commit-config.yaml
           retention-days: 7
 
       - name: Comment PR with pre-commit changes
@@ -98,7 +98,7 @@ jobs:
             ### 📥 変更内容の適用:
 
             1. **アーティファクトから変更を適用:**
-               \`\`\`bash
+               ```bash
                # GitHubからアーティファクトをダウンロード
                gh run download ${{ github.run_id }} --name pre-commit-changes-${{ github.run_number }}
 
@@ -107,22 +107,22 @@ jobs:
                git add .
                git commit -m "Apply pre-commit fixes"
                git push
-               \`\`\`
+               ```
 
             2. **またはローカルでpre-commitを実行:**
-               \`\`\`bash
+               ```bash
                # pre-commitがインストールされていない場合
                pip install pre-commit
                pre-commit install
 
                # すべてのファイルに対してpre-commitを実行
-               pre-commit run --all-files
+               pre-commit run --all-files --config config/.pre-commit-config.yaml
 
                # 変更をコミット・プッシュ
                git add .
                git commit -m "Fix pre-commit issues"
                git push
-               \`\`\`
+               ```
 
             ### 📊 含まれるチェック:
             - **Ruff**: コード品質とフォーマット
@@ -152,28 +152,28 @@ jobs:
             ### 🔧 解決方法:
 
             1. **ローカルでpre-commitを実行して修正:**
-               \`\`\`bash
+               ```bash
                # pre-commitがインストールされていない場合
                pip install pre-commit
                pre-commit install
 
                # すべてのファイルに対してpre-commitを実行
-               pre-commit run --all-files
-               \`\`\`
+               pre-commit run --all-files --config config/.pre-commit-config.yaml
+               ```
 
             2. **自動修正可能な問題を修正:**
-               \`\`\`bash
+               ```bash
                # Ruffによる自動修正
                ruff check --fix .
                ruff format .
-               \`\`\`
+               ```
 
             3. **変更をコミット・プッシュ:**
-               \`\`\`bash
+               ```bash
                git add .
                git commit -m "Fix pre-commit issues"
                git push
-               \`\`\`
+               ```
 
             ### 📊 含まれるチェック:
             - **Ruff**: コード品質とフォーマット
