@@ -5,14 +5,13 @@ Day Trade Web Server - プロダクション対応Webサーバー
 Issue #901 対応: プロダクション Web サーバー実装
 """
 
-import asyncio
-import json
+import sys
 import logging
-from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
 from flask import Flask, render_template_string, jsonify, request
 import threading
+from datetime import datetime
 
 
 class DayTradeWebServer:

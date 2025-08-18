@@ -218,6 +218,49 @@ class AutoOptimizerSettings(BaseModel):
     ml_training_enabled: bool = Field(False)
 
 
+class TechnicalIndicatorSettings(BaseModel):
+    """テクニカル指標設定"""
+    
+    rsi: Dict[str, Any] = Field(default_factory=lambda: {
+        "period": 14,
+        "overbought_threshold": 70,
+        "oversold_threshold": 30
+    })
+    sma: Dict[str, Any] = Field(default_factory=lambda: {
+        "short_period": 20,
+        "long_period": 50
+    })
+    ema: Dict[str, Any] = Field(default_factory=lambda: {
+        "short_period": 12,
+        "long_period": 26
+    })
+    macd: Dict[str, Any] = Field(default_factory=lambda: {
+        "fast_period": 12,
+        "slow_period": 26,
+        "signal_period": 9
+    })
+    bollinger_bands: Dict[str, Any] = Field(default_factory=lambda: {
+        "period": 20,
+        "std_dev": 2
+    })
+
+
+class AnalysisSettings(BaseModel):
+    """分析設定"""
+    
+    technical_indicators: TechnicalIndicatorSettings = Field(default_factory=TechnicalIndicatorSettings)
+    confidence: Dict[str, float] = Field(default_factory=lambda: {
+        "default_confidence": 0.85,
+        "minimum_confidence": 0.60,
+        "high_confidence": 0.90
+    })
+    data_periods: Dict[str, str] = Field(default_factory=lambda: {
+        "default_period": "1y",
+        "short_term": "3mo",
+        "long_term": "2y"
+    })
+
+
 class ErrorHandlingSettings(BaseModel):
     """エラーハンドリング設定"""
 
@@ -391,6 +434,14 @@ class ConfigManager:
         """高優先度銘柄のコードリストを取得"""
         symbols = self.get_watchlist_symbols()
         return [symbol.code for symbol in symbols if symbol.priority == "high"]
+
+    def get_config(self) -> Dict[str, Any]:
+        """設定データを取得
+        
+        Returns:
+            設定データの辞書
+        """
+        return self.config
 
     def save_config(self):
         """設定ファイルを保存"""

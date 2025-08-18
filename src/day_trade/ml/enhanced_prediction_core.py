@@ -32,7 +32,9 @@ except ImportError:
     ENSEMBLE_SYSTEM_AVAILABLE = False
 
 try:
-    from hybrid_timeseries_predictor import HybridTimeSeriesPredictor, create_hybrid_timeseries_predictor
+    from .hybrid_lstm_transformer import HybridLSTMTransformer as HybridTimeSeriesPredictor
+    # create_hybrid_timeseries_predictor 関数は HybridLSTMTransformer クラスのコンストラクタで代替
+    create_hybrid_timeseries_predictor = HybridLSTMTransformer
     HYBRID_PREDICTOR_AVAILABLE = True
 except ImportError:
     HYBRID_PREDICTOR_AVAILABLE = False

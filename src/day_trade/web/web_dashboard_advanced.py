@@ -43,7 +43,7 @@ except ImportError:
     NEXT_MORNING_AVAILABLE = False
 
 try:
-    from model_performance_monitor import ModelPerformanceMonitor
+    from ..monitoring.model_performance_monitor import ModelPerformanceMonitor
     PERFORMANCE_MONITOR_AVAILABLE = True
 except ImportError:
     PERFORMANCE_MONITOR_AVAILABLE = False
@@ -516,7 +516,7 @@ class AdvancedWebDashboard:
 
         # Flask アプリケーション初期化
         self.app = Flask(__name__)
-        
+
         # セキュアなsecret key設定
         secret_key = os.environ.get('ADVANCED_DASHBOARD_SECRET_KEY')
         if not secret_key:
@@ -524,7 +524,7 @@ class AdvancedWebDashboard:
             secret_key = secrets.token_urlsafe(32)
             logger.warning(f"⚠️  本番環境では環境変数ADVANCED_DASHBOARD_SECRET_KEYを設定してください")
             logger.warning(f"    例: export ADVANCED_DASHBOARD_SECRET_KEY='[32文字以上のランダム文字列]'")
-        
+
         self.app.config['SECRET_KEY'] = secret_key
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
         CORS(self.app)
