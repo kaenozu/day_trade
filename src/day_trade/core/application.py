@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Day Trade Personal - アプリケーションクラス
+株価分析システム - メインアプリケーションクラス
 
-リファクタリング後のメインアプリケーション
+分析専用システムのメインアプリケーション
 """
 
 import argparse
@@ -17,8 +17,8 @@ from ..analysis.advanced_technical_analyzer import AdvancedTechnicalAnalyzer as 
 from ..dashboard.web_dashboard import WebDashboard
 
 
-class DayTradeApplication:
-    """Day Trade メインアプリケーション"""
+class StockAnalysisApplication:
+    """株価分析システム メインアプリケーション"""
 
     def __init__(self, debug: bool = False, use_cache: bool = True):
         """初期化
