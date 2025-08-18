@@ -15,7 +15,7 @@ class LightweightDayTradeApplication:
 
     def __init__(self, debug: bool = False, use_cache: bool = True):
         """軽量初期化
-        
+
         Args:
             debug: デバッグモード
             use_cache: キャッシュ使用フラグ
@@ -32,19 +32,19 @@ class LightweightDayTradeApplication:
             # 軽量引数解析（直接argparseを使用してモジュール読み込みを回避）
             import argparse
             parser = argparse.ArgumentParser(description="Day Trade Personal - 軽量版")
-            
+
             # 基本的な引数のみ定義
             mode_group = parser.add_mutually_exclusive_group()
             mode_group.add_argument('--quick', '-q', action='store_true', help='軽量クイック分析')
             mode_group.add_argument('--multi', '-m', action='store_true', help='軽量マルチ分析')
             mode_group.add_argument('--web', '-w', action='store_true', help='軽量Webダッシュボード')
             mode_group.add_argument('--validate', '-v', action='store_true', help='軽量精度検証')
-            
+
             parser.add_argument('--symbols', '-s', nargs='+', help='対象銘柄コード')
             parser.add_argument('--port', '-p', type=int, default=8000, help='Webサーバーポート')
             parser.add_argument('--debug', '-d', action='store_true', help='デバッグモード')
             parser.add_argument('--no-cache', action='store_true', help='キャッシュを使用しない')
-            
+
             args = parser.parse_args()
 
             # モード別実行
@@ -82,10 +82,10 @@ class LightweightDayTradeApplication:
         print("⚡ 軽量クイック分析モード")
         if self.debug:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
-        
+
         symbols = args.symbols or ['7203', '8306', '9984', '6758']
         print(f"分析対象銘柄: {', '.join(symbols)}")
-        
+
         try:
             for symbol in symbols:
                 print(f"📊 {symbol} の軽量分析中...")
@@ -94,7 +94,7 @@ class LightweightDayTradeApplication:
                     print(f"  - 基本テクニカル分析中...")
                     print(f"  - 推奨判定中...")
                 print(f"  ✅ {symbol} 分析完了")
-            
+
             print("✨ 軽量クイック分析を完了しました")
             return 0
         except Exception as e:
@@ -109,10 +109,10 @@ class LightweightDayTradeApplication:
         print("📊 軽量マルチ銘柄分析モード")
         if self.debug:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
-            
+
         symbols = args.symbols or ['7203', '8306', '9984', '6758']
         print(f"分析対象銘柄: {', '.join(symbols)}")
-        
+
         try:
             print("🔄 軽量マルチ銘柄分析を実行中...")
             print("✨ 軽量マルチ銘柄分析を完了しました")
@@ -129,10 +129,10 @@ class LightweightDayTradeApplication:
         print("🎯 軽量デフォルト分析モード")
         if self.debug:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
-            
+
         try:
             symbols = args.symbols or ['7203', '8306', '9984', '6758']
-            
+
             print(f"📈 軽量詳細分析開始: {', '.join(symbols)}")
             # 仮の結果生成（軽量版）
             results = []
@@ -142,7 +142,7 @@ class LightweightDayTradeApplication:
                     'recommendation': 'HOLD',
                     'confidence': 0.85  # 軽量版では精度を下げて高速化
                 })
-            
+
             self._display_results(results)
             return 0
         except Exception as e:
@@ -170,7 +170,7 @@ class LightweightDayTradeApplication:
         class Args:
             def __init__(self, symbols):
                 self.symbols = symbols
-        
+
         args = Args(symbols)
         return self._run_quick_analysis(args)
 
@@ -179,7 +179,7 @@ class LightweightDayTradeApplication:
         class Args:
             def __init__(self, symbols):
                 self.symbols = symbols
-        
+
         args = Args(symbols)
         return self._run_multi_analysis(args)
 
@@ -188,11 +188,11 @@ class LightweightDayTradeApplication:
         print("🔍 軽量予測精度検証モード")
         if self.debug:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
-        
+
         try:
             print(f"🎯 軽量精度検証対象: {', '.join(symbols)}")
             print("📊 基本データとの照合を実行中...")
-            
+
             # 軽量版の検証結果
             accuracy = 85.0  # 軽量版では精度を下げて高速化
             print(f"✅ 予測精度: {accuracy:.1f}%")
@@ -210,11 +210,11 @@ class LightweightDayTradeApplication:
         print("🎯 軽量デイトレード推奨分析モード")
         if self.debug:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
-        
+
         try:
             print(f"📈 軽量デイトレード分析対象: {', '.join(symbols)}")
             print("⚡ 基本市場データ分析中...")
-            
+
             # 軽量版の分析結果
             results = []
             for symbol in symbols:
@@ -223,7 +223,7 @@ class LightweightDayTradeApplication:
                     'recommendation': 'BUY' if hash(symbol) % 3 == 0 else 'HOLD',
                     'confidence': 0.85  # 軽量版では精度を下げて高速化
                 })
-            
+
             self._display_results(results)
             print("🚀 軽量デイトレード推奨を完了しました")
             return 0
