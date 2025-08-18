@@ -51,8 +51,8 @@ class DayTradeCLI:
         parser.add_argument(
             '--symbols', '-s',
             nargs='+',
-            default=['7203', '8306', '9984', '6758'],
-            help='対象銘柄コード（デフォルト: トヨタ, 三菱UFJ, SBG, ソニー）'
+            default=None,
+            help='対象銘柄コード（デフォルト: 設定ファイルから高・中優先度銘柄を自動選択）'
         )
 
         # オプション設定
