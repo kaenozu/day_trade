@@ -22,7 +22,7 @@ class DayTradeApplication:
 
     def __init__(self, debug: bool = False, use_cache: bool = True):
         """初期化
-        
+
         Args:
             debug: デバッグモード
             use_cache: キャッシュ使用フラグ
@@ -83,15 +83,15 @@ class DayTradeApplication:
         print("⚡ クイック分析モード")
         if self.debug:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
-        
+
         # 重いモジュールを必要時のみ読み込み
         self._lazy_load_ml_modules()
         self.analyzer = TradingAnalyzer()
-        
+
         # シンプルな分析のみ実行
         symbols = args.symbols or ['7203', '8306', '9984', '6758']
         print(f"分析対象銘柄: {', '.join(symbols)}")
-        
+
         # 実際の分析実行
         try:
             for symbol in symbols:
@@ -101,7 +101,7 @@ class DayTradeApplication:
                     print(f"  - テクニカル分析中...")
                     print(f"  - 推奨判定中...")
                 print(f"  ✅ {symbol} 分析完了")
-            
+
             print("✨ クイック分析を完了しました")
             return 0
         except Exception as e:
@@ -116,13 +116,13 @@ class DayTradeApplication:
         print("📊 マルチ銘柄分析モード")
         if self.debug:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
-        
+
         # 重いモジュールを必要時のみ読み込み
         self._lazy_load_ml_modules()
         self.analyzer = TradingAnalyzer()
         symbols = args.symbols or ['7203', '8306', '9984', '6758']
         print(f"分析対象銘柄: {', '.join(symbols)}")
-        
+
         try:
             print("🔄 マルチ銘柄並列分析を実行中...")
             # 実装は今後追加
@@ -140,13 +140,13 @@ class DayTradeApplication:
         print("🎯 デフォルト分析モード")
         if self.debug:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
-            
+
         try:
             # 重いモジュールを必要時のみ読み込み
             self._lazy_load_ml_modules()
             self.analyzer = TradingAnalyzer()
             symbols = args.symbols or ['7203', '8306', '9984', '6758']
-            
+
             print(f"📈 詳細分析開始: {', '.join(symbols)}")
             # 仮の結果生成（実際の分析は後で実装）
             results = []
@@ -156,7 +156,7 @@ class DayTradeApplication:
                     'recommendation': 'HOLD',
                     'confidence': 0.93
                 })
-            
+
             self._display_results(results)
             return 0
         except Exception as e:
@@ -184,7 +184,7 @@ class DayTradeApplication:
         class Args:
             def __init__(self, symbols):
                 self.symbols = symbols
-        
+
         args = Args(symbols)
         return self._run_quick_analysis(args)
 
@@ -193,7 +193,7 @@ class DayTradeApplication:
         class Args:
             def __init__(self, symbols):
                 self.symbols = symbols
-        
+
         args = Args(symbols)
         return self._run_multi_analysis(args)
 
@@ -202,11 +202,11 @@ class DayTradeApplication:
         print("🔍 予測精度検証モード")
         if self.debug:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
-        
+
         try:
             print(f"🎯 精度検証対象: {', '.join(symbols)}")
             print("📊 過去データとの照合を実行中...")
-            
+
             # 仮の検証結果
             accuracy = 93.5
             print(f"✅ 予測精度: {accuracy:.1f}%")
@@ -224,11 +224,11 @@ class DayTradeApplication:
         print("🎯 デイトレード推奨分析モード")
         if self.debug:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
-        
+
         try:
             print(f"📈 デイトレード分析対象: {', '.join(symbols)}")
             print("⚡ リアルタイム市場データ分析中...")
-            
+
             # 仮の分析結果
             results = []
             for symbol in symbols:
@@ -237,7 +237,7 @@ class DayTradeApplication:
                     'recommendation': 'BUY' if hash(symbol) % 3 == 0 else 'HOLD',
                     'confidence': 0.94
                 })
-            
+
             self._display_results(results)
             print("🚀 今日のデイトレード推奨を完了しました")
             return 0
