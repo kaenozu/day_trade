@@ -151,13 +151,13 @@ hostssl daytrading_prod daytrading_prod 0.0.0.0/0             md5
 # config/production/database.yaml
 database:
   url: "postgresql://daytrading_prod:${PROD_DB_PASSWORD}@${PROD_DB_HOST}:5432/daytrading_prod"
-  
+
   # SSL設定
   ssl_mode: "require"
   ssl_cert: "${SSL_CERT_PATH}"
   ssl_key: "${SSL_KEY_PATH}"
   ssl_ca: "${SSL_CA_PATH}"
-  
+
   # 接続引数
   connect_args:
     sslmode: "require"
@@ -166,7 +166,7 @@ database:
     sslrootcert: "/opt/daytrading/ssl/ca-cert.pem"
     connect_timeout: 10
     application_name: "DayTradingSystem_Production"
-    
+
   # セキュリティ設定
   pool_size: 20
   max_overflow: 30
@@ -181,10 +181,10 @@ database:
 ```sql
 -- PostgreSQL権限設定
 -- daytrading_prod用データベース作成
-CREATE DATABASE daytrading_prod 
-    WITH OWNER daytrading_prod 
-    ENCODING 'UTF8' 
-    LC_COLLATE='ja_JP.UTF-8' 
+CREATE DATABASE daytrading_prod
+    WITH OWNER daytrading_prod
+    ENCODING 'UTF8'
+    LC_COLLATE='ja_JP.UTF-8'
     LC_CTYPE='ja_JP.UTF-8';
 
 -- 本番ユーザー権限設定
@@ -197,9 +197,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO daytradin
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO daytrading_prod;
 
 -- 将来作成されるオブジェクトへの権限
-ALTER DEFAULT PRIVILEGES IN SCHEMA public 
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO daytrading_prod;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public 
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT USAGE, SELECT ON SEQUENCES TO daytrading_prod;
 
 -- 読み取り専用ユーザー（監査・分析用）
@@ -345,18 +345,18 @@ class SecurityEvent:
 
 class SecurityMonitor:
     """セキュリティ監視システム"""
-    
+
     def __init__(self):
         self.failed_attempts: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
         self.blocked_ips: Set[str] = set()
         self.security_events: deque = deque(maxlen=1000)
         self.suspicious_patterns: Dict[str, int] = defaultdict(int)
-        
+
         # 設定
         self.max_failed_attempts = 5
         self.lockout_duration = timedelta(minutes=15)
         self.rate_limit_threshold = 100  # requests per minute
-    
+
     @error_boundary(
         component_name="security_monitor",
         operation_name="record_failed_login",
@@ -365,19 +365,19 @@ class SecurityMonitor:
     def record_failed_login(self, ip_address: str, user_id: Optional[str] = None):
         """ログイン失敗記録"""
         now = datetime.now()
-        
+
         # 失敗試行記録
         self.failed_attempts[ip_address].append(now)
-        
+
         # 閾値チェック
         recent_attempts = [
             attempt for attempt in self.failed_attempts[ip_address]
             if now - attempt < self.lockout_duration
         ]
-        
+
         if len(recent_attempts) >= self.max_failed_attempts:
             self.block_ip(ip_address, "Too many failed login attempts")
-            
+
         # セキュリティイベント記録
         self.record_security_event(
             event_type="failed_login",
@@ -386,18 +386,18 @@ class SecurityMonitor:
             details={"attempt_count": len(recent_attempts)},
             severity="warning" if len(recent_attempts) < self.max_failed_attempts else "critical"
         )
-    
+
     def block_ip(self, ip_address: str, reason: str):
         """IP アドレスブロック"""
         self.blocked_ips.add(ip_address)
-        
+
         logger.warning(
             "IPアドレスブロック",
             ip_address=ip_address,
             reason=reason,
             blocked_count=len(self.blocked_ips)
         )
-        
+
         # セキュリティイベント記録
         self.record_security_event(
             event_type="ip_blocked",
@@ -406,13 +406,13 @@ class SecurityMonitor:
             details={"reason": reason},
             severity="critical"
         )
-    
+
     def is_ip_blocked(self, ip_address: str) -> bool:
         """IP ブロック状態確認"""
         return ip_address in self.blocked_ips
-    
-    def record_security_event(self, event_type: str, source_ip: str, 
-                            user_id: Optional[str], details: Dict[str, any], 
+
+    def record_security_event(self, event_type: str, source_ip: str,
+                            user_id: Optional[str], details: Dict[str, any],
                             severity: str):
         """セキュリティイベント記録"""
         event = SecurityEvent(
@@ -423,9 +423,9 @@ class SecurityMonitor:
             details=details,
             severity=severity
         )
-        
+
         self.security_events.append(event)
-        
+
         # 重要イベントはすぐにログ出力
         if severity in ["critical", "high"]:
             logger.warning(
@@ -435,21 +435,21 @@ class SecurityMonitor:
                 severity=severity,
                 details=details
             )
-    
+
     def get_security_summary(self) -> Dict[str, any]:
         """セキュリティサマリー取得"""
         now = datetime.now()
         last_hour = now - timedelta(hours=1)
-        
+
         recent_events = [
             event for event in self.security_events
             if event.timestamp >= last_hour
         ]
-        
+
         event_counts = defaultdict(int)
         for event in recent_events:
             event_counts[event.event_type] += 1
-        
+
         return {
             "blocked_ips_count": len(self.blocked_ips),
             "recent_events_count": len(recent_events),
@@ -494,11 +494,11 @@ logger = get_logger(__name__)
 
 class DataEncryption:
     """データ暗号化クラス"""
-    
+
     def __init__(self, password: Union[str, bytes] = None):
         """
         暗号化インスタンス初期化
-        
+
         Args:
             password: 暗号化パスワード（環境変数から取得される場合はNone）
         """
@@ -506,10 +506,10 @@ class DataEncryption:
             password = os.getenv('ENCRYPTION_KEY')
             if not password:
                 raise SecurityError("暗号化キーが設定されていません")
-        
+
         if isinstance(password, str):
             password = password.encode()
-            
+
         # キー導出
         salt = b'day_trading_salt_2025'  # 本番環境では動的に生成・保存
         kdf = PBKDF2HMAC(
@@ -520,7 +520,7 @@ class DataEncryption:
         )
         key = base64.urlsafe_b64encode(kdf.derive(password))
         self.cipher = Fernet(key)
-    
+
     @error_boundary(
         component_name="data_encryption",
         operation_name="encrypt",
@@ -529,19 +529,19 @@ class DataEncryption:
     def encrypt(self, data: Union[str, bytes]) -> str:
         """
         データ暗号化
-        
+
         Args:
             data: 暗号化するデータ
-            
+
         Returns:
             暗号化されたデータ（Base64エンコード）
         """
         if isinstance(data, str):
             data = data.encode('utf-8')
-        
+
         encrypted_data = self.cipher.encrypt(data)
         return base64.urlsafe_b64encode(encrypted_data).decode('utf-8')
-    
+
     @error_boundary(
         component_name="data_encryption",
         operation_name="decrypt",
@@ -550,10 +550,10 @@ class DataEncryption:
     def decrypt(self, encrypted_data: str) -> str:
         """
         データ復号化
-        
+
         Args:
             encrypted_data: 暗号化されたデータ（Base64エンコード）
-            
+
         Returns:
             復号化されたデータ
         """
@@ -563,7 +563,7 @@ class DataEncryption:
             return decrypted_bytes.decode('utf-8')
         except Exception as e:
             raise SecurityError(f"データ復号化失敗: {e}") from e
-    
+
     @error_boundary(
         component_name="data_encryption",
         operation_name="encrypt_file",
@@ -572,35 +572,35 @@ class DataEncryption:
     def encrypt_file(self, file_path: str, output_path: str = None) -> str:
         """
         ファイル暗号化
-        
+
         Args:
             file_path: 暗号化するファイルパス
             output_path: 出力ファイルパス（指定しない場合は元ファイル + .encrypted）
-            
+
         Returns:
             暗号化されたファイルパス
         """
         if output_path is None:
             output_path = file_path + '.encrypted'
-        
+
         try:
             with open(file_path, 'rb') as f:
                 file_data = f.read()
-            
+
             encrypted_data = self.cipher.encrypt(file_data)
-            
+
             with open(output_path, 'wb') as f:
                 f.write(encrypted_data)
-            
+
             # 権限設定
             os.chmod(output_path, 0o600)
-            
+
             logger.info(f"ファイル暗号化完了: {file_path} -> {output_path}")
             return output_path
-            
+
         except Exception as e:
             raise SecurityError(f"ファイル暗号化失敗: {e}") from e
-    
+
     @error_boundary(
         component_name="data_encryption",
         operation_name="decrypt_file",
@@ -609,11 +609,11 @@ class DataEncryption:
     def decrypt_file(self, encrypted_file_path: str, output_path: str = None) -> str:
         """
         ファイル復号化
-        
+
         Args:
             encrypted_file_path: 暗号化されたファイルパス
             output_path: 出力ファイルパス
-            
+
         Returns:
             復号化されたファイルパス
         """
@@ -622,22 +622,22 @@ class DataEncryption:
                 output_path = encrypted_file_path[:-10]  # .encrypted を削除
             else:
                 output_path = encrypted_file_path + '.decrypted'
-        
+
         try:
             with open(encrypted_file_path, 'rb') as f:
                 encrypted_data = f.read()
-            
+
             decrypted_data = self.cipher.decrypt(encrypted_data)
-            
+
             with open(output_path, 'wb') as f:
                 f.write(decrypted_data)
-            
+
             # 権限設定
             os.chmod(output_path, 0o600)
-            
+
             logger.info(f"ファイル復号化完了: {encrypted_file_path} -> {output_path}")
             return output_path
-            
+
         except Exception as e:
             raise SecurityError(f"ファイル復号化失敗: {e}") from e
 
@@ -667,35 +667,35 @@ def get_data_encryption() -> DataEncryption:
 security_logging:
   enabled: true
   log_level: "INFO"
-  
+
   # セキュリティイベントログ
   security_events:
     enabled: true
     file_path: "/opt/daytrading/logs/security/security_events.jsonl"
     rotation_size: "50MB"
     rotation_count: 20
-    
+
   # 認証ログ
   authentication:
     enabled: true
     file_path: "/opt/daytrading/logs/security/auth.jsonl"
     log_successful_logins: true
     log_failed_attempts: true
-    
+
   # データアクセスログ
   data_access:
     enabled: true
     file_path: "/opt/daytrading/logs/security/data_access.jsonl"
     log_queries: true
     log_sensitive_operations: true
-    
+
   # システム変更ログ
   system_changes:
     enabled: true
     file_path: "/opt/daytrading/logs/security/system_changes.jsonl"
     log_config_changes: true
     log_user_changes: true
-    
+
   # セキュリティアラート
   alerts:
     enabled: true
@@ -725,18 +725,18 @@ find "$LOG_DIR" -name "*.log" -mtime +1 | while read -r log_file; do
     if [[ ! "$log_file" =~ secure/ ]]; then
         # ハッシュ値計算（改ざん検知用）
         sha256sum "$log_file" > "${log_file}.sha256"
-        
+
         # GPG署名・暗号化
         gpg --local-user "$GPG_KEY_ID" --sign --armor "$log_file"
-        gpg --encrypt --armor -r "$GPG_KEY_ID" "${log_file}.asc" 
-        
+        gpg --encrypt --armor -r "$GPG_KEY_ID" "${log_file}.asc"
+
         # セキュアディレクトリに移動
         mv "${log_file}.asc.asc" "$SECURE_LOG_DIR/"
         mv "${log_file}.sha256" "$SECURE_LOG_DIR/"
-        
+
         # 元ファイル削除
         rm "$log_file" "${log_file}.asc"
-        
+
         echo "ログセキュア化完了: $(basename "$log_file")"
     fi
 done
@@ -775,12 +775,12 @@ logger = get_logger(__name__)
 
 class SecurityAuditor:
     """セキュリティ監査システム"""
-    
+
     def __init__(self, config_path: str = "config/production/security_audit.yaml"):
         self.config_path = config_path
         self.audit_results: List[Dict[str, Any]] = []
         self.last_audit: Optional[datetime] = None
-    
+
     @error_boundary(
         component_name="security_auditor",
         operation_name="run_full_audit",
@@ -794,49 +794,49 @@ class SecurityAuditor:
             "timestamp": audit_start.isoformat(),
             "results": {}
         }
-        
+
         try:
             # 1. ファイル権限監査
             audit_results["results"]["file_permissions"] = self._audit_file_permissions()
-            
+
             # 2. 設定ファイル監査
             audit_results["results"]["configuration"] = self._audit_configuration()
-            
+
             # 3. ネットワークセキュリティ監査
             audit_results["results"]["network_security"] = self._audit_network_security()
-            
+
             # 4. データベースセキュリティ監査
             audit_results["results"]["database_security"] = self._audit_database_security()
-            
+
             # 5. ログセキュリティ監査
             audit_results["results"]["log_security"] = self._audit_log_security()
-            
+
             # 6. 脆弱性スキャン
             audit_results["results"]["vulnerability_scan"] = self._vulnerability_scan()
-            
+
             # 監査完了
             audit_end = datetime.now()
             audit_results["duration_seconds"] = (audit_end - audit_start).total_seconds()
             audit_results["status"] = "completed"
-            
+
             # 結果保存
             self._save_audit_results(audit_results)
             self.last_audit = audit_start
-            
+
             logger.info(
                 "セキュリティ監査完了",
                 audit_id=audit_results["audit_id"],
                 duration=audit_results["duration_seconds"]
             )
-            
+
             return audit_results
-            
+
         except Exception as e:
             audit_results["status"] = "failed"
             audit_results["error"] = str(e)
             logger.error(f"セキュリティ監査失敗: {e}")
             raise SecurityError(f"セキュリティ監査失敗: {e}") from e
-    
+
     def _audit_file_permissions(self) -> Dict[str, Any]:
         """ファイル権限監査"""
         results = {
@@ -844,7 +844,7 @@ class SecurityAuditor:
             "issues": [],
             "checked_paths": []
         }
-        
+
         # 重要ディレクトリの権限チェック
         critical_paths = [
             ("/opt/daytrading/config", 0o700),
@@ -853,25 +853,25 @@ class SecurityAuditor:
             ("/opt/daytrading/logs", 0o750),
             ("/opt/daytrading/backups", 0o755)
         ]
-        
+
         for path, expected_perm in critical_paths:
             if os.path.exists(path):
                 current_perm = oct(os.stat(path).st_mode)[-3:]
                 expected_perm_str = oct(expected_perm)[-3:]
-                
+
                 results["checked_paths"].append({
                     "path": path,
                     "current_permission": current_perm,
                     "expected_permission": expected_perm_str,
                     "status": "ok" if current_perm == expected_perm_str else "issue"
                 })
-                
+
                 if current_perm != expected_perm_str:
                     results["issues"].append(f"権限不正: {path} (現在: {current_perm}, 期待: {expected_perm_str})")
                     results["status"] = "failed"
-        
+
         return results
-    
+
     def _audit_configuration(self) -> Dict[str, Any]:
         """設定ファイル監査"""
         results = {
@@ -879,19 +879,19 @@ class SecurityAuditor:
             "issues": [],
             "checked_configs": []
         }
-        
+
         # 設定ファイルのセキュリティチェック
         config_files = [
             "/opt/daytrading/config/production/database.yaml",
             "/opt/daytrading/.env"
         ]
-        
+
         for config_file in config_files:
             if os.path.exists(config_file):
                 # 機密情報の平文確認
                 with open(config_file, 'r') as f:
                     content = f.read()
-                
+
                 # 危険なパターンチェック
                 dangerous_patterns = [
                     "password=plaintext",
@@ -899,24 +899,24 @@ class SecurityAuditor:
                     "debug=true",
                     "ssl_verify=false"
                 ]
-                
+
                 config_issues = []
                 for pattern in dangerous_patterns:
                     if pattern.lower() in content.lower():
                         config_issues.append(f"危険な設定: {pattern}")
-                
+
                 results["checked_configs"].append({
                     "file": config_file,
                     "issues": config_issues,
                     "status": "ok" if not config_issues else "issue"
                 })
-                
+
                 if config_issues:
                     results["issues"].extend(config_issues)
                     results["status"] = "failed"
-        
+
         return results
-    
+
     def _audit_network_security(self) -> Dict[str, Any]:
         """ネットワークセキュリティ監査"""
         results = {
@@ -925,31 +925,31 @@ class SecurityAuditor:
             "open_ports": [],
             "firewall_status": "unknown"
         }
-        
+
         try:
             # UFWステータス確認
             ufw_result = subprocess.run(
-                ["sudo", "ufw", "status"], 
-                capture_output=True, 
-                text=True, 
+                ["sudo", "ufw", "status"],
+                capture_output=True,
+                text=True,
                 timeout=10
             )
-            
+
             if "Status: active" in ufw_result.stdout:
                 results["firewall_status"] = "active"
             else:
                 results["firewall_status"] = "inactive"
                 results["issues"].append("ファイアウォールが無効")
                 results["status"] = "failed"
-            
+
             # 開放ポート確認
             netstat_result = subprocess.run(
-                ["netstat", "-tuln"], 
-                capture_output=True, 
-                text=True, 
+                ["netstat", "-tuln"],
+                capture_output=True,
+                text=True,
                 timeout=10
             )
-            
+
             # 危険なポート開放チェック
             dangerous_ports = ["22", "3389", "5432", "3306"]  # SSH, RDP, PostgreSQL, MySQL
             for line in netstat_result.stdout.split('\n'):
@@ -958,18 +958,18 @@ class SecurityAuditor:
                         if f":{port}" in line and "127.0.0.1" not in line:
                             results["issues"].append(f"危険なポート開放: {port}")
                             results["status"] = "failed"
-                        
+
                     results["open_ports"].append(line.strip())
-        
+
         except subprocess.TimeoutExpired:
             results["issues"].append("ネットワーク監査タイムアウト")
             results["status"] = "failed"
         except Exception as e:
             results["issues"].append(f"ネットワーク監査エラー: {e}")
             results["status"] = "failed"
-        
+
         return results
-    
+
     def _audit_database_security(self) -> Dict[str, Any]:
         """データベースセキュリティ監査"""
         results = {
@@ -978,32 +978,32 @@ class SecurityAuditor:
             "connection_security": "unknown",
             "user_permissions": []
         }
-        
+
         try:
             from src.day_trade.infrastructure.database.unified_database_manager import get_unified_database_manager
             from sqlalchemy import text
-            
+
             manager = get_unified_database_manager()
             if manager and manager.production_db_manager:
                 with manager.production_db_manager.get_session() as session:
                     # SSL接続確認
                     ssl_result = session.execute(text("SHOW ssl;"))
                     ssl_status = ssl_result.scalar()
-                    
+
                     if ssl_status == 'on':
                         results["connection_security"] = "ssl_enabled"
                     else:
                         results["connection_security"] = "ssl_disabled"
                         results["issues"].append("データベースSSL無効")
                         results["status"] = "failed"
-                    
+
                     # ユーザー権限確認
                     users_result = session.execute(text("""
                         SELECT usename, usesuper, usecreatedb, usecreaterole
                         FROM pg_user
                         WHERE usename LIKE '%daytrading%';
                     """))
-                    
+
                     for user in users_result.fetchall():
                         user_info = {
                             "username": user[0],
@@ -1012,18 +1012,18 @@ class SecurityAuditor:
                             "createrole": user[3]
                         }
                         results["user_permissions"].append(user_info)
-                        
+
                         # 過度な権限チェック
                         if user[1]:  # superuser
                             results["issues"].append(f"過度な権限: {user[0]} はスーパーユーザー")
                             results["status"] = "failed"
-        
+
         except Exception as e:
             results["issues"].append(f"データベース監査エラー: {e}")
             results["status"] = "failed"
-        
+
         return results
-    
+
     def _audit_log_security(self) -> Dict[str, Any]:
         """ログセキュリティ監査"""
         results = {
@@ -1032,27 +1032,27 @@ class SecurityAuditor:
             "log_files": [],
             "log_permissions": []
         }
-        
+
         log_directory = Path("/opt/daytrading/logs")
         if log_directory.exists():
             for log_file in log_directory.rglob("*.log"):
                 file_stat = log_file.stat()
                 file_perm = oct(file_stat.st_mode)[-3:]
-                
+
                 log_info = {
                     "file": str(log_file),
                     "permission": file_perm,
                     "size_mb": round(file_stat.st_size / 1024 / 1024, 2)
                 }
                 results["log_files"].append(log_info)
-                
+
                 # ログファイル権限チェック（640 or 644が適切）
                 if file_perm not in ["640", "644"]:
                     results["issues"].append(f"ログファイル権限不正: {log_file} ({file_perm})")
                     results["status"] = "failed"
-        
+
         return results
-    
+
     def _vulnerability_scan(self) -> Dict[str, Any]:
         """脆弱性スキャン"""
         results = {
@@ -1060,25 +1060,25 @@ class SecurityAuditor:
             "issues": [],
             "scanned_components": []
         }
-        
+
         try:
             # Pythonパッケージ脆弱性チェック（safety）
             safety_result = subprocess.run(
-                ["safety", "check"], 
-                capture_output=True, 
-                text=True, 
+                ["safety", "check"],
+                capture_output=True,
+                text=True,
                 timeout=60
             )
-            
+
             if safety_result.returncode != 0:
                 vulnerabilities = safety_result.stdout.split('\n')
                 for vuln in vulnerabilities:
                     if vuln.strip():
                         results["issues"].append(f"脆弱性: {vuln.strip()}")
                         results["status"] = "failed"
-            
+
             results["scanned_components"].append("python_packages")
-        
+
         except subprocess.TimeoutExpired:
             results["issues"].append("脆弱性スキャンタイムアウト")
             results["status"] = "failed"
@@ -1087,21 +1087,21 @@ class SecurityAuditor:
         except Exception as e:
             results["issues"].append(f"脆弱性スキャンエラー: {e}")
             results["status"] = "failed"
-        
+
         return results
-    
+
     def _save_audit_results(self, results: Dict[str, Any]):
         """監査結果保存"""
         audit_dir = Path("/opt/daytrading/logs/security/audits")
         audit_dir.mkdir(parents=True, exist_ok=True)
-        
+
         audit_file = audit_dir / f"{results['audit_id']}.json"
         with open(audit_file, 'w') as f:
             json.dump(results, f, indent=2)
-        
+
         # 権限設定
         audit_file.chmod(0o600)
-        
+
         logger.info(f"監査結果保存: {audit_file}")
 
 
@@ -1248,16 +1248,16 @@ class IntrusionAlert:
 
 class IntrusionDetectionSystem:
     """侵入検知システム"""
-    
+
     def __init__(self):
         self.suspicious_patterns: List[Pattern] = []
         self.blocked_ips: Set[str] = set()
         self.intrusion_alerts: deque = deque(maxlen=1000)
         self.activity_timeline: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
-        
+
         # 初期化
         self._load_detection_patterns()
-        
+
     def _load_detection_patterns(self):
         """検知パターン読み込み"""
         # SQL injection patterns
@@ -1267,7 +1267,7 @@ class IntrusionDetectionSystem:
             r"(?i)(\'|\").*(\1)",
             r"(?i)(or|and)\s+\d+\s*=\s*\d+"
         ]
-        
+
         # XSS patterns
         xss_patterns = [
             r"(?i)<script[^>]*>.*</script>",
@@ -1275,7 +1275,7 @@ class IntrusionDetectionSystem:
             r"(?i)on\w+\s*=",
             r"(?i)<.*?javascript:.*?>"
         ]
-        
+
         # Command injection patterns
         cmd_patterns = [
             r"(?i)(;|\||\&)\s*(cat|ls|ps|id|whoami|pwd)",
@@ -1283,7 +1283,7 @@ class IntrusionDetectionSystem:
             r"(?i)`.*`",
             r"(?i)(rm|mv|cp|chmod|chown)\s+"
         ]
-        
+
         # Directory traversal patterns
         path_patterns = [
             r"\.\.\/",
@@ -1291,39 +1291,39 @@ class IntrusionDetectionSystem:
             r"\/etc\/passwd",
             r"\/etc\/shadow"
         ]
-        
+
         all_patterns = sql_patterns + xss_patterns + cmd_patterns + path_patterns
         self.suspicious_patterns = [re.compile(pattern) for pattern in all_patterns]
-        
+
         logger.info(f"侵入検知パターン読み込み完了: {len(self.suspicious_patterns)}件")
-    
+
     @error_boundary(
         component_name="intrusion_detection",
         operation_name="analyze_request",
         suppress_errors=True
     )
-    def analyze_request(self, source_ip: str, request_data: str, 
+    def analyze_request(self, source_ip: str, request_data: str,
                        request_type: str = "unknown") -> bool:
         """
         リクエスト分析
-        
+
         Args:
             source_ip: 送信元IPアドレス
             request_data: リクエストデータ
             request_type: リクエスト種別
-            
+
         Returns:
             True if suspicious, False otherwise
         """
         is_suspicious = False
         matched_patterns = []
-        
+
         # パターンマッチング
         for pattern in self.suspicious_patterns:
             if pattern.search(request_data):
                 matched_patterns.append(pattern.pattern)
                 is_suspicious = True
-        
+
         # 活動記録
         self.activity_timeline[source_ip].append({
             "timestamp": datetime.now(),
@@ -1331,7 +1331,7 @@ class IntrusionDetectionSystem:
             "suspicious": is_suspicious,
             "patterns": matched_patterns
         })
-        
+
         # 疑わしい活動の場合、アラート生成
         if is_suspicious:
             self._generate_intrusion_alert(
@@ -1345,9 +1345,9 @@ class IntrusionDetectionSystem:
                     "request_type": request_type
                 }
             )
-        
+
         return is_suspicious
-    
+
     @error_boundary(
         component_name="intrusion_detection",
         operation_name="analyze_activity_pattern",
@@ -1356,23 +1356,23 @@ class IntrusionDetectionSystem:
     def analyze_activity_pattern(self, source_ip: str) -> Dict[str, any]:
         """
         活動パターン分析
-        
+
         Args:
             source_ip: 分析対象IPアドレス
-            
+
         Returns:
             分析結果
         """
         activities = self.activity_timeline.get(source_ip, deque())
         if not activities:
             return {"status": "no_activity"}
-        
+
         now = datetime.now()
         recent_activities = [
             activity for activity in activities
             if now - activity["timestamp"] <= timedelta(hours=1)
         ]
-        
+
         analysis = {
             "total_requests": len(activities),
             "recent_requests": len(recent_activities),
@@ -1380,7 +1380,7 @@ class IntrusionDetectionSystem:
             "request_frequency": len(recent_activities) / 60,  # per minute
             "risk_level": "low"
         }
-        
+
         # リスクレベル判定
         if analysis["suspicious_requests"] > 5:
             analysis["risk_level"] = "high"
@@ -1388,7 +1388,7 @@ class IntrusionDetectionSystem:
             analysis["risk_level"] = "high"
         elif analysis["suspicious_requests"] > 0:
             analysis["risk_level"] = "medium"
-        
+
         # 高リスクの場合、アラート生成
         if analysis["risk_level"] == "high":
             self._generate_intrusion_alert(
@@ -1398,28 +1398,28 @@ class IntrusionDetectionSystem:
                 description=f"高リスク活動パターン検知",
                 evidence=analysis
             )
-            
+
             # 自動ブロック
             self.block_ip(source_ip, "High risk activity pattern")
-        
+
         return analysis
-    
+
     def block_ip(self, ip_address: str, reason: str):
         """IPアドレスブロック"""
         self.blocked_ips.add(ip_address)
-        
+
         # システムレベルでのブロック（iptables）
         try:
             import subprocess
             subprocess.run([
-                "sudo", "iptables", "-A", "INPUT", 
+                "sudo", "iptables", "-A", "INPUT",
                 "-s", ip_address, "-j", "DROP"
             ], timeout=10)
-            
+
             logger.warning(f"IPブロック実行: {ip_address} - {reason}")
         except Exception as e:
             logger.error(f"IPブロック失敗: {e}")
-        
+
         # アラート生成
         self._generate_intrusion_alert(
             alert_type="ip_blocked",
@@ -1428,9 +1428,9 @@ class IntrusionDetectionSystem:
             description=f"IPアドレスブロック実行",
             evidence={"reason": reason}
         )
-    
-    def _generate_intrusion_alert(self, alert_type: str, source_ip: str, 
-                                severity: str, description: str, 
+
+    def _generate_intrusion_alert(self, alert_type: str, source_ip: str,
+                                severity: str, description: str,
                                 evidence: Dict[str, any]):
         """侵入アラート生成"""
         alert = IntrusionAlert(
@@ -1442,9 +1442,9 @@ class IntrusionDetectionSystem:
             description=description,
             evidence=evidence
         )
-        
+
         self.intrusion_alerts.append(alert)
-        
+
         logger.warning(
             f"侵入検知アラート: {description}",
             alert_id=alert.alert_id,
@@ -1452,17 +1452,17 @@ class IntrusionDetectionSystem:
             severity=severity,
             alert_type=alert_type
         )
-    
+
     def get_active_threats(self) -> List[Dict[str, any]]:
         """アクティブ脅威取得"""
         now = datetime.now()
         recent_threshold = now - timedelta(hours=24)
-        
+
         recent_alerts = [
             alert for alert in self.intrusion_alerts
             if alert.timestamp >= recent_threshold
         ]
-        
+
         # 脅威レベル別分類
         threats_by_severity = defaultdict(list)
         for alert in recent_alerts:
@@ -1473,19 +1473,19 @@ class IntrusionDetectionSystem:
                 "timestamp": alert.timestamp.isoformat(),
                 "description": alert.description
             })
-        
+
         return dict(threats_by_severity)
-    
+
     def get_security_status(self) -> Dict[str, any]:
         """セキュリティステータス取得"""
         now = datetime.now()
         last_hour = now - timedelta(hours=1)
-        
+
         recent_alerts = [
             alert for alert in self.intrusion_alerts
             if alert.timestamp >= last_hour
         ]
-        
+
         return {
             "blocked_ips_count": len(self.blocked_ips),
             "recent_alerts_count": len(recent_alerts),
