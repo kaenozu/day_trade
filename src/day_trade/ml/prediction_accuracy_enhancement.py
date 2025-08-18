@@ -91,7 +91,7 @@ except ImportError:
     DATA_QUALITY_AVAILABLE = False
 
 try:
-    from model_performance_monitor import ModelPerformanceMonitor
+    from ..monitoring.model_performance_monitor import ModelPerformanceMonitor
     PERFORMANCE_MONITOR_AVAILABLE = True
 except ImportError:
     PERFORMANCE_MONITOR_AVAILABLE = False

@@ -49,7 +49,7 @@ except ImportError:
     ENSEMBLE_SYSTEM_AVAILABLE = False
 
 try:
-    from hybrid_timeseries_predictor import create_hybrid_timeseries_predictor
+    from src.day_trade.ml.hybrid_lstm_transformer import HybridLSTMTransformer as create_hybrid_timeseries_predictor
     HYBRID_PREDICTOR_AVAILABLE = True
 except ImportError:
     HYBRID_PREDICTOR_AVAILABLE = False

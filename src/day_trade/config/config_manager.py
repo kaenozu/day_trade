@@ -435,6 +435,14 @@ class ConfigManager:
         symbols = self.get_watchlist_symbols()
         return [symbol.code for symbol in symbols if symbol.priority == "high"]
 
+    def get_config(self) -> Dict[str, Any]:
+        """設定データを取得
+        
+        Returns:
+            設定データの辞書
+        """
+        return self.config
+
     def save_config(self):
         """設定ファイルを保存"""
         try:

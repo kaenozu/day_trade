@@ -22,7 +22,7 @@ from tqdm import tqdm
 
 # 既存システムとの連携
 try:
-    from model_performance_monitor import (
+    from .model_performance_monitor import (
         EnhancedModelPerformanceMonitor,
         PerformanceMetrics,
         RetrainingResult,

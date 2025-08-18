@@ -70,7 +70,7 @@ except ImportError:
     DATA_PROVIDER_AVAILABLE = False
 
 try:
-    from model_performance_monitor import EnhancedModelPerformanceMonitor
+    from ..monitoring.model_performance_monitor import EnhancedModelPerformanceMonitor
     PERFORMANCE_MONITOR_AVAILABLE = True
 except ImportError:
     PERFORMANCE_MONITOR_AVAILABLE = False

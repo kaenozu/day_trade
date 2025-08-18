@@ -28,7 +28,7 @@ from enhanced_performance_monitor import (
 )
 
 try:
-    from model_performance_monitor import PerformanceMetrics, RetrainingResult, RetrainingScope
+    from src.day_trade.monitoring.model_performance_monitor import PerformanceMetrics, RetrainingResult, RetrainingScope
     MODELS_AVAILABLE = True
 except ImportError:
     MODELS_AVAILABLE = False
