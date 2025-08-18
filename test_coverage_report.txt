@@ -1,0 +1,197 @@
+================================================================================
+テストカバレッジ分析レポート
+================================================================================
+
+[STATS] 全体統計:
+- 総関数数: 4135
+- テスト済み関数: 1433
+- 関数カバレッジ: 34.7%
+- 総クラス数: 809
+- テスト済みクラス: 214
+- クラスカバレッジ: 26.5%
+
+[LOW COVERAGE] 低カバレッジモジュール (60%未満):
+- day_trade\core\integrated_analysis_system.py: 0.0%
+- day_trade\dashboard\analysis_dashboard_server.py: 0.0%
+- day_trade\data\training_data_loader.py: 0.0%
+- day_trade\ml\re_train_model.py: 0.0%
+- day_trade\ml\run_concept_drift_detection.py: 0.0%
+- day_trade\analysis\backtest\core.py: 0.0%
+- day_trade\analysis\backtest\strategies.py: 0.0%
+- day_trade\visualization\dashboard\report_generator.py: 0.0%
+- day_trade\analysis\prediction_orchestrator.py: 16.7%
+- day_trade\visualization\personal_charts.py: 16.7%
+
+[CRITICAL] 未テストのクリティカル関数:
+- day_trade\data_models.py:should_stop_loss
+- day_trade\data_models.py:should_time_stop
+- day_trade\acceleration\gpu_common.py:TechnicalIndicatorCalculator.calculate_sma
+- day_trade\acceleration\gpu_common.py:TechnicalIndicatorCalculator.calculate_ema
+- day_trade\acceleration\gpu_common.py:TechnicalIndicatorCalculator.calculate_rsi
+- day_trade\acceleration\gpu_common.py:TechnicalIndicatorCalculator.calculate_bollinger_bands
+- day_trade\acceleration\gpu_common.py:TechnicalIndicatorCalculator.calculate_macd
+- day_trade\acceleration\gpu_common.py:calculate_sma
+- day_trade\acceleration\gpu_common.py:calculate_ema
+- day_trade\acceleration\gpu_common.py:calculate_rsi
+- day_trade\acceleration\gpu_common.py:calculate_bollinger_bands
+- day_trade\acceleration\gpu_common.py:calculate_macd
+- day_trade\analysis\advanced_backtest.py:WalkForwardOptimizer.optimize
+- day_trade\analysis\advanced_backtest.py:optimize
+- day_trade\analysis\feature_engineering_unified.py:FeatureEngineeringDataOptimized.get_strategy_name
+
+[ERROR HANDLING] エラーハンドリングシナリオ:
+- Exception handling: 425個のモジュール
+- Exception raising: 241個のモジュール
+- Async error handling: 167個のモジュール
+- Timeout handling: 145個のモジュール
+- Retry mechanism: 49個のモジュール
+- Validation error handling: 15個のモジュール
+- Business logic error handling: 2個のモジュール
+
+[RECOMMENDATIONS] 改善提案:
+- 関数カバレッジが70%未満です。単体テストの追加を推奨します
+- クラステストカバレッジが70%未満です。クラステストの強化を推奨します
+- クリティカル関数の未テストが多数あります。優先的にテストを追加してください
+- 低カバレッジモジュールが多数あります。段階的なテスト強化を推奨します
+
+================================================================================
+[PRIORITY TARGETS] 優先テスト対象
+================================================================================
+
+1. day_trade\core\performance\optimization_engine.py
+   優先度スコア: 215
+   現在のカバレッジ: 29.8%
+   総関数数: 47
+   未テストクリティカル関数: ParallelProcessingOptimizer.cleanup, MemoryOptimizer.optimize_garbage_collection, MemoryOptimizer.get_memory_profile, OptimizationEngine.start_monitoring, OptimizationEngine.stop_monitoring, OptimizationEngine.auto_optimize, start_profiling, stop_profiling, start_monitoring, stop_monitoring, optimize_cache_size, optimize_for_io_bound, optimize_for_cpu_bound, cleanup, optimize_garbage_collection, start_monitoring, stop_monitoring, auto_optimize
+   エラーシナリオ: Exception raising, Exception handling, Async error handling
+
+2. day_trade\domain\trading\entities.py
+   優先度スコア: 195
+   現在のカバレッジ: 30.0%
+   総関数数: 70
+   未テストクリティカル関数: Position.calculate_average_cost, Position.calculate_realized_pnl, Position.calculate_unrealized_pnl, Portfolio.execute_trade, Portfolio.calculate_total_value, Portfolio.calculate_total_pnl, executed_at, is_buy, is_sell, trades, add_trade, calculate_current_quantity, calculate_average_cost, calculate_realized_pnl, calculate_unrealized_pnl, execute_trade, calculate_total_value, calculate_total_pnl
+   エラーシナリオ: Exception raising
+
+3. day_trade\core\types\trading_types.py
+   優先度スコア: 170
+   現在のカバレッジ: 28.3%
+   総関数数: 53
+   未テストクリティカル関数: TradingConstraints.validate_order, TypeSafeTradeManager.place_market_order, TypeSafeTradeManager.place_limit_order, TypeSafeTradeManager.get_safe_portfolio_value, validate_trading_data, is_order_data, is_tradeable, place_order, cancel_order, get_order_status, calculate_unrealized_pnl, validate_order, place_market_order, place_limit_order
+   エラーシナリオ: Exception raising, Exception handling
+
+4. day_trade\core\configuration\unified_config_manager.py
+   優先度スコア: 165
+   現在のカバレッジ: 30.0%
+   総関数数: 60
+   未テストクリティカル関数: UnifiedConfigManager.save_to_file, UnifiedConfigManager.validate_config, validate, load, save, load, save, load, save, invalidate, load_from_file, load_from_environment, save_to_file, validate_config
+   エラーシナリオ: Exception raising, Exception handling, Timeout handling
+
+5. day_trade\infrastructure\repositories\memory_repositories.py
+   優先度スコア: 165
+   現在のカバレッジ: 29.8%
+   総関数数: 104
+   未テストクリティカル関数: MemoryConfigurationRepository.save_trading_config, MemoryConfigurationRepository.save_risk_config, MemoryUnitOfWork.trades, save, get_latest_trades, save, save, save_signal, mark_signal_processed, save_metrics, save_performance_record, save_trading_config, save_risk_config, trades
+   エラーシナリオ: Exception handling
+
+6. day_trade\domain\trading\repositories.py
+   優先度スコア: 160
+   現在のカバレッジ: 29.4%
+   総関数数: 102
+   未テストクリティカル関数: ConfigurationRepository.save_trading_config, ConfigurationRepository.save_risk_config, UnitOfWork.trades, save, get_latest_trades, save, save, save_signal, mark_signal_processed, save_metrics, save_performance_record, save_trading_config, save_risk_config, trades
+
+7. day_trade\models\optimized_database.py
+   優先度スコア: 145
+   現在のカバレッジ: 28.6%
+   総関数数: 28
+   未テストクリティカル関数: OptimizedDatabaseManager.execute_optimized_query, OptimizedDatabaseManager.bulk_insert_optimized, OptimizedDatabaseManager.optimize_table, OptimizedDatabaseManager.get_performance_statistics, OptimizedDatabaseManager.vacuum_optimize, OptimizedDatabaseManager.optimized_transaction, execute_optimized_query, bulk_insert_optimized, optimize_table, vacuum_optimize, optimized_transaction
+   エラーシナリオ: Exception raising, Exception handling, Timeout handling
+
+8. day_trade\trading\core\trade_executor.py
+   優先度スコア: 145
+   現在のカバレッジ: 25.0%
+   総関数数: 16
+   未テストクリティカル関数: TradeExecutor.get_trade_history, TradeExecutor.get_trade_statistics, TradeExecutor.clear_trade_history, TradeExecutor.export_trades_summary, add_trade, buy_stock, sell_stock, execute_trade_order, get_trade_history, get_trade_statistics, clear_trade_history, export_trades_summary
+   エラーシナリオ: Exception handling
+
+9. day_trade\domain\trading\services.py
+   優先度スコア: 140
+   現在のカバレッジ: 29.2%
+   総関数数: 24
+   未テストクリティカル関数: PerformanceAnalysisService.calculate_win_rate, MarketAnalysisService.calculate_correlation_matrix, PortfolioOptimizationService.optimize_portfolio_weights, execute_trade, calculate_position_size, validate_trade_constraints, calculate_var, calculate_sharpe_ratio, calculate_max_drawdown, calculate_win_rate, calculate_correlation_matrix, optimize_portfolio_weights
+
+10. day_trade\acceleration\gpu_common.py
+   優先度スコア: 130
+   現在のカバレッジ: 28.8%
+   総関数数: 73
+   未テストクリティカル関数: TechnicalIndicatorCalculator.calculate_sma, TechnicalIndicatorCalculator.calculate_ema, TechnicalIndicatorCalculator.calculate_rsi, TechnicalIndicatorCalculator.calculate_bollinger_bands, TechnicalIndicatorCalculator.calculate_macd, calculate_sma, calculate_ema, calculate_rsi, calculate_bollinger_bands, calculate_macd
+   エラーシナリオ: Exception raising, Exception handling
+
+11. day_trade\core\security_config.py
+   優先度スコア: 130
+   現在のカバレッジ: 26.3%
+   総関数数: 19
+   未テストクリティカル関数: EnvironmentConfigLoader.load_database_config, EnvironmentConfigLoader.load_api_config, EnvironmentConfigLoader.load_smtp_config, save_config, load_config, validate_config_security, load_database_config, load_api_config, load_smtp_config
+   エラーシナリオ: Exception raising, Exception handling, Timeout handling, Retry mechanism
+
+12. day_trade\trading\persistence\db_manager.py
+   優先度スコア: 125
+   現在のカバレッジ: 27.8%
+   総関数数: 18
+   未テストクリティカル関数: TradeDatabaseManager.get_trade_count_by_symbol, TradeDatabaseManager.get_database_statistics, TradeDatabaseManager.backup_database, TradeDatabaseManager.restore_database, load_trades_from_db, save_trade_to_db, sync_trades_to_db, delete_trades_by_symbol, delete_all_trades, get_trade_count_by_symbol
+   エラーシナリオ: Exception handling
+
+13. day_trade\config\config_manager.py
+   優先度スコア: 120
+   現在のカバレッジ: 29.2%
+   総関数数: 48
+   未テストクリティカル関数: ConfigManager.get_auto_optimizer_settings, ConfigManager.save_config, validate_strategy_type, validate_voting_type, validate_strategy_weights, validate_confidence_thresholds, get_auto_optimizer_settings, save_config
+   エラーシナリオ: Exception raising, Exception handling, Timeout handling, Retry mechanism
+
+14. day_trade\core\calculators\trade_calculator.py
+   優先度スコア: 110
+   現在のカバレッジ: 28.6%
+   総関数数: 14
+   未テストクリティカル関数: PnLCalculator.calculate_unrealized_pnl, PositionCalculator.calculate_average_price, PositionCalculator.calculate_total_commission, calculate_commission, calculate_fifo_pnl, calculate_unrealized_pnl, calculate_average_price, calculate_total_commission
+   エラーシナリオ: Exception raising, Exception handling
+
+15. day_trade\models\unified_database.py
+   優先度スコア: 105
+   現在のカバレッジ: 28.6%
+   総関数数: 49
+   未テストクリティカル関数: UnifiedDatabaseManager.cleanup_resources, execute_database_query, execute_query, execute_transaction, cleanup_resources, receive_before_cursor_execute, receive_after_cursor_execute
+   エラーシナリオ: Exception raising, Exception handling, Timeout handling
+
+16. day_trade\core\logging\unified_logging_system.py
+   優先度スコア: 105
+   現在のカバレッジ: 29.6%
+   総関数数: 71
+   未テストクリティカル関数: UnifiedLoggingSystem.start, UnifiedLoggingSystem.stop, start, stop, set_processor, start, stop
+   エラーシナリオ: Exception raising, Exception handling, Timeout handling
+
+17. day_trade\core\trade_manager.py
+   優先度スコア: 100
+   現在のカバレッジ: 69.1%
+   総関数数: 55
+   未テストクリティカル関数: add_trade, add_trades_batch, get_trade_history, save_to_json, load_from_json, buy_stock, sell_stock, execute_trade_order, calculate_tax_implications
+   エラーシナリオ: Exception raising, Exception handling
+
+18. day_trade\trading\persistence\batch_processor.py
+   優先度スコア: 100
+   現在のカバレッジ: 25.0%
+   総関数数: 12
+   未テストクリティカル関数: TradeBatchProcessor.schedule_periodic_sync, TradeBatchProcessor.cleanup_old_data, TradeBatchProcessor.shutdown, process_trades_batch, bulk_update_trades, get_processing_statistics, cleanup_old_data
+   エラーシナリオ: Exception handling, Async error handling
+
+19. day_trade\visualization\base\export_manager.py
+   優先度スコア: 95
+   現在のカバレッジ: 25.0%
+   総関数数: 16
+   未テストクリティカル関数: ExportManager.save_interactive_dashboard, ExportManager.cleanup_old_exports, save_chart, save_data, save_analysis_report, save_interactive_dashboard, cleanup_old_exports
+   エラーシナリオ: Exception handling
+
+20. day_trade\core\trade_operations.py
+   優先度スコア: 90
+   現在のカバレッジ: 25.0%
+   総関数数: 8
+   未テストクリティカル関数: TradeOperations.batch_trade_operations, buy_stock, sell_stock, buy_stock, sell_stock, batch_trade_operations
+   エラーシナリオ: Exception raising, Exception handling

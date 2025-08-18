@@ -82,7 +82,8 @@ class EnhancedEnsembleSignal:
     uncertainty: float = 0.0
     risk_score: float = 0.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+    """__post_init__関数"""
         if self.rule_based_signals is None:
             self.rule_based_signals = {}
         if self.ml_predictions is None:
@@ -96,6 +97,7 @@ class EnhancedEnsembleSignal:
 class EnhancedEnsembleStrategy:
     """強化されたアンサンブル戦略システム"""
 
+    """__init__関数"""
     def __init__(
         self,
         ensemble_strategy: EnsembleStrategy = EnsembleStrategy.ADAPTIVE,
@@ -103,7 +105,7 @@ class EnhancedEnsembleStrategy:
         enable_ml_models: bool = True,
         prediction_horizons: List[PredictionHorizon] = None,
         performance_file: Optional[str] = None,
-    ):
+    ) -> None:
         self.ensemble_strategy = ensemble_strategy
         self.voting_type = voting_type
         self.enable_ml_models = enable_ml_models
@@ -117,7 +119,7 @@ class EnhancedEnsembleStrategy:
         self.rule_based_strategies = self._initialize_rule_based_strategies()
 
         # 機械学習モデル
-        self.ml_ensemble = None
+        self.ml_ensemble: Optional[Any] = None
         if self.enable_ml_models:
             try:
                 self.ml_ensemble = MLModelManager()
@@ -135,7 +137,7 @@ class EnhancedEnsembleStrategy:
 
         # 学習済み特徴量
         self.feature_cache = {}
-        self.last_training_time = None
+        self.last_training_time: Optional[Any] = None
 
         logger.info(
             "強化アンサンブル戦略初期化完了",
@@ -172,9 +174,12 @@ class EnhancedEnsembleStrategy:
                 RSIOversoldRule,
             )
 
+    """BollingerBandRuleクラス"""
+    """__init__関数"""
             # ダミーのBollingerBandRuleを定義
             class BollingerBandRule:
-                def __init__(self, position="lower", weight=1.0):
+                def __init__(self, position="lower", weight=1.0) -> None:
+    """evaluate関数"""
                     self.position = position
                     self.weight = weight
 

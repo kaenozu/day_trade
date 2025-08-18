@@ -85,7 +85,8 @@ class DetailedMarketReport:
 class EnhancedReportManager:
     """強化された分析レポート管理システム"""
 
-    def __init__(self, analysis_engine: Optional[AnalysisOnlyEngine] = None):
+    def __init__(self, analysis_engine: Optional[AnalysisOnlyEngine] = None) -> None:
+    """__init__関数"""
         # セーフモードチェック
         if not is_safe_mode():
             raise ValueError("セーフモードでない場合は使用できません")
@@ -846,7 +847,7 @@ class EnhancedReportManager:
             logger.error(f"レポートエクスポートエラー: {e}")
             raise
 
-    def _export_as_markdown(self, report: DetailedMarketReport, filepath: Path):
+    def _export_as_markdown(self, report: DetailedMarketReport, filepath: Path) -> None:
         """Markdown形式でエクスポート"""
         md_content = [
             "# 市場分析レポート",
@@ -898,7 +899,7 @@ class EnhancedReportManager:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write("\n".join(md_content))
 
-    def _export_as_html(self, report: DetailedMarketReport, filepath: Path):
+    def _export_as_html(self, report: DetailedMarketReport, filepath: Path) -> None:
         """HTML形式でエクスポート"""
         html_content = f"""
         <!DOCTYPE html>
@@ -1003,7 +1004,7 @@ class EnhancedReportManager:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(html_content)
 
-    def _export_as_csv(self, report: DetailedMarketReport, filepath: Path):
+    def _export_as_csv(self, report: DetailedMarketReport, filepath: Path) -> None:
         """CSV形式でエクスポート（簡易版）"""
         try:
             # 個別銘柄データをCSV形式で出力
@@ -1053,7 +1054,7 @@ class EnhancedReportManager:
         """レポート履歴取得"""
         return self.report_history[-limit:]
 
-    def clear_history(self):
+    def clear_history(self) -> None:
         """履歴クリア"""
         self.report_history.clear()
         logger.info("レポート履歴をクリアしました")

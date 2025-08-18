@@ -19,7 +19,7 @@ logger = get_context_logger(__name__, component="technical_indicators")
 class IndicatorsConfig:
     """テクニカル指標設定管理クラス"""
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None) -> None:
         if config_path is None:
             # プロジェクトルートからの絶対パス設定
             project_root = Path(__file__).parent.parent.parent.parent
@@ -72,7 +72,7 @@ class IndicatorsConfig:
             "error_handling": {"return_none_on_error": False, "detailed_logging": True},
         }
 
-    def get_parameter(self, indicator: str, param: str, default=None):
+    def get_parameter(self, indicator: str, param: str, default=None) -> None:
         """指標パラメータを取得"""
         return (
             self.config.get("default_parameters", {})
@@ -494,7 +494,7 @@ class TechnicalIndicators:
             progress_threshold = perf_settings.get("progress_threshold", 100)
             use_progress = show_progress and len(df) > progress_threshold
 
-            def _calculate_with_progress(task_name, calculation_func):
+            def _calculate_with_progress(task_name, calculation_func) -> None:
                 if use_progress:
                     progress.set_description(task_name)
                 result = calculation_func()
@@ -590,10 +590,10 @@ class TechnicalIndicators:
         volume_period: int,
         atr_period: int,
         progress=None,
-    ):
+    ) -> None:
         """指標計算の内部ロジック（進捗管理含む）"""
 
-        def update_progress(description: str):
+        def update_progress(description: str) -> None:
             if progress:
                 progress.set_description(description)
                 progress.update(1)

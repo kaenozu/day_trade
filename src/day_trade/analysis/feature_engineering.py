@@ -45,7 +45,7 @@ class FeatureConfig:
 class AdvancedFeatureEngineer:
     """高度な特徴量エンジニアリング"""
 
-    def __init__(self, config: Optional[FeatureConfig] = None):
+    def __init__(self, config: Optional[FeatureConfig] = None) -> None:
         """
         Args:
             config: 特徴量生成設定
@@ -62,7 +62,7 @@ class AdvancedFeatureEngineer:
         elif self.config.scaling_method == "robust":
             self.scaler = RobustScaler()
         else:
-            self.scaler = None
+            self.scaler: Optional[Any] = None
 
     def generate_all_features(
         self,

@@ -1,0 +1,68 @@
+# テスト環境データベース設定
+# 統合システムのテスト用設定
+
+database:
+  # SQLiteテスト設定
+  url: "sqlite:///./test_unified_system.db"
+
+  # 接続プール設定
+  pool_size: 5
+  max_overflow: 10
+  pool_timeout: 30
+  pool_recycle: 3600
+  pool_pre_ping: true
+
+  # パフォーマンス設定
+  echo: false
+  echo_pool: false
+
+  # 接続引数（SQLite用）
+  connect_args: {}
+
+# バックアップ設定
+backup:
+  enabled: true
+  interval_hours: 1
+  retention_days: 7
+  backup_path: "./test_backups"
+  compression: true
+  auto_start_scheduler: false
+
+# 監視設定
+monitoring:
+  enabled: true
+  interval_seconds: 10
+  metrics_retention_hours: 2
+  slow_query_threshold_ms: 100
+  connection_pool_warning_threshold: 0.8
+  deadlock_detection: true
+  auto_start: false
+
+# ヘルスチェック設定
+health_check:
+  enabled: true
+  interval_seconds: 30
+  timeout_seconds: 5
+  retry_count: 3
+
+# ダッシュボード設定
+dashboard:
+  enabled: true
+  refresh_interval_seconds: 5
+  report_path: "./test_reports"
+  auto_generate_reports: true
+  report_interval_hours: 1
+
+# 復元設定
+restore:
+  verification_enabled: true
+  auto_backup_before_restore: true
+  rollback_enabled: true
+  temp_database_prefix: "test_restore_temp_"
+
+# ログ設定
+logging:
+  database_queries: false
+  slow_queries: true
+  connection_events: true
+  error_details: true

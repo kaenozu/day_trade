@@ -143,7 +143,12 @@ class SecurityEnhancementSystem:
 
         # 新しいキー生成
         if CRYPTO_AVAILABLE:
-            password = os.environ.get('DAYTRADING_SECRET', 'default_secret_key').encode()
+            password = os.environ.get('DAYTRADING_SECRET')
+            if not password:
+                import secrets
+                password = secrets.token_urlsafe(32)
+                self.logger.warning(f"⚠️  環境変数DAYTRADING_SECRETが未設定です。一時的なキーを生成しました。")
+            password = password.encode()
             salt = os.urandom(16)
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),

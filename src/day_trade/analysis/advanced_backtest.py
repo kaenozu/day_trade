@@ -21,7 +21,6 @@ from day_trade.analysis.events import Event, EventType, MarketDataEvent, SignalE
 warnings.filterwarnings("ignore")
 logger = get_context_logger(__name__)
 
-
 # OrderType と OrderStatus は events.py に移動しました
 
 @dataclass
@@ -34,7 +33,6 @@ class TradingCosts:
     bid_ask_spread_rate: float = 0.001  # ビッドアスクスプレッド率
     slippage_rate: float = 0.0005  # スリッページ率
     market_impact_rate: float = 0.0002  # マーケットインパクト率
-
 
 # Order クラスは events.py に移動しました
 
@@ -49,13 +47,12 @@ class Order:
     quantity: int
     price: Optional[float] = None
     stop_price: Optional[float] = None
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory = datetime.now)
     status: OrderStatus = OrderStatus.PENDING
     filled_quantity: int = 0
     filled_price: float = 0.0
     commission: float = 0.0
     slippage: float = 0.0
-
 
 @dataclass
 class Position:
@@ -67,8 +64,7 @@ class Position:
     market_value: float = 0.0
     unrealized_pnl: float = 0.0
     realized_pnl: float = 0.0
-    last_updated: datetime = field(default_factory=datetime.now)
-
+    last_updated: datetime = field(default_factory = datetime.now)
 
 @dataclass
 class PerformanceMetrics:
@@ -96,7 +92,6 @@ class PerformanceMetrics:
     total_commission: float = 0.0
     total_slippage: float = 0.0
 
-
 class AdvancedBacktestEngine:
     """高度なバックテストエンジン"""
 
@@ -109,7 +104,8 @@ class AdvancedBacktestEngine:
         enable_slippage: bool = True,
         enable_market_impact: bool = True,
         realistic_execution: bool = True,
-    ):
+    ) -> None:
+        """高度なバックテストエンジンの初期化"""
         self.initial_capital = initial_capital
         self.current_capital = initial_capital
         self.trading_costs = trading_costs or TradingCosts()
@@ -157,8 +153,8 @@ class AdvancedBacktestEngine:
         logger.info(
             "高度バックテストエンジン初期化",
             section="backtest_init",
-            initial_capital=initial_capital,
-            realistic_execution=realistic_execution,
+            initial_capital = initial_capital,
+            realistic_execution = realistic_execution,
         )
 
     def run_backtest(
@@ -183,8 +179,8 @@ class AdvancedBacktestEngine:
         logger.info(
             "バックテスト開始",
             section="backtest_execution",
-            data_range=f"{data.index[0]} to {data.index[-1]}",
-            signals_count=len(strategy_signals),
+            data_range = f"{data.index[0]} to {data.index[-1]}",
+            signals_count = len(strategy_signals),
         )
 
         # データ範囲設定
@@ -209,14 +205,14 @@ class AdvancedBacktestEngine:
                 # pandas.Series.name がシンボルになることを想定
                 symbol = data.columns.levels[0][0] if isinstance(data.columns, pd.MultiIndex) else "UNKNOWN" # マルチインデックス対応
                 market_event = MarketDataEvent(
-                    type=EventType.MARKET_DATA,
-                    timestamp=timestamp,
-                    symbol=symbol,
-                    open=row[(symbol, "Open")] if isinstance(data.columns, pd.MultiIndex) else row["Open"],
-                    high=row[(symbol, "High")] if isinstance(data.columns, pd.MultiIndex) else row["High"],
-                    low=row[(symbol, "Low")] if isinstance(data.columns, pd.MultiIndex) else row["Low"],
-                    close=row[(symbol, "Close")] if isinstance(data.columns, pd.MultiIndex) else row["Close"],
-                    volume=row.get((symbol, "Volume")) if isinstance(data.columns, pd.MultiIndex) else row.get("Volume"),
+                    type = EventType.MARKET_DATA,
+                    timestamp = timestamp,
+                    symbol = symbol,
+                    open = row[(symbol, "Open")] if isinstance(data.columns, pd.MultiIndex) else row["Open"],
+                    high = row[(symbol, "High")] if isinstance(data.columns, pd.MultiIndex) else row["High"],
+                    low = row[(symbol, "Low")] if isinstance(data.columns, pd.MultiIndex) else row["Low"],
+                    close = row[(symbol, "Close")] if isinstance(data.columns, pd.MultiIndex) else row["Close"],
+                    volume = row.get((symbol, "Volume")) if isinstance(data.columns, pd.MultiIndex) else row.get("Volume"),
                 )
                 self.events.append(market_event)
 
@@ -225,17 +221,17 @@ class AdvancedBacktestEngine:
                 signal_row = strategy_signals.loc[timestamp]
                 symbol = strategy_signals.columns.levels[0][0] if isinstance(strategy_signals.columns, pd.MultiIndex) else "UNKNOWN" # マルチインデックス対応
                 signal_event = SignalEvent(
-                    type=EventType.SIGNAL,
-                    timestamp=timestamp,
-                    symbol=symbol,
-                    action=signal_row[(symbol, "signal")] if isinstance(strategy_signals.columns, pd.MultiIndex) else signal_row["signal"],
-                    strength=signal_row.get((symbol, "confidence"), 0.0) if isinstance(strategy_signals.columns, pd.MultiIndex) else signal_row.get("confidence", 0.0),
+                    type = EventType.SIGNAL,
+                    timestamp = timestamp,
+                    symbol = symbol,
+                    action = signal_row[(symbol, "signal")] if isinstance(strategy_signals.columns, pd.MultiIndex) else signal_row["signal"],
+                    strength = signal_row.get((symbol, "confidence"), 0.0) if isinstance(strategy_signals.columns, pd.MultiIndex) else signal_row.get("confidence", 0.0),
                     data={"price_target": signal_row.get((symbol, "price_target"))} if isinstance(strategy_signals.columns, pd.MultiIndex) else {"price_target": signal_row.get("price_target")},
                 )
                 self.events.append(signal_event)
 
         # イベントキューを時系列順にソート
-        self.events = deque(sorted(list(self.events), key=lambda event: event.timestamp))
+        self.events = deque(sorted(list(self.events), key = lambda event: event.timestamp))
 
         # イベント駆動型ループ
         while self.events:
@@ -262,12 +258,11 @@ class AdvancedBacktestEngine:
                     # 日次処理としてリスク管理を適用
                     self._apply_risk_management(event.timestamp, event.data)
 
-
             except Exception as e:
                 logger.warning(
                     f"イベント処理エラー: {event.type.value} at {event.timestamp} - {e}",
                     section="event_processing",
-                    error=str(e),
+                    error = str(e),
                 )
 
         # パフォーマンス計算
@@ -276,15 +271,15 @@ class AdvancedBacktestEngine:
         logger.info(
             "バックテスト完了",
             section="backtest_execution",
-            total_return=performance.total_return,
-            sharpe_ratio=performance.sharpe_ratio,
-            max_drawdown=performance.max_drawdown,
-            total_trades=performance.total_trades,
+            total_return = performance.total_return,
+            sharpe_ratio = performance.sharpe_ratio,
+            max_drawdown = performance.max_drawdown,
+            total_trades = performance.total_trades,
         )
 
         return performance
 
-    def _reset_backtest(self):
+    def _reset_backtest(self) -> None:
         """バックテスト状態リセット"""
         self.current_capital = self.initial_capital
         self.positions = {}
@@ -296,7 +291,7 @@ class AdvancedBacktestEngine:
         self.drawdown_series = []
         self.open_trades = {}
 
-    def _process_pending_orders(self, current_time: datetime, market_data_event: MarketDataEvent):
+    def _process_pending_orders(self, current_time: datetime, market_data_event: MarketDataEvent) -> None:
         """待機中注文の処理（イベントキューへの約定イベントプッシュ）"""
         orders_to_remove = []
         for order_id, order in list(self.orders.items()): # 辞書のコピーをイテレート
@@ -323,15 +318,15 @@ class AdvancedBacktestEngine:
 
                 # 約定イベントを生成し、キューにプッシュ
                 fill_event = FillEvent(
-                    type=EventType.FILL, # ★修正
-                    order_id=order.order_id,
-                    symbol=order.symbol,
-                    action=order.side,
-                    quantity=order.quantity, # 現状は全量約定のみをシミュレート
-                    price=filled_price,
-                    commission=self._calculate_commission_for_order(order, filled_price),
-                    slippage=abs(filled_price - (order.price or filled_price)),
-                    fill_time=current_time,
+                    type = EventType.FILL, # ★修正
+                    order_id = order.order_id,
+                    symbol = order.symbol,
+                    action = order.side,
+                    quantity = order.quantity, # 現状は全量約定のみをシミュレート
+                    price = filled_price,
+                    commission = self._calculate_commission_for_order(order, filled_price),
+                    slippage = abs(filled_price - (order.price or filled_price)),
+                    fill_time = current_time,
                 )
                 self.events.append(fill_event) # キューの末尾に追加し、後続のイベントループで処理される
                 orders_to_remove.append(order_id) # 処理済みとしてマーク
@@ -400,7 +395,7 @@ class AdvancedBacktestEngine:
         return base_price
 
     # ===== イベントハンドラ群 =====
-    def _handle_market_data(self, event: MarketDataEvent):
+    def _handle_market_data(self, event: MarketDataEvent) -> None:
         """市場データイベントを処理"""
         # Store the latest market data for this symbol
         self.current_market_data_by_symbol[event.symbol] = event # ★追加
@@ -413,8 +408,7 @@ class AdvancedBacktestEngine:
         # Access attributes directly from event
         self._update_positions_from_market_data(event.timestamp, event.symbol, event.close) # ★修正
 
-
-    def _handle_signal(self, event: SignalEvent):
+    def _handle_signal(self, event: SignalEvent) -> None:
         """シグナルイベントを処理"""
         symbol = event.symbol
         signal_action = event.action
@@ -438,14 +432,14 @@ class AdvancedBacktestEngine:
                 # OrderEvent を生成し、キューにプッシュ
                 order_id = f"{symbol}_{self._current_sim_time.strftime('%Y%m%d_%H%M%S')}"
                 order_event = OrderEvent(
-                    type=EventType.ORDER,
-                    order_id=order_id,
-                    symbol=symbol,
-                    action=signal_action,
-                    quantity=position_size,
+                    type = EventType.ORDER,
+                    order_id = order_id,
+                    symbol = symbol,
+                    action = signal_action,
+                    quantity = position_size,
                     order_type="market", # シグナルからはマーケット注文を出すと仮定
-                    price=current_price_for_signal,
-                    timestamp=self._current_sim_time,
+                    price = current_price_for_signal,
+                    timestamp = self._current_sim_time,
                 )
                 self.events.append(order_event) # キューの末尾に追加
                 self.orders[order_id] = order_event # 注文を追跡するために保存
@@ -453,10 +447,10 @@ class AdvancedBacktestEngine:
                 logger.debug(
                     f"シグナルから注文イベント生成: {signal_action} {position_size} {symbol}",
                     section="signal_processing",
-                    confidence=confidence,
+                    confidence = confidence,
                 )
 
-    def _handle_order(self, event: OrderEvent):
+    def _handle_order(self, event: OrderEvent) -> None:
         """注文イベントを処理 (主にシミュレーション内部での注文発行)"""
         # OrderEvent から Order オブジェクトを生成し、self.orders に追加
         # 注: Order.OrderType は events.py で定義された Enum です。
@@ -465,19 +459,19 @@ class AdvancedBacktestEngine:
         # ここでは便宜上、文字列からEnumに変換します。
         order_type_enum = Order.OrderType[event.order_type.upper()] # ★修正
         order = Order(
-            order_id=event.order_id,
-            symbol=event.symbol,
-            order_type=order_type_enum, # ★修正
-            side=event.action,
-            quantity=event.quantity,
-            price=event.price,
-            stop_price=event.stop_price,
-            timestamp=event.timestamp,
+            order_id = event.order_id,
+            symbol = event.symbol,
+            order_type = order_type_enum, # ★修正
+            side = event.action,
+            quantity = event.quantity,
+            price = event.price,
+            stop_price = event.stop_price,
+            timestamp = event.timestamp,
         )
         self.orders[order.order_id] = order
         logger.debug(f"新しい注文をキューに追加: {order.order_id}") # ★修正
 
-    def _handle_fill(self, event: FillEvent):
+    def _handle_fill(self, event: FillEvent) -> None:
         """約定イベントを処理"""
         # 注文情報を更新し、ポジションと資本を調整
         if event.order_id in self.orders:
@@ -498,13 +492,13 @@ class AdvancedBacktestEngine:
                     # 新規取引
                     trade_id = f"trade_{order.symbol}_{event.fill_time.strftime('%Y%m%d%H%M%S%f')}"
                     new_trade = TradeRecord(
-                        trade_id=trade_id,
-                        symbol=order.symbol,
-                        entry_time=event.fill_time,
-                        entry_price=event.price,
-                        entry_quantity=event.quantity,
-                        entry_commission=event.commission,
-                        entry_slippage=event.slippage,
+                        trade_id = trade_id,
+                        symbol = order.symbol,
+                        entry_time = event.fill_time,
+                        entry_price = event.price,
+                        entry_quantity = event.quantity,
+                        entry_commission = event.commission,
+                        entry_slippage = event.slippage,
                     )
                     self.open_trades[order.symbol] = new_trade
                 else:
@@ -549,7 +543,7 @@ class AdvancedBacktestEngine:
         realized_pnl_for_order = 0.0
 
         if symbol not in self.positions:
-            self.positions[symbol] = Position(symbol=symbol)
+            self.positions[symbol] = Position(symbol = symbol)
 
         position = self.positions[symbol]
 
@@ -581,8 +575,8 @@ class AdvancedBacktestEngine:
                 logger.warning(
                     f"ショートポジション発生: {symbol}",
                     section="position_management",
-                    current_quantity=position.quantity,
-                    sell_quantity=order.quantity,
+                    current_quantity = position.quantity,
+                    sell_quantity = order.quantity,
                 )
 
         # 資本更新
@@ -597,7 +591,7 @@ class AdvancedBacktestEngine:
 
         return realized_pnl_for_order # 計算した実現損益を返す
 
-    def _update_positions(self, current_date: datetime, market_data: pd.Series):
+    def _update_positions(self, current_date: datetime, market_data: pd.Series) -> None:
         """ポジション時価更新"""
         symbol = market_data.name if hasattr(market_data, "name") else "UNKNOWN"
 
@@ -613,7 +607,7 @@ class AdvancedBacktestEngine:
 
     def _process_strategy_signal(
         self, current_date: datetime, market_data: pd.Series, signal_data: pd.Series
-    ):
+    ) -> None:
         """戦略シグナル処理"""
         symbol = market_data.name if hasattr(market_data, "name") else "DEFAULT"
         signal = signal_data.get("signal", "hold")
@@ -628,12 +622,12 @@ class AdvancedBacktestEngine:
             if position_size > 0:
                 # 注文生成
                 order = Order(
-                    order_id=f"{symbol}_{current_date.strftime('%Y%m%d_%H%M%S')}",
-                    symbol=symbol,
-                    order_type=OrderType.MARKET,
-                    side=signal,
-                    quantity=position_size,
-                    timestamp=current_date,
+                    order_id = f"{symbol}_{current_date.strftime('%Y%m%d_%H%M%S')}",
+                    symbol = symbol,
+                    order_type = OrderType.MARKET,
+                    side = signal,
+                    quantity = position_size,
+                    timestamp = current_date,
                 )
 
                 self.orders.append(order)
@@ -641,7 +635,7 @@ class AdvancedBacktestEngine:
                 logger.debug(
                     f"シグナル注文生成: {signal} {position_size} {symbol}",
                     section="signal_processing",
-                    confidence=confidence,
+                    confidence = confidence,
                 )
 
     def _calculate_position_size(
@@ -669,7 +663,7 @@ class AdvancedBacktestEngine:
 
         return 0
 
-    def _apply_risk_management(self, current_date: datetime, market_data: pd.Series):
+    def _apply_risk_management(self, current_date: datetime, market_data: pd.Series) -> None:
         """リスク管理適用"""
         portfolio_value = self._get_portfolio_value()
 
@@ -692,27 +686,27 @@ class AdvancedBacktestEngine:
             # リスクの高いポジションを削減
             self._reduce_risky_positions(current_date)
 
-    def _close_all_positions(self, current_date: datetime, reason: str):
+    def _close_all_positions(self, current_date: datetime, reason: str) -> None:
         """全ポジション決済"""
         for symbol, position in self.positions.items():
             if position.quantity > 0:
                 order = Order(
-                    order_id=f"close_{symbol}_{current_date.strftime('%Y%m%d_%H%M%S')}",
-                    symbol=symbol,
-                    order_type=OrderType.MARKET,
+                    order_id = f"close_{symbol}_{current_date.strftime('%Y%m%d_%H%M%S')}",
+                    symbol = symbol,
+                    order_type = OrderType.MARKET,
                     side="sell",
-                    quantity=position.quantity,
-                    timestamp=current_date,
+                    quantity = position.quantity,
+                    timestamp = current_date,
                 )
                 self.orders.append(order)
 
         logger.info(
             f"全ポジション決済実行: {reason}",
             section="risk_management",
-            positions_count=len([p for p in self.positions.values() if p.quantity > 0]),
+            positions_count = len([p for p in self.positions.values() if p.quantity > 0]),
         )
 
-    def _reduce_risky_positions(self, current_date: datetime):
+    def _reduce_risky_positions(self, current_date: datetime) -> None:
         """リスクの高いポジション削減"""
         risky_positions = [
             (symbol, pos)
@@ -721,19 +715,19 @@ class AdvancedBacktestEngine:
         ]
 
         # 損失の大きい順にソート
-        risky_positions.sort(key=lambda x: x[1].unrealized_pnl)
+        risky_positions.sort(key = lambda x: x[1].unrealized_pnl)
 
         # 上位のリスクポジションを半分決済
         for symbol, position in risky_positions[: len(risky_positions) // 2]:
             reduce_quantity = position.quantity // 2
             if reduce_quantity > 0:
                 order = Order(
-                    order_id=f"reduce_{symbol}_{current_date.strftime('%Y%m%d_%H%M%S')}",
-                    symbol=symbol,
-                    order_type=OrderType.MARKET,
+                    order_id = f"reduce_{symbol}_{current_date.strftime('%Y%m%d_%H%M%S')}",
+                    symbol = symbol,
+                    order_type = OrderType.MARKET,
                     side="sell",
-                    quantity=reduce_quantity,
-                    timestamp=current_date,
+                    quantity = reduce_quantity,
+                    timestamp = current_date,
                 )
                 self.orders.append(order)
 
@@ -742,7 +736,7 @@ class AdvancedBacktestEngine:
         positions_value = sum(pos.market_value for pos in self.positions.values())
         return self.current_capital + positions_value
 
-    def _record_portfolio_state(self, current_date: datetime, market_data: pd.Series):
+    def _record_portfolio_state(self, current_date: datetime, market_data: pd.Series) -> None:
         """ポートフォリオ状態記録"""
         portfolio_value = self._get_portfolio_value()
 
@@ -794,29 +788,16 @@ class AdvancedBacktestEngine:
             volatility = 0.0
 
         # リスク調整指標
-        sharpe_ratio = annual_return / volatility if volatility > 0 else 0.0
+        sharpe_ratio = self._calculate_sharpe_ratio(annual_return, volatility)
 
         # ソルティーノレシオ
-        negative_returns = [r for r in self.daily_returns if r < 0]
-        if negative_returns:
-            downside_deviation = np.std(negative_returns) * np.sqrt(252)
-            sortino_ratio = (
-                annual_return / downside_deviation
-                if downside_deviation > 1e-10
-                else 0.0
-            )
-        else:
-            sortino_ratio = 0.0
+        sortino_ratio = self._calculate_sortino_ratio(annual_return)
 
         # ドローダウン分析
         max_drawdown = min(self.drawdown_series) if self.drawdown_series else 0.0
 
         # カルマーレシオ
-        calmar_ratio = (
-            annual_return / abs(max_drawdown)
-            if max_drawdown != 0 and abs(max_drawdown) > 1e-10
-            else 0.0
-        )
+        calmar_ratio = self._calculate_calmar_ratio(annual_return, max_drawdown)
 
         # 取引分析
         if self.trade_history:
@@ -853,24 +834,47 @@ class AdvancedBacktestEngine:
             total_commission = total_slippage = 0.0
 
         return PerformanceMetrics(
-            total_return=total_return,
-            annual_return=annual_return,
-            volatility=volatility,
-            sharpe_ratio=sharpe_ratio,
-            sortino_ratio=sortino_ratio,
-            max_drawdown=max_drawdown,
-            calmar_ratio=calmar_ratio,
-            win_rate=win_rate,
-            profit_factor=profit_factor,
-            avg_win=avg_win,
-            avg_loss=avg_loss,
-            total_trades=total_trades,
-            winning_trades=winning_trades,
-            losing_trades=losing_trades,
-            total_commission=total_commission,
-            total_slippage=total_slippage,
+            total_return = total_return,
+            annual_return = annual_return,
+            volatility = volatility,
+            sharpe_ratio = sharpe_ratio,
+            sortino_ratio = sortino_ratio,
+            max_drawdown = max_drawdown,
+            calmar_ratio = calmar_ratio,
+            win_rate = win_rate,
+            profit_factor = profit_factor,
+            avg_win = avg_win,
+            avg_loss = avg_loss,
+            total_trades = total_trades,
+            winning_trades = winning_trades,
+            losing_trades = losing_trades,
+            total_commission = total_commission,
+            total_slippage = total_slippage,
         )
 
+    def _calculate_sharpe_ratio(self, annual_return: float, volatility: float) -> float:
+        """シャープレシオの計算"""
+        return annual_return / volatility if volatility > 0 else 0.0
+
+    def _calculate_sortino_ratio(self, annual_return: float) -> float:
+        """ソルティーノレシオの計算"""
+        negative_returns = [r for r in self.daily_returns if r < 0]
+        if negative_returns:
+            downside_deviation = np.std(negative_returns) * np.sqrt(252)
+            return (
+                annual_return / downside_deviation
+                if downside_deviation > 1e-10
+                else 0.0
+            )
+        return 0.0
+
+    def _calculate_calmar_ratio(self, annual_return: float, max_drawdown: float) -> float:
+        """カルマーレシオの計算"""
+        return (
+            annual_return / abs(max_drawdown)
+            if max_drawdown != 0 and abs(max_drawdown) > 1e-10
+            else 0.0
+        )
 
 class WalkForwardOptimizer:
     """ウォークフォワード最適化"""
@@ -881,7 +885,8 @@ class WalkForwardOptimizer:
         optimization_window: int = 252,  # 1年
         rebalance_frequency: int = 63,  # 四半期
         parameter_grid: Optional[Dict[str, List]] = None,
-    ):
+    ) -> None:
+        """ウォークフォワード最適化の初期化"""
         self.backtest_engine = backtest_engine
         self.optimization_window = optimization_window
         self.rebalance_frequency = rebalance_frequency
@@ -909,8 +914,8 @@ class WalkForwardOptimizer:
         logger.info(
             "ウォークフォワード最適化開始",
             section="walk_forward",
-            optimization_window=self.optimization_window,
-            rebalance_frequency=self.rebalance_frequency,
+            optimization_window = self.optimization_window,
+            rebalance_frequency = self.rebalance_frequency,
         )
 
         results = []
@@ -918,13 +923,13 @@ class WalkForwardOptimizer:
 
         while current_date < end_date:
             # 最適化期間の設定
-            opt_start = current_date - timedelta(days=self.optimization_window)
+            opt_start = current_date - timedelta(days = self.optimization_window)
             opt_end = current_date
 
             # テスト期間の設定
             test_start = current_date
             test_end = min(
-                current_date + timedelta(days=self.rebalance_frequency), end_date
+                current_date + timedelta(days = self.rebalance_frequency), end_date
             )
 
             # 最適化実行
@@ -955,8 +960,8 @@ class WalkForwardOptimizer:
         logger.info(
             "ウォークフォワード最適化完了",
             section="walk_forward",
-            periods_tested=len(results),
-            avg_sharpe=analysis.get("avg_sharpe", 0),
+            periods_tested = len(results),
+            avg_sharpe = analysis.get("avg_sharpe", 0),
         )
 
         return analysis
@@ -989,7 +994,7 @@ class WalkForwardOptimizer:
                     logger.warning(
                         f"パラメータ最適化エラー: {params}",
                         section="parameter_optimization",
-                        error=str(e),
+                        error = str(e),
                     )
 
         return best_params
@@ -1005,7 +1010,7 @@ class WalkForwardOptimizer:
             logger.error(
                 f"パラメータテストエラー: {params}",
                 section="parameter_test",
-                error=str(e),
+                error = str(e),
             )
             return PerformanceMetrics()
 
@@ -1059,7 +1064,6 @@ class WalkForwardOptimizer:
 
         return stability_scores
 
-
 # 使用例とデモ
 if __name__ == "__main__":
     # サンプルデータ生成
@@ -1070,7 +1074,7 @@ if __name__ == "__main__":
     data = yf.download(ticker, period="2y")
 
     # 簡易戦略シグナル生成
-    signals = pd.DataFrame(index=data.index)
+    signals = pd.DataFrame(index = data.index)
     signals["signal"] = "hold"
     signals["confidence"] = 50.0
 
@@ -1088,15 +1092,15 @@ if __name__ == "__main__":
 
     # バックテストエンジン設定
     trading_costs = TradingCosts(
-        commission_rate=0.001, bid_ask_spread_rate=0.001, slippage_rate=0.0005
+        commission_rate = 0.001, bid_ask_spread_rate = 0.001, slippage_rate = 0.0005
     )
 
     backtest_engine = AdvancedBacktestEngine(
-        initial_capital=1000000,
-        trading_costs=trading_costs,
+        initial_capital = 1000000,
+        trading_costs = trading_costs,
         position_sizing="percent",
-        max_position_size=0.2,
-        realistic_execution=True,
+        max_position_size = 0.2,
+        realistic_execution = True,
     )
 
     # バックテスト実行
@@ -1111,3 +1115,5 @@ if __name__ == "__main__":
         total_trades=performance.total_trades,
         win_rate=performance.win_rate,
     )
+
+

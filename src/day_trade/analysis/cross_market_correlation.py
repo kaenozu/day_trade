@@ -65,7 +65,8 @@ class CorrelationResult:
 
     timestamp: datetime = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+    """__post_init__関数"""
         if self.timestamp is None:
             self.timestamp = datetime.now(timezone.utc)
 
@@ -89,17 +90,19 @@ class MarketRegimeChange:
     detection_confidence: float
     timestamp: datetime = None
 
-    def __post_init__(self):
+    """__post_init__関数"""
+    def __post_init__(self) -> None:
         if self.timestamp is None:
             self.timestamp = datetime.now(timezone.utc)
 
 
 class DynamicCorrelationModel(nn.Module):
     """動的相関予測ニューラルネットワーク"""
+    """__init__関数"""
 
     def __init__(
         self, input_size: int = 10, hidden_size: int = 64, sequence_length: int = 24
-    ):
+    ) -> None:
         super().__init__()
         self.sequence_length = sequence_length
 
@@ -137,7 +140,7 @@ class DynamicCorrelationModel(nn.Module):
             nn.Sigmoid(),  # 0 to 1
         )
 
-    def forward(self, x):
+    def forward(self, x) -> None:
         """
         Args:
             x: [batch_size, sequence_length, input_size]
@@ -161,13 +164,14 @@ class DynamicCorrelationModel(nn.Module):
 
 
 class CrossMarketCorrelationEngine:
+    """__init__関数"""
     """クロスマーケット相関分析エンジン"""
 
     def __init__(
         self,
         forex_collector: Optional[ForexDataCollector] = None,
         crypto_collector: Optional[CryptoDataCollector] = None,
-    ):
+    ) -> None:
         self.forex_collector = forex_collector
         self.crypto_collector = crypto_collector
 
@@ -650,7 +654,7 @@ class CrossMarketCorrelationEngine:
         else:
             return "stock"  # デフォルト
 
-    async def _save_correlation_result(self, result: CorrelationResult):
+    async def _save_correlation_result(self, result: CorrelationResult) -> None:
         """相関結果をデータベース保存"""
         try:
             session = get_session()
@@ -756,7 +760,7 @@ def create_correlation_engine(
     return CrossMarketCorrelationEngine(forex_collector, crypto_collector)
 
 
-async def main():
+async def main() -> None:
     """テスト実行"""
     engine = create_correlation_engine()
 

@@ -1,0 +1,77 @@
+{
+  "app_name": "Day Trade Personal",
+  "version": "1.0.0",
+  "description": "production web server configuration",
+
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8080,
+    "workers": 4,
+    "timeout": 30,
+    "keepalive": 2,
+    "max_requests": 1000,
+    "max_requests_jitter": 50
+  },
+
+  "security": {
+    "auth_enabled": true,
+    "session_timeout": 3600,
+    "csrf_enabled": false,
+    "secure_cookies": false,
+    "ssl_enabled": false,
+    "rate_limiting": true,
+    "max_requests_per_minute": 60
+  },
+
+  "logging": {
+    "level": "info",
+    "access_log": "logs/access.log",
+    "error_log": "logs/error.log",
+    "app_log": "logs/app.log",
+    "max_log_size": "10MB",
+    "backup_count": 5
+  },
+
+  "database": {
+    "url": "sqlite:///data/trading.db",
+    "pool_size": 10,
+    "max_overflow": 20,
+    "pool_timeout": 30,
+    "backup_enabled": true,
+    "backup_interval": 3600
+  },
+
+  "monitoring": {
+    "health_check_enabled": true,
+    "metrics_enabled": true,
+    "performance_tracking": true,
+    "alert_enabled": true,
+    "status_endpoint": "/health",
+    "metrics_endpoint": "/metrics"
+  },
+
+  "features": {
+    "web_dashboard": true,
+    "real_time_updates": true,
+    "api_endpoints": true,
+    "websocket_enabled": true,
+    "cache_enabled": true,
+    "compression": true
+  },
+
+  "limits": {
+    "max_concurrent_users": 10,
+    "request_timeout": 30,
+    "max_upload_size": "10MB",
+    "max_symbols_per_request": 100,
+    "cache_size": "100MB"
+  },
+
+  "environment": {
+    "flask_env": "production",
+    "debug": false,
+    "testing": false,
+    "log_requests": true,
+    "profile": false
+  }
+}

@@ -39,6 +39,7 @@ try:
     import onnxruntime as ort
     ONNX_AVAILABLE = True
 except ImportError:
+    ort = None
     ONNX_AVAILABLE = False
 
 try:
@@ -134,7 +135,7 @@ class ONNXOptimizer(BaseModelOptimizer):
         logger.info(f"Available ONNX providers: {selected_providers}")
         return selected_providers
 
-    def optimize_model(self, model_path: str, config: ModelOptimizationConfig) -> ort.InferenceSession:
+    def optimize_model(self, model_path: str, config: ModelOptimizationConfig) -> Any:
         """ONNXモデル最適化"""
         try:
             # セッションオプション設定
