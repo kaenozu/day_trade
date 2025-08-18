@@ -12,7 +12,7 @@ from typing import List, Optional
 
 class ArgumentParser:
     """コマンドライン引数パーサー"""
-    
+
     def __init__(self):
         self.parser = argparse.ArgumentParser(
             description="Day Trade Personal - 個人利用専用版",
@@ -20,7 +20,7 @@ class ArgumentParser:
             epilog="93%精度AIシステムでデイトレード支援"
         )
         self._setup_arguments()
-    
+
     def _setup_arguments(self):
         """引数を設定"""
         # メインモード（排他的）
@@ -45,7 +45,7 @@ class ArgumentParser:
             action='store_true',
             help='予測精度検証モード'
         )
-        
+
         # 共通オプション
         self.parser.add_argument(
             '--symbols', '-s',
@@ -73,11 +73,11 @@ class ArgumentParser:
             type=str,
             help='設定ファイルパス'
         )
-    
+
     def parse_args(self, args: Optional[List[str]] = None):
         """引数を解析"""
         return self.parser.parse_args(args)
-    
+
     def print_help(self):
         """ヘルプを表示"""
         self.parser.print_help()
