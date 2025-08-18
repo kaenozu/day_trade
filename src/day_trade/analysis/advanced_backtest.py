@@ -96,7 +96,6 @@ class AdvancedBacktestEngine:
     """高度なバックテストエンジン"""
 
     def __init__(
-    """__init__関数"""
         self,
         initial_capital: float = 1000000.0,
         trading_costs: Optional[TradingCosts] = None,
@@ -106,6 +105,7 @@ class AdvancedBacktestEngine:
         enable_market_impact: bool = True,
         realistic_execution: bool = True,
     ) -> None:
+        """高度なバックテストエンジンの初期化"""
         self.initial_capital = initial_capital
         self.current_capital = initial_capital
         self.trading_costs = trading_costs or TradingCosts()
@@ -788,29 +788,16 @@ class AdvancedBacktestEngine:
             volatility = 0.0
 
         # リスク調整指標
-        sharpe_ratio = annual_return / volatility if volatility > 0 else 0.0
+        sharpe_ratio = self._calculate_sharpe_ratio(annual_return, volatility)
 
         # ソルティーノレシオ
-        negative_returns = [r for r in self.daily_returns if r < 0]
-        if negative_returns:
-            downside_deviation = np.std(negative_returns) * np.sqrt(252)
-            sortino_ratio = (
-                annual_return / downside_deviation
-                if downside_deviation > 1e - 10
-                else 0.0
-            )
-        else:
-            sortino_ratio = 0.0
+        sortino_ratio = self._calculate_sortino_ratio(annual_return)
 
         # ドローダウン分析
         max_drawdown = min(self.drawdown_series) if self.drawdown_series else 0.0
 
         # カルマーレシオ
-        calmar_ratio = (
-            annual_return / abs(max_drawdown)
-            if max_drawdown != 0 and abs(max_drawdown) > 1e - 10
-            else 0.0
-        )
+        calmar_ratio = self._calculate_calmar_ratio(annual_return, max_drawdown)
 
         # 取引分析
         if self.trade_history:
@@ -865,10 +852,33 @@ class AdvancedBacktestEngine:
             total_slippage = total_slippage,
         )
 
+    def _calculate_sharpe_ratio(self, annual_return: float, volatility: float) -> float:
+        """シャープレシオの計算"""
+        return annual_return / volatility if volatility > 0 else 0.0
+
+    def _calculate_sortino_ratio(self, annual_return: float) -> float:
+        """ソルティーノレシオの計算"""
+        negative_returns = [r for r in self.daily_returns if r < 0]
+        if negative_returns:
+            downside_deviation = np.std(negative_returns) * np.sqrt(252)
+            return (
+                annual_return / downside_deviation
+                if downside_deviation > 1e-10
+                else 0.0
+            )
+        return 0.0
+
+    def _calculate_calmar_ratio(self, annual_return: float, max_drawdown: float) -> float:
+        """カルマーレシオの計算"""
+        return (
+            annual_return / abs(max_drawdown)
+            if max_drawdown != 0 and abs(max_drawdown) > 1e-10
+            else 0.0
+        )
+
 class WalkForwardOptimizer:
     """ウォークフォワード最適化"""
 
-    """__init__関数"""
     def __init__(
         self,
         backtest_engine: AdvancedBacktestEngine,
@@ -876,6 +886,7 @@ class WalkForwardOptimizer:
         rebalance_frequency: int = 63,  # 四半期
         parameter_grid: Optional[Dict[str, List]] = None,
     ) -> None:
+        """ウォークフォワード最適化の初期化"""
         self.backtest_engine = backtest_engine
         self.optimization_window = optimization_window
         self.rebalance_frequency = rebalance_frequency
@@ -1098,9 +1109,11 @@ if __name__ == "__main__":
     logger.info(
         "高度バックテストデモ完了",
         section="demo",
-        total_return = performance.total_return,
-        sharpe_ratio = performance.sharpe_ratio,
-        max_drawdown = performance.max_drawdown,
-        total_trades = performance.total_trades,
-        win_rate = performance.win_rate,
+        total_return=performance.total_return,
+        sharpe_ratio=performance.sharpe_ratio,
+        max_drawdown=performance.max_drawdown,
+        total_trades=performance.total_trades,
+        win_rate=performance.win_rate,
     )
+
+
