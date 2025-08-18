@@ -50,7 +50,24 @@ class ArgumentParser:
         self.parser.add_argument(
             '--symbols', '-s',
             nargs='+',
-            help='対象銘柄コード（デフォルト: トヨタ, 三菱UFJ, SBG, ソニー）'
+            help='対象銘柄コード（デフォルト: 高・中優先度銘柄）'
+        )
+        # 段階的銘柄拡張オプション
+        symbol_group = self.parser.add_mutually_exclusive_group()
+        symbol_group.add_argument(
+            '--extended',
+            action='store_true',
+            help='拡張銘柄セット（~274銘柄：主要株+中型株）'
+        )
+        symbol_group.add_argument(
+            '--comprehensive',
+            action='store_true',
+            help='包括的銘柄セット（~774銘柄：小型株含む）'
+        )
+        symbol_group.add_argument(
+            '--all-symbols',
+            action='store_true',
+            help='全東証銘柄（研究・バックテスト用）'
         )
         self.parser.add_argument(
             '--port', '-p',
@@ -72,6 +89,11 @@ class ArgumentParser:
             '--config',
             type=str,
             help='設定ファイルパス'
+        )
+        self.parser.add_argument(
+            '--verbose',
+            action='store_true',
+            help='詳細表示モード（従来の縦並び表示）'
         )
 
     def parse_args(self, args: Optional[List[str]] = None):
