@@ -50,19 +50,24 @@ class ArgumentParser:
         self.parser.add_argument(
             '--symbols', '-s',
             nargs='+',
-            help='対象銘柄コード（デフォルト: 高・中優先度銘柄）'
+            help='対象銘柄コード（デフォルト: 279銘柄の拡張セット）'
         )
         # 段階的銘柄拡張オプション
         symbol_group = self.parser.add_mutually_exclusive_group()
         symbol_group.add_argument(
+            '--basic',
+            action='store_true',
+            help='基本銘柄セット（55銘柄：主要株のみ、高速）'
+        )
+        symbol_group.add_argument(
             '--extended',
             action='store_true',
-            help='拡張銘柄セット（~274銘柄：主要株+中型株）'
+            help='拡張銘柄セット（279銘柄：主要株+中型株）※デフォルト'
         )
         symbol_group.add_argument(
             '--comprehensive',
             action='store_true',
-            help='包括的銘柄セット（~774銘柄：小型株含む）'
+            help='包括的銘柄セット（926銘柄：小型株含む）'
         )
         symbol_group.add_argument(
             '--all-symbols',

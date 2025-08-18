@@ -620,18 +620,21 @@ class DayTradeApplication:
         try:
             from ..data.tokyo_stock_symbols import tse
 
-            if getattr(args, 'extended', False):
-                symbols = tse.get_extended_symbols()  # ~274銘柄
+            if getattr(args, 'basic', False):
+                symbols = tse.get_tier1_symbols()  # 55銘柄
+                tier_name = "基本セット"
+            elif getattr(args, 'extended', False):
+                symbols = tse.get_extended_symbols()  # 279銘柄
                 tier_name = "拡張セット"
             elif getattr(args, 'comprehensive', False):
-                symbols = tse.get_comprehensive_symbols()  # ~774銘柄
+                symbols = tse.get_comprehensive_symbols()  # 926銘柄
                 tier_name = "包括セット"
             elif getattr(args, 'all_symbols', False):
                 symbols = tse.get_all_tse_symbols()  # 研究用
                 tier_name = "全東証銘柄"
             else:
-                symbols = self._get_default_symbols()  # 74銘柄
-                tier_name = "デフォルト"
+                symbols = tse.get_extended_symbols()  # 279銘柄（Tier 2をデフォルトに）
+                tier_name = "拡張セット（デフォルト）"
 
             if self.debug:
                 print(f"⚡ {tier_name}: {len(symbols)}銘柄")

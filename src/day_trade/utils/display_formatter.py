@@ -47,6 +47,7 @@ class DisplayFormatter:
 
     def __init__(self):
         self.start_time = time.time()
+        self.config = None
 
     def print_startup_banner(self):
         """美しいスタートアップバナー"""
@@ -143,20 +144,41 @@ class DisplayFormatter:
         bar += "▌" * (width - len(bar))
         return bar[:width]  # 確実に指定幅に収める
 
+    def _load_config(self):
+        """設定ファイルを読み込み"""
+        try:
+            import json
+            from pathlib import Path
+
+            # パスの計算（display_formatter.py から見た相対パス）
+            config_path = Path(__file__).parent.parent.parent.parent / "config" / "settings.json"
+
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    self.config = json.load(f)
+            else:
+                self.config = {'watchlist': {'symbols': []}}
+        except Exception as e:
+            self.config = {'watchlist': {'symbols': []}}
+
     def _get_company_name_safe(self, result: Dict[str, Any]) -> str:
-        """安全に会社名を取得"""
+        """設定ファイルから会社名を安全に取得"""
         symbol = result.get('symbol', '')
-        # 簡易的な会社名マッピング（実際は設定ファイルから取得）
-        company_map = {
-            '7203': 'トヨタ自動車',
-            '8306': '三菱UFJ銀行',
-            '9984': 'ソフトバンクグループ',
-            '6758': 'ソニー',
-            '7974': '任天堂',
-            '4689': 'ヤフー',
-            '9434': 'ソフトバンク'
-        }
-        return company_map.get(symbol, symbol)
+        try:
+            # 設定ファイルをまだ読み込んでいない場合は読み込み
+            if self.config is None:
+                self._load_config()
+
+            # 設定ファイルから会社名を検索
+            for symbol_info in self.config.get('watchlist', {}).get('symbols', []):
+                if symbol_info.get('code') == symbol:
+                    return symbol_info.get('name', symbol)
+
+            # 見つからない場合は銘柄コードをそのまま返す
+            return symbol
+        except Exception as e:
+            # エラー時は銘柄コードをそのまま返す
+            return symbol
 
     def _print_analysis_footer(self, results: List[Dict[str, Any]]):
         """分析フッター統計"""
