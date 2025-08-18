@@ -1,4 +1,3 @@
-
 // WebSocket接続
 const socket = io();
 
@@ -191,4 +190,3 @@ function showAlert(message, type = 'info') {
         }
     }, 5000);
 }
-        

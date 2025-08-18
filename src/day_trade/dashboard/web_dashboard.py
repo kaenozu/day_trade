@@ -521,8 +521,8 @@ class WebDashboard:
                     try:
                         # 分析アプリを遅延初期化
                         if self.analysis_app is None:
-                            from ..core.application import DayTradeApplication
-                            self.analysis_app = DayTradeApplication(debug=self.debug)
+                            from ..core.application import StockAnalysisApplication
+                            self.analysis_app = StockAnalysisApplication(debug=self.debug)
                         
                         # 進捗通知
                         self.socketio.emit('analysis_progress', {

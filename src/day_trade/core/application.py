@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Day Trade Personal - アプリケーションクラス
+株価分析システム - メインアプリケーションクラス
 
-リファクタリング後のメインアプリケーション
+分析専用システムのメインアプリケーション
 """
 
 import argparse
@@ -15,10 +15,11 @@ from .system_initializer import SystemInitializer
 from ..cli.argument_parser import ArgumentParser
 from ..analysis.advanced_technical_analyzer import AdvancedTechnicalAnalyzer as TradingAnalyzer
 from ..dashboard.web_dashboard import WebDashboard
+from ..utils.logging_config import get_context_logger
 
 
-class DayTradeApplication:
-    """Day Trade メインアプリケーション"""
+class StockAnalysisApplication:
+    """株価分析システム メインアプリケーション"""
 
     def __init__(self, debug: bool = False, use_cache: bool = True):
         """初期化
@@ -38,6 +39,9 @@ class DayTradeApplication:
         self.web_dashboard = None
         self._ml_modules_loaded = False
         self.config = None
+        
+        # ロガー設定
+        self.logger = get_context_logger(__name__, "StockAnalysisApplication")
 
     def _lazy_load_ml_modules(self):
         """MLモジュールの遅延読み込み"""
@@ -80,19 +84,19 @@ class DayTradeApplication:
                 return self._run_default_analysis(args)
 
         except KeyboardInterrupt:
-            print("\n操作が中断されました")
+            self.logger.info("操作が中断されました")
             return 0
         except Exception as e:
             try:
                 from ..utils.display_formatter import formatter
                 formatter.print_error_box(str(e))
             except ImportError:
-                print(f"エラーが発生しました: {e}")
+                self.logger.error(f"エラーが発生しました: {e}")
             return 1
 
     def _run_web_mode(self, args) -> int:
         """Webモード実行"""
-        print("🌐 Webダッシュボード起動中...")
+        self.logger.info("🌐 Webダッシュボード起動中...")
         self.web_dashboard = WebDashboard(port=args.port, debug=args.debug)
         self.web_dashboard.run()
         return 0
