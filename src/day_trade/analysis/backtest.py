@@ -1,3 +1,5 @@
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 """
 バックテスト機能 (リファクタリング後)
 

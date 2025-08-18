@@ -110,7 +110,7 @@ jobs:
           echo "🔍 Checking for potential conflict patterns..."
 
           # Check for common conflict markers that might have been committed
-          CONFLICT_MARKERS=$(grep -r '<<<<<<< ' . --exclude-dir=.git --exclude-dir=node_modules --exclude="*.log" || echo "")
+          CONFLICT_MARKERS=$(grep -r '<<<<<<< ' . --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=scripts --exclude-dir=.github --exclude="*.log" || echo "")
 
           if [ -n "$CONFLICT_MARKERS" ]; then
             echo "⚠️ Found potential conflict markers in files:"
@@ -179,7 +179,7 @@ jobs:
 
             const body = `## ⚠️ マージコンフリクトが検出されました
 
-            このプルリクエストを \`${{ env.base_branch }}\` ブランチにマージする際にコンフリクトが発生します。
+            このプルリクエストを ${{ env.base_branch }} ブランチにマージする際にコンフリクトが発生します。
 
             ### 🔧 コンフリクトの解決手順:
 

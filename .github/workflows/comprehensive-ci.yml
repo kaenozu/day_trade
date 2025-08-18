@@ -54,19 +54,15 @@ jobs:
               - '.github/**'
               - '.pre-commit-config.yaml'
               - 'pytest.ini'
-            tests:
-              - 'tests/**'
-              - 'test_*.py'
-              - '*_test.py'
 
       - name: Validate basic structure
         run: |
           echo "🔍 Validating repository structure..."
 
           # Check for required files
-          REQUIRED_FILES=("requirements.txt" "pyproject.toml" ".pre-commit-config.yaml")
+          REQUIRED_FILES=("requirements.txt" "pyproject.toml" "config/.pre-commit-config.yaml") # Modified path
 
-          for file in "${REQUIRED_FILES[@]}"; do
+          for file in "${{ REQUIRED_FILES[@] }}"; do
             if [ -f "$file" ]; then
               echo "✅ Found: $file"
             else
@@ -77,7 +73,7 @@ jobs:
           # Check Python syntax
           if [ "${{ steps.changes.outputs.python }}" = "true" ]; then
             echo "🐍 Checking Python syntax..."
-            python -m py_compile $(find . -name "*.py" -not -path "./.*" | head -20) || echo "⚠️ Syntax issues detected"
+            python -m py_compile $(find . -name "*.py" -not -path ".\/.*" | head -20) || echo "⚠️ Syntax issues detected"
           fi
 
   # Phase 2: Conflict detection
@@ -122,7 +118,7 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.cache/pre-commit
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/requirements*.txt', '.pre-commit-config.yaml') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/requirements*.txt', 'config/.pre-commit-config.yaml') }} # Modified path
           restore-keys: |
             ${{ runner.os }}-deps-
 
@@ -140,7 +136,7 @@ jobs:
       - name: Run pre-commit hooks
         run: |
           echo "🔍 Running pre-commit hooks..."
-          pre-commit run --all-files --show-diff-on-failure
+          pre-commit run --all-files --show-diff-on-failure --config config/.pre-commit-config.yaml # Added --config
 
       - name: Security scan
         run: |
@@ -369,20 +365,7 @@ jobs:
               }
             };
 
-            const body = `## 🔍 CI/CD Pipeline Status Report
-
-            | Phase | Status | Result |
-            |-------|--------|--------|
-            | Validation | ${getStatusIcon(results.validation)} | ${results.validation} |
-            | Conflict Detection | ${getStatusIcon(results.conflicts)} | ${results.conflicts} |
-            | Code Quality | ${getStatusIcon(results.quality)} | ${results.quality} |
-            | Testing | ${getStatusIcon(results.testing)} | ${results.testing} |
-            | Config Validation | ${getStatusIcon(results.config)} | ${results.config} |
-            | Build Check | ${getStatusIcon(results.build)} | ${results.build} |
-
-            ---
-            🤖 **自動生成レポート** - Comprehensive CI/CD Pipeline
-            `;
+            const body = `## 🔍 CI/CD Pipeline Status Report\n\n            | Phase | Status | Result |\n            |-------|--------|--------|\n            | Validation | ${getStatusIcon(results.validation)} | ${results.validation} |\n            | Conflict Detection | ${getStatusIcon(results.conflicts)} | ${results.conflicts} |\n            | Code Quality | ${getStatusIcon(results.quality)} | ${results.quality} |\n            | Testing | ${getStatusIcon(results.testing)} | ${results.testing} |\n            | Config Validation | ${getStatusIcon(results.config)} | ${results.config} |\n            | Build Check | ${getStatusIcon(results.build)} | ${results.build} |\n\n            --- \n            🤖 **自動生成レポート** - Comprehensive CI/CD Pipeline\n            `;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,

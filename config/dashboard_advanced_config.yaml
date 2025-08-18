@@ -6,7 +6,7 @@ server:
   host: "localhost"
   port: 5000
   debug: false
-  secret_key: "advanced_dashboard_secret_key_2024"
+  secret_key: "${ADVANCED_DASHBOARD_SECRET_KEY:-please_set_environment_variable}"
 
 # WebSocket設定
 websocket:
@@ -264,7 +264,7 @@ security:
   # CSRFプロテクション
   csrf:
     enabled: false  # 開発環境では無効
-    secret_key: "csrf_secret_key_2024"
+    secret_key: "${CSRF_SECRET_KEY:-please_set_environment_variable}"
 
 # ログ設定
 logging:

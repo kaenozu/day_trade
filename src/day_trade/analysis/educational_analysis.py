@@ -104,7 +104,8 @@ class EducationalMarketAnalyzer:
     すべて教育・学習目的の情報提供です
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+    """__init__関数"""
         # 実データマネージャー初期化
         self.real_data_manager = RealMarketDataManager()
 
@@ -113,7 +114,7 @@ class EducationalMarketAnalyzer:
             self.advanced_ml_engine = AdvancedMLEngine()
             logger.info("高度MLエンジン初期化完了")
         else:
-            self.advanced_ml_engine = None
+            self.advanced_ml_engine: Optional[Any] = None
             logger.info("高度MLエンジン利用不可 - 基本MLエンジンを使用")
 
         self.company_names = {

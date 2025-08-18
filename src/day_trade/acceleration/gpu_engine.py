@@ -17,7 +17,7 @@ import pandas as pd
 
 # CuPy可用性チェック
 try:
-    import cupy as cp  # type: ignore[import-untyped]
+    import cupy as cp  # type: ignore[import - untyped]
 
     CUPY_AVAILABLE = True
 except ImportError:
@@ -39,14 +39,12 @@ logger = get_context_logger(__name__)
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-
 class GPUBackend(Enum):
     """GPU バックエンド種別"""
 
     CUDA = "cuda"  # NVIDIA CUDA
     OPENCL = "opencl"  # OpenCL (AMD/Intel)
-    CPU_FALLBACK = "cpu"  # CPU フォールバック
-
+    CPU_FALLBACK = "cpu"  # CPUフォールバック
 
 @dataclass
 class GPUDeviceInfo:
@@ -60,7 +58,6 @@ class GPUDeviceInfo:
     compute_capability: Optional[str] = None
     is_available: bool = True
 
-
 @dataclass
 class GPUComputeResult:
     """GPU計算結果"""
@@ -72,14 +69,17 @@ class GPUComputeResult:
     memory_used: float  # MB
     speedup_ratio: Optional[float] = None
 
-
 class GPUMemoryManager:
-    """GPU メモリ管理"""
+    """GPUメモリ管理クラス
 
-    def __init__(self):
-        self.allocated_blocks = {}
-        self.peak_memory_usage = 0
-        self.current_memory_usage = 0
+    GPUメモリの効率的な割り当て、解放、統計情報の管理を行う
+    """
+
+    def __init__(self) -> None:
+        """GPUメモリマネージャーの初期化"""
+        self.allocated_blocks: Dict[str, Dict[str, Any]] = {}
+        self.peak_memory_usage: int = 0
+        self.current_memory_usage: int = 0
 
     def allocate(self, size: int, device_id: int = 0) -> str:
         """GPU メモリ割り当て"""
@@ -120,7 +120,7 @@ class GPUMemoryManager:
             logger.error(f"GPU メモリ割り当てエラー: {e}")
             raise
 
-    def deallocate(self, block_id: str):
+    def deallocate(self, block_id: str) -> None:
         """GPU メモリ解放"""
         if block_id in self.allocated_blocks:
             block_info = self.allocated_blocks[block_id]
@@ -167,11 +167,14 @@ class GPUMemoryManager:
         except (ImportError, Exception):
             return False
 
-
 class GPUAccelerationEngine:
-    """GPU並列処理エンジン"""
+    """GPU並列処理エンジン
 
-    def __init__(self, config: Optional[OptimizationConfig] = None):
+    CUDA/OpenCLを使用してテクニカル指標の計算を高速化するエンジン
+    """
+
+    def __init__(self, config: Optional[OptimizationConfig] = None) -> None:
+        """GPU並列処理エンジンの初期化"""
         self.config = config or OptimizationConfig()
         self.memory_manager = GPUMemoryManager()
 
@@ -209,7 +212,7 @@ class GPUAccelerationEngine:
 
         # OpenCL チェック
         try:
-            import pyopencl as cl  # type: ignore[import-untyped]
+            import pyopencl as cl  # type: ignore[import - untyped]
 
             platforms = cl.get_platforms()
             if platforms:
@@ -242,9 +245,7 @@ class GPUAccelerationEngine:
                                 device_id=i,
                                 name=device_props["name"].decode("utf-8"),
                                 backend=GPUBackend.CUDA,
-                                memory_total=device_props["totalGlobalMem"]
-                                // 1024
-                                // 1024,  # MB
+                                memory_total=device_props["totalGlobalMem"] // 1024 // 1024,  # MB
                                 memory_free=mem_info[0] // 1024 // 1024,  # MB
                                 compute_capability=f"{device_props['major']}.{device_props['minor']}",
                                 is_available=True,
@@ -265,12 +266,8 @@ class GPUAccelerationEngine:
                                 device_id=i,
                                 name=device.name,
                                 backend=GPUBackend.OPENCL,
-                                memory_total=device.global_mem_size
-                                // 1024
-                                // 1024,  # MB
-                                memory_free=device.global_mem_size
-                                // 1024
-                                // 1024,  # MB (近似)
+                                memory_total=device.global_mem_size // 1024 // 1024,  # MB
+                                memory_free=device.global_mem_size // 1024 // 1024,  # MB (近似)
                                 is_available=True,
                             )
                         )
@@ -286,9 +283,7 @@ class GPUAccelerationEngine:
                 name=f"CPU ({psutil.cpu_count()}コア)",
                 backend=GPUBackend.CPU_FALLBACK,
                 memory_total=int(psutil.virtual_memory().total // 1024 // 1024),  # MB
-                memory_free=int(
-                    psutil.virtual_memory().available // 1024 // 1024
-                ),  # MB
+                memory_free=int(psutil.virtual_memory().available // 1024 // 1024),  # MB
                 is_available=True,
             )
         )
@@ -339,11 +334,11 @@ class GPUAccelerationEngine:
                 self.performance_stats["total_cpu_time"] += execution_time
 
             return GPUComputeResult(
-                result=result,
-                execution_time=execution_time,
-                backend_used=self.primary_backend,
-                device_info=device_info,
-                memory_used=memory_used,
+                result = result,
+                execution_time = execution_time,
+                backend_used = self.primary_backend,
+                device_info = device_info,
+                memory_used = memory_used,
             )
 
         except Exception as e:
@@ -607,18 +602,18 @@ class GPUAccelerationEngine:
         device_info = GPUDeviceInfo(
             device_id=-1,
             name="CPU Fallback",
-            backend=GPUBackend.CPU_FALLBACK,
-            memory_total=0,
-            memory_free=0,
-            is_available=True,
+            backend = GPUBackend.CPU_FALLBACK,
+            memory_total = 0,
+            memory_free = 0,
+            is_available = True,
         )
 
         return GPUComputeResult(
-            result=result,
-            execution_time=execution_time,
-            backend_used=GPUBackend.CPU_FALLBACK,
-            device_info=device_info,
-            memory_used=self._estimate_memory_usage(data),
+            result = result,
+            execution_time = execution_time,
+            backend_used = GPUBackend.CPU_FALLBACK,
+            device_info = device_info,
+            memory_used = self._estimate_memory_usage(data),
         )
 
     def _get_device_info(self, device_id: int) -> GPUDeviceInfo:
@@ -632,7 +627,7 @@ class GPUAccelerationEngine:
 
     def _estimate_memory_usage(self, data: pd.DataFrame) -> float:
         """メモリ使用量推定"""
-        return data.memory_usage(deep=True).sum() / 1024 / 1024  # MB
+        return data.memory_usage(deep = True).sum() / 1024 / 1024  # MB
 
     def get_performance_summary(self) -> Dict[str, Any]:
         """パフォーマンス統計取得"""
@@ -686,7 +681,6 @@ class GPUAccelerationEngine:
             },
         }
 
-
 @dataclass
 class GPUAcceleratedResult:
     """GPU加速実行結果"""
@@ -695,13 +689,13 @@ class GPUAcceleratedResult:
     computation_result: GPUComputeResult
     strategy_name: str
 
-
 # Strategy Pattern への統合
 @optimization_strategy("technical_indicators", OptimizationLevel.GPU_ACCELERATED)
 class GPUAcceleratedTechnicalIndicators(OptimizationStrategy):
     """GPU加速テクニカル指標戦略"""
 
-    def __init__(self, config: OptimizationConfig):
+    def __init__(self, config: OptimizationConfig) -> None:
+        """__init__関数"""
         super().__init__(config)
         self.gpu_engine = GPUAccelerationEngine(config)
         logger.info("GPU加速テクニカル指標戦略初期化完了")
@@ -726,9 +720,9 @@ class GPUAcceleratedTechnicalIndicators(OptimizationStrategy):
 
             # 結果をラップして返す
             return GPUAcceleratedResult(
-                indicators=result.result,
-                computation_result=result,
-                strategy_name=self.get_strategy_name(),
+                indicators = result.result,
+                computation_result = result,
+                strategy_name = self.get_strategy_name(),
             )
 
         except Exception as e:
@@ -736,6 +730,5 @@ class GPUAcceleratedTechnicalIndicators(OptimizationStrategy):
             self.record_execution(execution_time, False)
             logger.error(f"GPU加速実行エラー: {e}")
             raise
-
 
 # GPU_ACCELERATED レベルは optimization_strategy.py で定義済み
