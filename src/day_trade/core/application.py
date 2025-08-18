@@ -37,6 +37,7 @@ class DayTradeApplication:
         self.analyzer = None
         self.web_dashboard = None
         self._ml_modules_loaded = False
+        self.config = None
 
     def _lazy_load_ml_modules(self):
         """MLモジュールの遅延読み込み"""
@@ -166,16 +167,98 @@ class DayTradeApplication:
                 traceback.print_exc()
             return 1
 
-    def _display_results(self, results):
+    def _display_results(self, results, verbose=False):
         """結果表示"""
+        if verbose:
+            self._display_results_detailed(results)
+        else:
+            self._display_results_compact(results)
+    
+    def _display_results_compact(self, results):
+        """簡潔な横並び表示"""
+        print("\n" + "="*70)
+        print(f"📈 分析結果 ({len(results)}銘柄)")
+        print("="*70)
+        
+        # 推奨別にグループ化（SKIPは除外）
+        buy_stocks = []
+        sell_stocks = []
+        hold_stocks = []
+        skip_stocks = []
+        
+        for result in results:
+            symbol = result.get('symbol', 'N/A')
+            rec = result.get('recommendation', 'HOLD')
+            conf = result.get('confidence', 0)
+            
+            if rec == 'SKIP':
+                skip_stocks.append(symbol)
+                continue
+                
+            company_name = self._get_company_name(symbol)
+            stock_info = f"{symbol} {company_name}({conf:.0%})"
+            
+            if rec == 'BUY':
+                buy_stocks.append(stock_info)
+            elif rec == 'SELL':
+                sell_stocks.append(stock_info)
+            else:
+                hold_stocks.append(stock_info)
+        
+        # 推奨別に表示
+        if buy_stocks:
+            print(f"\n🚀 BUY推奨 ({len(buy_stocks)}銘柄):")
+            self._print_stocks_in_rows(buy_stocks)
+        
+        if sell_stocks:
+            print(f"\n📉 SELL推奨 ({len(sell_stocks)}銘柄):")
+            self._print_stocks_in_rows(sell_stocks)
+        
+        if hold_stocks:
+            print(f"\n⏸️ HOLD推奨 ({len(hold_stocks)}銘柄):")
+            self._print_stocks_in_rows(hold_stocks)
+            
+        if skip_stocks:
+            print(f"\n⚠️ 分析不可 ({len(skip_stocks)}銘柄):")
+            skip_info = [f"{code} {self._get_company_name(code)}(廃止)" for code in skip_stocks]
+            self._print_stocks_in_rows(skip_info)
+            
+        analyzed_count = len(results) - len(skip_stocks)
+        print("\n" + "="*70)
+        print(f"分析完了: {analyzed_count}銘柄（全{len(results)}銘柄中）")
+        print("詳細表示: --verbose オプションを使用してください")
+        
+    def _print_stocks_in_rows(self, stocks, max_width=85):
+        """銘柄を横に並べて表示"""
+        current_line = "  "
+        
+        for stock in stocks:
+            # 現在の行に追加できるかチェック
+            if len(current_line + stock + " ") > max_width:
+                # 行を出力して新しい行を開始
+                print(current_line)
+                current_line = "  " + stock + " "
+            else:
+                current_line += stock + " "
+        
+        # 最後の行を出力
+        if current_line.strip():
+            print(current_line)
+    
+    def _display_results_detailed(self, results):
+        """詳細な縦並び表示（従来形式）"""
         print("\n" + "="*50)
-        print("📈 分析結果")
+        print("📈 詳細分析結果")
         print("="*50)
 
         for result in results:
             print(f"銘柄: {result.get('symbol', 'N/A')}")
             print(f"推奨: {result.get('recommendation', 'N/A')}")
             print(f"信頼度: {result.get('confidence', 0):.1%}")
+            if 'reason' in result:
+                print(f"理由: {result['reason']}")
+            if 'error' in result:
+                print(f"エラー: {result['error']}")
             print("-" * 30)
 
     # CLI用パブリックメソッド
@@ -290,12 +373,12 @@ class DayTradeApplication:
 
             if stock_data.empty:
                 if self.debug:
-                    print(f"    {symbol}: データ取得失敗")
+                    print(f"    {symbol}: データ取得失敗（上場廃止または銘柄コード変更の可能性）")
                 return {
                     'symbol': symbol,
-                    'recommendation': 'HOLD',
-                    'confidence': 0.30,
-                    'reason': 'データ取得失敗'
+                    'recommendation': 'SKIP',
+                    'confidence': 0.00,
+                    'reason': 'データ取得失敗（上場廃止等）'
                 }
 
             if self.debug:
@@ -463,3 +546,42 @@ class DayTradeApplication:
                 print(f"⚠️ 設定ファイル読み込みエラー: {e}")
             # フォールバック
             return ['7203', '8306', '9984', '6758']
+    
+    def _get_company_name(self, symbol: str) -> str:
+        """設定ファイルから会社名を取得"""
+        try:
+            # 設定ファイルをまだ読み込んでいない場合は読み込み
+            if self.config is None:
+                self._load_config()
+            
+            # 設定ファイルから会社名を検索
+            for symbol_info in self.config.get('watchlist', {}).get('symbols', []):
+                if symbol_info.get('code') == symbol:
+                    return symbol_info.get('name', symbol)
+            
+            # 見つからない場合は銘柄コードをそのまま返す
+            return symbol
+        except Exception as e:
+            if self.debug:
+                print(f"⚠️ 会社名取得エラー ({symbol}): {e}")
+            return symbol
+    
+    def _load_config(self):
+        """設定ファイルを読み込み"""
+        try:
+            import json
+            from pathlib import Path
+            
+            config_path = Path(__file__).parent.parent.parent.parent / "config" / "settings.json"
+            
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    self.config = json.load(f)
+            else:
+                self.config = {'watchlist': {'symbols': []}}
+                if self.debug:
+                    print(f"⚠️ 設定ファイルが見つかりません: {config_path}")
+        except Exception as e:
+            self.config = {'watchlist': {'symbols': []}}
+            if self.debug:
+                print(f"⚠️ 設定ファイル読み込みエラー: {e}")
