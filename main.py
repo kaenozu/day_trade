@@ -92,8 +92,13 @@ def main() -> int:
 
 def _display_banner() -> None:
     """アプリケーションバナーを表示する"""
-    print("🚀 Day Trade Personal - 93%精度AIシステム")
-    print("📊 リファクタリング版 v2.0")
+    try:
+        from version import __version_full__
+        print("🚀 Day Trade Personal - 93%精度AIシステム")
+        print(f"📊 {__version_full__}")
+    except ImportError:
+        print("🚀 Day Trade Personal - 93%精度AIシステム")
+        print("📊 v2.1.0 Extended")
     print("=" * 50)
 
 
