@@ -1,23 +1,27 @@
 """
-取引関連のデータモデル
+取引関連データモデル
 
-売買取引に関する基本的なデータ構造を定義
+trade_manager.py からのリファクタリング抽出
+モデルクラス: Trade, Position, BuyLot, RealizedPnL, TradeStatus
 """
 
-from dataclasses import dataclass, field
+from collections import deque
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Deque, Dict, List, Optional, Union
+
+from ...models.enums import TradeType
 
 
 class TradeStatus(Enum):
     """取引ステータス"""
-    PENDING = "pending"      # 注文待ち
-    FILLED = "filled"        # 約定
+
+    PENDING = "pending"  # 注文中
+    EXECUTED = "executed"  # 約定済み
     CANCELLED = "cancelled"  # キャンセル
-    PARTIAL = "partial"      # 部分約定
-    REJECTED = "rejected"    # 拒否
+    PARTIAL = "partial"  # 一部約定
 
 
 @dataclass
@@ -28,8 +32,9 @@ class Trade:
     実際の売買取引に関する詳細情報を管理する。
     実装上、immutableなデータ構造として設計されている。
     """
+
     symbol: str
-    trade_type: str  # 'buy' or 'sell'
+    trade_type: TradeType
     quantity: int
     price: Decimal
     timestamp: datetime
@@ -61,12 +66,12 @@ class Trade:
     @property
     def is_buy(self) -> bool:
         """買い注文かどうか"""
-        return self.trade_type.lower() == 'buy'
+        return self.trade_type == TradeType.BUY
 
     @property
     def is_sell(self) -> bool:
         """売り注文かどうか"""
-        return self.trade_type.lower() == 'sell'
+        return self.trade_type == TradeType.SELL
 
 
 @dataclass
@@ -77,9 +82,10 @@ class BuyLot:
     FIFO（先入先出）法による売却処理のために、
     買い建て時の詳細情報を保持する。
     """
-    symbol: str
+
     quantity: int
     price: Decimal
+    commission: Decimal
     timestamp: datetime
     remaining_quantity: int
     commission: Decimal = field(default_factory=lambda: Decimal('0'))
@@ -111,6 +117,7 @@ class Position:
     買い建て玉リストと売却履歴を追跡し、
     正確な損益計算を可能にする。
     """
+
     symbol: str
     buy_lots: List[BuyLot] = field(default_factory=list)
     total_quantity: int = 0
@@ -133,11 +140,6 @@ class Position:
         """ポジションが空かどうか"""
         return self.total_quantity == 0
 
-    @property
-    def cost_basis(self) -> Decimal:
-        """取得原価総額"""
-        return sum(lot.price * lot.remaining_quantity for lot in self.buy_lots)
-
 
 @dataclass
 class RealizedPnL:
@@ -151,9 +153,6 @@ class RealizedPnL:
     quantity: int
     buy_price: Decimal
     sell_price: Decimal
-    buy_timestamp: datetime
-    sell_timestamp: datetime
-    pnl_before_commission: Decimal
     buy_commission: Decimal
     sell_commission: Decimal
     net_pnl: Decimal
