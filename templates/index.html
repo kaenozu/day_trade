@@ -63,7 +63,18 @@
         
         <!-- 拡張推奨銘柄セクション - Issue #928対応 -->
         <div class="recommendations-section" style="margin-top: 30px;">
-            <h2 style="color: white; text-align: center; margin-bottom: 20px;">📈 推奨銘柄一覧 (拡張版)</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: white; margin: 0;">📈 推奨銘柄一覧 (自動更新)</h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div id="updateStatus" style="color: #48bb78; font-size: 0.9rem;">
+                        <span id="statusText">自動更新中...</span>
+                        <span id="lastUpdate" style="color: #a0aec0;"></span>
+                    </div>
+                    <button class="btn" onclick="manualRefresh()" style="padding: 8px 15px; font-size: 0.9rem;">
+                        🔄 手動更新
+                    </button>
+                </div>
+            </div>
             <div id="recommendationsContainer" style="display: none;">
                 <div class="recommendations-summary" style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
                     <div id="summaryStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px;"></div>
