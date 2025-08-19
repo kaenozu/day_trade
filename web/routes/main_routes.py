@@ -3,23 +3,24 @@
 """
 Web Routes Module - Issue #959 リファクタリング対応
 メインルート定義モジュール
+Issue #939対応: Gunicorn/Application Factory対応
 """
 
-from flask import Flask, render_template_string, jsonify, request
+from flask import Flask, render_template_string, jsonify, request, g
 from datetime import datetime
 import time
-from typing import Optional
 
-def setup_main_routes(app: Flask, web_server_instance) -> None:
-    """メインルート設定"""
+def setup_main_routes(app: Flask) -> None:
+    """メインルート設定 (Application Factory対応)"""
     
     @app.route('/')
     def index():
         """メインダッシュボード"""
-        start_time = time.time()
+        # gオブジェクトからtemplate_serviceを取得
+        template_content = g.template_service.get_dashboard_template()
         
         response = render_template_string(
-            web_server_instance._get_dashboard_template(), 
+            template_content, 
             title="Day Trade Personal - メインダッシュボード"
         )
         

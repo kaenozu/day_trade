@@ -1,9 +1,8 @@
-feat(performance): Migrate analysis from pandas to polars
+feat(deploy): Add Gunicorn and Procfile for production
 
-Replaces pandas with polars in the core technical analysis logic to improve computational performance.
+- Refactors `daytrade_web.py` to use the application factory pattern, making it compatible with WSGI servers like Gunicorn.
+- Updates route modules to work with the new app factory structure.
+- Adds `gunicorn.conf.py` for production server configuration.
+- Creates a `Procfile` to define the `web` and `worker` processes for deployment.
 
-- Replaces `pandas` with `polars` in `requirements.txt`.
-- Rewrites all indicator calculation functions in `technical_indicators.py` to use polars.
-- The `recommendation_service.py` now converts the incoming pandas DataFrame to a polars DataFrame before analysis.
-
-This addresses the "Acceleration of Computation" part of issue #939.
+This makes the application ready for production deployment and completes the performance improvement tasks for issue #939.
