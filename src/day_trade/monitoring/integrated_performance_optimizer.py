@@ -48,7 +48,7 @@ except ImportError:
     ENSEMBLE_SYSTEM_AVAILABLE = False
 
 try:
-    from hybrid_timeseries_predictor import HybridTimeSeriesPredictor
+    from ..ml.hybrid_lstm_transformer import HybridLSTMTransformer as HybridTimeSeriesPredictor
     HYBRID_PREDICTOR_AVAILABLE = True
 except ImportError:
     HYBRID_PREDICTOR_AVAILABLE = False

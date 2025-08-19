@@ -1,0 +1,737 @@
+base:
+  cache:
+    enabled: true
+    max_size: 1000
+    ttl_seconds: 300
+  database:
+    echo: false
+    pool_pre_ping: true
+    url: sqlite:///data/daytrade.db
+  description: 全自動デイトレード基本設定ファイル
+  development:
+    debug: false
+    mock_data: false
+    test_mode: false
+  logging:
+    file: logs/daytrade.log
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level: INFO
+    structured: true
+  market_hours:
+    after_market: '15:30'
+    lunch_break_end: '12:30'
+    lunch_break_start: '11:30'
+    market_close: '15:00'
+    market_open: 09:00
+    pre_market: 08:00
+  name: DayTrade Auto Settings
+  version: 1.0.0
+cache_data_16ee3c58a89c4effc8953dbe55567222:
+  action: 検討
+  confidence: 77.73409821658063
+  fundamental_score: 100
+  name: ソフトバンクG
+  risk_level: 中
+  score: 100
+  sentiment_score: 84.49448208249802
+  symbol: '9984'
+  technical_score: 95.80968392737054
+cache_data_a8f5f77304c5cbf803856f5dba0ac05c:
+  action: 強い買い
+  confidence: 90.30889278076283
+  fundamental_score: 100
+  name: トヨタ自動車
+  risk_level: 低
+  score: 100
+  sentiment_score: 97.95086404123235
+  symbol: '7203'
+  technical_score: 95.86956521739131
+config:
+  application:
+    environment: development
+    name: Day Trade Personal
+    version: 3.0.0
+  database:
+    backup:
+      enabled: true
+      interval_hours: 24
+    timeout: 30
+    url: sqlite:///data/trading.db
+  logging:
+    file: logs/application.log
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level: INFO
+  performance:
+    cache_enabled: true
+    cache_ttl: 1800
+    max_workers: 4
+  trading:
+    enabled: true
+    market_hours:
+      end: '15:00'
+      start: 09:00
+    risk_management:
+      max_position_size: 10.0
+      stop_loss_percentage: 3.0
+connect_args:
+  check_same_thread: false
+database:
+  properties:
+    echo:
+      type: boolean
+    pool_size:
+      maximum: 100
+      minimum: 1
+      type: integer
+    url:
+      format: uri
+      type: string
+  required:
+  - url
+  type: object
+database_production:
+  database:
+    backup:
+      backup_path: /var/backups/daytrading
+      enabled: true
+      interval_hours: 6
+      retention_days: 30
+    connect_args:
+      application_name: DayTradingSystem
+      connect_timeout: 10
+      sslmode: require
+    echo: false
+    echo_pool: false
+    isolation_level: READ_COMMITTED
+    max_overflow: 30
+    migration:
+      auto_upgrade: false
+      backup_before_migration: true
+      migration_timeout_minutes: 30
+    monitoring:
+      connection_pool_warning_threshold: 0.8
+      deadlock_detection: true
+      enabled: true
+      slow_query_threshold_ms: 1000
+    pool_pre_ping: true
+    pool_recycle: 3600
+    pool_size: 20
+    pool_timeout: 30
+    ssl_ca: /etc/ssl/certs/ca-cert.pem
+    ssl_cert: /etc/ssl/certs/client-cert.pem
+    ssl_key: /etc/ssl/private/client-key.pem
+    ssl_mode: require
+    url: postgresql://daytrading_user:${DB_PASSWORD}@${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:daytrading}
+  environments:
+    development:
+      database:
+        max_overflow: 10
+        pool_size: 5
+        ssl_mode: prefer
+        url: postgresql://daytrading_dev:${DEV_DB_PASSWORD}@localhost:5432/daytrading_dev
+    production:
+      database:
+        max_overflow: 100
+        pool_size: 50
+        url: postgresql://daytrading_prod:${PROD_DB_PASSWORD}@${PROD_DB_HOST}:5432/daytrading_prod
+    staging:
+      database:
+        max_overflow: 20
+        pool_size: 10
+        url: postgresql://daytrading_stage:${STAGE_DB_PASSWORD}@${STAGE_DB_HOST}:5432/daytrading_stage
+    testing:
+      database:
+        max_overflow: 5
+        pool_size: 2
+        ssl_mode: disable
+        url: postgresql://postgres:postgres@localhost:5432/daytrading_test
+  health_check:
+    enabled: true
+    interval_seconds: 30
+    retry_count: 3
+    timeout_seconds: 5
+  logging:
+    connection_events: true
+    database_queries: false
+    error_details: true
+    slow_queries: true
+database_test:
+  backup:
+    auto_start_scheduler: false
+    backup_path: ./test_backups
+    compression: true
+    enabled: true
+    interval_hours: 1
+    retention_days: 7
+  dashboard:
+    auto_generate_reports: true
+    enabled: true
+    refresh_interval_seconds: 5
+    report_interval_hours: 1
+    report_path: ./test_reports
+  database:
+    connect_args: {}
+    echo: false
+    echo_pool: false
+    max_overflow: 10
+    pool_pre_ping: true
+    pool_recycle: 3600
+    pool_size: 5
+    pool_timeout: 30
+    url: sqlite:///./test_unified_system.db
+  health_check:
+    enabled: true
+    interval_seconds: 30
+    retry_count: 3
+    timeout_seconds: 5
+  logging:
+    connection_events: true
+    database_queries: false
+    error_details: true
+    slow_queries: true
+  monitoring:
+    auto_start: false
+    connection_pool_warning_threshold: 0.8
+    deadlock_detection: true
+    enabled: true
+    interval_seconds: 10
+    metrics_retention_hours: 2
+    slow_query_threshold_ms: 100
+  restore:
+    auto_backup_before_restore: true
+    rollback_enabled: true
+    temp_database_prefix: test_restore_temp_
+    verification_enabled: true
+echo: true
+pool_size: 10
+settings:
+  alerts:
+    enabled: true
+    notification_methods:
+    - console
+    - file_log
+    price_alerts:
+      enabled: true
+      threshold_percent: 2.0
+    technical_alerts:
+      enabled: true
+      rsi_overbought: 70
+      rsi_oversold: 30
+    volume_alerts:
+      enabled: true
+      volume_spike_ratio: 2.0
+  analysis:
+    confidence:
+      default_confidence: 0.85
+      high_confidence: 0.9
+      minimum_confidence: 0.6
+    data_periods:
+      default_period: 1y
+      long_term: 2y
+      short_term: 3mo
+    technical_indicators:
+      bollinger_bands:
+        period: 20
+        std_dev: 2
+      ema:
+        long_period: 26
+        short_period: 12
+      macd:
+        fast_period: 12
+        signal_period: 9
+        slow_period: 26
+      rsi:
+        overbought_threshold: 70
+        oversold_threshold: 30
+        period: 14
+      sma:
+        long_period: 50
+        short_period: 20
+  backtest:
+    enabled: false
+    initial_capital: 1000000
+    max_positions: 5
+    period_days: 30
+    position_size_percent: 10
+    stop_loss_percent: -5.0
+    take_profit_percent: 10.0
+  database:
+    backup_enabled: true
+    backup_interval_hours: 24
+    url: sqlite:///data/trading.db
+  daytrading:
+    enabled: true
+    price_change_alert: 2.5
+    risk_management:
+      max_daily_trades: 20
+      max_position_per_stock: 10.0
+      profit_taking_percentage: 5.0
+      stop_loss_percentage: 3.0
+    sectors:
+      BioTech:
+        description: バイオ・医薬品開発株
+        priority: high
+      DayTrading:
+        description: 高ボラティリティ・新興テック株
+        priority: high
+      FutureTech:
+        description: 先端技術・未来産業株
+        priority: medium
+      Gaming:
+        description: ゲーム・エンタメ関連株
+        priority: medium
+    volatility_threshold: 3.0
+    volume_threshold_multiplier: 2.0
+  description: 全自動デイトレード設定ファイル
+  execution:
+    error_tolerance: continue
+    log_level: INFO
+    max_concurrent_requests: 5
+    retry_attempts: 3
+    timeout_seconds: 30
+  name: DayTrade Auto Settings
+  reports:
+    daily_report:
+      enabled: true
+      include_charts: true
+      include_portfolio: true
+      include_signals: true
+    enabled: true
+    formats:
+    - json
+    - csv
+    - html
+    output_directory: reports
+    weekly_summary:
+      enabled: true
+      generate_on_friday: true
+  version: 1.0.0
+  watchlist:
+    market_hours:
+      end: '15:00'
+      lunch_end: '12:30'
+      lunch_start: '11:30'
+      start: 09:00
+    symbols:
+    - code: '7203'
+      group: 自動車
+      name: トヨタ自動車
+      priority: high
+      sector: Transportation
+    - code: '8306'
+      group: 金融
+      name: 三菱UFJ銀行
+      priority: high
+      sector: Financial
+    - code: '9984'
+      group: テクノロジー
+      name: ソフトバンクグループ
+      priority: high
+      sector: Technology
+    - code: '6758'
+      group: テクノロジー
+      name: ソニー
+      priority: high
+      sector: Technology
+    - code: '4689'
+      group: テクノロジー
+      name: Z Holdings
+      priority: medium
+      sector: Technology
+    - code: '9434'
+      group: 通信
+      name: ソフトバンク
+      priority: high
+      sector: Telecom
+    - code: '8001'
+      group: 商社
+      name: 伊藤忠商事
+      priority: high
+      sector: Trading
+    - code: '7267'
+      group: 自動車
+      name: ホンダ
+      priority: high
+      sector: Transportation
+    - code: '6861'
+      group: 精密機器
+      name: キーエンス
+      priority: high
+      sector: Industrial
+    - code: '2914'
+      group: 食品・たばこ
+      name: JT
+      priority: medium
+      sector: Consumer
+    - code: '4755'
+      group: テクノロジー
+      name: 楽天グループ
+      priority: high
+      sector: Technology
+    - code: '3659'
+      group: ゲーム
+      name: ネクソン
+      priority: medium
+      sector: Technology
+    - code: '9613'
+      group: IT・システム
+      name: エヌ・ティ・ティ・データ
+      priority: high
+      sector: Technology
+    - code: '2432'
+      group: ゲーム
+      name: DeNA
+      priority: medium
+      sector: Technology
+    - code: '4385'
+      group: マーケットプレイス
+      name: メルカリ
+      priority: medium
+      sector: Technology
+    - code: '9437'
+      group: 通信
+      name: NTTドコモ
+      priority: high
+      sector: Telecom
+    - code: '4704'
+      group: セキュリティ
+      name: トレンドマイクロ
+      priority: medium
+      sector: Technology
+    - code: '4751'
+      group: インターネット
+      name: サイバーエージェント
+      priority: medium
+      sector: Technology
+    - code: '8058'
+      group: 商社
+      name: 三菱商事
+      priority: high
+      sector: Trading
+    - code: '8411'
+      group: 金融
+      name: みずほフィナンシャルグループ
+      priority: high
+      sector: Financial
+    - code: '8766'
+      group: 保険
+      name: 東京海上
+      priority: high
+      sector: Financial
+    - code: '8316'
+      group: 金融
+      name: 三井住友フィナンシャルグループ
+      priority: high
+      sector: Financial
+    - code: '8031'
+      group: 商社
+      name: 三井物産
+      priority: high
+      sector: Trading
+    - code: '8053'
+      group: 商社
+      name: 住友商事
+      priority: high
+      sector: Trading
+    - code: '7751'
+      group: 精密機器
+      name: キヤノン
+      priority: high
+      sector: Industrial
+    - code: '6981'
+      group: 電子部品
+      name: 村田製作所
+      priority: high
+      sector: Industrial
+    - code: '5401'
+      group: 鉄鋼
+      name: 新日鉄住金
+      priority: medium
+      sector: Materials
+    - code: '7011'
+      group: 重工業
+      name: 三菱重工業
+      priority: high
+      sector: Industrial
+    - code: '6503'
+      group: 電機
+      name: 三菱電機
+      priority: high
+      sector: Industrial
+    - code: '6954'
+      group: 工作機械
+      name: ファナック
+      priority: high
+      sector: Industrial
+    - code: '7974'
+      group: ゲーム
+      name: 任天堂
+      priority: high
+      sector: Consumer
+    - code: '6367'
+      group: 空調
+      name: ダイキン工業
+      priority: medium
+      sector: Industrial
+    - code: '4502'
+      group: 製薬
+      name: 武田薬品工業
+      priority: high
+      sector: Healthcare
+    - code: '3382'
+      group: 小売
+      name: セブン&アイ・ホールディングス
+      priority: medium
+      sector: Consumer
+    - code: '2801'
+      group: 食品
+      name: キッコーマン
+      priority: low
+      sector: Consumer
+    - code: '2502'
+      group: 飲料
+      name: アサヒグループホールディングス
+      priority: medium
+      sector: Consumer
+    - code: '4523'
+      group: 製薬
+      name: エーザイ
+      priority: high
+      sector: Healthcare
+    - code: '9983'
+      group: アパレル
+      name: ファーストリテイリング
+      priority: high
+      sector: Consumer
+    - code: '9101'
+      group: 海運
+      name: 日本郵船
+      priority: medium
+      sector: Transportation
+    - code: '9201'
+      group: 航空
+      name: 日本航空
+      priority: medium
+      sector: Transportation
+    - code: '9202'
+      group: 航空
+      name: ANA
+      priority: medium
+      sector: Transportation
+    - code: '5020'
+      group: エネルギー
+      name: ENEOS
+      priority: medium
+      sector: Energy
+    - code: '9501'
+      group: 電力
+      name: 東京電力
+      priority: low
+      sector: Utilities
+    - code: '9502'
+      group: 電力
+      name: 中部電力
+      priority: low
+      sector: Utilities
+    - code: '8802'
+      group: 不動産
+      name: 三菱地所
+      priority: medium
+      sector: RealEstate
+    - code: '1801'
+      group: 建設
+      name: 大成建設
+      priority: medium
+      sector: Construction
+    - code: '1803'
+      group: 建設
+      name: 清水建設
+      priority: medium
+      sector: Construction
+    - code: '8604'
+      group: 証券
+      name: 野村ホールディングス
+      priority: medium
+      sector: Financial
+    - code: '7182'
+      group: 金融
+      name: ゆうちょ銀行
+      priority: medium
+      sector: Financial
+    - code: '4005'
+      group: 化学
+      name: 住友化学
+      priority: medium
+      sector: Materials
+    - code: '4061'
+      group: 化学
+      name: デンカ
+      priority: low
+      sector: Materials
+    - code: '8795'
+      group: 保険
+      name: T&Dホールディングス
+      priority: medium
+      sector: Financial
+    - code: '9432'
+      group: 通信
+      name: NTT
+      priority: high
+      sector: Telecom
+    - code: '4777'
+      group: ゲーム
+      name: ガーラ
+      priority: low
+      sector: Technology
+    - code: '3776'
+      group: インフラ
+      name: ブロードバンドタワー
+      priority: low
+      sector: Technology
+    - code: '4478'
+      group: マッチングアプリ
+      name: リンクバル
+      priority: high
+      sector: DayTrading
+    - code: '4485'
+      group: インフラシェアリング
+      name: JTOWER
+      priority: high
+      sector: DayTrading
+    - code: '4490'
+      group: ナレッジプラットフォーム
+      name: ビザスク
+      priority: medium
+      sector: DayTrading
+    - code: '3900'
+      group: クラウドソーシング
+      name: クラウドワークス
+      priority: high
+      sector: DayTrading
+    - code: '3774'
+      group: インターネット
+      name: インターネットイニシアティブ
+      priority: medium
+      sector: DayTrading
+    - code: '4382'
+      group: AI・将棋
+      name: HEROZ
+      priority: high
+      sector: DayTrading
+    - code: '4386'
+      group: システムインテグレーション
+      name: SIG
+      priority: medium
+      sector: DayTrading
+    - code: '4475'
+      group: クラウドセキュリティ
+      name: HENNGE
+      priority: high
+      sector: DayTrading
+    - code: '4421'
+      group: デジタル認証
+      name: DigiCert
+      priority: medium
+      sector: DayTrading
+    - code: '3655'
+      group: データ分析
+      name: ブレインパッド
+      priority: high
+      sector: DayTrading
+    - code: '3844'
+      group: システム開発
+      name: コムチュア
+      priority: medium
+      sector: DayTrading
+    - code: '4833'
+      group: グルメ情報
+      name: ぐるなび
+      priority: low
+      sector: DayTrading
+    - code: '4563'
+      group: 遺伝子治療薬
+      name: アンジェス
+      priority: high
+      sector: BioTech
+    - code: '4592'
+      group: 再生細胞薬
+      name: サンバイオ
+      priority: high
+      sector: BioTech
+    - code: '4564'
+      group: がん治療薬
+      name: オンコセラピー
+      priority: high
+      sector: BioTech
+    - code: '4588'
+      group: がん治療
+      name: オンコリスバイオファーマ
+      priority: medium
+      sector: BioTech
+    - code: '4596'
+      group: 眼科治療薬
+      name: 窪田製薬
+      priority: medium
+      sector: BioTech
+    - code: '4591'
+      group: アプタマー創薬
+      name: リボミック
+      priority: medium
+      sector: BioTech
+    - code: '4565'
+      group: GPCR創薬
+      name: そーせいグループ
+      priority: high
+      sector: BioTech
+    - code: '7707'
+      group: バイオテック機器
+      name: プレシジョン・システム・サイエンス
+      priority: medium
+      sector: BioTech
+    - code: '3692'
+      group: サイバーセキュリティ
+      name: FFRI
+      priority: high
+      sector: Gaming
+    - code: '3656'
+      group: モバイルゲーム
+      name: KLab
+      priority: medium
+      sector: Gaming
+    - code: '3760'
+      group: ゲーム開発
+      name: ケイブ
+      priority: low
+      sector: Gaming
+    - code: '9449'
+      group: インターネット
+      name: GMOインターネット
+      priority: high
+      sector: Gaming
+    - code: '7779'
+      group: ロボットスーツ
+      name: CYBERDYNE
+      priority: high
+      sector: FutureTech
+    - code: '6178'
+      group: 物流・フィンテック
+      name: 日本郵政
+      priority: medium
+      sector: FutureTech
+    - code: '4847'
+      group: AI・セキュリティ
+      name: インテリジェント ウェイブ
+      priority: medium
+      sector: FutureTech
+    - code: '4598'
+      group: 創薬
+      name: Delta-Fly Pharma
+      priority: medium
+      sector: FutureTech
+    - code: '4880'
+      group: 再生医療
+      name: セルソース
+      priority: high
+      sector: FutureTech
+    update_interval_minutes: 0.5
+url: sqlite:///data/trading.db

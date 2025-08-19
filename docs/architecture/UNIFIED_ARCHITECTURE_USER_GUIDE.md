@@ -86,17 +86,17 @@ import asyncio
 async def main():
     # アプリケーション作成
     app = UnifiedApplication("day_trade_system")
-
+    
     # 設定
     config = {
         "database": {"url": "sqlite:///day_trade.db"},
         "trading": {"max_positions": 5},
         "logging": {"level": "INFO"}
     }
-
+    
     # アプリケーション開始
     await app.start(config)
-
+    
     # ヘルスチェック
     health = await app.health_check()
     print(f"システム状態: {health['status']}")
@@ -150,15 +150,15 @@ manager = global_consolidation_executor.unified_manager
 class MyResource:
     def __init__(self):
         self.status = "stopped"
-
+    
     def start(self):
         self.status = "running"
         return True
-
+    
     def stop(self):
         self.status = "stopped"
         return True
-
+    
     def get_status(self):
         return self.status
 
@@ -267,21 +267,21 @@ def validate_trade_request(symbol, quantity, price):
             field="symbol",
             value=symbol
         )
-
+    
     if quantity <= 0:
         raise ValidationError(
             "取引量は正の数である必要があります",
             field="quantity",
             value=quantity
         )
-
+    
     # ビジネスロジックエラー
     if quantity > 10000:
         raise BusinessLogicError(
             "一度に10,000株を超える取引はできません",
             rule_name="max_trade_quantity"
         )
-
+    
     # インフラストラクチャエラー例
     if price <= 0:
         raise InfrastructureError(
@@ -370,7 +370,7 @@ with global_config_manager.temp_config({
     max_pos = global_config_manager.get("trading.max_positions")
     risk = global_config_manager.get("trading.risk_tolerance")
     print(f"一時設定: max_positions={max_pos}, risk_tolerance={risk}")
-
+    
 # 範囲外では元の設定に戻る
 print("復元後の設定:", global_config_manager.get("trading.max_positions"))
 ```
@@ -674,16 +674,16 @@ from day_trade.core.consolidation.unified_consolidator import BaseConsolidatedCo
 class MyCustomAnalyzer(BaseConsolidatedComponent):
     def __init__(self):
         super().__init__("my_analyzer", ComponentCategory.ANALYZER)
-
+    
     def get_capabilities(self):
         return ["custom_analysis", "special_calculation"]
-
+    
     def execute(self, operation, **kwargs):
         if operation == "custom_analysis":
             return self._custom_analysis(**kwargs)
         else:
             raise ValueError(f"未対応の操作: {operation}")
-
+    
     def _custom_analysis(self, data):
         # カスタム分析ロジック
         return {"result": "custom_analysis_complete"}

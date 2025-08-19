@@ -1,0 +1,16 @@
+# GitGuardian設定 - 個人版では誤検知を除外
+ignore:
+  - "**/*.md"      # ドキュメントファイルの例示用テキスト
+  - "**/*.yml"     # CI設定ファイルのテンプレート
+  - "**/*.yaml"    # 設定ファイルのテンプレート
+  - "**/example*"  # 例示ファイル
+  - "**/sample*"   # サンプルファイル
+  - "**/test*"     # テストファイル
+  - "**/demo*"     # デモファイル
+
+# 個人利用では実際のシークレットは含まれない
+paths-ignore:
+  - docs/
+  - examples/
+  - tests/
+  - .github/workflows/

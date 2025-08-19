@@ -72,6 +72,7 @@ class WebDashboard:
         # コアコンポーネント初期化
         self.dashboard_core = ProductionDashboard()
         self.visualization_engine = DashboardVisualizationEngine()
+        self.analysis_app = None  # 遅延初期化
 
         # 更新スレッド制御
         self.update_thread = None
@@ -199,6 +200,11 @@ class WebDashboard:
         def index():
             """メインダッシュボードページ"""
             return render_template("dashboard.html")
+
+        @self.app.route("/analysis")
+        def analysis():
+            """分析ダッシュボードページ"""
+            return render_template("analysis.html")
 
         @self.app.route("/api/status")
         def get_status():
@@ -420,6 +426,156 @@ class WebDashboard:
                     500,
                 )
 
+        @self.app.route("/api/symbols")
+        def get_symbols():
+            """銘柄マスタ取得API"""
+            try:
+                # 遅延インポート
+                from ..data.tokyo_stock_symbols import tse
+                
+                # 設定ファイルから銘柄情報を取得
+                symbols = []
+                tier_symbols = {
+                    1: tse.get_tier1_symbols(),
+                    2: tse.get_extended_symbols(), 
+                    3: tse.get_comprehensive_symbols(),
+                    4: tse.get_all_tse_symbols()
+                }
+                
+                # 基本銘柄リスト（Tier1）
+                for symbol in tse.get_tier1_symbols():
+                    company_info = tse.get_company_info(symbol)
+                    symbols.append({
+                        'code': symbol,
+                        'name': company_info['name'] if company_info else symbol
+                    })
+                
+                return jsonify({
+                    "success": True,
+                    "symbols": symbols,
+                    "tier_symbols": tier_symbols,
+                    "timestamp": datetime.now().isoformat()
+                })
+            except Exception as e:
+                error_message = self._sanitize_error_message(e)
+                return jsonify({
+                    "success": False,
+                    "error": error_message,
+                    "timestamp": datetime.now().isoformat()
+                }), 500
+
+        @self.app.route("/api/tier-symbols/<int:tier>")
+        def get_tier_symbols(tier):
+            """ティア別銘柄取得API"""
+            try:
+                # 遅延インポート
+                from ..data.tokyo_stock_symbols import tse
+                
+                if tier == 1:
+                    symbols = tse.get_tier1_symbols()
+                elif tier == 2:
+                    symbols = tse.get_extended_symbols()
+                elif tier == 3:
+                    symbols = tse.get_comprehensive_symbols()
+                elif tier == 4:
+                    symbols = tse.get_all_tse_symbols()
+                else:
+                    return jsonify({
+                        "success": False,
+                        "error": "無効なティア番号です（1-4）",
+                        "timestamp": datetime.now().isoformat()
+                    }), 400
+                
+                return jsonify({
+                    "success": True,
+                    "symbols": symbols,
+                    "tier": tier,
+                    "count": len(symbols),
+                    "timestamp": datetime.now().isoformat()
+                })
+            except Exception as e:
+                error_message = self._sanitize_error_message(e)
+                return jsonify({
+                    "success": False,
+                    "error": error_message,
+                    "timestamp": datetime.now().isoformat()
+                }), 500
+
+        @self.app.route("/api/analysis", methods=['POST'])
+        def run_analysis():
+            """分析実行API"""
+            try:
+                data = request.get_json()
+                symbols = data.get('symbols', [])
+                mode = data.get('mode', 'web')
+                
+                if not symbols:
+                    return jsonify({
+                        "success": False,
+                        "error": "分析する銘柄を指定してください",
+                        "timestamp": datetime.now().isoformat()
+                    }), 400
+                
+                # バックグラウンドで分析実行
+                def run_background_analysis():
+                    try:
+                        # 分析アプリを遅延初期化
+                        if self.analysis_app is None:
+                            from ..core.application import StockAnalysisApplication
+                            self.analysis_app = StockAnalysisApplication(debug=self.debug)
+                        
+                        # 進捗通知
+                        self.socketio.emit('analysis_progress', {
+                            'current': 0,
+                            'total': len(symbols),
+                            'currentSymbol': ''
+                        })
+                        
+                        results = []
+                        for i, symbol in enumerate(symbols):
+                            # 進捗更新
+                            self.socketio.emit('analysis_progress', {
+                                'current': i,
+                                'total': len(symbols),
+                                'currentSymbol': symbol
+                            })
+                            
+                            # 個別銘柄分析
+                            result = self.analysis_app._analyze_symbol_with_ai(symbol)
+                            results.append(result)
+                        
+                        # 分析完了通知
+                        self.socketio.emit('analysis_complete', {
+                            'results': results,
+                            'timestamp': datetime.now().isoformat()
+                        })
+                        
+                    except Exception as e:
+                        logger.error(f"バックグラウンド分析エラー: {e}")
+                        self.socketio.emit('analysis_error', {
+                            'message': str(e),
+                            'timestamp': datetime.now().isoformat()
+                        })
+                
+                # バックグラウンドスレッド開始
+                analysis_thread = threading.Thread(target=run_background_analysis, daemon=True)
+                analysis_thread.start()
+                
+                return jsonify({
+                    "success": True,
+                    "message": f"{len(symbols)}銘柄の分析を開始しました",
+                    "symbol_count": len(symbols),
+                    "timestamp": datetime.now().isoformat()
+                })
+                
+            except Exception as e:
+                error_message = self._sanitize_error_message(e)
+                return jsonify({
+                    "success": False,
+                    "error": error_message,
+                    "timestamp": datetime.now().isoformat()
+                }), 500
+
     def _setup_websocket_events(self):
         """WebSocketイベント設定"""
 
@@ -469,6 +625,9 @@ class WebDashboard:
                 プロダクション運用監視ダッシュボード
             </a>
             <div class="d-flex align-items-center">
+                <a href="/analysis" class="btn btn-outline-light me-2">
+                    <i class="fas fa-chart-line"></i> 分析ダッシュボード
+                </a>
                 <span id="connection-status" class="badge bg-success me-3">
                     <i class="fas fa-circle"></i> 接続中
                 </span>

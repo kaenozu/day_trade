@@ -22,7 +22,7 @@ import yaml
 import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
-from model_performance_monitor import (
+from src.day_trade.monitoring.model_performance_monitor import (
     ModelPerformanceMonitor,
     PerformanceMetrics,
     PerformanceAlert,

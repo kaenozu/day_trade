@@ -28,7 +28,7 @@ import os
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 try:
-    from model_performance_monitor import (
+    from src.day_trade.monitoring.model_performance_monitor import (
         EnhancedModelPerformanceMonitor,
         EnhancedPerformanceConfigManager,
         DynamicSymbolManager,
