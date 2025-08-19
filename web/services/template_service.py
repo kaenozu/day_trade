@@ -28,30 +28,12 @@ class TemplateService:
         </div>
         
         <div class="dashboard">
-            <div class="card">
-                <h3>📊 システム状態</h3>
-                <div class="status">
-                    <div class="status-dot"></div>
-                    <span>正常運行中</span>
-                </div>
-                <div class="stats">
-                    <div class="stat-item">
-                        <div class="stat-number">93%</div>
-                        <div class="stat-label">AI精度</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number">A+</div>
-                        <div class="stat-label">品質評価</div>
-                    </div>
-                </div>
-            </div>
             
             <div class="card">
-                <h3>🎯 分析機能</h3>
-                <p>主要銘柄の即座分析が可能です</p>
-                <button class="btn" onclick="runAnalysis()">単一分析実行</button>
-                <button class="btn" onclick="loadRecommendations()" style="margin-left: 10px;">推奨銘柄表示</button>
-                <div id="analysisResult" style="margin-top: 15px; padding: 10px; background: #f7fafc; border-radius: 6px; display: none;"></div>
+                <h3>🎯 売買判断システム</h3>
+                <p>リアルタイム株価分析による具体的な売買提案</p>
+                <button class="btn" onclick="loadRecommendations()">売買推奨を取得</button>
+                <div id="recommendationsResult" style="margin-top: 15px;"></div>
             </div>
         </div>
         
