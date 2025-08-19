@@ -1,0 +1,238 @@
+# Prediction Accuracy Enhancement Configuration
+# Issue #885対応：予測精度向上のための包括的アプローチ設定
+
+# データ品質設定
+min_data_quality_threshold: 0.7
+data_quality_check_enabled: true
+
+# 特徴量エンジニアリング設定
+max_features: 100
+feature_selection_enabled: true
+correlation_threshold: 0.95
+
+# 特徴量選択設定
+feature_selection:
+  statistical_methods:
+    - f_classif
+    - f_regression
+    - mutual_info_classif
+    - mutual_info_regression
+
+  ml_based_methods:
+    - random_forest_importance
+    - permutation_importance
+    - recursive_feature_elimination
+
+  stability_threshold: 0.5
+  min_features: 10
+  max_features: 100
+
+# モデル設定
+ensemble_enabled: true
+max_ensemble_models: 5
+
+# サポートするモデルタイプ
+supported_models:
+  - random_forest
+  - xgboost
+  - lightgbm
+  - gradient_boosting
+  - extra_trees
+
+# アンサンブル設定
+ensemble_methods:
+  - voting_classifier
+  - voting_regressor
+  - stacking
+  - bagging
+
+# 検証設定
+validation_strategy: "time_series_cv"
+cv_folds: 5
+
+# 検証戦略詳細
+validation_strategies:
+  time_series_cv:
+    n_splits: 5
+    test_size: 0.2
+    gap: 0  # データ間のギャップ
+
+  walk_forward:
+    window_size: 252  # 1年分の営業日
+    step_size: 21     # 1ヶ月ステップ
+    min_train_size: 126  # 最低半年分
+
+  purged_cv:
+    n_splits: 5
+    purge_length: 5   # パージ期間
+    embargo_length: 2 # エンバーゴ期間
+
+# 過学習防止設定
+early_stopping_enabled: true
+regularization_enabled: true
+
+# 過学習防止手法
+overfitting_prevention:
+  early_stopping:
+    patience: 10
+    min_delta: 0.001
+    restore_best_weights: true
+
+  regularization:
+    l1_ratio: 0.5
+    alpha: 1.0
+
+  dropout:
+    rate: 0.2
+
+  data_augmentation:
+    noise_level: 0.01
+    augmentation_factor: 1.5
+
+# ドリフト検知設定
+drift_detection_enabled: true
+drift_detection_window: 100
+drift_threshold: 0.05
+
+# ドリフト検知手法
+drift_detection_methods:
+  statistical:
+    - ks_test          # Kolmogorov-Smirnov検定
+    - chi2_test        # カイ二乗検定
+    - mann_whitney     # Mann-Whitney U検定
+
+  model_based:
+    - drift_score
+    - performance_degradation
+    - feature_importance_change
+
+  distribution_based:
+    - psi             # Population Stability Index
+    - jensen_shannon  # Jensen-Shannon距離
+    - wasserstein     # Wasserstein距離
+
+# データ品質評価設定
+data_quality_metrics:
+  completeness:
+    weight: 0.25
+    thresholds:
+      excellent: 0.95
+      good: 0.85
+      fair: 0.70
+      poor: 0.50
+
+  consistency:
+    weight: 0.20
+    outlier_threshold: 3.0  # IQR倍数
+    max_outlier_ratio: 0.10
+
+  accuracy:
+    weight: 0.25
+    price_range_check: true
+    volume_range_check: true
+    logical_consistency_check: true
+
+  timeliness:
+    weight: 0.15
+    max_delay_hours:
+      excellent: 1
+      good: 24
+      fair: 168  # 1週間
+      poor: 720  # 1ヶ月
+
+  relevance:
+    weight: 0.15
+    min_correlation: 0.1
+    feature_target_correlation_threshold: 0.05
+
+# パフォーマンス最適化設定
+performance_optimization:
+  parallel_processing: true
+  max_workers: 4
+  memory_optimization: true
+
+  computation_limits:
+    max_training_time_minutes: 60
+    max_memory_gb: 8
+    early_termination_enabled: true
+
+  caching:
+    enable_model_cache: true
+    enable_feature_cache: true
+    cache_ttl_hours: 24
+
+# ログ設定
+logging:
+  level: "INFO"
+  detailed_metrics: true
+  save_intermediate_results: true
+  performance_profiling: true
+
+# 結果保存設定
+results_storage:
+  save_models: true
+  save_features: true
+  save_metrics: true
+  save_predictions: true
+
+  storage_paths:
+    models: "ml_models_data/enhanced_models"
+    features: "ml_models_data/enhanced_features"
+    metrics: "ml_models_data/enhancement_metrics"
+    predictions: "ml_models_data/enhanced_predictions"
+
+# アラート設定
+alerts:
+  quality_degradation_threshold: 0.1
+  performance_degradation_threshold: 0.05
+  drift_alert_enabled: true
+
+  notification_methods:
+    - logging
+    - database
+    # - email  # 将来実装
+    # - slack  # 将来実装
+
+# 統合設定
+integrations:
+  hyperparameter_optimizer:
+    enabled: true
+    config_path: "config/optimization_config.yaml"
+
+  feature_engineering:
+    enabled: true
+    use_enhanced_features: true
+
+  data_provider:
+    enabled: true
+    multi_source: true
+
+  model_performance_monitor:
+    enabled: true
+    monitor_enhanced_models: true
+
+# 実験設定
+experimental_features:
+  advanced_ensemble_methods: false
+  neural_network_integration: false
+  automated_feature_generation: false
+  quantum_ml_experiments: false
+
+# ドメイン知識活用設定
+domain_knowledge:
+  financial_indicators:
+    technical_analysis_priority: 0.3
+    fundamental_analysis_priority: 0.2
+    market_microstructure_priority: 0.1
+    sentiment_analysis_priority: 0.1
+
+  market_regimes:
+    bull_market_adjustments: true
+    bear_market_adjustments: true
+    volatile_market_adjustments: true
+    stable_market_adjustments: true
+
+  sector_specific:
+    enable_sector_models: true
+    sector_rotation_awareness: true
+    industry_specific_features: true
