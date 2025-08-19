@@ -86,14 +86,26 @@ class RecommendationService:
         ]
     
     def get_recommendations(self) -> List[Dict[str, Any]]:
-        """推奨銘柄の取得"""
+        """推奨銘柄の取得 - BUY推奨を一番上に表示"""
         recommendations = []
         
         for symbol_data in self.symbols_data:
             # シミュレーション分析（実際のAI分析の代替）
             analysis_result = self._simulate_analysis(symbol_data)
             recommendations.append(analysis_result)
-            
+        
+        # BUY推奨銘柄を一番上に表示するようにソート
+        def sort_by_recommendation(rec):
+            # BUY系推奨を最優先、その後confidence順
+            if rec['recommendation'] in ['BUY', 'STRONG_BUY']:
+                return (0, -rec['confidence'])  # BUY系は0で最優先、confidenceで降順
+            elif rec['recommendation'] == 'HOLD':
+                return (1, -rec['confidence'])  # HOLDは2番目
+            else:  # SELL, STRONG_SELL
+                return (2, -rec['confidence'])  # SELLは最後
+        
+        recommendations.sort(key=sort_by_recommendation)
+        
         return recommendations
     
     def _simulate_analysis(self, symbol_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -106,10 +118,18 @@ class RecommendationService:
         except Exception as e:
             print(f"リアル分析エラー ({symbol_data['code']}): {e}")
         
-        # フォールバック: シミュレーション
-        recommendations = ['BUY', 'SELL', 'HOLD']
-        recommendation = random.choice(recommendations)
-        confidence = round(random.uniform(0.6, 0.95), 2)
+        # フォールバック: シミュレーション（BUY推奨を優先）
+        # BUY推奨を多く出すように確率を調整
+        recommendation_weights = ['BUY'] * 50 + ['HOLD'] * 30 + ['SELL'] * 20  # BUY 50%, HOLD 30%, SELL 20%
+        recommendation = random.choice(recommendation_weights)
+        
+        # BUYの場合は高い信頼度を付与
+        if recommendation == 'BUY':
+            confidence = round(random.uniform(0.75, 0.95), 2)  # BUYは高い信頼度
+        elif recommendation == 'HOLD':
+            confidence = round(random.uniform(0.65, 0.85), 2)  # HOLDは中程度
+        else:  # SELL
+            confidence = round(random.uniform(0.6, 0.8), 2)   # SELLは低めの信頼度
         price = 1000 + abs(hash(symbol_data['code'])) % 2000
         change = round(random.uniform(-5.0, 5.0), 2)
         

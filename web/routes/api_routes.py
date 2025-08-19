@@ -80,11 +80,11 @@ def setup_api_routes(app: Flask, web_server_instance) -> None:
             # 35銘柄の推奨システム
             recommendations = web_server_instance._get_recommendations()
             
-            # 統計計算
+            # 統計計算（BUY系を含む）
             total_count = len(recommendations)
             high_confidence_count = len([r for r in recommendations if r.get('confidence', 0) > 0.8])
-            buy_count = len([r for r in recommendations if r.get('recommendation') == 'BUY'])
-            sell_count = len([r for r in recommendations if r.get('recommendation') == 'SELL'])
+            buy_count = len([r for r in recommendations if r.get('recommendation') in ['BUY', 'STRONG_BUY']])
+            sell_count = len([r for r in recommendations if r.get('recommendation') in ['SELL', 'STRONG_SELL']])
             hold_count = len([r for r in recommendations if r.get('recommendation') == 'HOLD'])
             
             return jsonify({
