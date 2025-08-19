@@ -3,7 +3,7 @@
 """
 Recommendation Service - Issue #959 リファクタリング対応
 株式推奨サービスモジュール
-Issue #939対応: Redisによるキャッシュ機能追加
+Issue #939対応: Redisキャッシュ & Polarsによる高速化
 """
 
 import random
@@ -11,24 +11,25 @@ import time
 import sys
 import os
 import json
+import polars as pl
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
-import pandas as pd
 
 # プロジェクトルートをパスに追加
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
 try:
     from src.day_trade.data.providers.real_data_provider import ImprovedMultiSourceDataProvider
-    from src.day_trade.analysis.technical_indicators import create_trading_recommendation
+    # Polars版の分析関数をインポート
+    from src.day_trade.analysis.technical_indicators import create_trading_recommendation_pl
     REAL_DATA_AVAILABLE = True
 except ImportError as e:
     print(f"リアルデータモジュール読み込みエラー: {e}")
     REAL_DATA_AVAILABLE = False
 
 class RecommendationService:
-    """株式推奨サービス (キャッシュ対応)"""
+    """株式推奨サービス (キャッシュ・Polars対応)"""
     
     CACHE_EXPIRATION_SECONDS = 3600  # 1時間
 
@@ -87,62 +88,51 @@ class RecommendationService:
         """推奨銘柄の取得 (キャッシュ利用)"""
         recommendations = []
         for symbol_data in self.symbols_data:
-            # キャッシュ対応した個別分析メソッドを呼び出す
             analysis_result = self.analyze_single_symbol(symbol_data['code'])
             recommendations.append(analysis_result)
         return recommendations
 
     def analyze_single_symbol(self, symbol: str) -> Dict[str, Any]:
         """個別銘柄分析 (キャッシュ対応)"""
-        # キャッシュが有効な場合、まずキャッシュを確認
         if self.redis_client:
             cache_key = f"recommendation:{symbol}"
             try:
                 cached_result = self.redis_client.get(cache_key)
                 if cached_result:
-                    print(f"CACHE HIT for symbol: {symbol}")
+                    # print(f"CACHE HIT for symbol: {symbol}")
                     return json.loads(cached_result)
-                print(f"CACHE MISS for symbol: {symbol}")
+                # print(f"CACHE MISS for symbol: {symbol}")
             except Exception as e:
                 print(f"Redis GET error for key {cache_key}: {e}")
 
-        # キャッシュがない、またはRedisが無効な場合は分析を実行
-        symbol_data = next(
-            (s for s in self.symbols_data if s['code'] == symbol),
-            {'code': symbol, 'name': f'銘柄{symbol}', 'sector': '不明', 'category': '一般株', 'stability': '中安定'}
-        )
+        symbol_data = next((s for s in self.symbols_data if s['code'] == symbol), None)
+        if not symbol_data:
+            symbol_data = {'code': symbol, 'name': f'銘柄{symbol}', 'sector': '不明', 'category': '一般株', 'stability': '中安定'}
         
         analysis_result = self._perform_actual_analysis(symbol_data)
 
-        # キャッシュが有効な場合、結果を保存
         if self.redis_client:
             cache_key = f"recommendation:{symbol}"
             try:
-                self.redis_client.setex(
-                    cache_key,
-                    self.CACHE_EXPIRATION_SECONDS,
-                    json.dumps(analysis_result)
-                )
+                self.redis_client.setex(cache_key, self.CACHE_EXPIRATION_SECONDS, json.dumps(analysis_result))
             except Exception as e:
                 print(f"Redis SETEX error for key {cache_key}: {e}")
 
         return analysis_result
 
     def _perform_actual_analysis(self, symbol_data: Dict[str, Any]) -> Dict[str, Any]:
-        """実際の分析処理 (旧 _simulate_analysis)"""
+        """実際の分析処理 (Polars対応)"""
         try:
-            analysis_result = self._get_real_analysis(symbol_data['code'])
+            analysis_result = self._get_real_analysis_pl(symbol_data['code'])
             if analysis_result:
-                # リアル分析結果に不足している情報を追加
                 return self._enrich_real_analysis(analysis_result, symbol_data)
         except Exception as e:
             print(f"リアル分析エラー ({symbol_data['code']}): {e}")
         
-        # フォールバック: シミュレーション
         return self._create_simulated_analysis(symbol_data)
 
-    def _get_real_analysis(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """リアルデータ分析"""
+    def _get_real_analysis_pl(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """リアルデータ分析 (Polars版)"""
         if not REAL_DATA_AVAILABLE:
             return None
         
@@ -152,21 +142,24 @@ class RecommendationService:
             result = provider.get_stock_data_sync(jp_symbol, period="1mo")
             
             if result.success and result.data is not None and len(result.data) > 20:
-                recommendation = create_trading_recommendation(
+                # Pandas DataFrameをPolars DataFrameに変換
+                pl_data = pl.from_pandas(result.data.reset_index())
+                
+                recommendation = create_trading_recommendation_pl(
                     symbol=symbol,
-                    data=result.data,
+                    data=pl_data,
                     account_balance=1000000
                 )
                 recommendation['real_data'] = True
                 return recommendation
             
         except Exception as e:
-            print(f"リアル分析エラー ({symbol}): {e}")
+            print(f"Polarsリアル分析エラー ({symbol}): {e}")
         
         return None
 
     def _enrich_real_analysis(self, analysis: Dict[str, Any], symbol_data: Dict[str, Any]) -> Dict[str, Any]:
-        """リアル分析結果をフロントエンドで必要な形式に整形・補完する"""
+        # ... (変更なし) ...
         recommendation = analysis.get('signal', 'HOLD')
         confidence = analysis.get('confidence', 0.7)
         price = analysis.get('current_price', 0)
@@ -195,7 +188,7 @@ class RecommendationService:
         return enriched_result
 
     def _create_simulated_analysis(self, symbol_data: Dict[str, Any]) -> Dict[str, Any]:
-        """シミュレーション分析データの生成"""
+        # ... (変更なし) ...
         recommendation = random.choice(['BUY', 'SELL', 'HOLD'])
         confidence = round(random.uniform(0.6, 0.95), 2)
         price = 1000 + abs(hash(symbol_data['code'])) % 2000
@@ -226,8 +219,7 @@ class RecommendationService:
             'real_data': False
         }
 
-    # --- ヘルパーメソッド --- #
-
+    # --- ヘルパーメソッド (変更なし) --- #
     def _get_confidence_friendly(self, confidence: float) -> str:
         if confidence > 0.85: return "超おすすめ！"
         if confidence > 0.75: return "かなりおすすめ"

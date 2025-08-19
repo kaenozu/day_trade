@@ -1,13 +1,9 @@
-feat(performance): Add Celery for asynchronous analysis
+feat(performance): Migrate analysis from pandas to polars
 
-Integrates Celery and Redis to offload time-consuming stock analysis tasks to background workers. This significantly improves API responsiveness.
+Replaces pandas with polars in the core technical analysis logic to improve computational performance.
 
-- Adds `celery[redis]` to dependencies.
-- Creates `celery_app.py` to configure the Celery application.
-- Creates `celery_tasks.py` to define the `run_analysis` background task.
-- Modifies `daytrade_web.py` to start Celery tasks and check their status.
-- Updates `web/routes/api_routes.py`:
-    - The `/api/analyze/<symbol>` endpoint now starts an async task and returns a task ID with a 202 Accepted status.
-    - A new `/api/result/<task_id>` endpoint is added for polling task status and results.
+- Replaces `pandas` with `polars` in `requirements.txt`.
+- Rewrites all indicator calculation functions in `technical_indicators.py` to use polars.
+- The `recommendation_service.py` now converts the incoming pandas DataFrame to a polars DataFrame before analysis.
 
-This addresses the "Asynchronous Task Queues" part of issue #939. The frontend will need to be updated to accommodate this new asynchronous workflow.
+This addresses the "Acceleration of Computation" part of issue #939.
