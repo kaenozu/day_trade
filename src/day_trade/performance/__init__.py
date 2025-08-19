@@ -28,7 +28,7 @@ class PerformanceManager:
         if self.initialized:
             return
 
-        print("🚀 パフォーマンス最適化初期化中...")
+        print("パフォーマンス最適化初期化中...")
 
         # デフォルト設定
         if config is None:
@@ -42,18 +42,18 @@ class PerformanceManager:
         # メモリ監視開始
         if config.get('memory_monitoring', True):
             start_memory_monitoring()
-            print("  ✅ メモリ監視開始")
+            print("  メモリ監視開始")
 
         # キャッシュ初期化
         if config.get('cache_enabled', True):
             cache_manager.clear_all()  # 初期化時にクリア
-            print("  ✅ キャッシュシステム初期化")
+            print("  キャッシュシステム初期化")
 
         # クリーンアップ登録
         atexit.register(self.cleanup)
 
         self.initialized = True
-        print("🎯 パフォーマンス最適化完了")
+        print("パフォーマンス最適化完了")
 
     def get_db_manager(self, db_path: str):
         """データベースマネージャー取得"""
@@ -94,7 +94,7 @@ class PerformanceManager:
         # キャッシュクリア
         cache_manager.clear_all()
 
-        print("✅ クリーンアップ完了")
+        print("クリーンアップ完了")
 
 
 # グローバルマネージャー

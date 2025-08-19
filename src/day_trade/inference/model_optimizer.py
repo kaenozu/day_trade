@@ -169,7 +169,7 @@ class ONNXOptimizer(BaseModelOptimizer):
             logger.error(f"ONNX optimization failed: {e}")
             raise
 
-    def benchmark_model(self, session: ort.InferenceSession, test_data: np.ndarray) -> Dict[str, float]:
+    def benchmark_model(self, session: Any, test_data: np.ndarray) -> Dict[str, float]:
         """ONNXモデルベンチマーク"""
         try:
             input_name = session.get_inputs()[0].name

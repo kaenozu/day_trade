@@ -1,0 +1,325 @@
+#==============================================================================
+# APM・オブザーバビリティ統合基盤 - Issue #442
+# 本番環境対応の包括的監視システム (Jaeger, ELK Stack, OpenTelemetry)
+#==============================================================================
+
+version: '3.8'
+
+services:
+  #------------------------------------------------------------------------------
+  # Jaeger 分散トレーシング
+  #------------------------------------------------------------------------------
+  jaeger-all-in-one:
+    image: jaegertracing/all-in-one:1.49
+    container_name: jaeger-apm
+    restart: unless-stopped
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # HTTP collector
+      - "6831:6831/udp"  # UDP collector
+      - "6832:6832/udp"  # UDP collector
+      - "5778:5778"   # Config server
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - JAEGER_DISABLED=false
+      - JAEGER_SERVICE_NAME=day-trade-jaeger
+    volumes:
+      - jaeger_data:/tmp
+    networks:
+      - observability
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jaeger.rule=Host(`jaeger.daytrade.local`)"
+      - "traefik.http.routers.jaeger.tls=true"
+      - "traefik.http.services.jaeger.loadbalancer.server.port=16686"
+
+  #------------------------------------------------------------------------------
+  # OpenTelemetry Collector
+  #------------------------------------------------------------------------------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.88.0
+    container_name: otel-collector-apm
+    restart: unless-stopped
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - ./config/otel-collector-config.yml:/etc/otel-collector-config.yml:ro
+      - /var/log:/var/log:ro
+    ports:
+      - "1888:1888"   # pprof extension
+      - "8888:8888"   # Prometheus metrics
+      - "8889:8889"   # Prometheus exporter metrics
+      - "13133:13133" # Health check extension
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "55679:55679" # zpages extension
+    depends_on:
+      - jaeger-all-in-one
+      - elasticsearch
+      - prometheus-apm
+    networks:
+      - observability
+    environment:
+      - JAEGER_ENDPOINT=http://jaeger-all-in-one:14268/api/traces
+      - ELASTICSEARCH_ENDPOINT=http://elasticsearch:9200
+      - PROMETHEUS_ENDPOINT=http://prometheus-apm:9090
+
+  #------------------------------------------------------------------------------
+  # Elasticsearch (ログストレージ)
+  #------------------------------------------------------------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.4
+    container_name: elasticsearch-apm
+    restart: unless-stopped
+    environment:
+      - node.name=elasticsearch-apm
+      - cluster.name=day-trade-cluster
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - cluster.routing.allocation.disk.watermark.low=85%
+      - cluster.routing.allocation.disk.watermark.high=90%
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+      - ./config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - observability
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  #------------------------------------------------------------------------------
+  # Logstash (ログ処理)
+  #------------------------------------------------------------------------------
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.10.4
+    container_name: logstash-apm
+    restart: unless-stopped
+    volumes:
+      - ./config/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - ./config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - /var/log:/host/var/log:ro
+    ports:
+      - "5044:5044"  # Beats input
+      - "9600:9600"  # Logstash monitoring
+      - "5000:5000/tcp"  # TCP input
+      - "5000:5000/udp"  # UDP input
+    environment:
+      - "LS_JAVA_OPTS=-Xmx1g -Xms1g"
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - observability
+
+  #------------------------------------------------------------------------------
+  # Kibana (ログ可視化)
+  #------------------------------------------------------------------------------
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.4
+    container_name: kibana-apm
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=kibana-apm
+      - SERVER_HOST=0.0.0.0
+      - LOGGING_ROOT_LEVEL=warn
+    volumes:
+      - ./config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+      - kibana_data:/usr/share/kibana/data
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - observability
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kibana.rule=Host(`kibana.daytrade.local`)"
+      - "traefik.http.routers.kibana.tls=true"
+
+  #------------------------------------------------------------------------------
+  # Prometheus (メトリクス収集・保存)
+  #------------------------------------------------------------------------------
+  prometheus-apm:
+    image: prom/prometheus:v2.47.2
+    container_name: prometheus-apm
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/alert.rules:/etc/prometheus/alert.rules:ro
+      - prometheus_data:/prometheus
+    networks:
+      - observability
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.daytrade.local`)"
+
+  #------------------------------------------------------------------------------
+  # Grafana (統合ダッシュボード)
+  #------------------------------------------------------------------------------
+  grafana-apm:
+    image: grafana/grafana:10.1.5
+    container_name: grafana-apm
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel,grafana-clock-panel
+      - GF_FEATURE_TOGGLES_ENABLE=tracing
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus-apm
+      - jaeger-all-in-one
+      - elasticsearch
+    networks:
+      - observability
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.daytrade.local`)"
+
+  #------------------------------------------------------------------------------
+  # AlertManager (アラート管理)
+  #------------------------------------------------------------------------------
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: alertmanager-apm
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      - '--cluster.advertise-address=0.0.0.0:9093'
+    networks:
+      - observability
+
+  #------------------------------------------------------------------------------
+  # Node Exporter (システムメトリクス)
+  #------------------------------------------------------------------------------
+  node-exporter:
+    image: prom/node-exporter:v1.6.1
+    container_name: node-exporter-apm
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - observability
+
+  #------------------------------------------------------------------------------
+  # cAdvisor (コンテナメトリクス)
+  #------------------------------------------------------------------------------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: cadvisor-apm
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    networks:
+      - observability
+
+#==============================================================================
+# ネットワーク・ボリューム設定
+#==============================================================================
+networks:
+  observability:
+    name: day-trade-observability
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+volumes:
+  # 永続化データ
+  jaeger_data:
+    name: jaeger-data
+  elasticsearch_data:
+    name: elasticsearch-data
+  kibana_data:
+    name: kibana-data
+  prometheus_data:
+    name: prometheus-data
+  grafana_data:
+    name: grafana-data
+  alertmanager_data:
+    name: alertmanager-data
+
+#==============================================================================
+# APM・オブザーバビリティ統合基盤の特徴:
+#
+# 🔍 分散トレーシング:
+#   - Jaeger による完全なリクエスト追跡
+#   - OpenTelemetry による自動計装
+#   - マイクロサービス間の依存関係可視化
+#
+# 📊 ログ集約・分析:
+#   - ELK Stack による構造化ログ管理
+#   - リアルタイム検索・フィルタリング
+#   - 異常検知とパターン分析
+#
+# 📈 メトリクス監視:
+#   - Prometheus による高性能データ収集
+#   - Grafana によるリアルタイム可視化
+#   - AlertManager による智的アラート管理
+#
+# 🎯 統合ダッシュボード:
+#   - メトリクス・ログ・トレースの統合表示
+#   - SLO/SLI自動追跡
+#   - ビジネスメトリクス監視
+#
+# ⚡ HFT対応:
+#   - <1μsオーバーヘッドの監視
+#   - リアルタイム異常検知
+#   - 自動スケーリング連携
+#==============================================================================

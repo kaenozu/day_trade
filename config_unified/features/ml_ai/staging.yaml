@@ -1,0 +1,5 @@
+application:
+  debug: false
+  log_level: INFO
+database:
+  pool_size: 5

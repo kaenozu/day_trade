@@ -1,0 +1,37 @@
+# 銘柄設定ファイル - Issue #852対応強化版
+# real_data_provider.py用の外部設定
+
+symbols:
+  "7203.T": "トヨタ自動車"
+  "9984.T": "ソフトバンクG"
+  "6758.T": "ソニーG"
+  "8306.T": "三菱UFJ"
+  "4689.T": "LINEヤフー"
+  "8058.T": "三菱商事"
+  "6501.T": "日立製作所"
+  "4063.T": "信越化学"
+  "6098.T": "リクルートHD"
+  "9432.T": "NTT"
+  "8604.T": "野村HD"
+  "9020.T": "JR東日本"
+  "4502.T": "武田薬品"
+  "7974.T": "任天堂"
+  "4523.T": "エーザイ"
+
+api_settings:
+  cache_duration: 60  # キャッシュ持続時間（秒）
+  request_interval: 0.5  # 最小リクエスト間隔（秒）
+  max_requests_per_minute: 60  # 分間最大リクエスト数
+  session_pool_size: 10  # セッションプールサイズ
+  timeout_seconds: 30  # タイムアウト時間
+
+data_validation:
+  min_price: 1.0  # 最小価格
+  max_price_change_percent: 50.0  # 最大価格変動率（％）
+  min_volume: 0  # 最小出来高
+  required_ohlcv_fields: ["Open", "High", "Low", "Close", "Volume"]
+
+error_handling:
+  max_retries: 3  # 最大リトライ回数
+  retry_delay: 1.0  # リトライ間隔（秒）
+  consecutive_failure_threshold: 5  # 連続失敗閾値
