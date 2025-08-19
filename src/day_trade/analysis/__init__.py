@@ -9,6 +9,16 @@ from .signals import (
     VolumeSpikeBuyRule,
 )
 
+# Issue #937: 売買判断システムの実装
+from .technical_indicators import (
+    TechnicalIndicators as TechnicalIndicatorsV2,
+    SignalGenerator, 
+    RiskManager,
+    TechnicalSignal,
+    SignalType as SignalTypeV2,
+    create_trading_recommendation
+)
+
 __all__ = [
     "TechnicalIndicators",
     "ChartPatternRecognizer",
@@ -17,4 +27,11 @@ __all__ = [
     "SignalStrength",
     "TradingSignal",
     "VolumeSpikeBuyRule",
+    # Issue #937対応
+    "TechnicalIndicatorsV2",
+    "SignalGenerator",
+    "RiskManager", 
+    "TechnicalSignal",
+    "SignalTypeV2",
+    "create_trading_recommendation"
 ]
