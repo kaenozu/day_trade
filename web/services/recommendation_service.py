@@ -7,8 +7,23 @@ Recommendation Service - Issue #959 リファクタリング対応
 
 import random
 import time
+import sys
+import os
+from pathlib import Path
 from typing import Dict, List, Any
 from datetime import datetime
+import pandas as pd
+
+# プロジェクトルートをパスに追加
+sys.path.append(str(Path(__file__).parent.parent.parent.parent))
+
+try:
+    from src.day_trade.data.providers.real_data_provider import ImprovedMultiSourceDataProvider
+    from src.day_trade.analysis.technical_indicators import create_trading_recommendation
+    REAL_DATA_AVAILABLE = True
+except ImportError as e:
+    print(f"リアルデータモジュール読み込みエラー: {e}")
+    REAL_DATA_AVAILABLE = False
 
 class RecommendationService:
     """株式推奨サービス"""
@@ -75,8 +90,16 @@ class RecommendationService:
         return recommendations
     
     def _simulate_analysis(self, symbol_data: Dict[str, Any]) -> Dict[str, Any]:
-        """分析シミュレーション"""
-        # ランダムな分析結果生成（実際の環境では真のAI分析）
+        """リアルデータベース分析 - Issue #937対応"""
+        try:
+            # リアルデータ取得と分析
+            analysis_result = self._get_real_analysis(symbol_data['code'])
+            if analysis_result:
+                return analysis_result
+        except Exception as e:
+            print(f"リアル分析エラー ({symbol_data['code']}): {e}")
+        
+        # フォールバック: シミュレーション
         recommendations = ['BUY', 'SELL', 'HOLD']
         recommendation = random.choice(recommendations)
         confidence = round(random.uniform(0.6, 0.95), 2)
@@ -119,6 +142,10 @@ class RecommendationService:
             who_suitable = "バランス重視の投資家向け"
         
         return {
+            # Issue #937: 売買判断情報追加
+            'action': self._get_action_advice(recommendation, confidence),
+            'timing': self._get_timing_advice(recommendation),
+            'amount_suggestion': self._get_amount_suggestion(price, category),
             'symbol': symbol_data['code'],
             'name': symbol_data['name'],
             'sector': symbol_data['sector'],
@@ -148,3 +175,79 @@ class RecommendationService:
         )
         
         return self._simulate_analysis(symbol_data)
+    
+    def _get_real_analysis(self, symbol: str) -> Dict[str, Any]:
+        """リアルデータ分析 - Issue #937対応"""
+        if not REAL_DATA_AVAILABLE:
+            return None
+        
+        try:
+            # データプロバイダー初期化
+            provider = ImprovedMultiSourceDataProvider()
+            
+            # 日本株式のシンボル形式に変換
+            jp_symbol = f"{symbol}.T"
+            
+            # 株価データ取得（1ヶ月分）
+            result = provider.get_stock_data_sync(jp_symbol, period="1mo")
+            
+            if result.success and result.data is not None and len(result.data) > 20:
+                # テクニカル分析実行
+                recommendation = create_trading_recommendation(
+                    symbol=symbol,
+                    data=result.data,
+                    account_balance=1000000  # 仮の口座残高
+                )
+                
+                return {
+                    'symbol': symbol,
+                    'recommendation': recommendation['signal'],
+                    'confidence': recommendation['confidence'],
+                    'price': recommendation['current_price'],
+                    'target_price': recommendation['target_price'],
+                    'stop_loss': recommendation['stop_loss'],
+                    'position_size': recommendation['position_size'],
+                    'investment_amount': recommendation['investment_amount'],
+                    'reason': recommendation['reason'],
+                    'real_data': True
+                }
+            
+        except Exception as e:
+            print(f"リアル分析エラー ({symbol}): {e}")
+        
+        return None
+    
+    def _get_action_advice(self, recommendation: str, confidence: float) -> str:
+        """具体的なアクション提案"""
+        if recommendation == 'BUY':
+            if confidence > 0.8:
+                return "今すぐ購入を検討してください"
+            else:
+                return "少量から購入を始めてみてください"
+        elif recommendation == 'SELL':
+            if confidence > 0.8:
+                return "早めの売却を検討してください"
+            else:
+                return "様子を見ながら部分的な売却を検討してください"
+        else:
+            return "しばらく様子を見てください"
+    
+    def _get_timing_advice(self, recommendation: str) -> str:
+        """タイミングアドバイス"""
+        if recommendation == 'BUY':
+            return "次の押し目で購入タイミング"
+        elif recommendation == 'SELL':
+            return "次の戻りで売却タイミング"
+        else:
+            return "明確なシグナルを待ちましょう"
+    
+    def _get_amount_suggestion(self, price: float, category: str) -> str:
+        """投資金額提案"""
+        if category == '大型株':
+            return "資金の5-10%を目安に"
+        elif category == '成長株':
+            return "資金の2-5%を目安に（リスク高）"
+        elif category == '高配当株':
+            return "資金の10-15%を目安に（安定重視）"
+        else:
+            return "資金の3-8%を目安に"
