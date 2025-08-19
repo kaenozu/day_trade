@@ -45,6 +45,14 @@ def setup_api_routes(app: Flask, web_server_instance) -> None:
     except ImportError as e:
         print(f"バックテストAPI設定エラー: {e}")
     
+    # リアルタイム・リスク・レポート機能の統合
+    try:
+        from web.routes.api_routes_realtime import setup_realtime_routes
+        setup_realtime_routes(app)
+        print("リアルタイム統合APIルートが設定されました")
+    except ImportError as e:
+        print(f"リアルタイム統合API設定エラー: {e}")
+    
     @app.route('/api/status')
     def api_status():
         """システム状態API"""
@@ -57,7 +65,11 @@ def setup_api_routes(app: Flask, web_server_instance) -> None:
                 'Portfolio Management',
                 'Alert System',
                 'Backtest Engine',
-                'Database Integration'
+                'Database Integration',
+                'Risk Management',
+                'Report Generation',
+                'Real-time Data Feed',
+                'Position Sizing'
             ]
         })
     
