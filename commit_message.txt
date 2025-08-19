@@ -1,10 +1,13 @@
-feat(performance): Implement Redis caching for recommendations
+feat(performance): Add Celery for asynchronous analysis
 
-Implements Redis caching for the recommendation service to improve performance and reduce latency for repeated requests.
+Integrates Celery and Redis to offload time-consuming stock analysis tasks to background workers. This significantly improves API responsiveness.
 
-- Modifies `daytrade_web.py` to initialize a Redis client and pass it to the `RecommendationService`.
-- Updates `RecommendationService` to use the Redis client for caching analysis results with a 1-hour expiration.
-- Refactors the analysis logic in `RecommendationService` for better readability and to separate real data analysis from simulated analysis.
-- `get_recommendations` now leverages the caching mechanism.
+- Adds `celery[redis]` to dependencies.
+- Creates `celery_app.py` to configure the Celery application.
+- Creates `celery_tasks.py` to define the `run_analysis` background task.
+- Modifies `daytrade_web.py` to start Celery tasks and check their status.
+- Updates `web/routes/api_routes.py`:
+    - The `/api/analyze/<symbol>` endpoint now starts an async task and returns a task ID with a 202 Accepted status.
+    - A new `/api/result/<task_id>` endpoint is added for polling task status and results.
 
-This addresses the "In-Memory Cache" part of issue #939.
+This addresses the "Asynchronous Task Queues" part of issue #939. The frontend will need to be updated to accommodate this new asynchronous workflow.
