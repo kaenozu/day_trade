@@ -15,7 +15,7 @@ from typing import Optional
 from .system_initializer import SystemInitializer
 from ..cli.argument_parser import ArgumentParser
 from .dependency_injection import (
-    IConfigurationService, ILoggingService, IAnalyzerService, 
+    IConfigurationService, ILoggingService, IAnalyzerService,
     IDashboardService, IDataProviderService, injectable, get_container
 )
 from .services import register_default_services
@@ -25,13 +25,13 @@ from .services import register_default_services
 class StockAnalysisApplication:
     """株価分析システム メインアプリケーション（依存性注入版）"""
 
-    def __init__(self, 
+    def __init__(self,
                  config_service: Optional[IConfigurationService] = None,
                  logging_service: Optional[ILoggingService] = None,
                  analyzer_service: Optional[IAnalyzerService] = None,
                  dashboard_service: Optional[IDashboardService] = None,
                  data_provider_service: Optional[IDataProviderService] = None,
-                 debug: bool = False, 
+                 debug: bool = False,
                  use_cache: bool = True):
         """初期化
 
@@ -52,24 +52,24 @@ class StockAnalysisApplication:
         self.debug = debug
         self.use_cache = use_cache
         self._ml_modules_loaded = False
-        
+
         # サービス注入 - なければコンテナから取得
         container = get_container()
         register_default_services()
-        
+
         self.config_service = config_service or container.resolve(IConfigurationService)
         self.logging_service = logging_service or container.resolve(ILoggingService)
         self.analyzer_service = analyzer_service or container.resolve(IAnalyzerService)
         self.dashboard_service = dashboard_service or container.resolve(IDashboardService)
         self.data_provider_service = data_provider_service or container.resolve(IDataProviderService)
-        
+
         # ロガー設定
         self.logger = self.logging_service.get_logger(__name__, "StockAnalysisApplication")
-        
+
         # 設定取得
         self.config = self.config_service.get_config()
         self.analysis_config = self.config_service.get_analysis_config()
-        
+
         self.logger.info("StockAnalysisApplication initialized with DI pattern")
 
     def _lazy_load_ml_modules(self):
@@ -154,7 +154,7 @@ class StockAnalysisApplication:
                     print(f"  - データ取得中...")
                     print(f"  - テクニカル分析中...")
                     print(f"  - 推奨判定中...")
-                
+
                 # 分析サービスを使用
                 result = self.analyzer_service.analyze(symbol)
                 print(f"  ✅ {symbol} 分析完了")
@@ -181,13 +181,13 @@ class StockAnalysisApplication:
 
         try:
             print("🔄 マルチ銘柄並列分析を実行中...")
-            
+
             # 各銘柄を分析サービスで処理
             for symbol in symbols:
                 result = self.analyzer_service.analyze(symbol)
                 if self.debug:
                     print(f"  {symbol}: {result}")
-            
+
             print("✨ マルチ銘柄分析を完了しました")
             return 0
         except Exception as e:
@@ -231,7 +231,7 @@ class StockAnalysisApplication:
                 except Exception as e:
                     # エラー時のフォールバック
                     default_confidence = self.analysis_config.get('confidence', {}).get('default_confidence', 0.85)
-                    
+
                     results.append({
                         'symbol': symbol,
                         'recommendation': 'HOLD',
@@ -293,7 +293,7 @@ class StockAnalysisApplication:
             rsi = calculate_rsi(stock_data['Close'])
             rsi_config = self.analysis_config['technical_indicators'].get('rsi', {'period': 14, 'overbought_threshold': 70, 'oversold_threshold': 30})
             sma_config = self.analysis_config['technical_indicators'].get('sma', {'short_period': 20, 'long_period': 50})
-            
+
             current_rsi = rsi.iloc[-1] if not rsi.empty else 50
 
             macd_line, macd_signal = calculate_macd(stock_data['Close'])
@@ -314,7 +314,7 @@ class StockAnalysisApplication:
             # RSI判定（設定から閾値を取得）
             rsi_oversold = rsi_config.get('oversold_threshold', 30)
             rsi_overbought = rsi_config.get('overbought_threshold', 70)
-            
+
             if current_rsi < rsi_oversold:
                 trend_score += 0.4
                 confidence += 0.2
@@ -400,7 +400,7 @@ class StockAnalysisApplication:
         try:
             # 設定サービスから取得
             config = self.config_service.get_config()
-            
+
             # 高優先度の銘柄を抽出（デイトレード向け）
             symbols = []
             for symbol_info in config.get('watchlist', {}).get('symbols', []):
@@ -676,7 +676,7 @@ class StockAnalysisApplication:
 
                     if self.debug:
                         print(f"🔍 {symbol} の分析開始...")
-                    
+
                     # 分析サービスを使用
                     analysis_result = self.analyzer_service.analyze(symbol)
                     if self.debug:
@@ -717,7 +717,7 @@ class StockAnalysisApplication:
         """設定ファイルから全銘柄を取得"""
         try:
             config = self.config_service.get_config()
-            
+
             # 全銘柄を取得（優先度に関係なく）
             symbols = []
             for symbol_info in config.get('watchlist', {}).get('symbols', []):

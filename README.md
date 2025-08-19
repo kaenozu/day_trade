@@ -122,7 +122,7 @@ Day Trade Personal - 93%精度AIシステム
     {
       "name": "トヨタ自動車",
       "category": "大型株",
-      "confidence_friendly": "超おすすめ！", 
+      "confidence_friendly": "超おすすめ！",
       "star_rating": "★★★★★",
       "who_suitable": "安定重視の初心者におすすめ"
     }

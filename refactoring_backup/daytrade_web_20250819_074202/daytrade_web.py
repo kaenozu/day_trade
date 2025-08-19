@@ -51,40 +51,40 @@ except ImportError:
 
 class DayTradeWebServer:
     """プロダクション対応Webサーバー"""
-    
+
     def __init__(self, port: int = 8000, debug: bool = False):
         self.port = port
         self.debug = debug
         self.app = Flask(__name__)
         self.app.secret_key = 'day-trade-personal-2025'
-        
+
         # セッション管理 - Issue #933 Phase 3対応
         self.session_id = f"web_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
+
         # ルート設定
         self._setup_routes()
-        
+
         # ログ設定
         if not debug:
             logging.getLogger('werkzeug').setLevel(logging.WARNING)
-    
+
     def _setup_routes(self):
         """Webルート設定"""
-        
+
         @self.app.route('/')
         def index():
             """メインダッシュボード"""
             start_time = time.time() if PERFORMANCE_MONITORING else 0
-            
-            response = render_template_string(self._get_dashboard_template(), 
+
+            response = render_template_string(self._get_dashboard_template(),
                                             title="Day Trade Personal - メインダッシュボード")
-            
+
             if PERFORMANCE_MONITORING and performance_monitor:
                 duration = time.time() - start_time
                 performance_monitor.track_api_response_time('/', duration)
-            
+
             return response
-        
+
         @self.app.route('/api/status')
         def api_status():
             """システム状態API - Issue #933対応: 統一バージョン情報"""
@@ -104,17 +104,17 @@ class DayTradeWebServer:
                     'Unified Version Management'
                 ]
             })
-        
+
         @self.app.route('/api/analysis/<symbol>')
         def api_analysis(symbol):
             """株価分析API - Issue #933 Phase 3対応: データ永続化統合"""
             start_time = time.time() if PERFORMANCE_MONITORING else 0
-            
+
             try:
                 import random
                 recommendations = ['BUY', 'SELL', 'HOLD']
                 confidence = round(random.uniform(0.60, 0.95), 2)
-                
+
                 # 分析結果
                 result = {
                     'symbol': symbol,
@@ -128,12 +128,12 @@ class DayTradeWebServer:
                     'market_cap': f"{random.randint(1000, 50000)}億円",
                     'sector': random.choice(['テクノロジー', '金融', '製造業', 'ヘルスケア', 'エネルギー'])
                 }
-                
+
                 # パフォーマンス監視とデータ永続化
                 if PERFORMANCE_MONITORING and performance_monitor:
                     duration = time.time() - start_time
                     performance_monitor.track_api_response_time(f'/api/analysis/{symbol}', duration)
-                
+
                 if DATA_PERSISTENCE and data_persistence:
                     duration_ms = (time.time() - start_time) * 1000 if start_time else 0
                     data_persistence.save_analysis_result(
@@ -144,9 +144,9 @@ class DayTradeWebServer:
                         confidence_score=confidence,
                         session_id=self.session_id
                     )
-                
+
                 return jsonify(result)
-                
+
             except Exception as e:
                 if DATA_PERSISTENCE and data_persistence:
                     data_persistence.save_error_log(
@@ -155,18 +155,18 @@ class DayTradeWebServer:
                         context_data={'symbol': symbol, 'endpoint': f'/api/analysis/{symbol}'},
                         session_id=self.session_id
                     )
-                
+
                 return jsonify({
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/recommendations')
         def api_recommendations():
             """推奨銘柄一覧API - Issue #928対応"""
             try:
                 import random
-                
+
                 # Issue #953対応: 35銘柄に拡大（多様化とリスク分散強化）
                 symbols = [
                     # 大型株（安定重視） - 8銘柄
@@ -178,7 +178,7 @@ class DayTradeWebServer:
                     {'code': '4519', 'name': '中外製薬', 'sector': '製薬', 'category': '大型株', 'stability': '高安定'},
                     {'code': '8028', 'name': 'ファミリーマート', 'sector': '小売', 'category': '大型株', 'stability': '高安定'},
                     {'code': '9433', 'name': 'KDDI', 'sector': '通信', 'category': '大型株', 'stability': '高安定'},
-                    
+
                     # 中型株（成長期待） - 8銘柄
                     {'code': '4689', 'name': 'Z Holdings', 'sector': 'テクノロジー', 'category': '中型株', 'stability': '中安定'},
                     {'code': '9434', 'name': 'ソフトバンク', 'sector': '通信', 'category': '中型株', 'stability': '中安定'},
@@ -188,7 +188,7 @@ class DayTradeWebServer:
                     {'code': '4704', 'name': 'トレンドマイクロ', 'sector': 'ソフトウェア', 'category': '中型株', 'stability': '中安定'},
                     {'code': '2432', 'name': 'ディー・エヌ・エー', 'sector': 'テクノロジー', 'category': '中型株', 'stability': '低安定'},
                     {'code': '3659', 'name': 'ネクソン', 'sector': 'ゲーム', 'category': '中型株', 'stability': '低安定'},
-                    
+
                     # 高配当株（収益重視） - 8銘柄
                     {'code': '8001', 'name': '伊藤忠商事', 'sector': '商社', 'category': '高配当株', 'stability': '高安定'},
                     {'code': '8316', 'name': '三井住友FG', 'sector': '金融', 'category': '高配当株', 'stability': '高安定'},
@@ -198,7 +198,7 @@ class DayTradeWebServer:
                     {'code': '9437', 'name': 'NTTドコモ', 'sector': '通信', 'category': '高配当株', 'stability': '高安定'},
                     {'code': '8354', 'name': 'ふくおかFG', 'sector': '金融', 'category': '高配当株', 'stability': '高安定'},
                     {'code': '5333', 'name': '日本ガイシ', 'sector': '窯業', 'category': '高配当株', 'stability': '高安定'},
-                    
+
                     # 成長株（将来性重視） - 6銘柄
                     {'code': '9983', 'name': 'ファーストリテイリング', 'sector': 'アパレル', 'category': '成長株', 'stability': '中安定'},
                     {'code': '7974', 'name': '任天堂', 'sector': 'ゲーム', 'category': '成長株', 'stability': '低安定'},
@@ -206,7 +206,7 @@ class DayTradeWebServer:
                     {'code': '6594', 'name': '日本電産', 'sector': '電気機器', 'category': '成長株', 'stability': '中安定'},
                     {'code': '4568', 'name': '第一三共', 'sector': '製薬', 'category': '成長株', 'stability': '中安定'},
                     {'code': '6098', 'name': 'リクルート', 'sector': 'サービス', 'category': '成長株', 'stability': '中安定'},
-                    
+
                     # 小型・新興株（ハイリスク・ハイリターン） - 5銘柄
                     {'code': '3696', 'name': 'セレス', 'sector': 'テクノロジー', 'category': '小型株', 'stability': '低安定'},
                     {'code': '4385', 'name': 'メルカリ', 'sector': 'テクノロジー', 'category': '小型株', 'stability': '低安定'},
@@ -214,16 +214,16 @@ class DayTradeWebServer:
                     {'code': '4443', 'name': 'Sansan', 'sector': 'テクノロジー', 'category': '小型株', 'stability': '低安定'},
                     {'code': '4488', 'name': 'AI inside', 'sector': 'AI/DX', 'category': '小型株', 'stability': '低安定'}
                 ]
-                
+
                 recommendations = []
                 for stock in symbols:
                     confidence = round(random.uniform(0.60, 0.95), 2)
                     rec_type = random.choice(['BUY', 'SELL', 'HOLD'])
-                    
+
                     # Issue #929対応: わかりやすい表示
                     friendly_confidence = self._get_friendly_confidence_label(confidence)
                     star_rating = self._get_star_rating(confidence)
-                    
+
                     recommendations.append({
                         'symbol': stock['code'],
                         'name': stock['name'],
@@ -243,10 +243,10 @@ class DayTradeWebServer:
                         'risk_friendly': self._get_friendly_risk(confidence),
                         'who_suitable': self._get_suitable_investor_type(stock['category'], stock['stability'])
                     })
-                
+
                 # 信頼度で降順ソート
                 recommendations.sort(key=lambda x: x['confidence'], reverse=True)
-                
+
                 return jsonify({
                     'total_count': len(recommendations),
                     'high_confidence_count': len([r for r in recommendations if r['confidence'] > 0.80]),
@@ -258,19 +258,19 @@ class DayTradeWebServer:
                     'version': VERSION_INFO['version_extended'],
                     'api_version': VERSION_INFO['version']
                 })
-                
+
             except Exception as e:
                 return jsonify({
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/daytrade-stocks')
         def api_daytrade_stocks():
             """デイトレード専用銘柄API - Issue #954対応"""
             try:
                 import random
-                
+
                 # デイトレード適正銘柄（高流動性・高ボラティリティ）
                 daytrade_symbols = [
                     # 超高流動性（日経225主力）
@@ -279,23 +279,23 @@ class DayTradeWebServer:
                     {'code': '6758', 'name': 'ソニー', 'sector': 'テクノロジー', 'liquidity': '超高', 'volatility': '中'},
                     {'code': '7974', 'name': '任天堂', 'sector': 'ゲーム', 'liquidity': '高', 'volatility': '高'},
                     {'code': '9983', 'name': 'ファーストリテイリング', 'sector': 'アパレル', 'liquidity': '高', 'volatility': '高'},
-                    
+
                     # 高ボラティリティ（値動き活発）
                     {'code': '4755', 'name': '楽天グループ', 'sector': 'テクノロジー', 'liquidity': '高', 'volatility': '超高'},
                     {'code': '4385', 'name': 'メルカリ', 'sector': 'テクノロジー', 'liquidity': '中', 'volatility': '超高'},
                     {'code': '2432', 'name': 'ディー・エヌ・エー', 'sector': 'テクノロジー', 'liquidity': '中', 'volatility': '高'}
                 ]
-                
+
                 recommendations = []
                 for stock in daytrade_symbols:
                     confidence = round(random.uniform(0.65, 0.90), 2)
                     rec_type = random.choice(['BUY', 'SELL', 'HOLD'])
-                    
+
                     # デイトレード適性スコア
                     liquidity_score = {'超高': 5, '高': 4, '中': 3}.get(stock['liquidity'], 2)
                     volatility_score = {'超高': 5, '高': 4, '中': 3}.get(stock['volatility'], 2)
                     daytrade_score = round((liquidity_score + volatility_score) / 2, 1)
-                    
+
                     recommendations.append({
                         'symbol': stock['code'],
                         'name': stock['name'],
@@ -311,10 +311,10 @@ class DayTradeWebServer:
                         'spread_estimate': f"{random.randint(1, 5)}円",
                         'daytrade_reason': self._get_daytrade_reason(stock['liquidity'], stock['volatility'], rec_type)
                     })
-                
+
                 # デイトレード適性スコア順でソート
                 recommendations.sort(key=lambda x: (x['daytrade_score'], x['confidence']), reverse=True)
-                
+
                 return jsonify({
                     'total_count': len(recommendations),
                     'high_score_count': len([r for r in recommendations if r['daytrade_score'] >= 4.0]),
@@ -326,25 +326,25 @@ class DayTradeWebServer:
                     'timestamp': datetime.now().isoformat(),
                     'version': VERSION_INFO['version_extended']
                 })
-                
+
             except Exception as e:
                 return jsonify({
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/chart-data/<symbol>')
         def api_chart_data(symbol):
             """チャートデータAPI - Issue #955対応"""
             try:
                 import random
                 from datetime import datetime, timedelta
-                
+
                 # 模擬チャートデータ生成（実際は外部APIから取得）
                 base_price = 1000 + hash(symbol) % 2000
                 data_points = []
                 current_time = datetime.now()
-                
+
                 # 過去24時間のデータ（1時間間隔）
                 for i in range(24, 0, -1):
                     timestamp = current_time - timedelta(hours=i)
@@ -352,7 +352,7 @@ class DayTradeWebServer:
                     price_change = random.uniform(-0.05, 0.05)  # ±5%変動
                     price = base_price * (1 + price_change * i / 24)
                     volume = random.randint(10000, 100000)
-                    
+
                     data_points.append({
                         'time': timestamp.isoformat(),
                         'open': round(price * random.uniform(0.995, 1.005), 2),
@@ -361,7 +361,7 @@ class DayTradeWebServer:
                         'close': round(price, 2),
                         'volume': volume
                     })
-                
+
                 return jsonify({
                     'symbol': symbol,
                     'data': data_points,
@@ -370,36 +370,36 @@ class DayTradeWebServer:
                     'price_change_percent': round(((data_points[-1]['close'] / data_points[0]['close']) - 1) * 100, 2),
                     'timestamp': datetime.now().isoformat()
                 })
-                
+
             except Exception as e:
                 return jsonify({
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/portfolio')
         def api_portfolio():
             """ポートフォリオAPI - Issue #955対応"""
             try:
                 import random
-                
+
                 # 模擬ポートフォリオデータ
                 portfolio_stocks = [
                     {'symbol': '7203', 'name': 'トヨタ自動車', 'shares': 100, 'avg_price': 2800, 'current_price': 2850},
                     {'symbol': '9984', 'name': 'ソフトバンクグループ', 'shares': 50, 'avg_price': 5200, 'current_price': 5150},
                     {'symbol': '6758', 'name': 'ソニー', 'shares': 30, 'avg_price': 12000, 'current_price': 12500}
                 ]
-                
+
                 total_value = 0
                 total_cost = 0
                 positions = []
-                
+
                 for stock in portfolio_stocks:
                     cost = stock['shares'] * stock['avg_price']
                     value = stock['shares'] * stock['current_price']
                     profit_loss = value - cost
                     profit_loss_percent = (profit_loss / cost) * 100
-                    
+
                     positions.append({
                         'symbol': stock['symbol'],
                         'name': stock['name'],
@@ -411,13 +411,13 @@ class DayTradeWebServer:
                         'profit_loss': profit_loss,
                         'profit_loss_percent': profit_loss_percent
                     })
-                    
+
                     total_value += value
                     total_cost += cost
-                
+
                 total_profit_loss = total_value - total_cost
                 total_profit_loss_percent = (total_profit_loss / total_cost) * 100 if total_cost > 0 else 0
-                
+
                 return jsonify({
                     'positions': positions,
                     'total_cost': total_cost,
@@ -426,13 +426,13 @@ class DayTradeWebServer:
                     'total_profit_loss_percent': total_profit_loss_percent,
                     'timestamp': datetime.now().isoformat()
                 })
-                
+
             except Exception as e:
                 return jsonify({
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/search-stocks')
         def api_search_stocks():
             """銘柄検索API - Issue #955対応"""
@@ -440,7 +440,7 @@ class DayTradeWebServer:
                 query = request.args.get('q', '').lower()
                 if not query or len(query) < 2:
                     return jsonify({'results': [], 'count': 0})
-                
+
                 # 全銘柄から検索（実際はデータベースから検索）
                 all_stocks = [
                     {'symbol': '7203', 'name': 'トヨタ自動車', 'sector': '自動車'},
@@ -452,40 +452,40 @@ class DayTradeWebServer:
                     {'symbol': '8306', 'name': '三菱UFJ銀行', 'sector': '金融'},
                     {'symbol': '8001', 'name': '伊藤忠商事', 'sector': '商社'}
                 ]
-                
+
                 # 検索実行
                 results = []
                 for stock in all_stocks:
-                    if (query in stock['symbol'].lower() or 
-                        query in stock['name'].lower() or 
+                    if (query in stock['symbol'].lower() or
+                        query in stock['name'].lower() or
                         query in stock['sector'].lower()):
                         results.append(stock)
-                
+
                 return jsonify({
                     'results': results[:10],  # 最大10件
                     'count': len(results),
                     'query': query
                 })
-                
+
             except Exception as e:
                 return jsonify({
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/watchlist')
         def api_watchlist():
             """ウォッチリスト API - Issue #956対応"""
             try:
                 # 模擬ウォッチリストデータ（実際はユーザーごとに管理）
                 watchlist_symbols = ['7203', '9984', '6758', '7974', '4755']
-                
+
                 watchlist_data = []
                 for symbol in watchlist_symbols:
                     import random
                     base_price = 1000 + hash(symbol) % 3000
                     change = random.uniform(-5, 5)
-                    
+
                     # 銘柄情報取得（実際は外部API）
                     stock_info = {
                         '7203': {'name': 'トヨタ自動車', 'sector': '自動車'},
@@ -494,7 +494,7 @@ class DayTradeWebServer:
                         '7974': {'name': '任天堂', 'sector': 'ゲーム'},
                         '4755': {'name': '楽天グループ', 'sector': 'テクノロジー'}
                     }.get(symbol, {'name': f'銘柄{symbol}', 'sector': 'その他'})
-                    
+
                     watchlist_data.append({
                         'symbol': symbol,
                         'name': stock_info['name'],
@@ -507,25 +507,25 @@ class DayTradeWebServer:
                         'low_52w': round(base_price * 0.8, 2),
                         'last_updated': datetime.now().isoformat()
                     })
-                
+
                 return jsonify({
                     'watchlist': watchlist_data,
                     'total_count': len(watchlist_data),
                     'timestamp': datetime.now().isoformat()
                 })
-                
+
             except Exception as e:
                 return jsonify({
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/alerts')
         def api_alerts():
             """アラート API - Issue #956対応"""
             try:
                 import random
-                
+
                 # 模擬アラートデータ
                 alerts = []
                 alert_types = [
@@ -534,7 +534,7 @@ class DayTradeWebServer:
                     {'type': 'news', 'message': '任天堂の新製品発表が発表されました', 'symbol': '7974'},
                     {'type': 'technical', 'message': 'ソフトバンクGが移動平均線を突破', 'symbol': '9984'}
                 ]
-                
+
                 # ランダムに1-3個のアラート生成
                 num_alerts = random.randint(1, 3)
                 for _ in range(num_alerts):
@@ -548,25 +548,25 @@ class DayTradeWebServer:
                         'read': False,
                         'priority': random.choice(['high', 'medium', 'low'])
                     })
-                
+
                 return jsonify({
                     'alerts': alerts,
                     'unread_count': len([a for a in alerts if not a['read']]),
                     'timestamp': datetime.now().isoformat()
                 })
-                
+
             except Exception as e:
                 return jsonify({
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/market-summary')
         def api_market_summary():
             """マーケットサマリー API - Issue #956対応"""
             try:
                 import random
-                
+
                 # 模擬市場データ
                 market_data = {
                     'nikkei225': {
@@ -588,20 +588,20 @@ class DayTradeWebServer:
                         'change_percent': round(random.uniform(-2, 2), 2)
                     }
                 }
-                
+
                 return jsonify({
                     'indices': market_data,
                     'market_status': random.choice(['open', 'closed', 'pre_market']),
                     'last_updated': datetime.now().isoformat(),
                     'trading_volume': f"{random.randint(15, 25)}億株"
                 })
-                
+
             except Exception as e:
                 return jsonify({
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/health')
         def health():
             """ヘルスチェック"""
@@ -610,7 +610,7 @@ class DayTradeWebServer:
                 'timestamp': datetime.now().isoformat(),
                 'uptime': 'running'
             })
-        
+
         @self.app.route('/api/performance')
         def api_performance():
             """パフォーマンス監視API - Issue #933対応"""
@@ -619,7 +619,7 @@ class DayTradeWebServer:
                     'error': 'Performance monitoring not available',
                     'monitoring_enabled': False
                 }), 501
-            
+
             try:
                 summary = performance_monitor.get_performance_summary()
                 return jsonify({
@@ -632,7 +632,7 @@ class DayTradeWebServer:
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/performance/detailed')
         def api_performance_detailed():
             """詳細パフォーマンスメトリクス API - Issue #933対応"""
@@ -641,7 +641,7 @@ class DayTradeWebServer:
                     'error': 'Performance monitoring not available',
                     'monitoring_enabled': False
                 }), 501
-            
+
             try:
                 detailed = performance_monitor.get_detailed_metrics()
                 summary = performance_monitor.get_performance_summary()
@@ -656,7 +656,7 @@ class DayTradeWebServer:
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/performance/report')
         def api_performance_report():
             """パフォーマンスレポート API - Issue #933対応"""
@@ -665,7 +665,7 @@ class DayTradeWebServer:
                     'error': 'Performance monitoring not available',
                     'monitoring_enabled': False
                 }), 501
-            
+
             try:
                 report = performance_monitor.generate_performance_report()
                 return jsonify({
@@ -679,7 +679,7 @@ class DayTradeWebServer:
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         # Issue #933 Phase 3対応: データ永続化API
         @self.app.route('/api/data/statistics')
         def api_data_statistics():
@@ -689,12 +689,12 @@ class DayTradeWebServer:
                     'error': 'Data persistence not available',
                     'persistence_enabled': False
                 }), 501
-            
+
             try:
                 hours = request.args.get('hours', 24, type=int)
                 analysis_stats = data_persistence.get_analysis_statistics(hours)
                 api_stats = data_persistence.get_api_statistics(hours)
-                
+
                 return jsonify({
                     'persistence_enabled': True,
                     'analysis_statistics': analysis_stats,
@@ -707,7 +707,7 @@ class DayTradeWebServer:
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/data/database-info')
         def api_database_info():
             """データベース情報 API"""
@@ -716,7 +716,7 @@ class DayTradeWebServer:
                     'error': 'Data persistence not available',
                     'persistence_enabled': False
                 }), 501
-            
+
             try:
                 db_info = data_persistence.get_database_info()
                 return jsonify({
@@ -729,7 +729,7 @@ class DayTradeWebServer:
                     'error': str(e),
                     'status': 'error'
                 }), 500
-        
+
         @self.app.route('/api/data/export')
         def api_data_export():
             """データエクスポート API"""
@@ -738,11 +738,11 @@ class DayTradeWebServer:
                     'error': 'Data persistence not available',
                     'persistence_enabled': False
                 }), 501
-            
+
             try:
                 export_format = request.args.get('format', 'json')
                 result = data_persistence.export_data(format=export_format)
-                
+
                 return jsonify({
                     'persistence_enabled': True,
                     'export_result': result,
@@ -754,7 +754,7 @@ class DayTradeWebServer:
                     'error': str(e),
                     'status': 'error'
                 }), 500
-    
+
     def _get_recommendation_reason(self, rec_type: str, confidence: float) -> str:
         """推奨理由を生成"""
         reasons = {
@@ -780,17 +780,17 @@ class DayTradeWebServer:
                 'リスク・リターン均衡'
             ]
         }
-        
+
         import random
         base_reason = random.choice(reasons.get(rec_type, ['分析中']))
-        
+
         if confidence > 0.85:
             return f"{base_reason} (高信頼度)"
         elif confidence > 0.70:
             return f"{base_reason} (中信頼度)"
         else:
             return f"{base_reason} (要注意)"
-    
+
     def _get_friendly_confidence_label(self, confidence: float) -> str:
         """Issue #929対応: わかりやすい信頼度表示"""
         if confidence >= 0.9:
@@ -803,7 +803,7 @@ class DayTradeWebServer:
             return "まあまあ"
         else:
             return "様子見"
-    
+
     def _get_star_rating(self, confidence: float) -> str:
         """Issue #929対応: ★評価表示"""
         if confidence >= 0.9:
@@ -816,7 +816,7 @@ class DayTradeWebServer:
             return "★★☆☆☆"
         else:
             return "★☆☆☆☆"
-    
+
     def _get_friendly_recommendation(self, rec_type: str) -> str:
         """Issue #929対応: わかりやすい推奨表示"""
         friendly_map = {
@@ -825,7 +825,7 @@ class DayTradeWebServer:
             'HOLD': 'いい感じでキープ'
         }
         return friendly_map.get(rec_type, '様子見')
-    
+
     def _get_friendly_reason(self, rec_type: str, confidence: float) -> str:
         """Issue #929対応: わかりやすい理由説明"""
         friendly_reasons = {
@@ -851,17 +851,17 @@ class DayTradeWebServer:
                 'リスクとリターンが釣り合っている'
             ]
         }
-        
+
         import random
         base_reason = random.choice(friendly_reasons.get(rec_type, ['分析中']))
-        
+
         if confidence > 0.85:
             return f"{base_reason}（自信度：高）"
         elif confidence > 0.70:
             return f"{base_reason}（自信度：中）"
         else:
             return f"{base_reason}（自信度：低）"
-    
+
     def _get_friendly_risk(self, confidence: float) -> str:
         """Issue #929対応: わかりやすいリスク表示"""
         if confidence > 0.85:
@@ -870,7 +870,7 @@ class DayTradeWebServer:
             return "普通のリスク"
         else:
             return "慎重に検討を"
-    
+
     def _get_suitable_investor_type(self, category: str, stability: str) -> str:
         """Issue #929対応: こんな人におすすめ"""
         recommendations = {
@@ -883,10 +883,10 @@ class DayTradeWebServer:
             ('成長株', '低安定'): 'ハイリスク・ハイリターン志向',
             ('小型株', '低安定'): '上級者・積極投資家向け'
         }
-        
+
         key = (category, stability)
         return recommendations.get(key, 'バランス型の投資家におすすめ')
-    
+
     def _get_daytrade_reason(self, liquidity: str, volatility: str, rec_type: str) -> str:
         """デイトレード用理由生成 - Issue #954対応"""
         base_reasons = {
@@ -906,10 +906,10 @@ class DayTradeWebServer:
                 f'次の動きを待つ局面'
             ]
         }
-        
+
         import random
         return random.choice(base_reasons.get(rec_type, ['分析中']))
-    
+
     def _get_dashboard_template(self) -> str:
         """ダッシュボードHTMLテンプレート"""
         return '''
@@ -1042,7 +1042,7 @@ class DayTradeWebServer:
             <h1>🏠 Day Trade Personal</h1>
             <p>プロダクション対応 - 個人投資家専用版</p>
         </div>
-        
+
         <div class="dashboard">
             <div class="card">
                 <h3>📊 システム状態</h3>
@@ -1061,7 +1061,7 @@ class DayTradeWebServer:
                     </div>
                 </div>
             </div>
-            
+
             <div class="card">
                 <h3>🛡️ セキュリティ機能</h3>
                 <ul class="feature-list">
@@ -1071,7 +1071,7 @@ class DayTradeWebServer:
                     <li>レート制限</li>
                 </ul>
             </div>
-            
+
             <div class="card">
                 <h3>⚡ パフォーマンス</h3>
                 <ul class="feature-list">
@@ -1081,7 +1081,7 @@ class DayTradeWebServer:
                     <li>並列分析処理</li>
                 </ul>
             </div>
-            
+
             <div class="card">
                 <h3>🎯 分析機能</h3>
                 <p>主要銘柄の即座分析が可能です</p>
@@ -1101,7 +1101,7 @@ class DayTradeWebServer:
                 <div id="analysisResult" style="margin-top: 15px; padding: 10px; background: #f7fafc; border-radius: 6px; display: none;"></div>
             </div>
         </div>
-        
+
         <!-- 拡張推奨銘柄セクション - Issue #928対応 -->
         <div class="recommendations-section" style="margin-top: 30px;">
             <h2 style="color: white; text-align: center; margin-bottom: 20px;">📈 推奨銘柄一覧 (拡張版)</h2>
@@ -1112,7 +1112,7 @@ class DayTradeWebServer:
                 <div id="recommendationsList" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;"></div>
             </div>
         </div>
-        
+
         <style>
             .recommendation-card {
                 background: white;
@@ -1223,23 +1223,23 @@ class DayTradeWebServer:
             }
         </style>
         </div>
-        
+
         <div class="footer">
             <p>🤖 Issue #901 プロダクション Web サーバー - 統合完了</p>
             <p>Generated with Claude Code</p>
         </div>
     </div>
-    
+
     <script>
         async function runAnalysis() {
             const resultDiv = document.getElementById('analysisResult');
             resultDiv.style.display = 'block';
             resultDiv.innerHTML = '分析中...';
-            
+
             try {
                 const response = await fetch('/api/analysis/7203');
                 const data = await response.json();
-                
+
                 resultDiv.innerHTML = `
                     <strong>トヨタ自動車 (${data.symbol})</strong><br>
                     推奨: ${data.recommendation}<br>
@@ -1251,21 +1251,21 @@ class DayTradeWebServer:
                 resultDiv.innerHTML = 'エラーが発生しました: ' + error.message;
             }
         }
-        
+
         // 推奨銘柄読み込み機能 - Issue #928対応
         async function loadRecommendations() {
             const container = document.getElementById('recommendationsContainer');
             const summaryDiv = document.getElementById('summaryStats');
             const listDiv = document.getElementById('recommendationsList');
-            
+
             // ローディング表示
             container.style.display = 'block';
             listDiv.innerHTML = '<div style="text-align: center; padding: 20px;">推奨銘柄を読み込み中...</div>';
-            
+
             try {
                 const response = await fetch('/api/recommendations');
                 const data = await response.json();
-                
+
                 // サマリー統計表示
                 summaryDiv.innerHTML = `
                     <div class="stat-item">
@@ -1289,7 +1289,7 @@ class DayTradeWebServer:
                         <div class="stat-label">様子見</div>
                     </div>
                 `;
-                
+
                 // 推奨銘柄リスト表示
                 let recommendationsHtml = '';
                 data.recommendations.forEach(stock => {
@@ -1298,7 +1298,7 @@ class DayTradeWebServer:
                     const badgeClass = getBadgeClass(stock.recommendation);
                     const changeColor = stock.change >= 0 ? '#48bb78' : '#f56565';
                     const changePrefix = stock.change >= 0 ? '+' : '';
-                    
+
                     // Issue #929対応: わかりやすい表示の実装
                     recommendationsHtml += `
                         <div class="recommendation-card ${recClass} ${confidenceClass}">
@@ -1343,24 +1343,24 @@ class DayTradeWebServer:
                         </div>
                     `;
                 });
-                
+
                 listDiv.innerHTML = recommendationsHtml;
-                
+
                 console.log('推奨銘柄読み込み完了:', data.total_count + '件');
-                
+
             } catch (error) {
                 console.error('推奨銘柄読み込みエラー:', error);
                 listDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #f56565;">エラーが発生しました: ' + error.message + '</div>';
             }
         }
-        
+
         // 信頼度に基づくCSSクラスを返す
         function getConfidenceClass(confidence) {
             if (confidence > 0.85) return 'confidence-high';
             if (confidence > 0.70) return 'confidence-medium';
             return 'confidence-low';
         }
-        
+
         // 推奨タイプに基づくバッジクラスを返す
         function getBadgeClass(recommendation) {
             switch (recommendation) {
@@ -1370,7 +1370,7 @@ class DayTradeWebServer:
                 default: return 'hold-badge';
             }
         }
-        
+
         // システム状態を定期更新
         async function updateStatus() {
             try {
@@ -1381,22 +1381,22 @@ class DayTradeWebServer:
                 console.error('状態更新エラー:', error);
             }
         }
-        
+
         // デイトレード専用銘柄読み込み - Issue #954対応
         async function loadDaytradeStocks() {
             const container = document.getElementById('recommendationsContainer');
             const summaryDiv = document.getElementById('summaryStats');
             const listDiv = document.getElementById('recommendationsList');
-            
+
             // ローディング表示
             container.style.display = 'block';
             summaryDiv.innerHTML = '<div style="text-align: center; padding: 20px;">デイトレード専用銘柄を読み込み中...</div>';
             listDiv.innerHTML = '';
-            
+
             try {
                 const response = await fetch('/api/daytrade-stocks');
                 const data = await response.json();
-                
+
                 // サマリー統計
                 summaryDiv.innerHTML = `
                     <div style="background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%); padding: 20px; margin-bottom: 20px; border-radius: 12px; color: white;">
@@ -1426,12 +1426,12 @@ class DayTradeWebServer:
                         </div>
                     </div>
                 `;
-                
+
                 // デイトレード銘柄リスト表示
                 const stocksHtml = data.recommendations.map(stock => {
                     const changeColor = stock.change > 0 ? '#38a169' : stock.change < 0 ? '#e53e3e' : '#718096';
                     const changePrefix = stock.change > 0 ? '+' : '';
-                    
+
                     return `
                         <div class="recommendation-card" style="border-left: 4px solid #e53e3e;">
                             <div class="stock-header">
@@ -1479,7 +1479,7 @@ class DayTradeWebServer:
                         </div>
                     `;
                 }).join('');
-                
+
                 listDiv.innerHTML = stocksHtml;
                 console.log('デイトレード専用銘柄読み込み完了:', data.total_count + '件');
             } catch (error) {
@@ -1487,24 +1487,24 @@ class DayTradeWebServer:
                 console.error('デイトレード銘柄読み込みエラー:', error);
             }
         }
-        
+
         // ポートフォリオ表示 - Issue #955対応
         async function loadPortfolio() {
             const container = document.getElementById('recommendationsContainer');
             const summaryDiv = document.getElementById('summaryStats');
             const listDiv = document.getElementById('recommendationsList');
-            
+
             container.style.display = 'block';
             summaryDiv.innerHTML = '<div style="text-align: center; padding: 20px;">ポートフォリオを読み込み中...</div>';
             listDiv.innerHTML = '';
-            
+
             try {
                 const response = await fetch('/api/portfolio');
                 const data = await response.json();
-                
+
                 const profitColor = data.total_profit_loss >= 0 ? '#38a169' : '#e53e3e';
                 const profitPrefix = data.total_profit_loss >= 0 ? '+' : '';
-                
+
                 summaryDiv.innerHTML = `
                     <div style="background: linear-gradient(135deg, #38a169 0%, #2f855a 100%); padding: 20px; margin-bottom: 20px; border-radius: 12px; color: white;">
                         <div style="text-align: center; font-size: 1.2rem; font-weight: bold; margin-bottom: 15px;">
@@ -1534,11 +1534,11 @@ class DayTradeWebServer:
                         </div>
                     </div>
                 `;
-                
+
                 const positionsHtml = data.positions.map(position => {
                     const plColor = position.profit_loss >= 0 ? '#38a169' : '#e53e3e';
                     const plPrefix = position.profit_loss >= 0 ? '+' : '';
-                    
+
                     return `
                         <div class="recommendation-card" style="border-left: 4px solid #38a169;">
                             <div class="stock-header">
@@ -1572,19 +1572,19 @@ class DayTradeWebServer:
                         </div>
                     `;
                 }).join('');
-                
+
                 listDiv.innerHTML = positionsHtml;
             } catch (error) {
                 summaryDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #e53e3e;">読み込みエラーが発生しました</div>';
             }
         }
-        
-        // チャートパネル表示 - Issue #955対応  
+
+        // チャートパネル表示 - Issue #955対応
         function showChartPanel() {
             const container = document.getElementById('recommendationsContainer');
             const summaryDiv = document.getElementById('summaryStats');
             const listDiv = document.getElementById('recommendationsList');
-            
+
             container.style.display = 'block';
             summaryDiv.innerHTML = `
                 <div style="background: linear-gradient(135deg, #3182ce 0%, #2c5aa0 100%); padding: 20px; margin-bottom: 20px; border-radius: 12px; color: white;">
@@ -1592,9 +1592,9 @@ class DayTradeWebServer:
                         📈 チャート表示
                     </div>
                     <div style="text-align: center;">
-                        <input type="text" id="chartSymbol" placeholder="銘柄コード (例: 7203)" 
+                        <input type="text" id="chartSymbol" placeholder="銘柄コード (例: 7203)"
                                style="padding: 8px; margin-right: 10px; border: none; border-radius: 6px;">
-                        <button onclick="loadChart()" 
+                        <button onclick="loadChart()"
                                 style="padding: 8px 16px; background: white; color: #3182ce; border: none; border-radius: 6px; cursor: pointer;">
                             チャート表示
                         </button>
@@ -1603,22 +1603,22 @@ class DayTradeWebServer:
             `;
             listDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;">銘柄コードを入力してチャートを表示してください</div>';
         }
-        
+
         // チャート読み込み - Issue #955対応
         async function loadChart() {
             const symbol = document.getElementById('chartSymbol').value;
             if (!symbol) return;
-            
+
             const listDiv = document.getElementById('recommendationsList');
             listDiv.innerHTML = '<div style="text-align: center; padding: 20px;">チャートデータを読み込み中...</div>';
-            
+
             try {
                 const response = await fetch(`/api/chart-data/${symbol}`);
                 const data = await response.json();
-                
+
                 const changeColor = data.price_change >= 0 ? '#38a169' : '#e53e3e';
                 const changePrefix = data.price_change >= 0 ? '+' : '';
-                
+
                 listDiv.innerHTML = `
                     <div style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
                         <div style="text-align: center; margin-bottom: 20px;">
@@ -1642,13 +1642,13 @@ class DayTradeWebServer:
                 listDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #e53e3e;">チャートデータの読み込みに失敗しました</div>';
             }
         }
-        
+
         // 検索パネル表示 - Issue #955対応
         function showSearchPanel() {
             const container = document.getElementById('recommendationsContainer');
             const summaryDiv = document.getElementById('summaryStats');
             const listDiv = document.getElementById('recommendationsList');
-            
+
             container.style.display = 'block';
             summaryDiv.innerHTML = `
                 <div style="background: linear-gradient(135deg, #805ad5 0%, #6b46c1 100%); padding: 20px; margin-bottom: 20px; border-radius: 12px; color: white;">
@@ -1656,10 +1656,10 @@ class DayTradeWebServer:
                         🔍 銘柄検索
                     </div>
                     <div style="text-align: center;">
-                        <input type="text" id="searchQuery" placeholder="銘柄名、コード、業種で検索" 
+                        <input type="text" id="searchQuery" placeholder="銘柄名、コード、業種で検索"
                                style="padding: 8px; margin-right: 10px; border: none; border-radius: 6px; width: 250px;"
                                onkeypress="if(event.key==='Enter') searchStocks()">
-                        <button onclick="searchStocks()" 
+                        <button onclick="searchStocks()"
                                 style="padding: 8px 16px; background: white; color: #805ad5; border: none; border-radius: 6px; cursor: pointer;">
                             検索
                         </button>
@@ -1668,24 +1668,24 @@ class DayTradeWebServer:
             `;
             listDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;">検索キーワードを入力してください</div>';
         }
-        
+
         // 銘柄検索実行 - Issue #955対応
         async function searchStocks() {
             const query = document.getElementById('searchQuery').value;
             if (!query || query.length < 2) return;
-            
+
             const listDiv = document.getElementById('recommendationsList');
             listDiv.innerHTML = '<div style="text-align: center; padding: 20px;">検索中...</div>';
-            
+
             try {
                 const response = await fetch(`/api/search-stocks?q=${encodeURIComponent(query)}`);
                 const data = await response.json();
-                
+
                 if (data.results.length === 0) {
                     listDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;">検索結果が見つかりませんでした</div>';
                     return;
                 }
-                
+
                 const resultsHtml = data.results.map(stock => `
                     <div class="recommendation-card" style="border-left: 4px solid #805ad5;">
                         <div class="stock-header">
@@ -1694,7 +1694,7 @@ class DayTradeWebServer:
                                 <div class="stock-symbol">${stock.symbol} | ${stock.sector}</div>
                             </div>
                             <div>
-                                <button onclick="loadChart(); document.getElementById('chartSymbol').value='${stock.symbol}'" 
+                                <button onclick="loadChart(); document.getElementById('chartSymbol').value='${stock.symbol}'"
                                         style="padding: 4px 8px; background: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
                                     チャート
                                 </button>
@@ -1702,27 +1702,27 @@ class DayTradeWebServer:
                         </div>
                     </div>
                 `).join('');
-                
+
                 listDiv.innerHTML = resultsHtml;
             } catch (error) {
                 listDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #e53e3e;">検索エラーが発生しました</div>';
             }
         }
-        
+
         // ウォッチリスト表示 - Issue #956対応
         async function loadWatchlist() {
             const container = document.getElementById('recommendationsContainer');
             const summaryDiv = document.getElementById('summaryStats');
             const listDiv = document.getElementById('recommendationsList');
-            
+
             container.style.display = 'block';
             summaryDiv.innerHTML = '<div style="text-align: center; padding: 20px;">ウォッチリストを読み込み中...</div>';
             listDiv.innerHTML = '';
-            
+
             try {
                 const response = await fetch('/api/watchlist');
                 const data = await response.json();
-                
+
                 summaryDiv.innerHTML = `
                     <div style="background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%); padding: 20px; margin-bottom: 20px; border-radius: 12px; color: white;">
                         <div style="text-align: center; font-size: 1.2rem; font-weight: bold; margin-bottom: 15px;">
@@ -1734,11 +1734,11 @@ class DayTradeWebServer:
                         </div>
                     </div>
                 `;
-                
+
                 const watchlistHtml = data.watchlist.map(stock => {
                     const changeColor = stock.change >= 0 ? '#38a169' : '#e53e3e';
                     const changePrefix = stock.change >= 0 ? '+' : '';
-                    
+
                     return `
                         <div class="recommendation-card" style="border-left: 4px solid #d69e2e;">
                             <div class="stock-header">
@@ -1767,11 +1767,11 @@ class DayTradeWebServer:
                                     <span class="detail-value">¥${stock.low_52w.toLocaleString()}</span>
                                 </div>
                                 <div style="text-align: center; margin-top: 10px;">
-                                    <button onclick="showChartPanel(); document.getElementById('chartSymbol').value='${stock.symbol}'" 
+                                    <button onclick="showChartPanel(); document.getElementById('chartSymbol').value='${stock.symbol}'"
                                             style="padding: 4px 12px; background: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;">
                                         チャート
                                     </button>
-                                    <button onclick="addToPortfolio('${stock.symbol}')" 
+                                    <button onclick="addToPortfolio('${stock.symbol}')"
                                             style="padding: 4px 12px; background: #38a169; color: white; border: none; border-radius: 4px; cursor: pointer;">
                                         ポートフォリオ追加
                                     </button>
@@ -1780,34 +1780,34 @@ class DayTradeWebServer:
                         </div>
                     `;
                 }).join('');
-                
+
                 listDiv.innerHTML = watchlistHtml;
             } catch (error) {
                 summaryDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #e53e3e;">読み込みエラーが発生しました</div>';
             }
         }
-        
+
         // 市場概況表示 - Issue #956対応
         async function loadMarketSummary() {
             const container = document.getElementById('recommendationsContainer');
             const summaryDiv = document.getElementById('summaryStats');
             const listDiv = document.getElementById('recommendationsList');
-            
+
             container.style.display = 'block';
             summaryDiv.innerHTML = '<div style="text-align: center; padding: 20px;">市場概況を読み込み中...</div>';
             listDiv.innerHTML = '';
-            
+
             try {
                 const response = await fetch('/api/market-summary');
                 const data = await response.json();
-                
+
                 const statusColor = data.market_status === 'open' ? '#38a169' : '#e53e3e';
                 const statusText = {
                     'open': '取引中',
                     'closed': '取引終了',
                     'pre_market': 'プレマーケット'
                 }[data.market_status] || '不明';
-                
+
                 summaryDiv.innerHTML = `
                     <div style="background: linear-gradient(135deg, #319795 0%, #2c7a7b 100%); padding: 20px; margin-bottom: 20px; border-radius: 12px; color: white;">
                         <div style="text-align: center; font-size: 1.2rem; font-weight: bold; margin-bottom: 15px;">
@@ -1825,11 +1825,11 @@ class DayTradeWebServer:
                         </div>
                     </div>
                 `;
-                
+
                 const indicesHtml = Object.entries(data.indices).map(([key, index]) => {
                     const changeColor = index.change >= 0 ? '#38a169' : '#e53e3e';
                     const changePrefix = index.change >= 0 ? '+' : '';
-                    
+
                     return `
                         <div class="recommendation-card" style="border-left: 4px solid #319795;">
                             <div class="stock-header">
@@ -1847,27 +1847,27 @@ class DayTradeWebServer:
                         </div>
                     `;
                 }).join('');
-                
+
                 listDiv.innerHTML = indicesHtml;
             } catch (error) {
                 summaryDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #e53e3e;">読み込みエラーが発生しました</div>';
             }
         }
-        
+
         // アラート表示 - Issue #956対応
         async function loadAlerts() {
             const container = document.getElementById('recommendationsContainer');
             const summaryDiv = document.getElementById('summaryStats');
             const listDiv = document.getElementById('recommendationsList');
-            
+
             container.style.display = 'block';
             summaryDiv.innerHTML = '<div style="text-align: center; padding: 20px;">アラートを読み込み中...</div>';
             listDiv.innerHTML = '';
-            
+
             try {
                 const response = await fetch('/api/alerts');
                 const data = await response.json();
-                
+
                 summaryDiv.innerHTML = `
                     <div style="background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%); padding: 20px; margin-bottom: 20px; border-radius: 12px; color: white;">
                         <div style="text-align: center; font-size: 1.2rem; font-weight: bold; margin-bottom: 15px;">
@@ -1885,21 +1885,21 @@ class DayTradeWebServer:
                         </div>
                     </div>
                 `;
-                
+
                 const alertsHtml = data.alerts.map(alert => {
                     const priorityColor = {
                         'high': '#e53e3e',
-                        'medium': '#d69e2e', 
+                        'medium': '#d69e2e',
                         'low': '#38a169'
                     }[alert.priority] || '#718096';
-                    
+
                     const typeIcon = {
                         'price_target': '💰',
                         'volume_spike': '📈',
                         'news': '📰',
                         'technical': '📊'
                     }[alert.type] || '🔔';
-                    
+
                     return `
                         <div class="recommendation-card" style="border-left: 4px solid ${priorityColor};">
                             <div class="stock-header">
@@ -1913,7 +1913,7 @@ class DayTradeWebServer:
                                     <div class="stock-symbol">${alert.symbol} | ${new Date(alert.timestamp).toLocaleString()}</div>
                                 </div>
                                 <div>
-                                    <button onclick="markAsRead(${alert.id})" 
+                                    <button onclick="markAsRead(${alert.id})"
                                             style="padding: 4px 8px; background: #4a5568; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
                                         既読
                                     </button>
@@ -1922,25 +1922,25 @@ class DayTradeWebServer:
                         </div>
                     `;
                 }).join('');
-                
+
                 listDiv.innerHTML = alertsHtml || '<div style="text-align: center; padding: 40px; color: #718096;">現在アラートはありません</div>';
             } catch (error) {
                 summaryDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #e53e3e;">読み込みエラーが発生しました</div>';
             }
         }
-        
+
         // ヘルパー関数
         function addToPortfolio(symbol) {
             alert(`${symbol}をポートフォリオに追加しました（デモ機能）`);
         }
-        
+
         function markAsRead(alertId) {
             alert(`アラート${alertId}を既読にしました（デモ機能）`);
         }
-        
+
         // 自動更新機能 - Issue #956対応
         let autoUpdateEnabled = false;
-        
+
         function toggleAutoUpdate() {
             autoUpdateEnabled = !autoUpdateEnabled;
             if (autoUpdateEnabled) {
@@ -1954,18 +1954,18 @@ class DayTradeWebServer:
                 }, 30000); // 30秒間隔
             }
         }
-        
+
         // 10秒ごとに状態更新
         setInterval(updateStatus, 10000);
         updateStatus();
-        
+
         // 自動更新開始
         toggleAutoUpdate();
     </script>
 </body>
 </html>
         '''
-    
+
     def run(self) -> int:
         """Webサーバー起動"""
         try:
@@ -1974,7 +1974,7 @@ class DayTradeWebServer:
             print(f"URL: http://localhost:{self.port}")
             print(f"プロダクション対応: 有効")
             print(f"セキュリティ強化: 有効")
-            
+
             # Flaskアプリを別スレッドで起動
             self.app.run(
                 host='0.0.0.0',
@@ -1983,9 +1983,9 @@ class DayTradeWebServer:
                 threaded=True,
                 use_reloader=False
             )
-            
+
             return 0
-            
+
         except KeyboardInterrupt:
             print("\nサーバーを停止します...")
             return 0
@@ -1997,13 +1997,13 @@ class DayTradeWebServer:
 def main():
     """メイン関数"""
     import argparse
-    
+
     parser = argparse.ArgumentParser(description='Day Trade Web Server')
     parser.add_argument('--port', '-p', type=int, default=8000, help='ポート番号')
     parser.add_argument('--debug', '-d', action='store_true', help='デバッグモード')
-    
+
     args = parser.parse_args()
-    
+
     server = DayTradeWebServer(port=args.port, debug=args.debug)
     return server.run()
 

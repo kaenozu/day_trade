@@ -1,0 +1,7 @@
+feat(ml): Add dynamic hyperparameter optimization
+
+- Adds `optuna` to dependencies.
+- Creates a new script `hyperparameter_optimization/optimizer.py` to automatically find the best hyperparameters for the LightGBM model using Optuna.
+- The `LightGBMModel` now loads and uses these optimized parameters from the generated `best_params.json` file, allowing for continuous model improvement.
+
+This completes the "Dynamic Hyperparameter Optimization" task and all planned work for issue #939.
