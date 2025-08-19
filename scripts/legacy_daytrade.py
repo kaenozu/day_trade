@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Day Trade Personal - 個人利用専用版
@@ -307,7 +308,7 @@ class PersonalAnalysisEngine:
         if PERFORMANCE_TRACKER_AVAILABLE:
             self.performance_tracker = PerformanceTracker()
 <<<<<<< HEAD:scripts/legacy_daytrade.py
-        
+
 =======
 >>>>>>> origin/main:daytrade.py
         # ML予測システムの初期化
@@ -415,8 +416,6 @@ class PersonalAnalysisEngine:
 
                     if not name:
                         name = symbol_key
-
-                    print(f"[DEBUG] Enhanced mode: {symbol_key} -> final name = {name}")
                 else:
                     # フォールバック: 基本的なファンダメンタル分析
                     try:
@@ -877,7 +876,7 @@ def parse_arguments():
   python daytrade.py --safe             # 安全モード（低リスク銘柄のみ）
   python daytrade.py --multi 8 --chart  # 複数銘柄分析＋チャート表示
   python daytrade.py --quick --chart --safe # 基本モード＋チャート＋安全モード
-  python daytrade.py --train-overnight-model # 【開発者用】翌朝場予測の機械学習モデルを再学習
+  python daytrade.py --train-overnight-model # 【開発者用】翌朝場予測の再学習
 
   # Issue #882対応: マルチタイムフレーム予測機能（デフォルト化）
   python daytrade.py --symbol 7203.T # マルチタイムフレーム予測（新デフォルト）
@@ -1701,7 +1700,7 @@ async def run_daytrading_mode() -> bool:
         else:
             print("\nデイトレード推奨ガイド:")
             print("・★強い買い★: 即座にエントリー検討")
-            print("・●買い●: 押し目でのエントリータイミングを狙う")
+            print(f"・●買い●: 押し目でのエントリータイミングを狙う")
             print("・▼強い売り▼/▽売り▽: 利確・損切り実行")
             print("・■ホールド■: 既存ポジション維持")
             print("・…待機…: エントリーチャンス待ち")
@@ -1837,7 +1836,7 @@ class DayTradeWebDashboard:
                         'confidence': ml_prediction.confidence * 100,
                         'score': ml_prediction.accuracy_score if hasattr(ml_prediction, 'accuracy_score') else 75.0,
                         'signal': '検討',
-                        'risk_level': '中',
+                        'risk_level': '中' if confidence > 75 else '高',
                         'ml_source': 'ml_prediction_system',
                         'backtest_score': None
                     }
@@ -1972,7 +1971,7 @@ class DayTradeWebDashboard:
     def setup_app(self):
         """Flaskアプリケーション初期化"""
         self.app = Flask(__name__)
-        
+
         # セキュアなsecret key設定
         secret_key = os.environ.get('FLASK_SECRET_KEY')
         if not secret_key:
@@ -1980,7 +1979,7 @@ class DayTradeWebDashboard:
             secret_key = secrets.token_urlsafe(32)
             print(f"⚠️  本番環境では環境変数FLASK_SECRET_KEYを設定してください")
             print(f"    例: export FLASK_SECRET_KEY='[32文字以上のランダム文字列]'")
-        
+
         self.app.secret_key = secret_key
         self.setup_routes()
 
@@ -2372,7 +2371,7 @@ class DayTradeWebDashboard:
                     colors.append('#ff4757')  # 赤系
                 elif '買い' in signal:
                     colors.append('#2ed573')  # 緑系
-                elif '売り' in signal:
+                elif '売り':
                     colors.append('#3742fa')  # 青系
                 else:
                     colors.append('#747d8c')  # グレー
@@ -2470,35 +2469,35 @@ class DayTradeWebDashboard:
         .profit-target { color: #2ed573 !important; font-weight: bold; }
         .stop-loss { color: #ff4757 !important; font-weight: bold; }
 
-        /*価格変動の色分け*/
+        /* 価格変動の色分け */
         .price-up { color: #2ed573 !important; font-weight: bold; }
         .price-down { color: #ff4757 !important; font-weight: bold; }
         .price-neutral { color: #747d8c; }
 
-        /*更新時刻表示*/
+        /* 更新時刻表示 */
         .last-update { font-size: 0.8em; color: #95a5a6; text-align: center; margin-top: 10px; }
 
-        /*リアルタイム更新アニメーション*/
+        /* リアルタイム更新アニメーション */
         .updating { opacity: 0.6; transition: opacity 0.3s ease; }
 
         .price-change-animation { animation: priceChange 0.5s ease-out; }
 
         @keyframes priceChange { 0% { background-color: rgba(255, 255, 255, 0.3); } 100% { background-color: transparent; } }
 
-        /*進捗バー*/
+        /* 進捗バー */
         .progress-bar { width: 100%; height: 4px; background-color: rgba(255, 255, 255, 0.2); border-radius: 2px; margin: 2px 0; overflow: hidden; }
         .progress-fill { height: 100%; border-radius: 2px; transition: width 0.3s ease; }
         .progress-profit { background: linear-gradient(90deg, #2ed573, #7bed9f); }
         .progress-loss { background: linear-gradient(90deg, #ff4757, #ff6b7d); }
 
-        /*アラート*/
+        /* アラート */
         .alert { position: fixed; top: 20px; right: 20px; padding: 15px 20px; border-radius: 8px; color: white; font-weight: bold; z-index: 1000; animation: slideIn 0.3s ease-out; max-width: 300px; }
         .alert-success { background: linear-gradient(45deg, #2ed573, #7bed9f); }
         .alert-warning { background: linear-gradient(45deg, #ffa502, #ff6348); }
         .alert-danger { background: linear-gradient(45deg, #ff4757, #ff3838); }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-        /*システム状況パネル*/
+        /* システム状況パネル */
         .system-status-panel { background: rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-top: 20px; backdrop-filter: blur(10px); }
         .system-status-panel h3 { margin: 0 0 15px 0; color: #fff; font-size: 18px; }
         .status-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
@@ -2507,17 +2506,17 @@ class DayTradeWebDashboard:
         .status-indicator { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
         .status-ok { background: #2ed573; } .status-warning { background: #ffa502; } .status-error { background: #ff3838; }
 
-        /*価格変動の色分け*/
+        /* 価格変動の色分け */
         .price-change-animation { animation: priceChange 0.5s ease-out; }
         @keyframes priceChange { 0% { background-color: rgba(255, 255, 255, 0.3); } 100% { background-color: transparent; } }
 
-        /*メモモーダル*/
+        /* メモモーダル */
         .modal { display: none; position: fixed; z-index: 1001; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
         .modal-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 15% auto; padding: 20px; border-radius: 10px; width: 90%; max-width: 500px; color: white; }
         .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
         .close:hover { color: white; }
 
-        /*分析機能*/
+        /* 分析機能 */
         .news-item { background: rgba(255,255,255,0.05); padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #4ecdc4; }
         .news-title { font-weight: bold; margin-bottom: 5px; color: #4ecdc4; }
         .news-content { font-size: 0.9em; line-height: 1.4; }
@@ -2527,7 +2526,7 @@ class DayTradeWebDashboard:
         .metric-name { font-weight: bold; }
         .metric-value { color: #4ecdc4; font-weight: bold; }
 
-        /*ユーザビリティ機能*/
+        /* ユーザビリティ機能 */
         .table-controls { display: flex; gap: 10px; align-items: center; }
         .filter-select { padding: 8px 12px; border: none; border-radius: 6px; background: rgba(255,255,255,0.1); color: white; font-size: 0.9em; cursor: pointer; }
         .filter-select option { background: #2c3e50; color: white; }
@@ -2536,7 +2535,7 @@ class DayTradeWebDashboard:
         .favorite-star.active { color: #f1c40f; }
         .hidden { display: none !important; }
 
-        /*モバイル対応*/
+        /* モバイル対応 */
         @media (max-width: 768px) { .container { padding: 10px; } .header h1 { font-size: 1.5em; } .recommendations-table { font-size: 0.8em; } .recommendations-table th, .recommendations-table td { padding: 8px 4px; } .price-info { font-size: 0.75em; } .price-info div { margin: 1px 0; } .chart-container { margin-bottom: 15px; } .btn { padding: 10px 15px; font-size: 0.9em; margin: 5px; } .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 480px) { .price-info { display: flex; flex-direction: column; gap: 2px; } .recommendations-table { font-size: 0.7em; } .recommendations-table th, .recommendations-table td { padding: 6px 2px; } .header p { font-size: 0.8em; } .metrics-grid { grid-template-columns: 1fr; } }
         .btn { background: linear-gradient(45deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 15px 30px; border-radius: 25px; cursor: pointer; margin: 10px; font-size: 1.1em; transition: all 0.3s; }
@@ -2547,13 +2546,13 @@ class DayTradeWebDashboard:
         .signal-sell { background: #45b7d1; color: white; }
         .signal-hold { background: #feca57; color: black; }
 
-        /*ML精度バッジ*/
+        /* ML精度バッジ */
         .ml-source-badge { display: inline-block; padding: 2px 6px; border-radius: 10px; font-size: 0.8em; font-weight: bold; color: white; margin-bottom: 2px; }
-        .ml-advanced_ml { background: #27ae60; }  /* 真AI*/
-        .ml-random_fallback { background: #e74c3c; }  /* 基本AI*/
-        .ml-error_fallback { background: #f39c12; }  /* エラー*/
+        .ml-advanced_ml { background: #27ae60; }  /* 真AI */
+        .ml-random_fallback { background: #e74c3c; }  /* 基本AI */
+        .ml-error_fallback { background: #f39c12; }  /* エラー */
 
-        /*システムステータス*/
+        /* システムステータス */
         .system-status { display: flex; justify-content: center; gap: 20px; margin-top: 10px; font-size: 0.9em; }
         .status-item { display: flex; align-items: center; gap: 5px; }
         .status-label { font-weight: bold; color: #34495e; }
@@ -2808,8 +2807,8 @@ class DayTradeWebDashboard:
             const isProfit = currentPrice > openingPrice;
             const progressClass = isProfit ? 'progress-profit' : 'progress-loss';
 
-            return '<div class="progress-bar">' + 
-                '<div class="progress-fill ' + progressClass + '" style="width: ' + progressPercent + '%"></div>' + 
+            return '<div class="progress-bar">' +
+                '<div class="progress-fill ' + progressClass + '" style="width: ' + progressPercent + '%"></div>' +
             '</div>';
         }
 
@@ -3041,10 +3040,10 @@ class DayTradeWebDashboard:
 
             const newsContainer = document.getElementById('newsContainer');
             newsContainer.innerHTML = sampleNews.map(function(news) {
-                return '<div class="news-item">' + 
-                    '<div class="news-title">' + news.title + '</div>' + 
-                    '<div class="news-content">' + news.content + '</div>' + 
-                    '<div class="news-meta">' + news.time + ' | ' + news.source + '</div>' + 
+                return '<div class="news-item">' +
+                    '<div class="news-title">' + news.title + '</div>' +
+                    '<div class="news-content">' + news.content + '</div>' +
+                    '<div class="news-meta">' + news.time + ' | ' + news.source + '</div>' +
                     '</div>';
             }).join('');
         }
@@ -3065,28 +3064,28 @@ class DayTradeWebDashboard:
             const totalProfit = historyData.reduce(function(sum, day) { return sum + day.profit; }, 0);
 
             const performanceContainer = document.getElementById('performanceHistory');
-            performanceContainer.innerHTML = 
-                '<div class="performance-summary" style="margin-bottom: 20px;">' + 
-                    '<div class="performance-metric">' + 
-                        '<span class="metric-name">平均予測精度 (5日間)</span>' + 
-                        '<span class="metric-value">' + avgAccuracy.toFixed(1) + '%</span>' + 
-                    '</div>' + 
-                    '<div class="performance-metric">' + 
-                        '<span class="metric-name">総取引数</span>' + 
-                        '<span class="metric-value">' + totalTrades + '回</span>' + 
-                    '</div>' + 
-                    '<div class="performance-metric">' + 
-                        '<span class="metric-name">累計収益率</span>' + 
-                        '<span class="metric-value">+' + totalProfit.toFixed(1) + '%</span>' + 
-                    '</div>' + 
-                '</div>' + 
-                '<div class="history-details">' + 
+            performanceContainer.innerHTML =
+                '<div class="performance-summary" style="margin-bottom: 20px;">' +
+                    '<div class="performance-metric">' +
+                        '<span class="metric-name">平均予測精度 (5日間)</span>' +
+                        '<span class="metric-value">' + avgAccuracy.toFixed(1) + '%</span>' +
+                    '</div>' +
+                    '<div class="performance-metric">' +
+                        '<span class="metric-name">総取引数</span>' +
+                        '<span class="metric-value">' + totalTrades + '回</span>' +
+                    '</div>' +
+                    '<div class="performance-metric">' +
+                        '<span class="metric-name">累計収益率</span>' +
+                        '<span class="metric-value">+' + totalProfit.toFixed(1) + '%</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="history-details">' +
                     historyData.map(function(day) {
-                        return '<div class="performance-metric">' + 
-                            '<span class="metric-name">' + day.date + '</span>' + 
-                            '<span class="metric-value">精度:' + day.accuracy + '% 取引:' + day.trades + '回 収益:+' + day.profit + '%</span>' + 
+                        return '<div class="performance-metric">' +
+                            '<span class="metric-name">' + day.date + '</span>' +
+                            '<span class="metric-value">精度:' + day.accuracy + '% 取引:' + day.trades + '回 収益:+' + day.profit + '%</span>' +
                         '</div>';
-                    }).join('') + 
+                    }).join('') +
                 '</div>';
         }
 
@@ -3183,22 +3182,22 @@ class DayTradeWebDashboard:
 
             const metricsGrid = document.getElementById('metricsGrid');
             const summary = data.summary;
-            metricsGrid.innerHTML = 
-                '<div class="metric-card">' + 
-                    '<div class="metric-value strong-buy">' + summary.strong_buy_count + '</div>' + 
-                    '<div class="metric-label">★強い買い★</div>' + 
-                '</div>' + 
-                '<div class="metric-card">' + 
-                    '<div class="metric-value buy">' + summary.buy_count + '</div>' + 
-                    '<div class="metric-label">●買い●</div>' + 
-                '</div>' + 
-                '<div class="metric-card">' + 
-                    '<div class="metric-value sell">' + summary.sell_count + '</div>' + 
-                    '<div class="metric-label">▽売り▽</div>' + 
-                '</div>' + 
-                '<div class="metric-card">' + 
-                    '<div class="metric-value hold">' + summary.hold_count + '</div>' + 
-                    '<div class="metric-label">■待機/ホールド■</div>' + 
+            metricsGrid.innerHTML =
+                '<div class="metric-card">' +
+                    '<div class="metric-value strong-buy">' + summary.strong_buy_count + '</div>' +
+                    '<div class="metric-label">★強い買い★</div>' +
+                '</div>' +
+                '<div class="metric-card">' +
+                    '<div class="metric-value buy">' + summary.buy_count + '</div>' +
+                    '<div class="metric-label">●買い●</div>' +
+                '</div>' +
+                '<div class="metric-card">' +
+                    '<div class="metric-value sell">' + summary.sell_count + '</div>' +
+                    '<div class="metric-label">▽売り▽</div>' +
+                '</div>' +
+                '<div class="metric-card">' +
+                    '<div class="metric-value hold">' + summary.hold_count + '</div>' +
+                    '<div class="metric-label">■待機/ホールド■</div>' +
                 '</div>';
         }
 
@@ -3233,31 +3232,31 @@ class DayTradeWebDashboard:
                     const priceChange = rec.current_price - rec.opening_price;
                     const progressBar = createProgressBar(rec.current_price, rec.opening_price, profitTarget, stopLoss);
 
-                    priceInfo = '<div class="price-info">' + 
-                        '<div><small>始値:</small> ¥' + rec.opening_price.toFixed(0) + '</div>' + 
-                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + ' (' + (priceChange >= 0 ? '+' : '') + priceChange.toFixed(0) + '</div>' + 
-                        progressBar + 
-                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' + 
-                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' + 
-                        '<div class="trading-actions">' + 
-                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\')">楽天で注文</button>' + 
-                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\')">アラート</button>' + 
-                        '</div>' + 
+                    priceInfo = '<div class="price-info">' +
+                        '<div><small>始値:</small> ¥' + rec.opening_price.toFixed(0) + '</div>' +
+                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + ' (' + (priceChange >= 0 ? '+' : '') + priceChange.toFixed(0) + '</div>' +
+                        progressBar +
+                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
+                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
+                        '<div class="trading-actions">' +
+                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">楽天で注文</button>' +
+                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">アラート</button>' +
+                        '</div>' +
                         '</div>';
                 } else if (rec.current_price) {
                     const profitTarget = rec.current_price * (1 + rec.target_profit / 100);
                     const stopLoss = rec.current_price * (1 - rec.stop_loss / 100);
                     const progressBar = createProgressBar(rec.current_price, rec.current_price, profitTarget, stopLoss);
 
-                    priceInfo = '<div class="price-info">' + 
-                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + '</div>' + 
-                        progressBar + 
-                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' + 
-                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' + 
-                        '<div class="trading-actions">' + 
-                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\')">楽天で注文</button>' + 
-                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, '\'\'') + "\', \'" + rec.name.replace(/'/g, '\'\'') + "\')">アラート</button>' + 
-                        '</div>' + 
+                    priceInfo = '<div class="price-info">' +
+                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + '</div>' +
+                        progressBar +
+                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
+                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
+                        '<div class="trading-actions">' +
+                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">楽天で注文</button>' +
+                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">アラート</button>' +
+                        '</div>' +
                         '</div>';
                 } else {
                     priceInfo = '<div class="price-info">N/A</div>';
@@ -3265,19 +3264,19 @@ class DayTradeWebDashboard:
                 const isFavorite = favorites.includes(rec.symbol);
                 const favoriteIcon = isFavorite ? '⭐' : '☆';
 
-                return '<tr>' + 
-                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(\'" + rec.symbol.replace(/'/g, '\'\'') + "\')">' + favoriteIcon + '</span></td>' + 
-                    '<td><strong>' + rec.rank + '</strong></td>' + 
-                    '<td><strong>' + rec.symbol + '</strong></td>' + 
-                    '<td>' + rec.name + '</td>' + 
-                    '<td>' + priceInfo + '</td>' + 
-                    '<td><span class="signal-badge signal-' + getSignalClass(rec.signal) + '">' + rec.signal + '</span></td>' + 
-                    '<td>' + rec.confidence.toFixed(0) + '%</td>' + 
-                    '<td>' + rec.entry_timing + '</td>' + 
-                    '<td>' + 
-                        '<span class="ml-source-badge ml-' + rec.ml_source + '">' + (rec.ml_source === 'advanced_ml' ? '高度AI' : '基本AI') + '</span>' + 
-                        (rec.backtest_score && rec.backtest_score > 0 ? '<br><small>過去' + Math.round(rec.backtest_score) + '%</small>' : '') + 
-                    '</td>' + 
+                return '<tr>' +
+                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(\'" + rec.symbol.replace(/'/g, "'\'" ) + "\')">' + favoriteIcon + '</span></td>' +
+                    '<td><strong>' + rec.rank + '</strong></td>' +
+                    '<td><strong>' + rec.symbol + '</strong></td>' +
+                    '<td>' + rec.name + '</td>' +
+                    '<td>' + priceInfo + '</td>' +
+                    '<td><span class="signal-badge signal-' + getSignalClass(rec.signal) + '">' + rec.signal + '</span></td>' +
+                    '<td>' + rec.confidence.toFixed(0) + '%</td>' +
+                    '<td>' + rec.entry_timing + '</td>' +
+                    '<td>' +
+                        '<span class="ml-source-badge ml-' + rec.ml_source + '">' + (rec.ml_source === 'advanced_ml' ? '高度AI' : '基本AI') + '</span>' +
+                        (rec.backtest_score && rec.backtest_score > 0 ? '<br><small>過去' + Math.round(rec.backtest_score) + '%</small>' : '') +
+                    '</td>' +
                 '</tr>';
             }).join('');
         }

@@ -47,13 +47,13 @@ except ImportError:
 
 class EnhancedWebUI:
     """高度なWebユーザーインターフェース"""
-    
+
     def __init__(self, port: int = 8080, debug: bool = False):
         self.port = port
         self.debug = debug
         self.app = Flask(__name__)
         self.app.secret_key = 'daytrade-enhanced-ui-2025'
-        
+
         # UIテーマ設定
         self.theme_config = {
             'primary_color': '#2563eb',
@@ -62,7 +62,7 @@ class EnhancedWebUI:
             'danger_color': '#ef4444',
             'dark_mode': False
         }
-        
+
         # ダッシュボード設定
         self.dashboard_config = {
             'refresh_interval': 5000,  # 5秒
@@ -70,47 +70,47 @@ class EnhancedWebUI:
             'default_symbols': ['7203', '8306', '9984', '6758', '4689'],
             'auto_refresh': True
         }
-        
+
         self._setup_routes()
-    
+
     def _setup_routes(self):
         """ルート設定"""
-        
+
         @self.app.route('/')
         def enhanced_dashboard():
             """拡張ダッシュボード"""
             return render_template_string(self._get_dashboard_template())
-        
+
         @self.app.route('/realtime')
         def realtime_dashboard():
             """リアルタイムダッシュボード"""
             return render_template_string(self._get_realtime_template())
-        
-        @self.app.route('/analytics') 
+
+        @self.app.route('/analytics')
         def analytics_dashboard():
             """分析ダッシュボード"""
             return render_template_string(self._get_analytics_template())
-        
+
         @self.app.route('/api/enhanced/dashboard-data')
         def api_dashboard_data():
             """ダッシュボードデータAPI"""
             return jsonify(self._get_dashboard_data())
-        
+
         @self.app.route('/api/enhanced/market-overview')
         def api_market_overview():
             """市場概況API"""
             return jsonify(self._get_market_overview())
-        
+
         @self.app.route('/api/enhanced/performance-metrics')
         def api_performance_metrics():
             """パフォーマンスメトリクスAPI"""
             return jsonify(self._get_performance_metrics())
-        
+
         @self.app.route('/api/enhanced/ai-insights')
         def api_ai_insights():
             """AI洞察API"""
             return jsonify(self._get_ai_insights())
-        
+
         @self.app.route('/api/enhanced/realtime-feed')
         def api_realtime_feed():
             """リアルタイムフィードAPI"""
@@ -118,17 +118,17 @@ class EnhancedWebUI:
                 self._realtime_feed_generator(),
                 mimetype='text/plain'
             )
-        
+
         @self.app.route('/api/enhanced/symbol-analysis/<symbol>')
         def api_symbol_analysis(symbol):
             """個別銘柄分析API"""
             return jsonify(self._get_symbol_analysis(symbol))
-        
+
         @self.app.route('/api/enhanced/market-alerts')
         def api_market_alerts():
             """市場アラートAPI"""
             return jsonify(self._get_market_alerts())
-        
+
         @self.app.route('/api/enhanced/settings', methods=['GET', 'POST'])
         def api_settings():
             """設定API"""
@@ -136,7 +136,7 @@ class EnhancedWebUI:
                 return jsonify(self._update_settings(request.get_json()))
             else:
                 return jsonify(self._get_settings())
-    
+
     def _get_dashboard_template(self) -> str:
         """ダッシュボードテンプレート"""
         return """
@@ -185,7 +185,7 @@ class EnhancedWebUI:
 
     <!-- Main Dashboard -->
     <main class="container mx-auto px-6 py-8">
-        
+
         <!-- Quick Stats Row -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div class="bg-white rounded-xl p-6 card-shadow">
@@ -199,7 +199,7 @@ class EnhancedWebUI:
                     </div>
                 </div>
             </div>
-            
+
             <div class="bg-white rounded-xl p-6 card-shadow">
                 <div class="flex items-center">
                     <div class="p-3 bg-blue-100 rounded-full">
@@ -211,7 +211,7 @@ class EnhancedWebUI:
                     </div>
                 </div>
             </div>
-            
+
             <div class="bg-white rounded-xl p-6 card-shadow">
                 <div class="flex items-center">
                     <div class="p-3 bg-purple-100 rounded-full">
@@ -223,7 +223,7 @@ class EnhancedWebUI:
                     </div>
                 </div>
             </div>
-            
+
             <div class="bg-white rounded-xl p-6 card-shadow">
                 <div class="flex items-center">
                     <div class="p-3 bg-yellow-100 rounded-full">
@@ -247,7 +247,7 @@ class EnhancedWebUI:
                 </h3>
                 <canvas id="marketTrendChart" width="400" height="200"></canvas>
             </div>
-            
+
             <!-- Confidence Distribution -->
             <div class="bg-white rounded-xl p-6 card-shadow">
                 <h3 class="text-lg font-semibold mb-4 flex items-center">
@@ -269,7 +269,7 @@ class EnhancedWebUI:
                     </span>
                 </h3>
             </div>
-            
+
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-gray-50">
@@ -301,7 +301,7 @@ class EnhancedWebUI:
                                     <div class="flex items-center">
                                         <div class="text-sm text-gray-900" x-text="(rec.confidence * 100).toFixed(1) + '%'"></div>
                                         <div class="ml-2 w-16 bg-gray-200 rounded-full h-2">
-                                            <div class="bg-blue-600 h-2 rounded-full" 
+                                            <div class="bg-blue-600 h-2 rounded-full"
                                                  :style="`width: ${rec.confidence * 100}%`"></div>
                                         </div>
                                     </div>
@@ -325,7 +325,7 @@ class EnhancedWebUI:
                 </table>
             </div>
         </div>
-        
+
         <!-- Footer -->
         <footer class="mt-12 text-center text-gray-500">
             <p>{{ __version_full__ }} - Powered by Advanced AI Analytics</p>
@@ -347,29 +347,29 @@ class EnhancedWebUI:
                 recommendations: [],
                 marketTrendChart: null,
                 confidenceChart: null,
-                
+
                 init() {
                     this.loadDashboardData();
                     this.initCharts();
                     this.startDataRefresh();
                     this.updateTime();
                 },
-                
+
                 async loadDashboardData() {
                     try {
                         const response = await fetch('/api/enhanced/dashboard-data');
                         const data = await response.json();
-                        
+
                         this.stats = data.stats;
                         this.recommendations = data.recommendations || [];
                         this.lastUpdate = new Date().toLocaleString('ja-JP');
-                        
+
                         this.updateCharts(data);
                     } catch (error) {
                         console.error('Failed to load dashboard data:', error);
                     }
                 },
-                
+
                 initCharts() {
                     // Market Trend Chart
                     const trendCtx = document.getElementById('marketTrendChart');
@@ -408,7 +408,7 @@ class EnhancedWebUI:
                             }
                         }
                     });
-                    
+
                     // Confidence Chart
                     const confCtx = document.getElementById('confidenceChart');
                     this.confidenceChart = new Chart(confCtx, {
@@ -430,7 +430,7 @@ class EnhancedWebUI:
                         }
                     });
                 },
-                
+
                 updateCharts(data) {
                     if (data.chartData) {
                         // Update trend chart
@@ -439,7 +439,7 @@ class EnhancedWebUI:
                             this.marketTrendChart.data.datasets[0].data = data.chartData.trendData;
                             this.marketTrendChart.update();
                         }
-                        
+
                         // Update confidence chart
                         if (data.chartData.confidenceDistribution) {
                             this.confidenceChart.data.datasets[0].data = data.chartData.confidenceDistribution;
@@ -447,33 +447,33 @@ class EnhancedWebUI:
                         }
                     }
                 },
-                
+
                 startDataRefresh() {
                     setInterval(() => {
                         this.loadDashboardData();
                     }, {{ dashboard_config.refresh_interval }});
                 },
-                
+
                 updateTime() {
                     setInterval(() => {
                         this.currentTime = new Date().toLocaleString('ja-JP');
                     }, 1000);
                 },
-                
+
                 toggleTheme() {
                     this.darkMode = !this.darkMode;
                     document.documentElement.classList.toggle('dark', this.darkMode);
                 },
-                
+
                 getRecommendationClass(recommendation) {
                     const classes = {
                         'BUY': 'bg-green-100 text-green-800',
-                        'SELL': 'bg-red-100 text-red-800', 
+                        'SELL': 'bg-red-100 text-red-800',
                         'HOLD': 'bg-yellow-100 text-yellow-800'
                     };
                     return classes[recommendation] || 'bg-gray-100 text-gray-800';
                 },
-                
+
                 getRiskClass(riskLevel) {
                     const classes = {
                         'LOW': 'bg-green-100 text-green-800',
@@ -490,7 +490,7 @@ class EnhancedWebUI:
         """.replace('{{ VERSION_INFO.version }}', VERSION_INFO.get('version', '2.1.0')) \
            .replace('{{ __version_full__ }}', __version_full__) \
            .replace('{{ dashboard_config.refresh_interval }}', str(self.dashboard_config['refresh_interval']))
-    
+
     def _get_realtime_template(self) -> str:
         """リアルタイムテンプレート"""
         return """
@@ -509,7 +509,7 @@ class EnhancedWebUI:
         <h1 class="text-4xl font-bold mb-8 text-center">
             🔴 LIVE Market Analysis
         </h1>
-        
+
         <!-- WebSocket Status -->
         <div class="mb-6 text-center">
             <span class="px-3 py-1 rounded-full text-sm"
@@ -518,7 +518,7 @@ class EnhancedWebUI:
                 <span x-text="wsConnected ? 'リアルタイム接続中' : '接続待機中'"></span>
             </span>
         </div>
-        
+
         <!-- Live Feed -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div class="bg-gray-800 rounded-lg p-6">
@@ -542,7 +542,7 @@ class EnhancedWebUI:
                     </template>
                 </div>
             </div>
-            
+
             <div class="bg-gray-800 rounded-lg p-6">
                 <h3 class="text-xl font-semibold mb-4">🤖 AI分析アラート</h3>
                 <div class="space-y-2 max-h-96 overflow-y-auto">
@@ -575,19 +575,19 @@ class EnhancedWebUI:
                 ws: null,
                 priceUpdates: [],
                 analysisAlerts: [],
-                
+
                 init() {
                     this.connectWebSocket();
                 },
-                
+
                 connectWebSocket() {
                     try {
                         this.ws = new WebSocket('ws://localhost:8765');
-                        
+
                         this.ws.onopen = () => {
                             this.wsConnected = true;
                             console.log('WebSocket connected');
-                            
+
                             // Subscribe to all symbols
                             this.ws.send(JSON.stringify({
                                 type: 'subscribe',
@@ -595,18 +595,18 @@ class EnhancedWebUI:
                                 message_types: ['market_data', 'analysis']
                             }));
                         };
-                        
+
                         this.ws.onmessage = (event) => {
                             const data = JSON.parse(event.data);
                             this.handleWebSocketMessage(data);
                         };
-                        
+
                         this.ws.onclose = () => {
                             this.wsConnected = false;
                             console.log('WebSocket disconnected');
                             setTimeout(() => this.connectWebSocket(), 5000);
                         };
-                        
+
                         this.ws.onerror = (error) => {
                             console.error('WebSocket error:', error);
                         };
@@ -614,7 +614,7 @@ class EnhancedWebUI:
                         console.error('Failed to connect WebSocket:', error);
                     }
                 },
-                
+
                 handleWebSocketMessage(data) {
                     if (data.type === 'market_data') {
                         this.priceUpdates.push({
@@ -624,7 +624,7 @@ class EnhancedWebUI:
                             change: data.data.change_percent,
                             time: new Date(data.timestamp).toLocaleTimeString('ja-JP')
                         });
-                        
+
                         if (this.priceUpdates.length > 50) {
                             this.priceUpdates.shift();
                         }
@@ -638,13 +638,13 @@ class EnhancedWebUI:
                             type: data.data.signal_type,
                             time: new Date(data.timestamp).toLocaleTimeString('ja-JP')
                         });
-                        
+
                         if (this.analysisAlerts.length > 50) {
                             this.analysisAlerts.shift();
                         }
                     }
                 },
-                
+
                 getAlertColor(type) {
                     const colors = {
                         'BUY': 'border-green-500',
@@ -659,7 +659,7 @@ class EnhancedWebUI:
 </body>
 </html>
         """
-    
+
     def _get_analytics_template(self) -> str:
         """分析テンプレート（簡略版）"""
         return """
@@ -681,12 +681,12 @@ class EnhancedWebUI:
 </body>
 </html>
         """
-    
+
     def _get_dashboard_data(self) -> Dict[str, Any]:
         """ダッシュボードデータ取得"""
         # 模擬データ生成
         import random
-        
+
         recommendations = []
         symbols_data = [
             {'symbol': '7203', 'name': 'トヨタ自動車'},
@@ -695,20 +695,20 @@ class EnhancedWebUI:
             {'symbol': '6758', 'name': 'ソニー'},
             {'symbol': '4689', 'name': 'Z Holdings'}
         ]
-        
+
         high_confidence_count = 0
         total_analysis_time = 0
-        
+
         for symbol_data in symbols_data:
             confidence = random.uniform(0.6, 0.95)
             recommendation = random.choice(['BUY', 'SELL', 'HOLD'])
             price = 1500 + hash(symbol_data['symbol']) % 1000
             change = random.uniform(-3.0, 3.0)
             risk_level = random.choice(['LOW', 'MEDIUM', 'HIGH'])
-            
+
             if confidence > 0.8:
                 high_confidence_count += 1
-            
+
             recommendations.append({
                 'symbol': symbol_data['symbol'],
                 'name': symbol_data['name'],
@@ -718,19 +718,19 @@ class EnhancedWebUI:
                 'change': change,
                 'risk_level': risk_level
             })
-            
+
             total_analysis_time += random.uniform(100, 300)
-        
+
         # チャートデータ
         chart_labels = [f"{i:02d}:00" for i in range(9, 16)]  # 9:00-15:00
         trend_data = [random.uniform(0.4, 0.8) for _ in chart_labels]
-        
+
         confidence_distribution = [
             high_confidence_count,
             len(recommendations) - high_confidence_count - 1,
             1
         ]
-        
+
         return {
             'stats': {
                 'totalRecommendations': len(recommendations),
@@ -745,7 +745,7 @@ class EnhancedWebUI:
             },
             'lastUpdate': datetime.now().isoformat()
         }
-    
+
     def _get_market_overview(self) -> Dict[str, Any]:
         """市場概況取得"""
         return {
@@ -757,7 +757,7 @@ class EnhancedWebUI:
             'declining_stocks': 890,
             'unchanged_stocks': 180
         }
-    
+
     def _get_performance_metrics(self) -> Dict[str, Any]:
         """パフォーマンスメトリクス取得"""
         if HAS_PERFORMANCE_MONITOR and performance_monitor:
@@ -767,7 +767,7 @@ class EnhancedWebUI:
                 'monitoring_enabled': False,
                 'message': 'Performance monitoring not available'
             }
-    
+
     def _get_ai_insights(self) -> Dict[str, Any]:
         """AI洞察取得"""
         if HAS_AI_ENGINE:
@@ -777,12 +777,12 @@ class EnhancedWebUI:
                 'ai_engine_available': False,
                 'message': 'AI engine not available'
             }
-    
+
     def _realtime_feed_generator(self):
         """リアルタイムフィードジェネレーター"""
         import time
         import json
-        
+
         while True:
             # 模擬リアルタイムデータ
             data = {
@@ -794,10 +794,10 @@ class EnhancedWebUI:
                     'change': (time.time() % 10) - 5
                 }
             }
-            
+
             yield f"data: {json.dumps(data)}\n\n"
             time.sleep(1)
-    
+
     def _get_symbol_analysis(self, symbol: str) -> Dict[str, Any]:
         """個別銘柄分析取得"""
         if HAS_AI_ENGINE:
@@ -817,7 +817,7 @@ class EnhancedWebUI:
                 return {'error': str(e)}
         else:
             return {'error': 'AI engine not available'}
-    
+
     def _get_market_alerts(self) -> Dict[str, Any]:
         """市場アラート取得"""
         return {
@@ -838,24 +838,24 @@ class EnhancedWebUI:
                 }
             ]
         }
-    
+
     def _get_settings(self) -> Dict[str, Any]:
         """設定取得"""
         return {
             'theme': self.theme_config,
             'dashboard': self.dashboard_config
         }
-    
+
     def _update_settings(self, settings: Dict[str, Any]) -> Dict[str, Any]:
         """設定更新"""
         if 'theme' in settings:
             self.theme_config.update(settings['theme'])
-        
+
         if 'dashboard' in settings:
             self.dashboard_config.update(settings['dashboard'])
-        
+
         return {'status': 'success', 'message': 'Settings updated'}
-    
+
     def run(self, host: str = '0.0.0.0'):
         """Webサーバー起動"""
         self.app.run(host=host, port=self.port, debug=self.debug)

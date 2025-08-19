@@ -4,45 +4,45 @@
 database:
   # PostgreSQL本番設定
   url: "postgresql://daytrading_user:${DB_PASSWORD}@${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:daytrading}"
-  
+
   # 接続プール設定
   pool_size: 20
   max_overflow: 30
   pool_timeout: 30
   pool_recycle: 3600
   pool_pre_ping: true
-  
+
   # SSL設定
   ssl_mode: "require"
   ssl_cert: "${SSL_CERT_PATH:/etc/ssl/certs/client-cert.pem}"
   ssl_key: "${SSL_KEY_PATH:/etc/ssl/private/client-key.pem}"
   ssl_ca: "${SSL_CA_PATH:/etc/ssl/certs/ca-cert.pem}"
-  
+
   # パフォーマンス設定
   echo: false
   echo_pool: false
   isolation_level: "READ_COMMITTED"
-  
+
   # 接続引数
   connect_args:
     sslmode: "require"
     connect_timeout: 10
     application_name: "DayTradingSystem"
-    
+
   # バックアップ設定
   backup:
     enabled: true
     interval_hours: 6
     retention_days: 30
     backup_path: "${BACKUP_PATH:/var/backups/daytrading}"
-    
+
   # 監視設定
   monitoring:
     enabled: true
     slow_query_threshold_ms: 1000
     connection_pool_warning_threshold: 0.8
     deadlock_detection: true
-    
+
   # マイグレーション設定
   migration:
     auto_upgrade: false
@@ -56,20 +56,20 @@ environments:
       url: "postgresql://daytrading_prod:${PROD_DB_PASSWORD}@${PROD_DB_HOST}:5432/daytrading_prod"
       pool_size: 50
       max_overflow: 100
-      
+
   staging:
     database:
       url: "postgresql://daytrading_stage:${STAGE_DB_PASSWORD}@${STAGE_DB_HOST}:5432/daytrading_stage"
       pool_size: 10
       max_overflow: 20
-      
+
   development:
     database:
       url: "postgresql://daytrading_dev:${DEV_DB_PASSWORD}@localhost:5432/daytrading_dev"
       pool_size: 5
       max_overflow: 10
       ssl_mode: "prefer"  # 開発環境では緩い設定
-      
+
   testing:
     database:
       url: "postgresql://postgres:postgres@localhost:5432/daytrading_test"
@@ -83,7 +83,7 @@ health_check:
   interval_seconds: 30
   timeout_seconds: 5
   retry_count: 3
-  
+
 # ログ設定
 logging:
   database_queries: false  # 本番ではSQLログ無効

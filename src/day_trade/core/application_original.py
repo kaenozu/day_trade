@@ -39,11 +39,11 @@ class StockAnalysisApplication:
         self.analyzer = None
         self.web_dashboard = None
         self._ml_modules_loaded = False
-        
+
         # 設定管理の初期化
         self.config_manager = ConfigManager()
         self.config = self.config_manager.get_config()
-        
+
         # ロガー設定
         self.logger = get_context_logger(__name__, "StockAnalysisApplication")
 
@@ -221,7 +221,7 @@ class StockAnalysisApplication:
                     default_confidence = 0.85
                     if hasattr(self.config, 'analysis') and self.config.analysis:
                         default_confidence = self.config.analysis.get('confidence', {}).get('default_confidence', 0.85)
-                    
+
                     results.append({
                         'symbol': symbol,
                         'recommendation': 'HOLD',
@@ -512,7 +512,7 @@ class StockAnalysisApplication:
             analysis_config = self._get_analysis_config()
             rsi_config = analysis_config['technical_indicators'].get('rsi', {'period': 14, 'overbought_threshold': 70, 'oversold_threshold': 30})
             sma_config = analysis_config['technical_indicators'].get('sma', {'short_period': 20, 'long_period': 50})
-            
+
             current_rsi = rsi.iloc[-1] if not rsi.empty else 50
 
             macd_line, macd_signal = calculate_macd(stock_data['Close'])
@@ -533,7 +533,7 @@ class StockAnalysisApplication:
             # RSI判定（設定から閾値を取得）
             rsi_oversold = rsi_config.get('oversold_threshold', 30)
             rsi_overbought = rsi_config.get('overbought_threshold', 70)
-            
+
             if current_rsi < rsi_oversold:
                 trend_score += 0.4
                 confidence += 0.2

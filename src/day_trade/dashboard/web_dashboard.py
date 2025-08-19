@@ -432,16 +432,16 @@ class WebDashboard:
             try:
                 # 遅延インポート
                 from ..data.tokyo_stock_symbols import tse
-                
+
                 # 設定ファイルから銘柄情報を取得
                 symbols = []
                 tier_symbols = {
                     1: tse.get_tier1_symbols(),
-                    2: tse.get_extended_symbols(), 
+                    2: tse.get_extended_symbols(),
                     3: tse.get_comprehensive_symbols(),
                     4: tse.get_all_tse_symbols()
                 }
-                
+
                 # 基本銘柄リスト（Tier1）
                 for symbol in tse.get_tier1_symbols():
                     company_info = tse.get_company_info(symbol)
@@ -449,7 +449,7 @@ class WebDashboard:
                         'code': symbol,
                         'name': company_info['name'] if company_info else symbol
                     })
-                
+
                 return jsonify({
                     "success": True,
                     "symbols": symbols,
@@ -470,7 +470,7 @@ class WebDashboard:
             try:
                 # 遅延インポート
                 from ..data.tokyo_stock_symbols import tse
-                
+
                 if tier == 1:
                     symbols = tse.get_tier1_symbols()
                 elif tier == 2:
@@ -485,7 +485,7 @@ class WebDashboard:
                         "error": "無効なティア番号です（1-4）",
                         "timestamp": datetime.now().isoformat()
                     }), 400
-                
+
                 return jsonify({
                     "success": True,
                     "symbols": symbols,
@@ -508,14 +508,14 @@ class WebDashboard:
                 data = request.get_json()
                 symbols = data.get('symbols', [])
                 mode = data.get('mode', 'web')
-                
+
                 if not symbols:
                     return jsonify({
                         "success": False,
                         "error": "分析する銘柄を指定してください",
                         "timestamp": datetime.now().isoformat()
                     }), 400
-                
+
                 # バックグラウンドで分析実行
                 def run_background_analysis():
                     try:
@@ -523,14 +523,14 @@ class WebDashboard:
                         if self.analysis_app is None:
                             from ..core.application import StockAnalysisApplication
                             self.analysis_app = StockAnalysisApplication(debug=self.debug)
-                        
+
                         # 進捗通知
                         self.socketio.emit('analysis_progress', {
                             'current': 0,
                             'total': len(symbols),
                             'currentSymbol': ''
                         })
-                        
+
                         results = []
                         for i, symbol in enumerate(symbols):
                             # 進捗更新
@@ -539,35 +539,35 @@ class WebDashboard:
                                 'total': len(symbols),
                                 'currentSymbol': symbol
                             })
-                            
+
                             # 個別銘柄分析
                             result = self.analysis_app._analyze_symbol_with_ai(symbol)
                             results.append(result)
-                        
+
                         # 分析完了通知
                         self.socketio.emit('analysis_complete', {
                             'results': results,
                             'timestamp': datetime.now().isoformat()
                         })
-                        
+
                     except Exception as e:
                         logger.error(f"バックグラウンド分析エラー: {e}")
                         self.socketio.emit('analysis_error', {
                             'message': str(e),
                             'timestamp': datetime.now().isoformat()
                         })
-                
+
                 # バックグラウンドスレッド開始
                 analysis_thread = threading.Thread(target=run_background_analysis, daemon=True)
                 analysis_thread.start()
-                
+
                 return jsonify({
                     "success": True,
                     "message": f"{len(symbols)}銘柄の分析を開始しました",
                     "symbol_count": len(symbols),
                     "timestamp": datetime.now().isoformat()
                 })
-                
+
             except Exception as e:
                 error_message = self._sanitize_error_message(e)
                 return jsonify({

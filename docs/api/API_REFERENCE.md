@@ -67,11 +67,11 @@ class UnifiedDatabaseManager:
 def __init__(self, config_path: Optional[str] = None, auto_start: bool = False):
     """
     統合データベースマネージャー初期化
-    
+
     Args:
         config_path: 設定ファイルパス (デフォルト: "config/database_production.yaml")
         auto_start: 自動開始フラグ (監視・バックアップの自動開始)
-    
+
     Raises:
         ApplicationError: 初期化失敗時
     """
@@ -102,7 +102,7 @@ manager = UnifiedDatabaseManager(
     "initialized": True,
     "components": {
         "production_db": "healthy",
-        "backup_system": "healthy", 
+        "backup_system": "healthy",
         "monitoring_system": "healthy",
         "dashboard": "healthy"
     },
@@ -138,7 +138,7 @@ if status["overall_health"] != "healthy":
             "details": {...}
         },
         {
-            "name": "backup_system", 
+            "name": "backup_system",
             "status": "healthy",
             "last_backup": "2025-08-18T02:00:00Z"
         }
@@ -222,7 +222,7 @@ emergency_backup = manager.create_backup("emergency")
 [
     {
         "filename": "backup_20250818_103000.sql.gz",
-        "backup_id": "backup_20250818_103000", 
+        "backup_id": "backup_20250818_103000",
         "size_mb": 15.7,
         "created_at": "2025-08-18T10:30:00Z",
         "backup_type": "manual",
@@ -270,7 +270,7 @@ for backup in backups:
 dry_result = manager.restore_database("backup_20250818_103000.sql.gz", dry_run=True)
 if dry_result["status"] == "success":
     print("復元可能なバックアップです")
-    
+
     # 実際の復元実行
     restore_result = manager.restore_database("backup_20250818_103000.sql.gz")
     if restore_result["status"] == "success":
@@ -314,11 +314,11 @@ if metrics:
     # CPU使用率監視
     if metrics["cpu_usage"] > 80:
         print(f"高CPU使用率: {metrics['cpu_usage']}%")
-    
+
     # 接続プール監視
     if metrics["connection_pool_usage"] > 0.8:
         print("接続プール使用率が高い")
-    
+
     # スロークエリ監視
     if metrics["slow_queries_count"] > 0:
         print(f"スロークエリ検出: {metrics['slow_queries_count']}件")
@@ -334,7 +334,7 @@ if metrics:
     {
         "id": "high_cpu_usage_cpu_usage",
         "rule_name": "high_cpu_usage",
-        "metric_name": "cpu_usage", 
+        "metric_name": "cpu_usage",
         "current_value": 85.2,
         "threshold": 80.0,
         "severity": "warning",
@@ -350,10 +350,10 @@ if metrics:
 alerts = manager.get_active_alerts()
 if alerts:
     print(f"アクティブアラート: {len(alerts)}件")
-    
+
     for alert in alerts:
         print(f"[{alert['severity']}] {alert['message']}")
-        
+
         # Critical アラートの場合は緊急対応
         if alert["severity"] == "critical":
             print("緊急対応が必要です")
@@ -462,7 +462,7 @@ class ProductionDatabaseManager:
 def __init__(self, config_path: Optional[str] = None):
     """
     本番データベースマネージャー初期化
-    
+
     Args:
         config_path: データベース設定ファイルパス
     """
@@ -476,7 +476,7 @@ def __init__(self, config_path: Optional[str] = None):
 def initialize() -> None:
     """
     データベース接続プール・マイグレーション管理初期化
-    
+
     Raises:
         ProductionDatabaseError: 初期化失敗時
     """
@@ -491,10 +491,10 @@ def initialize() -> None:
 def get_session():
     """
     SQLAlchemyセッション取得
-    
+
     Yields:
         Session: データベースセッション
-    
+
     Usage:
         with manager.get_session() as session:
             result = session.execute(text("SELECT 1"))
@@ -512,7 +512,7 @@ with db_manager.get_session() as session:
     result = session.execute(text("SELECT COUNT(*) FROM trades"))
     count = result.scalar()
     print(f"取引数: {count}")
-    
+
     # データ挿入
     session.execute(text("""
         INSERT INTO trades (symbol, quantity, price, timestamp)
@@ -581,7 +581,7 @@ with db_manager.get_session() as session:
     "success": True,
     "duration_seconds": 5.2,
     "from_revision": "abc123",
-    "to_revision": "def456", 
+    "to_revision": "def456",
     "applied_revisions": ["def456"]
 }
 ```
@@ -616,7 +616,7 @@ class DatabaseMonitoringSystem:
 def __init__(self, engine: Engine, config: Dict[str, Any]):
     """
     監視システム初期化
-    
+
     Args:
         engine: SQLAlchemyエンジン
         config: 監視設定
@@ -839,7 +839,7 @@ class BackupManager:
 def __init__(self, engine: Engine, config: Dict[str, Any]):
     """
     バックアップマネージャー初期化
-    
+
     Args:
         engine: データベースエンジン
         config: バックアップ設定
@@ -933,7 +933,7 @@ backup_manager.stop_scheduler()
 backup_result = backup_manager.create_backup("manual")
 if backup_result["status"] == "success":
     backup_file = backup_result["backup_id"] + ".sql.gz"
-    
+
     # 整合性確認
     verification = backup_manager.verify_backup(backup_file)
     if verification["status"] == "verified":
@@ -1212,19 +1212,19 @@ from src.day_trade.testing.database_test_utils import DatabaseTestUtils
 
 def test_trading_operations():
     test_utils = DatabaseTestUtils()
-    
+
     # テストDB作成
     test_db = test_utils.create_test_database()
-    
+
     try:
         # テストデータ投入
         with get_test_session(test_db) as session:
             test_utils.load_test_data(session, "test_trades.json")
-            
+
             # テスト実行
             result = execute_test_trade(session, "AAPL", 100, 150.25)
             assert result["status"] == "success"
-            
+
     finally:
         # クリーンアップ
         test_utils.cleanup_test_database(test_db)
@@ -1281,7 +1281,7 @@ print(f"監視間隔: {monitoring_config['interval_seconds']}秒")
 ```python
 # 統合システム初期化
 def initialize_unified_database_manager(
-    config_path: str = None, 
+    config_path: str = None,
     auto_start: bool = False
 ) -> UnifiedDatabaseManager:
     """統合データベース管理システム初期化"""
@@ -1379,26 +1379,26 @@ def main():
         config_path="config/production/database.yaml",
         auto_start=True
     )
-    
+
     # 2. システム状態確認
     status = manager.get_system_status()
     print(f"システム状態: {status['overall_health']}")
-    
+
     if status["overall_health"] != "healthy":
         print("システムに問題があります。終了します。")
         return
-    
+
     # 3. ヘルスチェック実行
     health = manager.run_health_check()
     print(f"ヘルスチェック: {health['overall_status']}")
-    
+
     # 4. 現在のメトリクス確認
     metrics = manager.get_current_metrics()
     if metrics:
         print(f"CPU使用率: {metrics['cpu_usage']}%")
         print(f"メモリ使用量: {metrics['memory_usage_mb']}MB")
         print(f"アクティブ接続: {metrics['active_connections']}")
-    
+
     # 5. アクティブアラート確認
     alerts = manager.get_active_alerts()
     if alerts:
@@ -1407,20 +1407,20 @@ def main():
             print(f"- [{alert['severity']}] {alert['message']}")
     else:
         print("アクティブアラートなし")
-    
+
     # 6. バックアップ作成
     print("バックアップ作成中...")
     backup_result = manager.create_backup("api_example")
     if backup_result["status"] == "success":
         print(f"バックアップ完了: {backup_result['backup_path']}")
         print(f"サイズ: {backup_result['size_mb']}MB")
-    
+
     # 7. バックアップ一覧確認
     backups = manager.list_backups(limit=5)
     print(f"最新バックアップ {len(backups)}件:")
     for backup in backups:
         print(f"- {backup['filename']}: {backup['size_mb']}MB")
-    
+
     # 8. ダッシュボードデータ取得
     dashboard = manager.get_dashboard_data()
     if dashboard:
@@ -1429,23 +1429,23 @@ def main():
         print(f"- 状態: {overview['status']}")
         print(f"- 稼働時間: {overview['uptime_hours']}時間")
         print(f"- 成功率: {overview['success_rate']}%")
-    
+
     # 9. レポート生成
     print("日次レポート生成中...")
     report = manager.generate_report("daily")
     if report["status"] == "success":
         print(f"レポート生成完了: {report['file_path']}")
-    
+
     # 10. データベース直接操作例
     if manager.production_db_manager:
         with manager.production_db_manager.get_session() as session:
             from sqlalchemy import text
-            
+
             # サンプルクエリ実行
             result = session.execute(text("SELECT 'API Test Success' as message"))
             message = result.scalar()
             print(f"データベース接続テスト: {message}")
-    
+
     print("統合システム使用例完了")
 
 if __name__ == "__main__":
@@ -1466,30 +1466,30 @@ def setup_custom_monitoring():
     if not manager or not manager.monitoring_system:
         print("監視システムが利用できません")
         return
-    
+
     monitoring = manager.monitoring_system
-    
+
     # カスタムアラート通知設定
     def custom_alert_handler(alert):
         """カスタムアラートハンドラー"""
         print(f"🚨 カスタムアラート: {alert.message}")
-        
+
         # Critical の場合は緊急対応
         if alert.severity == "critical":
             print("緊急対応が必要です！")
             # 緊急バックアップ作成
             emergency_backup = manager.create_backup("emergency_alert")
             print(f"緊急バックアップ作成: {emergency_backup['status']}")
-        
+
         # Slack通知（実装例）
         # send_slack_notification(alert)
-        
+
         # メール通知（実装例）
         # send_email_notification(alert)
-    
+
     # アラートコールバック追加
     monitoring.add_alert_callback(custom_alert_handler)
-    
+
     # 監視開始
     monitoring.start_monitoring()
     print("カスタム監視システム開始")
@@ -1511,18 +1511,18 @@ Day Trading System Python SDK
 
 class DayTradingSDK:
     """Day Trading System SDK"""
-    
+
     def __init__(self, config_path: str = None):
         self.manager = initialize_unified_database_manager(
             config_path=config_path,
             auto_start=True
         )
-    
+
     def health_check(self) -> bool:
         """システムヘルスチェック"""
         health = self.manager.run_health_check()
         return health["overall_status"] == "healthy"
-    
+
     def backup(self, backup_type: str = "manual") -> str:
         """バックアップ作成"""
         result = self.manager.create_backup(backup_type)
@@ -1530,11 +1530,11 @@ class DayTradingSDK:
             return result["backup_path"]
         else:
             raise Exception(f"バックアップ失敗: {result.get('error')}")
-    
+
     def get_metrics(self) -> dict:
         """現在のメトリクス取得"""
         return self.manager.get_current_metrics()
-    
+
     def get_alerts(self) -> list:
         """アクティブアラート取得"""
         return self.manager.get_active_alerts()
@@ -1545,11 +1545,11 @@ sdk = DayTradingSDK("config/production/database.yaml")
 # ヘルスチェック
 if sdk.health_check():
     print("システム正常")
-    
+
     # バックアップ作成
     backup_path = sdk.backup("sdk_test")
     print(f"バックアップ作成: {backup_path}")
-    
+
     # メトリクス取得
     metrics = sdk.get_metrics()
     print(f"CPU: {metrics['cpu_usage']}%")

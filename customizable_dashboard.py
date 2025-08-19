@@ -95,29 +95,29 @@ class DashboardLayout:
 
 class BaseWidget(ABC):
     """基底ウィジェットクラス"""
-    
+
     def __init__(self, config: WidgetConfig):
         self.config = config
         self.last_update = None
         self.cache_duration = timedelta(seconds=config.refresh_interval)
         self._cached_data = None
-    
+
     @abstractmethod
     def get_data(self) -> Dict[str, Any]:
         """ウィジェットデータ取得"""
         pass
-    
+
     @abstractmethod
     def get_html_template(self) -> str:
         """HTMLテンプレート取得"""
         pass
-    
+
     def should_refresh(self) -> bool:
         """リフレッシュが必要かチェック"""
         if self.last_update is None:
             return True
         return datetime.now() - self.last_update > self.cache_duration
-    
+
     def get_cached_data(self) -> Dict[str, Any]:
         """キャッシュデータ取得"""
         if self.should_refresh():
@@ -128,23 +128,23 @@ class BaseWidget(ABC):
 
 class StockChartWidget(BaseWidget):
     """株価チャートウィジェット"""
-    
+
     def get_data(self) -> Dict[str, Any]:
         """株価データ取得"""
         symbol = self.config.settings.get('symbol', '7203')
         period = self.config.settings.get('period', '1d')
-        
+
         # 模擬データ生成
         import random
         times = []
         prices = []
         base_price = 1500 + hash(symbol) % 500
-        
+
         for i in range(24):  # 24時間分
             times.append(f"{i:02d}:00")
             price = base_price + random.uniform(-50, 50)
             prices.append(round(price, 2))
-        
+
         return {
             'symbol': symbol,
             'prices': prices,
@@ -153,7 +153,7 @@ class StockChartWidget(BaseWidget):
             'change': random.uniform(-3.0, 3.0),
             'volume': random.randint(1000000, 5000000)
         }
-    
+
     def get_html_template(self) -> str:
         """HTMLテンプレート"""
         return f"""
@@ -186,7 +186,7 @@ class StockChartWidget(BaseWidget):
 
 class AIRecommendationsWidget(BaseWidget):
     """AI推奨銘柄ウィジェット"""
-    
+
     def get_data(self) -> Dict[str, Any]:
         """AI推奨データ取得"""
         if HAS_AI_ENGINE:
@@ -194,7 +194,7 @@ class AIRecommendationsWidget(BaseWidget):
                 # 実際のAI分析データ取得
                 recommendations = []
                 symbols = self.config.settings.get('symbols', ['7203', '8306', '9984'])
-                
+
                 for symbol in symbols[:5]:  # 最大5件
                     signal = advanced_ai_engine.analyze_symbol(symbol)
                     recommendations.append({
@@ -204,16 +204,16 @@ class AIRecommendationsWidget(BaseWidget):
                         'strength': signal.strength,
                         'risk_level': signal.risk_level
                     })
-                
+
                 return {'recommendations': recommendations}
             except Exception as e:
                 logging.error(f"AI recommendations error: {e}")
-        
+
         # フォールバック：模擬データ
         import random
         recommendations = []
         symbols = ['7203', '8306', '9984', '6758', '4689']
-        
+
         for symbol in symbols[:3]:
             recommendations.append({
                 'symbol': symbol,
@@ -222,9 +222,9 @@ class AIRecommendationsWidget(BaseWidget):
                 'strength': random.uniform(0.4, 0.9),
                 'risk_level': random.choice(['LOW', 'MEDIUM', 'HIGH'])
             })
-        
+
         return {'recommendations': recommendations}
-    
+
     def get_html_template(self) -> str:
         """HTMLテンプレート"""
         return f"""
@@ -265,7 +265,7 @@ class AIRecommendationsWidget(BaseWidget):
 
 class PerformanceMetricsWidget(BaseWidget):
     """パフォーマンスメトリクスウィジェット"""
-    
+
     def get_data(self) -> Dict[str, Any]:
         """パフォーマンスデータ取得"""
         if HAS_PERFORMANCE_MONITOR:
@@ -273,7 +273,7 @@ class PerformanceMetricsWidget(BaseWidget):
                 return performance_monitor.get_performance_summary()
             except Exception as e:
                 logging.error(f"Performance metrics error: {e}")
-        
+
         # フォールバック：模擬データ
         import random
         return {
@@ -284,7 +284,7 @@ class PerformanceMetricsWidget(BaseWidget):
             'active_connections': random.randint(10, 100),
             'requests_per_minute': random.randint(50, 200)
         }
-    
+
     def get_html_template(self) -> str:
         """HTMLテンプレート"""
         return f"""
@@ -305,7 +305,7 @@ class PerformanceMetricsWidget(BaseWidget):
                                  :style="`width: ${{data.cpu_usage}}%`"></div>
                         </div>
                     </div>
-                    
+
                     <div class="metric">
                         <div class="metric-label text-sm text-gray-600">メモリ使用率</div>
                         <div class="metric-value text-2xl font-bold" x-text="data.memory_usage.toFixed(1) + '%'"></div>
@@ -314,12 +314,12 @@ class PerformanceMetricsWidget(BaseWidget):
                                  :style="`width: ${{data.memory_usage}}%`"></div>
                         </div>
                     </div>
-                    
+
                     <div class="metric">
                         <div class="metric-label text-sm text-gray-600">応答時間</div>
                         <div class="metric-value text-lg font-bold" x-text="data.response_time_ms.toFixed(0) + 'ms'"></div>
                     </div>
-                    
+
                     <div class="metric">
                         <div class="metric-label text-sm text-gray-600">アクティブ接続</div>
                         <div class="metric-value text-lg font-bold" x-text="data.active_connections"></div>
@@ -332,7 +332,7 @@ class PerformanceMetricsWidget(BaseWidget):
 
 class CustomizableDashboard:
     """カスタマイズ可能ダッシュボード"""
-    
+
     def __init__(self):
         self.layouts: Dict[str, DashboardLayout] = {}
         self.widgets: Dict[str, BaseWidget] = {}
@@ -341,14 +341,14 @@ class CustomizableDashboard:
             WidgetType.AI_RECOMMENDATIONS: AIRecommendationsWidget,
             WidgetType.PERFORMANCE_METRICS: PerformanceMetricsWidget,
         }
-        
+
         # 設定ディレクトリ
         self.config_dir = 'data/dashboard_configs'
         os.makedirs(self.config_dir, exist_ok=True)
-        
+
         # デフォルトレイアウト作成
         self._create_default_layouts()
-    
+
     def _create_default_layouts(self):
         """デフォルトレイアウト作成"""
         # メイン分析ダッシュボード
@@ -384,10 +384,10 @@ class CustomizableDashboard:
             created_at=datetime.now(),
             modified_at=datetime.now()
         )
-        
+
         self.layouts["main_analysis"] = main_layout
         self.save_layout(main_layout)
-        
+
         # コンパクトダッシュボード
         compact_layout = DashboardLayout(
             layout_id="compact_overview",
@@ -414,45 +414,45 @@ class CustomizableDashboard:
             created_at=datetime.now(),
             modified_at=datetime.now()
         )
-        
+
         self.layouts["compact_overview"] = compact_layout
         self.save_layout(compact_layout)
-    
+
     def create_widget(self, config: WidgetConfig) -> BaseWidget:
         """ウィジェット作成"""
         widget_class = self.widget_classes.get(config.widget_type)
         if not widget_class:
             raise ValueError(f"Unknown widget type: {config.widget_type}")
-        
+
         widget = widget_class(config)
         self.widgets[config.widget_id] = widget
         return widget
-    
+
     def get_layout(self, layout_id: str) -> Optional[DashboardLayout]:
         """レイアウト取得"""
         return self.layouts.get(layout_id)
-    
+
     def save_layout(self, layout: DashboardLayout):
         """レイアウト保存"""
         layout.modified_at = datetime.now()
         self.layouts[layout.layout_id] = layout
-        
+
         # ファイルに保存
         file_path = os.path.join(self.config_dir, f"{layout.layout_id}.json")
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(asdict(layout), f, default=str, ensure_ascii=False, indent=2)
-    
+
     def load_layout(self, layout_id: str) -> Optional[DashboardLayout]:
         """レイアウト読み込み"""
         file_path = os.path.join(self.config_dir, f"{layout_id}.json")
-        
+
         if not os.path.exists(file_path):
             return None
-        
+
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
+
             # データ復元
             layout = DashboardLayout(
                 layout_id=data['layout_id'],
@@ -464,7 +464,7 @@ class CustomizableDashboard:
                 modified_at=datetime.fromisoformat(data['modified_at']),
                 widgets=[]
             )
-            
+
             # ウィジェット復元
             for widget_data in data.get('widgets', []):
                 config = WidgetConfig(
@@ -477,39 +477,39 @@ class CustomizableDashboard:
                     settings=widget_data.get('settings', {})
                 )
                 layout.widgets.append(config)
-            
+
             self.layouts[layout_id] = layout
             return layout
-            
+
         except Exception as e:
             logging.error(f"Failed to load layout {layout_id}: {e}")
             return None
-    
+
     def get_dashboard_html(self, layout_id: str) -> str:
         """ダッシュボードHTML生成"""
         layout = self.get_layout(layout_id)
         if not layout:
             return "<div>Layout not found</div>"
-        
+
         # ウィジェット作成・HTML生成
         widget_htmls = []
         widget_data = {}
-        
+
         for widget_config in layout.widgets:
             if not widget_config.visible:
                 continue
-            
+
             try:
                 widget = self.create_widget(widget_config)
                 widget_html = widget.get_html_template()
                 widget_htmls.append(widget_html)
-                
+
                 # ウィジェットデータ取得
                 widget_data[widget_config.widget_id] = widget.get_cached_data()
-                
+
             except Exception as e:
                 logging.error(f"Failed to create widget {widget_config.widget_id}: {e}")
-        
+
         # メインダッシュボードテンプレート
         dashboard_html = f"""
         <!DOCTYPE html>
@@ -524,7 +524,7 @@ class CustomizableDashboard:
             <script src="https://unpkg.com/gridstack/dist/gridstack-all.js"></script>
             <link href="https://unpkg.com/gridstack/dist/gridstack.min.css" rel="stylesheet"/>
             <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-            
+
             <style>
                 .widget {{
                     border: 1px solid #e5e7eb;
@@ -534,7 +534,7 @@ class CustomizableDashboard:
                     display: flex;
                     flex-direction: column;
                 }}
-                
+
                 .widget-header {{
                     padding: 1rem;
                     border-bottom: 1px solid #e5e7eb;
@@ -543,17 +543,17 @@ class CustomizableDashboard:
                     align-items: center;
                     background: #f9fafb;
                 }}
-                
+
                 .widget-content {{
                     padding: 1rem;
                     flex: 1;
                     overflow: auto;
                 }}
-                
+
                 .grid-stack-item {{
                     border-radius: 0.5rem;
                 }}
-                
+
                 .refresh-btn {{
                     padding: 0.25rem 0.5rem;
                     border-radius: 0.25rem;
@@ -562,17 +562,17 @@ class CustomizableDashboard:
                     cursor: pointer;
                     transition: all 0.2s;
                 }}
-                
+
                 .refresh-btn:hover {{
                     background: #f3f4f6;
                 }}
-                
+
                 .metric-bar {{
                     transition: all 0.3s ease;
                 }}
             </style>
         </head>
-        
+
         <body class="bg-gray-100" x-data="dashboardApp()">
             <header class="bg-white shadow-md">
                 <div class="container mx-auto px-6 py-4">
@@ -592,23 +592,23 @@ class CustomizableDashboard:
                     </div>
                 </div>
             </header>
-            
+
             <main class="container mx-auto px-6 py-8">
                 <div class="grid-stack">
                     {"".join(widget_htmls)}
                 </div>
             </main>
-            
+
             <script>
                 function dashboardApp() {{
                     return {{
                         data: {json.dumps(widget_data, default=str, ensure_ascii=False)},
-                        
+
                         init() {{
                             this.initGridStack();
                             this.startAutoRefresh();
                         }},
-                        
+
                         initGridStack() {{
                             const grid = GridStack.init({{
                                 cellHeight: 80,
@@ -617,13 +617,13 @@ class CustomizableDashboard:
                                 disableDrag: false
                             }});
                         }},
-                        
+
                         startAutoRefresh() {{
                             setInterval(() => {{
                                 this.refreshAllWidgets();
                             }}, 30000); // 30秒間隔
                         }},
-                        
+
                         async refreshAllWidgets() {{
                             try {{
                                 const response = await fetch('/api/dashboard/data/{layout_id}');
@@ -633,7 +633,7 @@ class CustomizableDashboard:
                                 console.error('Failed to refresh widgets:', error);
                             }}
                         }},
-                        
+
                         getSignalClass(signal) {{
                             const classes = {{
                                 'BUY': 'bg-green-100 text-green-800',
@@ -642,7 +642,7 @@ class CustomizableDashboard:
                             }};
                             return classes[signal] || 'bg-gray-100 text-gray-800';
                         }},
-                        
+
                         getRiskClass(risk) {{
                             const classes = {{
                                 'LOW': 'bg-green-100 text-green-800',
@@ -653,7 +653,7 @@ class CustomizableDashboard:
                         }}
                     }}
                 }}
-                
+
                 function refreshWidget(widgetId) {{
                     console.log('Refreshing widget:', widgetId);
                 }}
@@ -661,9 +661,9 @@ class CustomizableDashboard:
         </body>
         </html>
         """
-        
+
         return dashboard_html
-    
+
     def get_available_layouts(self) -> List[Dict[str, Any]]:
         """利用可能レイアウト一覧"""
         layouts = []
@@ -677,29 +677,29 @@ class CustomizableDashboard:
                 'modified_at': layout.modified_at.isoformat()
             })
         return layouts
-    
+
     def get_widget_data(self, layout_id: str) -> Dict[str, Any]:
         """ウィジェットデータ取得（API用）"""
         layout = self.get_layout(layout_id)
         if not layout:
             return {}
-        
+
         widget_data = {}
         for widget_config in layout.widgets:
             if not widget_config.visible:
                 continue
-            
+
             try:
                 if widget_config.widget_id not in self.widgets:
                     self.create_widget(widget_config)
-                
+
                 widget = self.widgets[widget_config.widget_id]
                 widget_data[widget_config.widget_id] = widget.get_cached_data()
-                
+
             except Exception as e:
                 logging.error(f"Failed to get widget data {widget_config.widget_id}: {e}")
                 widget_data[widget_config.widget_id] = {'error': str(e)}
-        
+
         return widget_data
 
 
@@ -724,21 +724,21 @@ def get_available_layouts() -> List[Dict[str, Any]]:
 
 if __name__ == "__main__":
     print("=== Customizable Dashboard Test ===")
-    
+
     # レイアウト一覧
     layouts = get_available_layouts()
     print(f"Available layouts: {len(layouts)}")
     for layout in layouts:
         print(f"  - {layout['name']}: {layout['widget_count']} widgets")
-    
+
     # メインダッシュボードHTML生成
     print("\nGenerating main dashboard HTML...")
     html = get_dashboard_html("main_analysis")
     print(f"Generated HTML length: {len(html)} characters")
-    
+
     # ウィジェットデータ取得テスト
     print("\nTesting widget data retrieval...")
     data = get_widget_data("main_analysis")
     print(f"Widget data keys: {list(data.keys())}")
-    
+
     print("Customizable dashboard test completed!")

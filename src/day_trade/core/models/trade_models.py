@@ -6,11 +6,11 @@ trade_manager.py からのリファクタリング抽出
 """
 
 from collections import deque
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Deque, Dict, Union
+from typing import Any, Deque, Dict, List, Optional, Union
 
 from ...models.enums import TradeType
 
@@ -26,177 +26,160 @@ class TradeStatus(Enum):
 
 @dataclass
 class Trade:
-    """取引記録"""
+    """
+    取引記録データクラス（強化版）
 
-    id: str
+    実際の売買取引に関する詳細情報を管理する。
+    実装上、immutableなデータ構造として設計されている。
+    """
+
     symbol: str
     trade_type: TradeType
     quantity: int
     price: Decimal
     timestamp: datetime
-    commission: Decimal = Decimal("0")
-    status: TradeStatus = TradeStatus.EXECUTED
-    notes: str = ""
+    commission: Decimal = field(default_factory=lambda: Decimal('0'))
+    trade_id: Optional[str] = None
+    order_id: Optional[str] = None
+    market: str = "domestic"
+    currency: str = "JPY"
+    status: TradeStatus = TradeStatus.PENDING
 
-    def to_dict(self) -> Dict:
-        """辞書形式に変換"""
-        data = asdict(self)
-        data["trade_type"] = self.trade_type.value
-        data["status"] = self.status.value
-        data["price"] = str(self.price)
-        data["commission"] = str(self.commission)
-        data["timestamp"] = self.timestamp.isoformat()
-        return data
+    # パフォーマンス追跡
+    execution_time_ms: Optional[float] = None
+    slippage: Optional[Decimal] = None
 
-    @classmethod
-    def from_dict(cls, data: Dict) -> "Trade":
-        """辞書から復元（安全なDecimal変換）"""
-        try:
-            # ユーティリティ関数を遅延インポート（循環参照回避）
-            from .trade_utils import safe_decimal_conversion, validate_positive_decimal
-            
-            # 必須フィールドの検証
-            required_fields = [
-                "id",
-                "symbol",
-                "trade_type",
-                "quantity",
-                "price",
-                "timestamp",
-            ]
-            for field in required_fields:
-                if field not in data:
-                    raise ValueError(f"必須フィールド '{field}' が不足しています")
+    def __post_init__(self):
+        """初期化後の検証"""
+        if self.quantity <= 0:
+            raise ValueError("取引数量は正の値である必要があります")
+        if self.price <= 0:
+            raise ValueError("取引価格は正の値である必要があります")
+        if self.commission < 0:
+            raise ValueError("手数料は非負の値である必要があります")
 
-            # 安全なDecimal変換
-            price = safe_decimal_conversion(data["price"], "価格")
-            commission = safe_decimal_conversion(data.get("commission", "0"), "手数料")
+    @property
+    def total_cost(self) -> Decimal:
+        """総コスト（価格 × 数量 + 手数料）"""
+        return self.price * self.quantity + self.commission
 
-            # 正数検証
-            validate_positive_decimal(price, "価格")
-            validate_positive_decimal(commission, "手数料", allow_zero=True)
+    @property
+    def is_buy(self) -> bool:
+        """買い注文かどうか"""
+        return self.trade_type == TradeType.BUY
 
-            # 数量の検証
-            quantity = int(data["quantity"])
-            if quantity <= 0:
-                raise ValueError(f"数量は正数である必要があります: {quantity}")
-
-            return cls(
-                id=str(data["id"]),
-                symbol=str(data["symbol"]),
-                trade_type=TradeType(data["trade_type"]),
-                quantity=quantity,
-                price=price,
-                timestamp=datetime.fromisoformat(data["timestamp"]),
-                commission=commission,
-                status=TradeStatus(data.get("status", TradeStatus.EXECUTED.value)),
-                notes=str(data.get("notes", "")),
-            )
-        except Exception as e:
-            raise ValueError(f"取引データの復元に失敗しました: {str(e)}")
+    @property
+    def is_sell(self) -> bool:
+        """売り注文かどうか"""
+        return self.trade_type == TradeType.SELL
 
 
 @dataclass
 class BuyLot:
     """
-    FIFO会計のための買いロット情報
-    個別の買い取引を管理し、正確な売却対応を可能にする
+    買い建て玉管理用データクラス
+
+    FIFO（先入先出）法による売却処理のために、
+    買い建て時の詳細情報を保持する。
     """
 
     quantity: int
     price: Decimal
     commission: Decimal
     timestamp: datetime
-    trade_id: str
+    remaining_quantity: int
+    commission: Decimal = field(default_factory=lambda: Decimal('0'))
 
-    def total_cost_per_share(self) -> Decimal:
-        """1株あたりの総コスト（買い価格 + 手数料按分）"""
-        if self.quantity == 0:
-            return Decimal("0")
-        return self.price + (self.commission / Decimal(self.quantity))
+    def __post_init__(self):
+        """初期化後の検証"""
+        if self.remaining_quantity > self.quantity:
+            raise ValueError("残数量が取引数量を超えています")
+        if self.remaining_quantity < 0:
+            raise ValueError("残数量は非負である必要があります")
+
+    @property
+    def is_fully_sold(self) -> bool:
+        """完全に売却済みかどうか"""
+        return self.remaining_quantity == 0
+
+    @property
+    def average_price_with_commission(self) -> Decimal:
+        """手数料込みの平均取得単価"""
+        return (self.price * self.quantity + self.commission) / self.quantity
 
 
 @dataclass
 class Position:
     """
-    ポジション情報（FIFO会計対応強化版）
+    ポジション情報データクラス（強化版）
 
-    買いロットキューを使用してFIFO原則を厳密に適用
+    特定銘柄の現在の保有状況を管理する。
+    買い建て玉リストと売却履歴を追跡し、
+    正確な損益計算を可能にする。
     """
 
     symbol: str
-    quantity: int
-    average_price: Decimal
-    total_cost: Decimal
-    current_price: Decimal = Decimal("0")
+    buy_lots: List[BuyLot] = field(default_factory=list)
+    total_quantity: int = 0
+    average_price: Decimal = field(default_factory=lambda: Decimal('0'))
 
-    # FIFO会計のための買いロットキュー
-    buy_lots: Deque[BuyLot] = None
+    # パフォーマンス指標
+    unrealized_pnl: Decimal = field(default_factory=lambda: Decimal('0'))
+    realized_pnl: Decimal = field(default_factory=lambda: Decimal('0'))
+    total_commission: Decimal = field(default_factory=lambda: Decimal('0'))
 
-    def __post_init__(self):
-        """初期化後の処理"""
-        if self.buy_lots is None:
-            self.buy_lots = deque()
-
-    @property
-    def market_value(self) -> Decimal:
-        """時価総額"""
-        return self.current_price * Decimal(self.quantity)
+    def update_metrics(self, current_price: Optional[Decimal] = None):
+        """メトリクスの更新"""
+        if current_price and self.total_quantity > 0:
+            market_value = current_price * self.total_quantity
+            cost_basis = sum(lot.price * lot.remaining_quantity for lot in self.buy_lots)
+            self.unrealized_pnl = market_value - cost_basis - self.total_commission
 
     @property
-    def unrealized_pnl(self) -> Decimal:
-        """含み損益"""
-        return self.market_value - self.total_cost
-
-    @property
-    def unrealized_pnl_percent(self) -> Decimal:
-        """含み損益率"""
-        if self.total_cost == 0:
-            return Decimal("0")
-        return (self.unrealized_pnl / self.total_cost) * 100
-
-    def to_dict(self) -> Dict:
-        """辞書形式に変換"""
-        return {
-            "symbol": self.symbol,
-            "quantity": self.quantity,
-            "average_price": str(self.average_price),
-            "total_cost": str(self.total_cost),
-            "current_price": str(self.current_price),
-            "market_value": str(self.market_value),
-            "unrealized_pnl": str(self.unrealized_pnl),
-            "unrealized_pnl_percent": str(
-                self.unrealized_pnl_percent.quantize(Decimal("0.01"))
-            ),
-        }
+    def is_empty(self) -> bool:
+        """ポジションが空かどうか"""
+        return self.total_quantity == 0
 
 
 @dataclass
 class RealizedPnL:
-    """実現損益"""
+    """
+    実現損益データクラス（詳細版）
 
+    売却による実現損益の詳細情報を記録する。
+    税務申告や運用レポート作成に必要な情報を含む。
+    """
     symbol: str
     quantity: int
     buy_price: Decimal
     sell_price: Decimal
     buy_commission: Decimal
     sell_commission: Decimal
-    pnl: Decimal
-    pnl_percent: Decimal
-    buy_date: datetime
-    sell_date: datetime
+    net_pnl: Decimal
 
-    def to_dict(self) -> Dict:
-        """辞書形式に変換"""
-        return {
-            "symbol": self.symbol,
-            "quantity": self.quantity,
-            "buy_price": str(self.buy_price),
-            "sell_price": str(self.sell_price),
-            "buy_commission": str(self.buy_commission),
-            "sell_commission": str(self.sell_commission),
-            "pnl": str(self.pnl),
-            "pnl_percent": str(self.pnl_percent.quantize(Decimal("0.01"))),
-            "buy_date": self.buy_date.isoformat(),
-            "sell_date": self.sell_date.isoformat(),
-        }
+    # 追加メタデータ
+    holding_period_days: int = 0
+    currency: str = "JPY"
+
+    def __post_init__(self):
+        """保有期間の計算"""
+        if self.holding_period_days == 0:
+            delta = self.sell_timestamp - self.buy_timestamp
+            self.holding_period_days = delta.days
+
+    @property
+    def return_rate(self) -> float:
+        """収益率（%）"""
+        if self.buy_price == 0:
+            return 0.0
+        return float(self.net_pnl / (self.buy_price * self.quantity) * 100)
+
+    @property
+    def is_profit(self) -> bool:
+        """利益かどうか"""
+        return self.net_pnl > 0
+
+    @property
+    def total_commission(self) -> Decimal:
+        """総手数料"""
+        return self.buy_commission + self.sell_commission

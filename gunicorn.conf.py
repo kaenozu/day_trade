@@ -1,65 +1,28 @@
-# Gunicorn Configuration for Day Trade Personal
-# Issue #901 Phase 2: プロダクション用WSGI設定
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Gunicorn configuration file.
+Issue #939対応: 本番用WSGIサーバー設定
+"""
 
 import multiprocessing
-import os
 
-# Server socket
-bind = "0.0.0.0:8080"
-backlog = 2048
+# --- Server Mechanics ---
 
 # Worker processes
 workers = multiprocessing.cpu_count() * 2 + 1
-worker_class = "sync"
-worker_connections = 1000
-timeout = 30
-keepalive = 2
+worker_class = 'sync'  # or 'gevent' or 'eventlet' for async workers
 
-# Restart workers after this many requests, to help prevent memory leaks
-max_requests = 1000
-max_requests_jitter = 50
+# --- Server Socket ---
 
-# Logging
-accesslog = "logs/gunicorn_access.log"
-errorlog = "logs/gunicorn_error.log"
-loglevel = "info"
-access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
+bind = '0.0.0.0:8000'
 
-# Process naming
-proc_name = "day_trade_web"
+# --- Logging ---
 
-# Daemon mode
-daemon = False
-pidfile = "logs/gunicorn.pid"
+accesslog = '-'  # Log to stdout
+errorlog = '-'   # Log to stderr
+loglevel = 'info'
 
-# User/group (for Linux/Unix production)
-# user = "daytrader"
-# group = "daytrader"
+# --- Process Naming ---
 
-# Security
-limit_request_line = 4094
-limit_request_fields = 100
-limit_request_field_size = 8190
-
-# Performance
-preload_app = True
-worker_tmp_dir = "/dev/shm" if os.path.exists("/dev/shm") else None
-
-# SSL (uncomment for HTTPS)
-# keyfile = "/path/to/ssl.key"
-# certfile = "/path/to/ssl.crt"
-
-def post_fork(server, worker):
-    server.log.info("Worker spawned (pid: %s)", worker.pid)
-
-def pre_fork(server, worker):
-    server.log.info("Worker pre-fork")
-
-def when_ready(server):
-    server.log.info("Day Trade Personal Web Server ready on %s", bind)
-
-def worker_int(worker):
-    worker.log.info("Worker received INT or QUIT signal")
-
-def on_exit(server):
-    server.log.info("Day Trade Personal Web Server shutting down")
+proc_name = 'daytrade_web_gunicorn'

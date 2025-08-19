@@ -1,0 +1,3 @@
+This pull request re-enables the `trailing-whitespace` pre-commit hook.
+
+This hook ensures consistent code formatting by removing trailing whitespaces.

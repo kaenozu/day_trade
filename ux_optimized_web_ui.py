@@ -37,13 +37,13 @@ except ImportError:
 
 class UXOptimizedWebUI:
     """UX最適化WebUI"""
-    
+
     def __init__(self, port: int = 8090, debug: bool = False):
         self.port = port
         self.debug = debug
         self.app = Flask(__name__)
         self.app.secret_key = 'ux-optimized-daytrade-ui-2025'
-        
+
         # UX設定
         self.ux_config = {
             'theme': 'modern',  # modern, classic, dark
@@ -54,53 +54,53 @@ class UXOptimizedWebUI:
             'language': 'ja',  # ja, en
             'timezone': 'Asia/Tokyo'
         }
-        
+
         # ユーザーセッション管理
         self.user_sessions = {}
         self.user_preferences = defaultdict(dict)
-        
+
         # パフォーマンス最適化
         self.api_cache = {}
         self.cache_timeout = 30  # 30秒
-        
+
         # アナリティクス
         self.user_analytics = {
             'page_views': defaultdict(int),
             'feature_usage': defaultdict(int),
             'error_counts': defaultdict(int)
         }
-        
+
         self._setup_routes()
-    
+
     def _setup_routes(self):
         """ルート設定"""
-        
+
         @self.app.route('/')
         def modern_dashboard():
             """モダンダッシュボード"""
             return render_template_string(self._get_modern_dashboard_template())
-        
+
         @self.app.route('/classic')
         def classic_dashboard():
             """クラシックダッシュボード"""
             return render_template_string(self._get_classic_dashboard_template())
-        
+
         @self.app.route('/mobile')
         def mobile_dashboard():
             """モバイル最適化ダッシュボード"""
             return render_template_string(self._get_mobile_dashboard_template())
-        
+
         @self.app.route('/api/ux/dashboard-data')
         def api_dashboard_data():
             """ダッシュボードデータAPI（キャッシュ付き）"""
             return jsonify(self._get_cached_dashboard_data())
-        
+
         @self.app.route('/api/ux/user-preferences', methods=['GET', 'POST'])
         def api_user_preferences():
             """ユーザー設定API"""
             session_id = session.get('session_id', str(uuid.uuid4()))
             session['session_id'] = session_id
-            
+
             if request.method == 'POST':
                 preferences = request.get_json()
                 self.user_preferences[session_id].update(preferences)
@@ -108,13 +108,13 @@ class UXOptimizedWebUI:
                 return jsonify({'status': 'success'})
             else:
                 return jsonify(self.user_preferences[session_id])
-        
+
         @self.app.route('/api/ux/quick-actions', methods=['POST'])
         def api_quick_actions():
             """クイックアクションAPI"""
             action = request.json.get('action')
             self._track_feature_usage(f'quick_action_{action}')
-            
+
             if action == 'analyze_symbol':
                 symbol = request.json.get('symbol', '7203')
                 return jsonify(self._quick_symbol_analysis(symbol))
@@ -124,7 +124,7 @@ class UXOptimizedWebUI:
                 return jsonify(self._get_performance_summary())
             else:
                 return jsonify({'error': 'Unknown action'}), 400
-        
+
         @self.app.route('/api/ux/analytics')
         def api_analytics():
             """UXアナリティクスAPI"""
@@ -134,12 +134,12 @@ class UXOptimizedWebUI:
                 'error_counts': dict(self.user_analytics['error_counts']),
                 'active_sessions': len(self.user_sessions)
             })
-        
+
         @self.app.route('/api/ux/accessibility-check')
         def api_accessibility_check():
             """アクセシビリティチェックAPI"""
             return jsonify(self._perform_accessibility_check())
-        
+
         @self.app.route('/api/ux/theme/<theme_name>')
         def api_set_theme(theme_name):
             """テーマ設定API"""
@@ -150,7 +150,7 @@ class UXOptimizedWebUI:
                 self._track_feature_usage(f'theme_change_{theme_name}')
                 return jsonify({'status': 'success', 'theme': theme_name})
             return jsonify({'error': 'Invalid theme'}), 400
-    
+
     def _get_modern_dashboard_template(self) -> str:
         """モダンダッシュボードテンプレート"""
         return """
@@ -195,7 +195,7 @@ class UXOptimizedWebUI:
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen" x-data="modernDashboard()">
-    
+
     <!-- Top Navigation -->
     <nav class="glassmorphism sticky top-0 z-50 p-4">
         <div class="container mx-auto flex items-center justify-between">
@@ -203,52 +203,52 @@ class UXOptimizedWebUI:
                 <h1 class="text-2xl font-bold gradient-text">📈 Day Trade Personal</h1>
                 <span class="text-sm text-gray-600">Modern UI</span>
             </div>
-            
+
             <!-- Quick Actions -->
             <div class="flex items-center space-x-2">
-                <button @click="quickAnalysis()" 
+                <button @click="quickAnalysis()"
                         class="px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-all">
                     <i class="fas fa-search mr-2"></i>Quick Analysis
                 </button>
-                
-                <button @click="systemHealth()" 
+
+                <button @click="systemHealth()"
                         class="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-all">
                     <i class="fas fa-heartbeat mr-2"></i>Health Check
                 </button>
-                
+
                 <div class="relative">
-                    <button @click="showSettings = !showSettings" 
+                    <button @click="showSettings = !showSettings"
                             class="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-all">
                         <i class="fas fa-cog"></i>
                     </button>
-                    
+
                     <!-- Settings Dropdown -->
-                    <div x-show="showSettings" x-transition 
+                    <div x-show="showSettings" x-transition
                          class="absolute right-0 mt-2 w-64 glassmorphism rounded-lg p-4 shadow-lg">
                         <h3 class="font-semibold mb-3">Settings</h3>
-                        
+
                         <div class="space-y-3">
                             <div>
                                 <label class="block text-sm font-medium mb-1">Theme</label>
-                                <select x-model="settings.theme" @change="updateTheme()" 
+                                <select x-model="settings.theme" @change="updateTheme()"
                                         class="w-full p-2 rounded-lg border">
                                     <option value="modern">Modern</option>
                                     <option value="classic">Classic</option>
                                     <option value="dark">Dark</option>
                                 </select>
                             </div>
-                            
+
                             <div>
                                 <label class="flex items-center">
-                                    <input type="checkbox" x-model="settings.accessibility" 
+                                    <input type="checkbox" x-model="settings.accessibility"
                                            @change="toggleAccessibility()" class="mr-2">
                                     <span class="text-sm">Accessibility Mode</span>
                                 </label>
                             </div>
-                            
+
                             <div>
                                 <label class="flex items-center">
-                                    <input type="checkbox" x-model="settings.autoRefresh" 
+                                    <input type="checkbox" x-model="settings.autoRefresh"
                                            @change="toggleAutoRefresh()" class="mr-2">
                                     <span class="text-sm">Auto Refresh</span>
                                 </label>
@@ -262,14 +262,14 @@ class UXOptimizedWebUI:
 
     <!-- Main Content -->
     <main class="container mx-auto px-6 py-8">
-        
+
         <!-- Status Cards -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div class="modern-card p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600">System Health</p>
-                        <p class="text-2xl font-bold" :class="getHealthColor(systemHealth.score)" 
+                        <p class="text-2xl font-bold" :class="getHealthColor(systemHealth.score)"
                            x-text="systemHealth.score + '/100'">95/100</p>
                     </div>
                     <div class="p-3 rounded-full bg-green-100">
@@ -278,12 +278,12 @@ class UXOptimizedWebUI:
                 </div>
                 <div class="mt-4">
                     <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="bg-green-500 h-2 rounded-full transition-all duration-1000" 
+                        <div class="bg-green-500 h-2 rounded-full transition-all duration-1000"
                              :style="`width: ${systemHealth.score}%`"></div>
                     </div>
                 </div>
             </div>
-            
+
             <div class="modern-card p-6">
                 <div class="flex items-center justify-between">
                     <div>
@@ -295,7 +295,7 @@ class UXOptimizedWebUI:
                     </div>
                 </div>
             </div>
-            
+
             <div class="modern-card p-6">
                 <div class="flex items-center justify-between">
                     <div>
@@ -307,7 +307,7 @@ class UXOptimizedWebUI:
                     </div>
                 </div>
             </div>
-            
+
             <div class="modern-card p-6">
                 <div class="flex items-center justify-between">
                     <div>
@@ -330,7 +330,7 @@ class UXOptimizedWebUI:
                 </h3>
                 <canvas id="performanceChart" width="400" height="200"></canvas>
             </div>
-            
+
             <div class="modern-card p-6">
                 <h3 class="text-lg font-semibold mb-4 flex items-center">
                     <i class="fas fa-pie-chart text-green-500 mr-2"></i>
@@ -346,22 +346,22 @@ class UXOptimizedWebUI:
                 <i class="fas fa-search text-purple-500 mr-2"></i>
                 Quick Symbol Analysis
             </h3>
-            
+
             <div class="flex flex-wrap gap-4 mb-4">
                 <template x-for="symbol in popularSymbols" :key="symbol">
-                    <button @click="analyzeSymbol(symbol)" 
+                    <button @click="analyzeSymbol(symbol)"
                             class="px-4 py-2 bg-gray-100 hover:bg-blue-100 rounded-lg transition-all">
                         <span x-text="symbol"></span>
                     </button>
                 </template>
             </div>
-            
+
             <div x-show="quickAnalysisResult" x-transition class="mt-4 p-4 bg-green-50 rounded-lg">
                 <h4 class="font-semibold mb-2">Analysis Result</h4>
                 <div x-show="quickAnalysisResult" class="space-y-2">
                     <p><strong>Symbol:</strong> <span x-text="quickAnalysisResult?.symbol"></span></p>
-                    <p><strong>Signal:</strong> 
-                       <span :class="getSignalColor(quickAnalysisResult?.signal)" 
+                    <p><strong>Signal:</strong>
+                       <span :class="getSignalColor(quickAnalysisResult?.signal)"
                              x-text="quickAnalysisResult?.signal"></span>
                     </p>
                     <p><strong>Confidence:</strong> <span x-text="quickAnalysisResult?.confidence"></span>%</p>
@@ -375,12 +375,12 @@ class UXOptimizedWebUI:
                 <i class="fas fa-history text-gray-500 mr-2"></i>
                 Recent Activity
             </h3>
-            
+
             <div class="space-y-3">
                 <template x-for="activity in recentActivities" :key="activity.id">
                     <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div class="flex items-center">
-                            <div class="w-2 h-2 rounded-full mr-3" 
+                            <div class="w-2 h-2 rounded-full mr-3"
                                  :class="getActivityColor(activity.type)"></div>
                             <span x-text="activity.message"></span>
                         </div>
@@ -392,7 +392,7 @@ class UXOptimizedWebUI:
     </main>
 
     <!-- Loading Overlay -->
-    <div x-show="loading" x-transition 
+    <div x-show="loading" x-transition
          class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="glassmorphism p-8 rounded-lg text-center">
             <i class="fas fa-spinner fa-spin text-3xl text-blue-500 mb-4"></i>
@@ -407,7 +407,7 @@ class UXOptimizedWebUI:
         <div class="glassmorphism p-4 rounded-lg shadow-lg border-l-4"
              :class="notification.type === 'success' ? 'border-green-500' : 'border-red-500'">
             <div class="flex items-center">
-                <i :class="notification.type === 'success' ? 'fas fa-check-circle text-green-500' : 'fas fa-exclamation-triangle text-red-500'" 
+                <i :class="notification.type === 'success' ? 'fas fa-check-circle text-green-500' : 'fas fa-exclamation-triangle text-red-500'"
                    class="mr-3"></i>
                 <p x-text="notification.message"></p>
             </div>
@@ -419,41 +419,41 @@ class UXOptimizedWebUI:
             return {
                 loading: false,
                 showSettings: false,
-                
+
                 systemHealth: {
                     score: 95,
                     status: 'EXCELLENT'
                 },
-                
+
                 stats: {
                     activeAnalysis: 5,
                     aiConfidence: 87
                 },
-                
+
                 settings: {
                     theme: 'modern',
                     accessibility: false,
                     autoRefresh: true
                 },
-                
+
                 popularSymbols: ['7203', '8306', '9984', '6758', '4689'],
-                
+
                 quickAnalysisResult: null,
-                
+
                 recentActivities: [
                     { id: 1, type: 'analysis', message: 'AI analysis completed for 7203', time: '2 min ago' },
                     { id: 2, type: 'system', message: 'System health check passed', time: '5 min ago' },
                     { id: 3, type: 'update', message: 'Market data updated', time: '8 min ago' }
                 ],
-                
+
                 notification: {
                     show: false,
                     type: 'success',
                     message: ''
                 },
-                
+
                 lastUpdate: new Date(),
-                
+
                 init() {
                     this.loadDashboardData();
                     if (this.settings.autoRefresh) {
@@ -461,89 +461,89 @@ class UXOptimizedWebUI:
                     }
                     this.initCharts();
                 },
-                
+
                 async loadDashboardData() {
                     try {
                         const response = await fetch('/api/ux/dashboard-data');
                         const data = await response.json();
-                        
+
                         this.systemHealth = data.systemHealth || this.systemHealth;
                         this.stats = { ...this.stats, ...data.stats };
                         this.lastUpdate = new Date();
-                        
+
                     } catch (error) {
                         console.error('Failed to load dashboard data:', error);
                     }
                 },
-                
+
                 async quickAnalysis() {
                     this.loading = true;
-                    
+
                     try {
                         const response = await fetch('/api/ux/quick-actions', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ action: 'analyze_symbol', symbol: '7203' })
                         });
-                        
+
                         const result = await response.json();
                         this.quickAnalysisResult = result;
                         this.showNotification('Analysis completed!', 'success');
-                        
+
                     } catch (error) {
                         this.showNotification('Analysis failed', 'error');
                     } finally {
                         this.loading = false;
                     }
                 },
-                
+
                 async systemHealth() {
                     this.loading = true;
-                    
+
                     try {
                         const response = await fetch('/api/ux/quick-actions', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ action: 'system_health' })
                         });
-                        
+
                         const result = await response.json();
                         this.systemHealth = result;
                         this.showNotification('Health check completed!', 'success');
-                        
+
                     } catch (error) {
                         this.showNotification('Health check failed', 'error');
                     } finally {
                         this.loading = false;
                     }
                 },
-                
+
                 async analyzeSymbol(symbol) {
                     this.loading = true;
-                    
+
                     try {
                         const response = await fetch('/api/ux/quick-actions', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ action: 'analyze_symbol', symbol: symbol })
                         });
-                        
+
                         const result = await response.json();
                         this.quickAnalysisResult = result;
                         this.showNotification(`Analysis for ${symbol} completed!`, 'success');
-                        
+
                     } catch (error) {
                         this.showNotification('Analysis failed', 'error');
                     } finally {
                         this.loading = false;
                     }
                 },
-                
+
                 async updateTheme() {
                     try {
                         const response = await fetch(`/api/ux/theme/${this.settings.theme}`);
                         const result = await response.json();
-                        
+
                         if (result.status === 'success') {
                             this.showNotification('Theme updated!', 'success');
                         }
@@ -551,7 +551,7 @@ class UXOptimizedWebUI:
                         this.showNotification('Theme update failed', 'error');
                     }
                 },
-                
+
                 toggleAccessibility() {
                     // アクセシビリティモード切り替え
                     if (this.settings.accessibility) {
@@ -560,7 +560,7 @@ class UXOptimizedWebUI:
                         document.body.classList.remove('accessibility-mode');
                     }
                 },
-                
+
                 toggleAutoRefresh() {
                     if (this.settings.autoRefresh) {
                         this.startAutoRefresh();
@@ -568,42 +568,42 @@ class UXOptimizedWebUI:
                         clearInterval(this.refreshInterval);
                     }
                 },
-                
+
                 startAutoRefresh() {
                     this.refreshInterval = setInterval(() => {
                         this.loadDashboardData();
                     }, 5000);
                 },
-                
+
                 showNotification(message, type = 'success') {
                     this.notification = { show: true, message, type };
                     setTimeout(() => {
                         this.notification.show = false;
                     }, 3000);
                 },
-                
+
                 getHealthColor(score) {
                     if (score >= 90) return 'text-green-600';
                     if (score >= 70) return 'text-yellow-600';
                     return 'text-red-600';
                 },
-                
+
                 getSignalColor(signal) {
                     if (signal === 'BUY') return 'text-green-600';
                     if (signal === 'SELL') return 'text-red-600';
                     return 'text-yellow-600';
                 },
-                
+
                 getActivityColor(type) {
                     if (type === 'analysis') return 'bg-blue-500';
                     if (type === 'system') return 'bg-green-500';
                     return 'bg-gray-500';
                 },
-                
+
                 formatTime(date) {
                     return new Date(date).toLocaleTimeString('ja-JP');
                 },
-                
+
                 initCharts() {
                     // パフォーマンスチャート
                     const performanceCtx = document.getElementById('performanceChart');
@@ -628,7 +628,7 @@ class UXOptimizedWebUI:
                             }
                         }
                     });
-                    
+
                     // 分散チャート
                     const distributionCtx = document.getElementById('distributionChart');
                     new Chart(distributionCtx, {
@@ -652,7 +652,7 @@ class UXOptimizedWebUI:
 </body>
 </html>
         """
-    
+
     def _get_classic_dashboard_template(self) -> str:
         """クラシックダッシュボードテンプレート（簡略版）"""
         return """
@@ -679,7 +679,7 @@ class UXOptimizedWebUI:
             <h1>📈 Day Trade Personal - Classic Interface</h1>
             <p>Traditional dashboard layout for familiar user experience</p>
         </div>
-        
+
         <div class="grid">
             <div class="card metric">
                 <h3>System Health</h3>
@@ -694,7 +694,7 @@ class UXOptimizedWebUI:
                 <div class="value">87%</div>
             </div>
         </div>
-        
+
         <div class="card">
             <h2>Recent Analysis Results</h2>
             <p>Latest AI analysis and recommendations would be displayed here.</p>
@@ -703,7 +703,7 @@ class UXOptimizedWebUI:
 </body>
 </html>
         """
-    
+
     def _get_mobile_dashboard_template(self) -> str:
         """モバイルダッシュボードテンプレート（簡略版）"""
         return """
@@ -726,23 +726,23 @@ class UXOptimizedWebUI:
             <h1 class="text-xl font-bold">📱 Day Trade Mobile</h1>
             <p class="text-blue-200">Optimized for mobile devices</p>
         </div>
-        
+
         <div class="mobile-card text-center">
             <h2 class="text-lg text-gray-600">System Health</h2>
             <div class="metric-large text-green-600">95/100</div>
         </div>
-        
+
         <div class="mobile-card text-center">
             <h2 class="text-lg text-gray-600">AI Confidence</h2>
             <div class="metric-large text-blue-600">87%</div>
         </div>
-        
+
         <div class="mobile-card">
             <button class="w-full touch-friendly bg-blue-500 text-white rounded-lg">
                 Quick Analysis
             </button>
         </div>
-        
+
         <div class="mobile-card">
             <button class="w-full touch-friendly bg-green-500 text-white rounded-lg">
                 System Status
@@ -752,24 +752,24 @@ class UXOptimizedWebUI:
 </body>
 </html>
         """
-    
+
     def _get_cached_dashboard_data(self) -> Dict[str, Any]:
         """キャッシュ付きダッシュボードデータ取得"""
         current_time = time.time()
         cache_key = 'dashboard_data'
-        
+
         # キャッシュチェック
         if cache_key in self.api_cache:
             cached_data, timestamp = self.api_cache[cache_key]
             if current_time - timestamp < self.cache_timeout:
                 return cached_data
-        
+
         # 新しいデータ生成
         data = self._generate_dashboard_data()
         self.api_cache[cache_key] = (data, current_time)
-        
+
         return data
-    
+
     def _generate_dashboard_data(self) -> Dict[str, Any]:
         """ダッシュボードデータ生成"""
         # システムヘルス
@@ -783,7 +783,7 @@ class UXOptimizedWebUI:
                 }
             except Exception:
                 pass
-        
+
         # パフォーマンス統計
         performance_stats = {'status': 'GOOD'}
         if HAS_PERFORMANCE_MONITOR:
@@ -792,7 +792,7 @@ class UXOptimizedWebUI:
                 performance_stats = perf
             except Exception:
                 pass
-        
+
         return {
             'systemHealth': system_health,
             'performance': performance_stats,
@@ -804,7 +804,7 @@ class UXOptimizedWebUI:
             },
             'timestamp': datetime.now().isoformat()
         }
-    
+
     def _quick_symbol_analysis(self, symbol: str) -> Dict[str, Any]:
         """クイック銘柄分析"""
         if HAS_AI_ENGINE:
@@ -831,7 +831,7 @@ class UXOptimizedWebUI:
                 'note': 'Simulated result - AI engine not available',
                 'timestamp': datetime.now().isoformat()
             }
-    
+
     def _get_system_health_summary(self) -> Dict[str, Any]:
         """システムヘルス要約"""
         if HAS_SYSTEM_HEALTH:
@@ -848,7 +848,7 @@ class UXOptimizedWebUI:
                 }
             except Exception:
                 pass
-        
+
         return {
             'score': 95,
             'status': 'EXCELLENT',
@@ -858,7 +858,7 @@ class UXOptimizedWebUI:
             'issues': [],
             'recommendations': []
         }
-    
+
     def _get_performance_summary(self) -> Dict[str, Any]:
         """パフォーマンス要約"""
         if HAS_PERFORMANCE_MONITOR:
@@ -866,7 +866,7 @@ class UXOptimizedWebUI:
                 return get_quick_status()
             except Exception:
                 pass
-        
+
         return {
             'status': 'GOOD',
             'health_score': 88,
@@ -874,7 +874,7 @@ class UXOptimizedWebUI:
             'memory_mb': 45.2,
             'uptime_seconds': 3600
         }
-    
+
     def _perform_accessibility_check(self) -> Dict[str, Any]:
         """アクセシビリティチェック"""
         return {
@@ -889,22 +889,22 @@ class UXOptimizedWebUI:
                 'Test with actual screen readers'
             ]
         }
-    
+
     def _track_feature_usage(self, feature: str):
         """機能使用追跡"""
         self.user_analytics['feature_usage'][feature] += 1
-    
+
     def _track_page_view(self, page: str):
         """ページビュー追跡"""
         self.user_analytics['page_views'][page] += 1
-    
+
     def run(self, host: str = '0.0.0.0'):
         """Webサーバー起動"""
         print(f"UX Optimized Web UI starting on port {self.port}")
         print(f"Modern UI: http://localhost:{self.port}")
         print(f"Classic UI: http://localhost:{self.port}/classic")
         print(f"Mobile UI: http://localhost:{self.port}/mobile")
-        
+
         self.app.run(host=host, port=self.port, debug=self.debug)
 
 
