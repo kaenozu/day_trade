@@ -124,7 +124,7 @@ timing_advice = {
 # リスク管理
 risk_levels = {
     'LOW': "比較的安全",
-    'MEDIUM': "普通のリスク", 
+    'MEDIUM': "普通のリスク",
     'HIGH': "ハイリスク・ハイリターン"
 }
 ```

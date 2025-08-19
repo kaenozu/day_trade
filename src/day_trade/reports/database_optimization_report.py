@@ -27,7 +27,7 @@ class DatabaseOptimizationReport:
     def __init__(self):
         self.logger = get_context_logger(__name__, "DatabaseOptimizationReport")
         container = get_container()
-        
+
         self.db_service = container.resolve(IDatabaseService)
         self.optimizer_service = container.resolve(IQueryOptimizerService)
         self.cache_service = container.resolve(ICacheService)
@@ -35,7 +35,7 @@ class DatabaseOptimizationReport:
     def generate_comprehensive_report(self) -> Dict[str, Any]:
         """包括的最適化レポートを生成"""
         self.logger.info("Generating comprehensive database optimization report")
-        
+
         report = {
             'timestamp': datetime.now().isoformat(),
             'report_type': 'database_optimization_comprehensive',
@@ -46,7 +46,7 @@ class DatabaseOptimizationReport:
         # 1. パフォーマンス指標セクション
         report['sections']['performance_metrics'] = self._generate_performance_section()
 
-        # 2. キャッシュ効率セクション  
+        # 2. キャッシュ効率セクション
         report['sections']['cache_efficiency'] = self._generate_cache_section()
 
         # 3. クエリ最適化推奨セクション
@@ -63,10 +63,10 @@ class DatabaseOptimizationReport:
     def _generate_performance_section(self) -> Dict[str, Any]:
         """パフォーマンス指標セクション生成"""
         metrics = self.db_service.get_performance_metrics()
-        
+
         # パフォーマンス評価
         performance_grade = self._evaluate_performance(metrics)
-        
+
         return {
             'current_metrics': asdict(metrics),
             'performance_grade': performance_grade,
@@ -119,10 +119,10 @@ class DatabaseOptimizationReport:
     def _generate_cache_section(self) -> Dict[str, Any]:
         """キャッシュ効率セクション生成"""
         cache_stats = self.cache_service.get_stats()
-        
+
         # キャッシュ効率評価
         cache_grade = self._evaluate_cache_efficiency(cache_stats)
-        
+
         return {
             'cache_statistics': cache_stats,
             'cache_grade': cache_grade,
@@ -132,7 +132,7 @@ class DatabaseOptimizationReport:
                 'total_operations': cache_stats.get('hits', 0) + cache_stats.get('misses', 0)
             },
             'analysis': {
-                'hit_rate_status': 'Excellent' if cache_stats.get('hit_rate', 0) > 0.8 else 
+                'hit_rate_status': 'Excellent' if cache_stats.get('hit_rate', 0) > 0.8 else
                                    'Good' if cache_stats.get('hit_rate', 0) > 0.6 else 'Needs Improvement',
                 'cache_effectiveness': cache_grade,
                 'memory_usage': 'Within limits'
@@ -142,7 +142,7 @@ class DatabaseOptimizationReport:
     def _evaluate_cache_efficiency(self, stats: Dict[str, Any]) -> str:
         """キャッシュ効率評価"""
         hit_rate = stats.get('hit_rate', 0)
-        
+
         if hit_rate >= 0.9:
             return 'Excellent'
         elif hit_rate >= 0.7:
@@ -163,7 +163,7 @@ class DatabaseOptimizationReport:
 
         optimizations = []
         total_improvement = 0
-        
+
         for query in sample_queries:
             try:
                 result = self.optimizer_service.optimize_query(query)
@@ -197,7 +197,7 @@ class DatabaseOptimizationReport:
         """システム健全性セクション生成"""
         health_checks = {
             'database_connection': self._check_database_connection(),
-            'cache_system': self._check_cache_system(), 
+            'cache_system': self._check_cache_system(),
             'query_optimizer': self._check_query_optimizer(),
             'performance_monitoring': self._check_performance_monitoring()
         }
@@ -273,7 +273,7 @@ class DatabaseOptimizationReport:
             priority_actions.append('Optimize slow queries')
 
         # キャッシュ効率に基づく推奨
-        cache_grade = report['sections']['cache_efficiency']['cache_grade'] 
+        cache_grade = report['sections']['cache_efficiency']['cache_grade']
         if cache_grade in ['Fair', 'Poor']:
             recommendations.append({
                 'category': 'Cache',
@@ -321,10 +321,10 @@ class DatabaseOptimizationReport:
         try:
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(report, f, indent=2, ensure_ascii=False)
-            
+
             self.logger.info(f"Database optimization report saved: {filename}")
             return filename
-            
+
         except Exception as e:
             self.logger.error(f"Failed to save report: {e}")
             raise
@@ -334,24 +334,24 @@ class DatabaseOptimizationReport:
         print("\n" + "="*60)
         print("DATABASE OPTIMIZATION REPORT SUMMARY")
         print("="*60)
-        
+
         perf_section = report['sections']['performance_metrics']
         print(f"Performance Grade: {perf_section['performance_grade']}")
         print(f"Average Query Time: {perf_section['key_indicators']['avg_query_time']:.4f}s")
-        
-        cache_section = report['sections']['cache_efficiency'] 
+
+        cache_section = report['sections']['cache_efficiency']
         print(f"Cache Hit Rate: {cache_section['efficiency_metrics']['hit_rate_percentage']:.1f}%")
         print(f"Cache Grade: {cache_section['cache_grade']}")
-        
+
         health_section = report['sections']['system_health']
         print(f"System Health: {health_section['overall_health']}")
-        
+
         recommendations = report['sections']['recommendations']
         if recommendations['priority_actions']:
             print(f"\nPriority Actions:")
             for action in recommendations['priority_actions']:
                 print(f"  - {action}")
-        
+
         print(f"\nReport Generated: {report['timestamp']}")
         print("="*60)
 
@@ -369,7 +369,7 @@ if __name__ == "__main__":
     # テスト実行
     from ..core.services import register_default_services
     register_default_services()
-    
+
     reporter, report = generate_optimization_report()
     filename = reporter.save_report(report)
     print(f"\n詳細レポートを保存しました: {filename}")

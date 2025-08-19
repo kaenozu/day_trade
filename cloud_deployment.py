@@ -51,10 +51,10 @@ class DeploymentConfig:
 
 class DockerManager:
     """Docker管理"""
-    
+
     def __init__(self, app_name: str):
         self.app_name = app_name
-    
+
     def generate_dockerfile(self) -> str:
         """Dockerfile生成"""
         dockerfile_content = f"""# Day Trade Personal - Multi-stage Docker Build
@@ -113,12 +113,12 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \\
 # 起動コマンド
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120", "daytrade_core:app"]
 """
-        
+
         with open("Dockerfile", 'w', encoding='utf-8') as f:
             f.write(dockerfile_content)
-        
+
         return "Dockerfile"
-    
+
     def generate_docker_compose(self, config: DeploymentConfig) -> str:
         """docker-compose.yml生成"""
         compose_content = f"""version: '3.8'
@@ -205,12 +205,12 @@ networks:
   daytrade-network:
     driver: bridge
 """
-        
+
         with open("docker-compose.yml", 'w', encoding='utf-8') as f:
             f.write(compose_content)
-        
+
         return "docker-compose.yml"
-    
+
     def generate_dockerignore(self) -> str:
         """dockerignore生成"""
         dockerignore_content = """# Day Trade Personal - Docker Ignore
@@ -280,21 +280,21 @@ test_*
 .env.development
 .env.local
 """
-        
+
         with open(".dockerignore", 'w', encoding='utf-8') as f:
             f.write(dockerignore_content)
-        
+
         return ".dockerignore"
 
 
 class KubernetesManager:
     """Kubernetes管理"""
-    
+
     def __init__(self, config: DeploymentConfig):
         self.config = config
         self.manifests_dir = "k8s"
         os.makedirs(self.manifests_dir, exist_ok=True)
-    
+
     def generate_deployment(self) -> str:
         """Deployment manifest生成"""
         deployment = {
@@ -379,13 +379,13 @@ class KubernetesManager:
                 }
             }
         }
-        
+
         deployment_path = os.path.join(self.manifests_dir, "deployment.yaml")
         with open(deployment_path, 'w', encoding='utf-8') as f:
             yaml.dump(deployment, f, default_flow_style=False)
-        
+
         return deployment_path
-    
+
     def generate_service(self) -> str:
         """Service manifest生成"""
         service = {
@@ -410,13 +410,13 @@ class KubernetesManager:
                 }
             }
         }
-        
+
         service_path = os.path.join(self.manifests_dir, "service.yaml")
         with open(service_path, 'w', encoding='utf-8') as f:
             yaml.dump(service, f, default_flow_style=False)
-        
+
         return service_path
-    
+
     def generate_ingress(self) -> str:
         """Ingress manifest生成"""
         ingress = {
@@ -450,24 +450,24 @@ class KubernetesManager:
                 }]
             }
         }
-        
+
         if self.config.ssl_enabled:
             ingress["spec"]["tls"] = [{
                 "hosts": [self.config.domain or f"{self.config.app_name}.example.com"],
                 "secretName": f"{self.config.app_name}-tls"
             }]
-        
+
         ingress_path = os.path.join(self.manifests_dir, "ingress.yaml")
         with open(ingress_path, 'w', encoding='utf-8') as f:
             yaml.dump(ingress, f, default_flow_style=False)
-        
+
         return ingress_path
-    
+
     def generate_hpa(self) -> str:
         """HPA manifest生成"""
         if not self.config.auto_scaling:
             return ""
-        
+
         hpa = {
             "apiVersion": "autoscaling/v2",
             "kind": "HorizontalPodAutoscaler",
@@ -506,30 +506,30 @@ class KubernetesManager:
                 ]
             }
         }
-        
+
         hpa_path = os.path.join(self.manifests_dir, "hpa.yaml")
         with open(hpa_path, 'w', encoding='utf-8') as f:
             yaml.dump(hpa, f, default_flow_style=False)
-        
+
         return hpa_path
 
 
 class CloudProviderManager:
     """クラウドプロバイダ管理"""
-    
+
     def __init__(self, config: DeploymentConfig):
         self.config = config
-    
+
     def generate_heroku_config(self) -> Dict[str, str]:
         """Heroku設定生成"""
         # Procfile
         procfile_content = f"""web: gunicorn --bind 0.0.0.0:$PORT --workers 4 daytrade_core:app
 worker: python worker.py
 """
-        
+
         with open("Procfile", 'w', encoding='utf-8') as f:
             f.write(procfile_content)
-        
+
         # app.json
         app_json = {
             "name": self.config.app_name,
@@ -576,12 +576,12 @@ worker: python worker.py
                 }
             }
         }
-        
+
         with open("app.json", 'w', encoding='utf-8') as f:
             json.dump(app_json, f, indent=2)
-        
+
         return {"Procfile": "Procfile", "app.json": "app.json"}
-    
+
     def generate_railway_config(self) -> str:
         """Railway設定生成"""
         railway_toml = f"""[build]
@@ -595,12 +595,12 @@ restartPolicyMaxRetries = 10
 [environment]
 PYTHON_VERSION = "3.11"
 """
-        
+
         with open("railway.toml", 'w', encoding='utf-8') as f:
             f.write(railway_toml)
-        
+
         return "railway.toml"
-    
+
     def generate_vercel_config(self) -> str:
         """Vercel設定生成"""
         vercel_json = {
@@ -628,24 +628,24 @@ PYTHON_VERSION = "3.11"
                 }
             }
         }
-        
+
         with open("vercel.json", 'w', encoding='utf-8') as f:
             json.dump(vercel_json, f, indent=2)
-        
+
         return "vercel.json"
 
 
 class CICDManager:
     """CI/CD管理"""
-    
+
     def __init__(self, config: DeploymentConfig):
         self.config = config
-    
+
     def generate_github_actions(self) -> str:
         """GitHub Actions CI/CD生成"""
         ci_dir = ".github/workflows"
         os.makedirs(ci_dir, exist_ok=True)
-        
+
         workflow_content = f"""name: Day Trade Personal CI/CD
 
 on:
@@ -661,7 +661,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:15
@@ -675,15 +675,15 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-    
+
     - name: Cache pip dependencies
       uses: actions/cache@v3
       with:
@@ -691,23 +691,23 @@ jobs:
         key: ${{{{ runner.os }}}}-pip-${{{{ hashFiles('**/requirements.txt') }}}}
         restore-keys: |
           ${{{{ runner.os }}}}-pip-
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest pytest-cov
-    
+
     - name: Run security scan
       run: |
         python security_assessment.py
-    
+
     - name: Run tests
       run: |
         python -m pytest --cov=. --cov-report=xml
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-    
+
     - name: Upload coverage
       uses: codecov/codecov-action@v3
       with:
@@ -717,20 +717,20 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    
+
     - name: Log in to Container Registry
       uses: docker/login-action@v3
       with:
         registry: ${{{{ env.REGISTRY }}}}
         username: ${{{{ github.actor }}}}
         password: ${{{{ secrets.GITHUB_TOKEN }}}}
-    
+
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
@@ -741,7 +741,7 @@ jobs:
           type=ref,event=pr
           type=sha
           type=raw,value=latest,enable={{{{is_default_branch}}}}
-    
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
@@ -752,13 +752,13 @@ jobs:
         labels: ${{{{ steps.meta.outputs.labels }}}}
         cache-from: type=gha
         cache-to: type=gha,mode=max
-    
+
     - name: Deploy to staging
       if: github.ref == 'refs/heads/develop'
       run: |
         echo "Deploy to staging environment"
         # Add staging deployment commands here
-    
+
     - name: Deploy to production
       if: github.ref == 'refs/heads/main'
       run: |
@@ -769,20 +769,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Lighthouse CI Action
       uses: treosh/lighthouse-ci-action@v10
       with:
         uploadArtifacts: true
         temporaryPublicStorage: true
 """
-        
+
         workflow_path = os.path.join(ci_dir, "ci-cd.yml")
         with open(workflow_path, 'w', encoding='utf-8') as f:
             f.write(workflow_content)
-        
+
         return workflow_path
-    
+
     def generate_gitlab_ci(self) -> str:
         """GitLab CI生成"""
         gitlab_ci = f"""# Day Trade Personal GitLab CI/CD
@@ -889,23 +889,23 @@ deploy_production:
   only:
     - main
 """
-        
+
         with open(".gitlab-ci.yml", 'w', encoding='utf-8') as f:
             f.write(gitlab_ci)
-        
+
         return ".gitlab-ci.yml"
 
 
 class CloudDeploymentManager:
     """クラウドデプロイメント管理"""
-    
+
     def __init__(self, config: DeploymentConfig = None):
         self.config = config or DeploymentConfig()
         self.docker_manager = DockerManager(self.config.app_name)
         self.k8s_manager = KubernetesManager(self.config)
         self.cloud_manager = CloudProviderManager(self.config)
         self.cicd_manager = CICDManager(self.config)
-    
+
     def generate_deployment_files(self) -> Dict[str, List[str]]:
         """デプロイメントファイル生成"""
         results = {
@@ -914,29 +914,29 @@ class CloudDeploymentManager:
             "cloud": [],
             "cicd": []
         }
-        
+
         logging.info("Generating cloud deployment configuration...")
-        
+
         try:
             # Docker関連
             logging.info("Generating Docker files...")
             results["docker"].append(self.docker_manager.generate_dockerfile())
             results["docker"].append(self.docker_manager.generate_docker_compose(self.config))
             results["docker"].append(self.docker_manager.generate_dockerignore())
-            
+
             # Kubernetes関連
             logging.info("Generating Kubernetes manifests...")
             results["kubernetes"].append(self.k8s_manager.generate_deployment())
             results["kubernetes"].append(self.k8s_manager.generate_service())
             results["kubernetes"].append(self.k8s_manager.generate_ingress())
-            
+
             hpa_path = self.k8s_manager.generate_hpa()
             if hpa_path:
                 results["kubernetes"].append(hpa_path)
-            
+
             # クラウドプロバイダ設定
             logging.info(f"Generating {self.config.cloud_provider.value} configuration...")
-            
+
             if self.config.cloud_provider == CloudProvider.HEROKU:
                 heroku_files = self.cloud_manager.generate_heroku_config()
                 results["cloud"].extend(heroku_files.values())
@@ -944,26 +944,26 @@ class CloudDeploymentManager:
                 results["cloud"].append(self.cloud_manager.generate_railway_config())
             elif self.config.cloud_provider == CloudProvider.VERCEL:
                 results["cloud"].append(self.cloud_manager.generate_vercel_config())
-            
+
             # CI/CD設定
             logging.info("Generating CI/CD configuration...")
             results["cicd"].append(self.cicd_manager.generate_github_actions())
             results["cicd"].append(self.cicd_manager.generate_gitlab_ci())
-            
+
             # requirements.txt生成（デプロイ用）
             self._generate_requirements()
-            
+
             # デプロイメントスクリプト生成
             self._generate_deployment_scripts()
-            
+
             logging.info("Cloud deployment configuration completed!")
-            
+
         except Exception as e:
             logging.error(f"Deployment configuration generation failed: {e}")
             raise
-        
+
         return results
-    
+
     def _generate_requirements(self):
         """requirements.txt生成"""
         requirements = """# Day Trade Personal - Production Dependencies
@@ -989,10 +989,10 @@ itsdangerous==2.1.2
 click==8.1.7
 blinker==1.7.0
 """
-        
+
         with open("requirements.txt", 'w', encoding='utf-8') as f:
             f.write(requirements)
-    
+
     def _generate_deployment_scripts(self):
         """デプロイメントスクリプト生成"""
         # デプロイスクリプト（Unix）
@@ -1015,10 +1015,10 @@ echo "Cloud Provider: {self.config.cloud_provider.value}"
 if command -v docker &> /dev/null; then
     echo "📦 Building Docker image..."
     docker build -t {self.config.app_name}:{self.config.version} .
-    
+
     echo "🧪 Running tests..."
     docker run --rm {self.config.app_name}:{self.config.version} python -m pytest
-    
+
     echo "🔍 Security scan..."
     docker run --rm {self.config.app_name}:{self.config.version} python security_assessment.py
 fi
@@ -1046,10 +1046,10 @@ esac
 echo "✅ Deployment completed!"
 echo "🌍 Application URL: https://{self.config.domain or f'{self.config.app_name}.example.com'}"
 """
-        
+
         with open("deploy.sh", 'w', encoding='utf-8') as f:
             f.write(deploy_sh)
-        
+
         # Windows用デプロイスクリプト
         deploy_bat = f"""@echo off
 REM Day Trade Personal - Windows Deployment Script
@@ -1066,7 +1066,7 @@ docker --version >nul 2>&1
 if %ERRORLEVEL% == 0 (
     echo 📦 Building Docker image...
     docker build -t {self.config.app_name}:{self.config.version} .
-    
+
     echo 🧪 Running tests...
     docker run --rm {self.config.app_name}:{self.config.version} python -m pytest
 )
@@ -1074,10 +1074,10 @@ if %ERRORLEVEL% == 0 (
 echo ✅ Deployment completed!
 echo 🌍 Application URL: https://{self.config.domain or f'{self.config.app_name}.example.com'}
 """
-        
+
         with open("deploy.bat", 'w', encoding='utf-8') as f:
             f.write(deploy_bat)
-    
+
     def get_deployment_summary(self) -> Dict[str, Any]:
         """デプロイメント概要"""
         return {
@@ -1110,7 +1110,7 @@ def deploy_to_cloud(config: DeploymentConfig = None) -> Dict[str, List[str]]:
     if config:
         global cloud_deployment_manager
         cloud_deployment_manager = CloudDeploymentManager(config)
-    
+
     return cloud_deployment_manager.generate_deployment_files()
 
 
@@ -1121,18 +1121,18 @@ def get_deployment_summary() -> Dict[str, Any]:
 
 if __name__ == "__main__":
     print("=== Cloud Deployment Configuration Test ===")
-    
+
     # 各クラウドプロバイダ用の設定生成
     providers = [
         (CloudProvider.HEROKU, "heroku"),
         (CloudProvider.RAILWAY, "railway"),
         (CloudProvider.VERCEL, "vercel")
     ]
-    
+
     for provider, name in providers:
         print(f"\\n{name.upper()} Configuration:")
         print("-" * 40)
-        
+
         config = DeploymentConfig(
             app_name="day-trade-personal",
             version="1.0.0",
@@ -1142,15 +1142,15 @@ if __name__ == "__main__":
             auto_scaling=True,
             domain=f"daytrade.{name}.example.com"
         )
-        
+
         results = deploy_to_cloud(config)
-        
+
         for category, files in results.items():
             if files:
                 print(f"  {category}: {len(files)} files")
                 for file in files:
                     print(f"    - {file}")
-    
+
     # デプロイメント概要
     summary = get_deployment_summary()
     print(f"\\nDeployment Summary:")
@@ -1159,5 +1159,5 @@ if __name__ == "__main__":
     print(f"  Cloud Provider: {summary['cloud_provider']}")
     print(f"  Domain: {summary['domain']}")
     print(f"  Features: {list(summary['features'].keys())}")
-    
+
     print("\\nCloud deployment configuration test completed!")

@@ -80,18 +80,18 @@ config/
 ```python
 class UnifiedConfigManager:
     \"\"\"統合設定管理システム\"\"\"
-    
+
     def __init__(self, environment: str = "development"):
         self.environment = environment
         self.config_cache = {}
         self.validators = ConfigValidators()
-    
+
     def load_config(self, config_type: str) -> Dict[str, Any]:
         \"\"\"設定の読み込みと検証\"\"\"
-        
+
     def validate_config(self, config: Dict) -> ValidationResult:
         \"\"\"設定の妥当性検証\"\"\"
-        
+
     def merge_configs(self, base_config: Dict, env_config: Dict) -> Dict:
         \"\"\"環境別設定のマージ\"\"\"
 ```
@@ -149,19 +149,19 @@ from collections import defaultdict
 
 class ConfigAnalyzer:
     \"\"\"設定ファイル分析クラス\"\"\"
-    
+
     def __init__(self, config_dir: Path):
         self.config_dir = config_dir
         self.config_files = self._find_config_files()
         self.duplicates = defaultdict(list)
         self.unused_keys = set()
-    
+
     def analyze_duplicates(self) -> Dict[str, List[str]]:
         \"\"\"重複設定の分析\"\"\"
-        
+
     def find_unused_configs(self) -> Set[str]:
         \"\"\"未使用設定の特定\"\"\"
-        
+
     def generate_migration_plan(self) -> Dict[str, Any]:
         \"\"\"移行計画の生成\"\"\"
 ```
@@ -180,30 +180,30 @@ from functools import lru_cache
 
 class UnifiedConfigManager:
     \"\"\"統合設定管理システム\"\"\"
-    
+
     def __init__(self, config_root: Path, environment: str = "development"):
         self.config_root = config_root
         self.environment = environment
         self.schema_validator = self._load_schemas()
-    
+
     @lru_cache(maxsize=128)
     def get_config(self, config_type: str) -> Dict[str, Any]:
         \"\"\"キャッシュ付き設定取得\"\"\"
         base_config = self._load_base_config(config_type)
         env_config = self._load_env_config(config_type)
         merged_config = self._merge_configs(base_config, env_config)
-        
+
         # 設定検証
         self._validate_config(config_type, merged_config)
-        
+
         return merged_config
-    
+
     def _validate_config(self, config_type: str, config: Dict) -> None:
         \"\"\"設定の妥当性検証\"\"\"
         schema = self.schema_validator.get(config_type)
         if schema:
             jsonschema.validate(config, schema)
-    
+
     def reload_config(self, config_type: str) -> None:
         \"\"\"設定の再読み込み\"\"\"
         self.get_config.cache_clear()
@@ -226,7 +226,7 @@ properties:
       debug:
         type: boolean
     required: [name, version]
-  
+
   database:
     type: object
     properties:
