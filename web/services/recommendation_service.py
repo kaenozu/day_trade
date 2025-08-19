@@ -3,14 +3,16 @@
 """
 Recommendation Service - Issue #959 リファクタリング対応
 株式推奨サービスモジュール
+Issue #939対応: Redisによるキャッシュ機能追加
 """
 
 import random
 import time
 import sys
 import os
+import json
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 import pandas as pd
 
@@ -26,15 +28,18 @@ except ImportError as e:
     REAL_DATA_AVAILABLE = False
 
 class RecommendationService:
-    """株式推奨サービス"""
+    """株式推奨サービス (キャッシュ対応)"""
     
-    def __init__(self):
+    CACHE_EXPIRATION_SECONDS = 3600  # 1時間
+
+    def __init__(self, redis_client: Optional[Any] = None):
         self.symbols_data = self._initialize_symbols_data()
+        self.redis_client = redis_client
         
     def _initialize_symbols_data(self) -> List[Dict[str, Any]]:
         """35銘柄データの初期化"""
         return [
-            # 大型株（安定重視） - 8銘柄
+            # ... (シンボルデータは変更なし) ...
             {'code': '7203', 'name': 'トヨタ自動車', 'sector': '自動車', 'category': '大型株', 'stability': '高安定'},
             {'code': '8306', 'name': '三菱UFJ銀行', 'sector': '金融', 'category': '大型株', 'stability': '高安定'},
             {'code': '9984', 'name': 'ソフトバンクグループ', 'sector': 'テクノロジー', 'category': '大型株', 'stability': '中安定'},
@@ -79,70 +84,124 @@ class RecommendationService:
         ]
     
     def get_recommendations(self) -> List[Dict[str, Any]]:
-        """推奨銘柄の取得"""
+        """推奨銘柄の取得 (キャッシュ利用)"""
         recommendations = []
-        
         for symbol_data in self.symbols_data:
-            # シミュレーション分析（実際のAI分析の代替）
-            analysis_result = self._simulate_analysis(symbol_data)
+            # キャッシュ対応した個別分析メソッドを呼び出す
+            analysis_result = self.analyze_single_symbol(symbol_data['code'])
             recommendations.append(analysis_result)
-            
         return recommendations
-    
-    def _simulate_analysis(self, symbol_data: Dict[str, Any]) -> Dict[str, Any]:
-        """リアルデータベース分析 - Issue #937対応"""
+
+    def analyze_single_symbol(self, symbol: str) -> Dict[str, Any]:
+        """個別銘柄分析 (キャッシュ対応)"""
+        # キャッシュが有効な場合、まずキャッシュを確認
+        if self.redis_client:
+            cache_key = f"recommendation:{symbol}"
+            try:
+                cached_result = self.redis_client.get(cache_key)
+                if cached_result:
+                    print(f"CACHE HIT for symbol: {symbol}")
+                    return json.loads(cached_result)
+                print(f"CACHE MISS for symbol: {symbol}")
+            except Exception as e:
+                print(f"Redis GET error for key {cache_key}: {e}")
+
+        # キャッシュがない、またはRedisが無効な場合は分析を実行
+        symbol_data = next(
+            (s for s in self.symbols_data if s['code'] == symbol),
+            {'code': symbol, 'name': f'銘柄{symbol}', 'sector': '不明', 'category': '一般株', 'stability': '中安定'}
+        )
+        
+        analysis_result = self._perform_actual_analysis(symbol_data)
+
+        # キャッシュが有効な場合、結果を保存
+        if self.redis_client:
+            cache_key = f"recommendation:{symbol}"
+            try:
+                self.redis_client.setex(
+                    cache_key,
+                    self.CACHE_EXPIRATION_SECONDS,
+                    json.dumps(analysis_result)
+                )
+            except Exception as e:
+                print(f"Redis SETEX error for key {cache_key}: {e}")
+
+        return analysis_result
+
+    def _perform_actual_analysis(self, symbol_data: Dict[str, Any]) -> Dict[str, Any]:
+        """実際の分析処理 (旧 _simulate_analysis)"""
         try:
-            # リアルデータ取得と分析
             analysis_result = self._get_real_analysis(symbol_data['code'])
             if analysis_result:
-                return analysis_result
+                # リアル分析結果に不足している情報を追加
+                return self._enrich_real_analysis(analysis_result, symbol_data)
         except Exception as e:
             print(f"リアル分析エラー ({symbol_data['code']}): {e}")
         
         # フォールバック: シミュレーション
-        recommendations = ['BUY', 'SELL', 'HOLD']
-        recommendation = random.choice(recommendations)
+        return self._create_simulated_analysis(symbol_data)
+
+    def _get_real_analysis(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """リアルデータ分析"""
+        if not REAL_DATA_AVAILABLE:
+            return None
+        
+        try:
+            provider = ImprovedMultiSourceDataProvider()
+            jp_symbol = f"{symbol}.T"
+            result = provider.get_stock_data_sync(jp_symbol, period="1mo")
+            
+            if result.success and result.data is not None and len(result.data) > 20:
+                recommendation = create_trading_recommendation(
+                    symbol=symbol,
+                    data=result.data,
+                    account_balance=1000000
+                )
+                recommendation['real_data'] = True
+                return recommendation
+            
+        except Exception as e:
+            print(f"リアル分析エラー ({symbol}): {e}")
+        
+        return None
+
+    def _enrich_real_analysis(self, analysis: Dict[str, Any], symbol_data: Dict[str, Any]) -> Dict[str, Any]:
+        """リアル分析結果をフロントエンドで必要な形式に整形・補完する"""
+        recommendation = analysis.get('signal', 'HOLD')
+        confidence = analysis.get('confidence', 0.7)
+        price = analysis.get('current_price', 0)
+        category = symbol_data.get('category', '一般株')
+
+        enriched_result = analysis.copy()
+        enriched_result.update({
+            'name': symbol_data['name'],
+            'sector': symbol_data['sector'],
+            'category': category,
+            'recommendation': recommendation,
+            'recommendation_friendly': recommendation,
+            'confidence_friendly': self._get_confidence_friendly(confidence),
+            'star_rating': self._get_star_rating(confidence),
+            'change': round(price - analysis.get('previous_close', price), 2), # 仮
+            'risk_level': self._get_risk_level(category),
+            'risk_friendly': self._get_risk_level(category),
+            'stability': symbol_data.get('stability', '中安定'),
+            'who_suitable': self._get_who_suitable(symbol_data),
+            'friendly_reason': f"AIのリアルタイム分析により、{analysis.get('reason', '総合的に判断')}",
+            'action': self._get_action_advice(recommendation, confidence),
+            'timing': self._get_timing_advice(recommendation),
+            'amount_suggestion': self._get_amount_suggestion(price, category),
+            'timestamp': time.time()
+        })
+        return enriched_result
+
+    def _create_simulated_analysis(self, symbol_data: Dict[str, Any]) -> Dict[str, Any]:
+        """シミュレーション分析データの生成"""
+        recommendation = random.choice(['BUY', 'SELL', 'HOLD'])
         confidence = round(random.uniform(0.6, 0.95), 2)
         price = 1000 + abs(hash(symbol_data['code'])) % 2000
-        change = round(random.uniform(-5.0, 5.0), 2)
-        
-        # カテゴリに基づく安全度設定
-        risk_mapping = {
-            '大型株': '低リスク',
-            '中型株': '中リスク', 
-            '高配当株': '低リスク',
-            '成長株': '高リスク'
-        }
-        
-        # わかりやすい評価
-        if confidence > 0.85:
-            confidence_friendly = "超おすすめ！"
-            star_rating = "★★★★★"
-        elif confidence > 0.75:
-            confidence_friendly = "かなりおすすめ"
-            star_rating = "★★★★☆"
-        elif confidence > 0.65:
-            confidence_friendly = "まあまあ"
-            star_rating = "★★★☆☆"
-        else:
-            confidence_friendly = "様子見"
-            star_rating = "★★☆☆☆"
-        
-        # 投資家適性
-        stability = symbol_data.get('stability', '中安定')
         category = symbol_data.get('category', '一般株')
-        
-        if stability == '高安定' and category in ['大型株', '高配当株']:
-            who_suitable = "安定重視の初心者におすすめ"
-        elif category == '成長株':
-            who_suitable = "成長重視の積極投資家向け"
-        elif category == '高配当株':
-            who_suitable = "配当収入を重視する投資家向け"
-        else:
-            who_suitable = "バランス重視の投資家向け"
-        
+
         return {
-            # Issue #937: 売買判断情報追加
             'action': self._get_action_advice(recommendation, confidence),
             'timing': self._get_timing_advice(recommendation),
             'amount_suggestion': self._get_amount_suggestion(price, category),
@@ -153,101 +212,60 @@ class RecommendationService:
             'recommendation': recommendation,
             'recommendation_friendly': recommendation,
             'confidence': confidence,
-            'confidence_friendly': confidence_friendly,
-            'star_rating': star_rating,
+            'confidence_friendly': self._get_confidence_friendly(confidence),
+            'star_rating': self._get_star_rating(confidence),
             'price': price,
-            'change': change,
-            'risk_level': risk_mapping.get(category, '中リスク'),
-            'risk_friendly': risk_mapping.get(category, '中リスク'),
-            'stability': stability,
-            'who_suitable': who_suitable,
+            'change': round(random.uniform(-5.0, 5.0), 2),
+            'risk_level': self._get_risk_level(category),
+            'risk_friendly': self._get_risk_level(category),
+            'stability': symbol_data.get('stability', '中安定'),
+            'who_suitable': self._get_who_suitable(symbol_data),
             'reason': f"{symbol_data['sector']}セクターの代表的な{category}",
-            'friendly_reason': f"AI分析により{symbol_data['sector']}セクターで{confidence_friendly}と判定",
-            'timestamp': time.time()
+            'friendly_reason': f"AI分析により{symbol_data['sector']}セクターで{self._get_confidence_friendly(confidence)}と判定",
+            'timestamp': time.time(),
+            'real_data': False
         }
-    
-    def analyze_single_symbol(self, symbol: str) -> Dict[str, Any]:
-        """個別銘柄分析"""
-        # 銘柄データを検索
-        symbol_data = next(
-            (s for s in self.symbols_data if s['code'] == symbol),
-            {'code': symbol, 'name': f'銘柄{symbol}', 'sector': '不明', 'category': '一般株', 'stability': '中安定'}
-        )
-        
-        return self._simulate_analysis(symbol_data)
-    
-    def _get_real_analysis(self, symbol: str) -> Dict[str, Any]:
-        """リアルデータ分析 - Issue #937対応"""
-        if not REAL_DATA_AVAILABLE:
-            return None
-        
-        try:
-            # データプロバイダー初期化
-            provider = ImprovedMultiSourceDataProvider()
-            
-            # 日本株式のシンボル形式に変換
-            jp_symbol = f"{symbol}.T"
-            
-            # 株価データ取得（1ヶ月分）
-            result = provider.get_stock_data_sync(jp_symbol, period="1mo")
-            
-            if result.success and result.data is not None and len(result.data) > 20:
-                # テクニカル分析実行
-                recommendation = create_trading_recommendation(
-                    symbol=symbol,
-                    data=result.data,
-                    account_balance=1000000  # 仮の口座残高
-                )
-                
-                return {
-                    'symbol': symbol,
-                    'recommendation': recommendation['signal'],
-                    'confidence': recommendation['confidence'],
-                    'price': recommendation['current_price'],
-                    'target_price': recommendation['target_price'],
-                    'stop_loss': recommendation['stop_loss'],
-                    'position_size': recommendation['position_size'],
-                    'investment_amount': recommendation['investment_amount'],
-                    'reason': recommendation['reason'],
-                    'real_data': True
-                }
-            
-        except Exception as e:
-            print(f"リアル分析エラー ({symbol}): {e}")
-        
-        return None
-    
+
+    # --- ヘルパーメソッド --- #
+
+    def _get_confidence_friendly(self, confidence: float) -> str:
+        if confidence > 0.85: return "超おすすめ！"
+        if confidence > 0.75: return "かなりおすすめ"
+        if confidence > 0.65: return "まあまあ"
+        return "様子見"
+
+    def _get_star_rating(self, confidence: float) -> str:
+        if confidence > 0.85: return "★★★★★"
+        if confidence > 0.75: return "★★★★☆"
+        if confidence > 0.65: return "★★★☆☆"
+        return "★★☆☆☆"
+
+    def _get_risk_level(self, category: str) -> str:
+        risk_mapping = {'大型株': '低リスク', '中型株': '中リスク', '高配当株': '低リスク', '成長株': '高リスク'}
+        return risk_mapping.get(category, '中リスク')
+
+    def _get_who_suitable(self, symbol_data: Dict[str, Any]) -> str:
+        stability = symbol_data.get('stability', '中安定')
+        category = symbol_data.get('category', '一般株')
+        if stability == '高安定' and category in ['大型株', '高配当株']: return "安定重視の初心者におすすめ"
+        if category == '成長株': return "成長重視の積極投資家向け"
+        if category == '高配当株': return "配当収入を重視する投資家向け"
+        return "バランス重視の投資家向け"
+
     def _get_action_advice(self, recommendation: str, confidence: float) -> str:
-        """具体的なアクション提案"""
         if recommendation == 'BUY':
-            if confidence > 0.8:
-                return "今すぐ購入を検討してください"
-            else:
-                return "少量から購入を始めてみてください"
-        elif recommendation == 'SELL':
-            if confidence > 0.8:
-                return "早めの売却を検討してください"
-            else:
-                return "様子を見ながら部分的な売却を検討してください"
-        else:
-            return "しばらく様子を見てください"
-    
+            return "今すぐ購入を検討してください" if confidence > 0.8 else "少量から購入を始めてみてください"
+        if recommendation == 'SELL':
+            return "早めの売却を検討してください" if confidence > 0.8 else "様子を見ながら部分的な売却を検討してください"
+        return "しばらく様子を見てください"
+
     def _get_timing_advice(self, recommendation: str) -> str:
-        """タイミングアドバイス"""
-        if recommendation == 'BUY':
-            return "次の押し目で購入タイミング"
-        elif recommendation == 'SELL':
-            return "次の戻りで売却タイミング"
-        else:
-            return "明確なシグナルを待ちましょう"
-    
+        if recommendation == 'BUY': return "次の押し目で購入タイミング"
+        if recommendation == 'SELL': return "次の戻りで売却タイミング"
+        return "明確なシグナルを待ちましょう"
+
     def _get_amount_suggestion(self, price: float, category: str) -> str:
-        """投資金額提案"""
-        if category == '大型株':
-            return "資金の5-10%を目安に"
-        elif category == '成長株':
-            return "資金の2-5%を目安に（リスク高）"
-        elif category == '高配当株':
-            return "資金の10-15%を目安に（安定重視）"
-        else:
-            return "資金の3-8%を目安に"
+        if category == '大型株': return "資金の5-10%を目安に"
+        if category == '成長株': return "資金の2-5%を目安に（リスク高）"
+        if category == '高配当株': return "資金の10-15%を目安に（安定重視）"
+        return "資金の3-8%を目安に"

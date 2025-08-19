@@ -1,0 +1,10 @@
+feat(performance): Implement Redis caching for recommendations
+
+Implements Redis caching for the recommendation service to improve performance and reduce latency for repeated requests.
+
+- Modifies `daytrade_web.py` to initialize a Redis client and pass it to the `RecommendationService`.
+- Updates `RecommendationService` to use the Redis client for caching analysis results with a 1-hour expiration.
+- Refactors the analysis logic in `RecommendationService` for better readability and to separate real data analysis from simulated analysis.
+- `get_recommendations` now leverages the caching mechanism.
+
+This addresses the "In-Memory Cache" part of issue #939.
