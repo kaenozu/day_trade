@@ -80,7 +80,7 @@ class DayTradeWebServer:
     
     def run(self) -> None:
         """サーバー起動（リファクタリング後）"""
-        print(f"\n🚀 Day Trade Web Server (Refactored) - Issue #959")
+        print(f"\nDay Trade Web Server (Refactored) - Issue #959")
         print(f"Version: {self.version_info['version_extended']}")
         print(f"Port: {self.port}")
         print(f"Debug: {self.debug}")
@@ -97,9 +97,9 @@ class DayTradeWebServer:
                 use_reloader=False  # リロードを無効化（本番対応）
             )
         except KeyboardInterrupt:
-            print("\n🛑 サーバーを停止しました")
+            print("\nサーバーを停止しました")
         except Exception as e:
-            print(f"❌ サーバーエラー: {e}")
+            print(f"サーバーエラー: {e}")
 
 def create_argument_parser() -> argparse.ArgumentParser:
     """コマンドライン引数パーサー作成"""
