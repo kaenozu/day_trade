@@ -10,8 +10,40 @@ from datetime import datetime
 import time
 from typing import Dict, Any, List
 
+# ポートフォリオサービスのインポート
+try:
+    from web.services.portfolio_service import PortfolioService
+    PORTFOLIO_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"ポートフォリオサービス読み込みエラー: {e}")
+    PORTFOLIO_SERVICE_AVAILABLE = False
+
 def setup_api_routes(app: Flask, web_server_instance) -> None:
     """APIルート設定"""
+    
+    # ポートフォリオ機能の統合
+    try:
+        from web.routes.api_routes_portfolio import setup_portfolio_routes
+        setup_portfolio_routes(app)
+        print("ポートフォリオAPIルートが設定されました")
+    except ImportError as e:
+        print(f"ポートフォリオAPI設定エラー: {e}")
+    
+    # アラート機能の統合
+    try:
+        from web.routes.api_routes_alerts import setup_alert_routes
+        setup_alert_routes(app)
+        print("アラートAPIルートが設定されました")
+    except ImportError as e:
+        print(f"アラートAPI設定エラー: {e}")
+    
+    # バックテスト機能の統合
+    try:
+        from web.routes.api_routes_backtest import setup_backtest_routes
+        setup_backtest_routes(app)
+        print("バックテストAPIルートが設定されました")
+    except ImportError as e:
+        print(f"バックテストAPI設定エラー: {e}")
     
     @app.route('/api/status')
     def api_status():
@@ -22,8 +54,10 @@ def setup_api_routes(app: Flask, web_server_instance) -> None:
             'version': getattr(web_server_instance, 'version_info', {}).get('version', '2.1.0'),
             'features': [
                 'Real-time Analysis',
-                'Security Enhanced',
-                'Performance Optimized'
+                'Portfolio Management',
+                'Alert System',
+                'Backtest Engine',
+                'Database Integration'
             ]
         })
     
