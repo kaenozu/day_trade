@@ -3,12 +3,11 @@
 """
 API Routes Module - Issues #953-956対応 クリーンアップ版
 API エンドポイント定義モジュール
+Issue #939対応: Gunicorn/Application Factory対応
 """
 
 from flask import Flask, jsonify, request, g
 from datetime import datetime
-
-
 def setup_api_routes(app: Flask) -> None:
     """APIルート設定 (Application Factory対応)"""
 
@@ -162,7 +161,7 @@ def setup_api_routes(app: Flask) -> None:
                 'item': portfolio_item,
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
@@ -189,11 +188,19 @@ def setup_api_routes(app: Flask) -> None:
             })
             
         except Exception as e:
+            return jsonify({'error': str(e), 'timestamp': datetime.now().isoformat()}), 500
+
+    @app.route('/api/analyze/<symbol>', methods=['POST'])
+    def api_start_analysis(symbol):
+        """個別銘柄分析の非同期タスクを開始するAPI"""
+        try:
+            result = app.start_analysis_task(symbol)
+            return jsonify(result), 202 # 202 Accepted
+        except Exception as e:
             return jsonify({
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-
     @app.route('/api/portfolio/<int:item_id>', methods=['PUT'])
     def api_portfolio_update(item_id):
         """ポートフォリオの銘柄情報を更新するAPI"""
@@ -288,5 +295,18 @@ def setup_api_routes(app: Flask) -> None:
         except Exception as e:
             return jsonify({
                 'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }), 500
+
+    @app.route('/api/result/<task_id>', methods=['GET'])
+    def api_get_result(task_id):
+        """非同期タスクの結果を取得するAPI"""
+        try:
+            result = app.get_task_status(task_id)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({
+                'error': str(e),
+                'task_id': task_id,
                 'timestamp': datetime.now().isoformat()
             }), 500

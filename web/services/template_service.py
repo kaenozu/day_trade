@@ -54,14 +54,22 @@ class TemplateService:
                     </div>
                 </div>
             </div>
-            
-            <!-- 固定フィルタリングボタンエリア -->
-            <div id="filterButtonsArea" style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 style="margin: 0; color: #1f2937;">📊 フィルタリング</h3>
-                    <span id="resultCount" style="background: #f3f4f6; padding: 6px 12px; border-radius: 20px; font-size: 0.9rem; color: #374151;">
-                        35件表示中
-                    </span>
+
+            <div class="card">
+                <h3>🎯 分析機能</h3>
+                <p>主要銘柄の即座分析が可能です</p>
+                <button class="btn" onclick="runAnalysis()">単一分析実行</button>
+                <button class="btn" onclick="loadRecommendations()" style="margin-left: 10px;">推奨銘柄表示</button>
+                <div id="analysisResult" style="margin-top: 15px; padding: 10px; background: #f7fafc; border-radius: 6px; display: none;"></div>
+            </div>
+        </div>
+
+        <!-- 拡張推奨銘柄セクション -->
+        <div class="recommendations-section" style="margin-top: 30px;">
+            <h2 style="color: white; text-align: center; margin-bottom: 20px;">📈 推奨銘柄一覧 (35銘柄)</h2>
+            <div id="recommendationsContainer" style="display: none;">
+                <div class="recommendations-summary" style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
+                    <div id="summaryStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px;"></div>
                 </div>
                 <div id="filterButtons" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 15px;">
                     <!-- フィルタリングボタンがJavaScriptで動的生成される -->
@@ -1603,6 +1611,7 @@ class TemplateService:
         // 30秒ごとに自動更新
         setInterval(loadSchedulerData, 30000);
     </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
         """

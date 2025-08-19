@@ -33,12 +33,10 @@ except ImportError:
         "build_date": "2025-08-19"
     }
 
-
 def create_app() -> Flask:
     """Flaskアプリケーションを生成して設定 (Application Factory)"""
     app = Flask(__name__)
     app.secret_key = 'day-trade-personal-2025-production-ready'
-
     # --- バージョン情報をappコンテキストに保存 ---
     app.config['VERSION_INFO'] = VERSION_INFO
 

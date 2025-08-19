@@ -34,9 +34,6 @@ def setup_main_routes(app: Flask) -> None:
             template_content,
             title="ポートフォリオ追跡 - 購入銘柄管理"
         )
-
-
-
     @app.route('/health')
     def health_check():
         """ヘルスチェック"""

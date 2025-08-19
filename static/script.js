@@ -29,7 +29,6 @@ async function loadRecommendations() {
     
     // 更新状態の表示
     updateStatusDisplay('更新中...', false);
-    
     try {
         const response = await fetch('/api/recommendations');
         const data = await response.json();
@@ -113,7 +112,6 @@ async function loadRecommendations() {
         
         // 更新完了状態の表示
         updateStatusDisplay('更新完了', true);
-        
     } catch (error) {
         console.error('推奨銘柄読み込みエラー:', error);
         listDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #f56565;">エラーが発生しました: ' + error.message + '</div>';
