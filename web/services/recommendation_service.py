@@ -26,13 +26,13 @@ except ImportError as e:
 
 class RecommendationService:
     """株式推奨サービス (センチメント特徴量対応)"""
-    
+
     CACHE_EXPIRATION_SECONDS = 3600
 
     def __init__(self, redis_client: Optional[Any] = None):
         self.symbols_data = self._initialize_symbols_data()
         self.redis_client = redis_client
-        
+
     def _initialize_symbols_data(self) -> List[Dict[str, Any]]:
         # ... (same as before) ...
         return [
@@ -44,7 +44,7 @@ class RecommendationService:
             {'code': '9434', 'name': 'ソフトバンク', 'sector': '通信', 'category': '大型株', 'stability': '高安定'},
             {'code': '8001', 'name': '伊藤忠商事', 'sector': '商社', 'category': '大型株', 'stability': '高安定'},
             {'code': '7267', 'name': 'ホンダ', 'sector': '自動車', 'category': '大型株', 'stability': '高安定'},
-            
+
             # 中型株（成長期待） - 9銘柄
             {'code': '6861', 'name': 'キーエンス', 'sector': '精密機器', 'category': '中型株', 'stability': '中安定'},
             {'code': '4755', 'name': '楽天グループ', 'sector': 'テクノロジー', 'category': '中型株', 'stability': '低安定'},
@@ -55,7 +55,7 @@ class RecommendationService:
             {'code': '8316', 'name': '三井住友FG', 'sector': '金融', 'category': '中型株', 'stability': '高安定'},
             {'code': '4578', 'name': '大塚ホールディングス', 'sector': '製薬', 'category': '中型株', 'stability': '中安定'},
             {'code': '8058', 'name': '三菱商事', 'sector': '商社', 'category': '中型株', 'stability': '高安定'},
-            
+
             # 高配当株（収益重視） - 9銘柄
             {'code': '8031', 'name': '三井物産', 'sector': '商社', 'category': '高配当株', 'stability': '高安定'},
             {'code': '1605', 'name': 'INPEX', 'sector': 'エネルギー', 'category': '高配当株', 'stability': '中安定'},
@@ -66,7 +66,7 @@ class RecommendationService:
             {'code': '9433', 'name': 'KDDI', 'sector': '通信', 'category': '高配当株', 'stability': '高安定'},
             {'code': '2802', 'name': '味の素', 'sector': '食品', 'category': '高配当株', 'stability': '高安定'},
             {'code': '3382', 'name': '7&i HD', 'sector': '小売', 'category': '高配当株', 'stability': '高安定'},
-            
+
             # 成長株（将来性重視） - 9銘柄
             {'code': '4503', 'name': 'アステラス製薬', 'sector': '製薬', 'category': '成長株', 'stability': '中安定'},
             {'code': '6981', 'name': '村田製作所', 'sector': '電子部品', 'category': '成長株', 'stability': '中安定'},
@@ -101,7 +101,7 @@ class RecommendationService:
         symbol_data = next((s for s in self.symbols_data if s['code'] == symbol), None)
         if not symbol_data:
             symbol_data = {'code': symbol, 'name': f'銘柄{symbol}', 'sector': '不明', 'category': '一般株', 'stability': '中安定'}
-        
+
         analysis_result = self._perform_actual_analysis(symbol_data, model_type)
 
         if self.redis_client:
@@ -120,13 +120,13 @@ class RecommendationService:
                 return self._enrich_real_analysis(analysis_result, symbol_data)
         except Exception as e:
             print(f"リアル分析エラー ({symbol_data['code']}): {e}")
-        
+
         return self._create_simulated_analysis(symbol_data)
 
     def _get_real_analysis_pl(self, symbol_data: Dict[str, Any], model_type: str) -> Optional[Dict[str, Any]]:
         if not REAL_DATA_AVAILABLE:
             return None
-        
+
         try:
             symbol = symbol_data['code']
             company_name = symbol_data['name']
@@ -134,10 +134,10 @@ class RecommendationService:
             provider = ImprovedMultiSourceDataProvider()
             jp_symbol = f"{symbol}.T"
             result = provider.get_stock_data_sync(jp_symbol, period="1mo")
-            
+
             if result.success and result.data is not None and len(result.data) > 20:
                 pl_data = pl.from_pandas(result.data.reset_index())
-                
+
                 recommendation = create_trading_recommendation_pl(
                     symbol=symbol,
                     company_name=company_name,
@@ -147,10 +147,10 @@ class RecommendationService:
                 )
                 recommendation['real_data'] = True
                 return recommendation
-            
+
         except Exception as e:
             print(f"Polarsリアル分析エラー ({symbol}): {e}")
-        
+
         return None
 
     def _enrich_real_analysis(self, analysis: Dict[str, Any], symbol_data: Dict[str, Any]) -> Dict[str, Any]:

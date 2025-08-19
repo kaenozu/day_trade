@@ -2,11 +2,11 @@ async function runAnalysis() {
     const resultDiv = document.getElementById('analysisResult');
     resultDiv.style.display = 'block';
     resultDiv.innerHTML = '分析中...';
-    
+
     try {
         const response = await fetch('/api/analysis/7203');
         const data = await response.json();
-        
+
         resultDiv.innerHTML = `
             <strong>トヨタ自動車 (${data.symbol})</strong><br>
             推奨: ${data.recommendation}<br>
@@ -23,14 +23,14 @@ async function loadRecommendations() {
     const container = document.getElementById('recommendationsContainer');
     const summaryDiv = document.getElementById('summaryStats');
     const listDiv = document.getElementById('recommendationsList');
-    
+
     container.style.display = 'block';
     listDiv.innerHTML = '<div style="text-align: center; padding: 20px;">推奨銘柄を読み込み中...</div>';
-    
+
     try {
         const response = await fetch('/api/recommendations');
         const data = await response.json();
-        
+
         summaryDiv.innerHTML = `
             <div class="stat-item">
                 <div class="stat-number">${data.total_count}</div>
@@ -53,7 +53,7 @@ async function loadRecommendations() {
                 <div class="stat-label">様子見</div>
             </div>
         `;
-        
+
         let recommendationsHtml = '';
         data.recommendations.forEach(stock => {
             const recClass = `rec-${stock.recommendation.toLowerCase()}`;
@@ -61,7 +61,7 @@ async function loadRecommendations() {
             const badgeClass = getBadgeClass(stock.recommendation);
             const changeColor = stock.change >= 0 ? '#48bb78' : '#f56565';
             const changePrefix = stock.change >= 0 ? '+' : '';
-            
+
             recommendationsHtml += `
                 <div class="recommendation-card ${recClass} ${confidenceClass}">
                     <div class="stock-header">
@@ -105,9 +105,9 @@ async function loadRecommendations() {
                 </div>
             `;
         });
-        
+
         listDiv.innerHTML = recommendationsHtml;
-        
+
     } catch (error) {
         console.error('推奨銘柄読み込みエラー:', error);
         listDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #f56565;">エラーが発生しました: ' + error.message + '</div>';

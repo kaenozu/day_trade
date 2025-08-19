@@ -41,7 +41,7 @@ class TradingModel(ABC):
 
 class LightGBMModel(TradingModel):
     """LightGBMモデル (最適化パラメータ対応)"""
-    
+
     def __init__(self, model_path: str = None):
         super().__init__()
         self.model = None
@@ -92,14 +92,14 @@ class LightGBMModel(TradingModel):
         features = self._create_features(data, symbol, company_name)
         if features.is_empty():
             return {'signal': 'HOLD', 'confidence': 0.1, 'reason': 'Not enough data for prediction'}
-        
+
         feature_cols = [col for col in features.columns if col not in ['Date', 'Symbol']]
         prediction = self.model.predict(features[feature_cols])
-        
+
         predicted_class = np.argmax(prediction, axis=1)[-1]
         confidence = prediction[0][predicted_class]
         signal_map = {0: 'SELL', 1: 'HOLD', 2: 'BUY'}
-        
+
         return {
             'signal': signal_map.get(predicted_class, 'HOLD'),
             'confidence': confidence,

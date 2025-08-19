@@ -311,16 +311,16 @@ body {
     .mobile-main {
         padding: 12px;
     }
-    
+
     .mobile-grid {
         grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
         gap: 8px;
     }
-    
+
     .mobile-card {
         padding: 12px;
     }
-    
+
     .stock-item {
         padding: 12px;
     }
@@ -331,12 +331,12 @@ body {
     .mobile-header {
         height: 48px;
     }
-    
+
     .mobile-main {
         margin-top: 48px;
         padding: 12px;
     }
-    
+
     .mobile-bottom-nav {
         height: 48px;
     }
@@ -348,34 +348,34 @@ body {
         background: #121212;
         color: #ffffff;
     }
-    
+
     .mobile-card {
         background: #1e1e1e;
         border-color: #333;
         color: #ffffff;
     }
-    
+
     .mobile-input {
         background: #1e1e1e;
         color: #ffffff;
         border-color: #333;
     }
-    
+
     .stock-item {
         background: #1e1e1e;
         border-color: #333;
     }
-    
+
     .mobile-bottom-nav {
         background: #1e1e1e;
         border-top-color: #333;
     }
-    
+
     .mobile-tabs {
         background: #1e1e1e;
         border-color: #333;
     }
-    
+
     .mobile-tab {
         background: #2e2e2e;
         color: #ffffff;

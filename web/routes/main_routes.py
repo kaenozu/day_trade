@@ -12,20 +12,20 @@ import time
 
 def setup_main_routes(app: Flask) -> None:
     """メインルート設定 (Application Factory対応)"""
-    
+
     @app.route('/')
     def index():
         """メインダッシュボード"""
         # gオブジェクトからtemplate_serviceを取得
         template_content = g.template_service.get_dashboard_template()
-        
+
         response = render_template_string(
-            template_content, 
+            template_content,
             title="Day Trade Personal - メインダッシュボード"
         )
-        
+
         return response
-    
+
     @app.route('/health')
     def health_check():
         """ヘルスチェック"""

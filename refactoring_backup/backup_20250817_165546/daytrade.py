@@ -286,7 +286,7 @@ class PersonalAnalysisEngine:
         # 包括的パフォーマンス追跡システム統合
         if PERFORMANCE_TRACKER_AVAILABLE:
             self.performance_tracker = PerformanceTracker()
-        
+
         # ML予測システムの初期化
         self.ml_models = None
         if ML_AVAILABLE:

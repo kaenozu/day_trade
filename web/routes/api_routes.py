@@ -11,7 +11,7 @@ from datetime import datetime
 
 def setup_api_routes(app: Flask) -> None:
     """APIルート設定 (Application Factory対応)"""
-    
+
     @app.route('/api/status')
     def api_status():
         """システム状態API"""
@@ -27,7 +27,7 @@ def setup_api_routes(app: Flask) -> None:
                 'Production Ready (Gunicorn)'
             ]
         })
-    
+
     @app.route('/api/recommendations')
     def api_recommendations():
         """推奨銘柄API"""
@@ -38,7 +38,7 @@ def setup_api_routes(app: Flask) -> None:
             buy_count = len([r for r in recommendations if r.get('recommendation') == 'BUY'])
             sell_count = len([r for r in recommendations if r.get('recommendation') == 'SELL'])
             hold_count = len([r for r in recommendations if r.get('recommendation') == 'HOLD'])
-            
+
             return jsonify({
                 'total_count': total_count,
                 'high_confidence_count': high_confidence_count,
@@ -48,10 +48,10 @@ def setup_api_routes(app: Flask) -> None:
                 'recommendations': recommendations,
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({'error': str(e), 'timestamp': datetime.now().isoformat()}), 500
-    
+
     @app.route('/api/analyze/<symbol>', methods=['POST'])
     def api_start_analysis(symbol):
         """個別銘柄分析の非同期タスクを開始するAPI"""

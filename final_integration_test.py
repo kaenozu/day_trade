@@ -11,9 +11,9 @@ print("=" * 60)
 # モジュールテスト
 modules = [
     "advanced_ai_engine", "quantum_ai_engine", "blockchain_trading",
-    "high_frequency_trading", "system_watchdog", "system_maintenance", 
-    "advanced_logging_system", "customizable_dashboard", "user_preferences", 
-    "advanced_search_engine", "notification_system", "security_assessment", 
+    "high_frequency_trading", "system_watchdog", "system_maintenance",
+    "advanced_logging_system", "customizable_dashboard", "user_preferences",
+    "advanced_search_engine", "notification_system", "security_assessment",
     "mobile_app", "cloud_deployment", "performance_optimizer", "risk_management_ai",
     "error_handler_enhanced", "lightweight_performance_monitor", "ux_optimized_web_ui"
 ]
@@ -47,10 +47,10 @@ print("=" * 60)
 # システム概要
 print("System Components Summary:")
 print("  AI & ML: Advanced AI Engine, Quantum AI, Risk Management AI")
-print("  Trading: Blockchain Trading, High Frequency Trading")  
+print("  Trading: Blockchain Trading, High Frequency Trading")
 print("  System: Watchdog, Maintenance, Logging, Performance Monitor")
 print("  User: Dashboard, Preferences, Search, Notifications")
-print("  Security: Assessment, Error Handler") 
+print("  Security: Assessment, Error Handler")
 print("  Mobile: PWA Application")
 print("  Cloud: Multi-cloud deployment support")
 print("=" * 60)

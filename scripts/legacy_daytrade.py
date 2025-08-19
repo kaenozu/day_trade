@@ -308,7 +308,7 @@ class PersonalAnalysisEngine:
         if PERFORMANCE_TRACKER_AVAILABLE:
             self.performance_tracker = PerformanceTracker()
 <<<<<<< HEAD:scripts/legacy_daytrade.py
-        
+
 =======
 >>>>>>> origin/main:daytrade.py
         # ML予測システムの初期化
@@ -1971,7 +1971,7 @@ class DayTradeWebDashboard:
     def setup_app(self):
         """Flaskアプリケーション初期化"""
         self.app = Flask(__name__)
-        
+
         # セキュアなsecret key設定
         secret_key = os.environ.get('FLASK_SECRET_KEY')
         if not secret_key:
@@ -1979,7 +1979,7 @@ class DayTradeWebDashboard:
             secret_key = secrets.token_urlsafe(32)
             print(f"⚠️  本番環境では環境変数FLASK_SECRET_KEYを設定してください")
             print(f"    例: export FLASK_SECRET_KEY='[32文字以上のランダム文字列]'")
-        
+
         self.app.secret_key = secret_key
         self.setup_routes()
 
@@ -2807,8 +2807,8 @@ class DayTradeWebDashboard:
             const isProfit = currentPrice > openingPrice;
             const progressClass = isProfit ? 'progress-profit' : 'progress-loss';
 
-            return '<div class="progress-bar">' + 
-                '<div class="progress-fill ' + progressClass + '" style="width: ' + progressPercent + '%"></div>' + 
+            return '<div class="progress-bar">' +
+                '<div class="progress-fill ' + progressClass + '" style="width: ' + progressPercent + '%"></div>' +
             '</div>';
         }
 
@@ -3040,10 +3040,10 @@ class DayTradeWebDashboard:
 
             const newsContainer = document.getElementById('newsContainer');
             newsContainer.innerHTML = sampleNews.map(function(news) {
-                return '<div class="news-item">' + 
-                    '<div class="news-title">' + news.title + '</div>' + 
-                    '<div class="news-content">' + news.content + '</div>' + 
-                    '<div class="news-meta">' + news.time + ' | ' + news.source + '</div>' + 
+                return '<div class="news-item">' +
+                    '<div class="news-title">' + news.title + '</div>' +
+                    '<div class="news-content">' + news.content + '</div>' +
+                    '<div class="news-meta">' + news.time + ' | ' + news.source + '</div>' +
                     '</div>';
             }).join('');
         }
@@ -3064,28 +3064,28 @@ class DayTradeWebDashboard:
             const totalProfit = historyData.reduce(function(sum, day) { return sum + day.profit; }, 0);
 
             const performanceContainer = document.getElementById('performanceHistory');
-            performanceContainer.innerHTML = 
-                '<div class="performance-summary" style="margin-bottom: 20px;">' + 
-                    '<div class="performance-metric">' + 
-                        '<span class="metric-name">平均予測精度 (5日間)</span>' + 
-                        '<span class="metric-value">' + avgAccuracy.toFixed(1) + '%</span>' + 
-                    '</div>' + 
-                    '<div class="performance-metric">' + 
-                        '<span class="metric-name">総取引数</span>' + 
-                        '<span class="metric-value">' + totalTrades + '回</span>' + 
-                    '</div>' + 
-                    '<div class="performance-metric">' + 
-                        '<span class="metric-name">累計収益率</span>' + 
-                        '<span class="metric-value">+' + totalProfit.toFixed(1) + '%</span>' + 
-                    '</div>' + 
-                '</div>' + 
-                '<div class="history-details">' + 
+            performanceContainer.innerHTML =
+                '<div class="performance-summary" style="margin-bottom: 20px;">' +
+                    '<div class="performance-metric">' +
+                        '<span class="metric-name">平均予測精度 (5日間)</span>' +
+                        '<span class="metric-value">' + avgAccuracy.toFixed(1) + '%</span>' +
+                    '</div>' +
+                    '<div class="performance-metric">' +
+                        '<span class="metric-name">総取引数</span>' +
+                        '<span class="metric-value">' + totalTrades + '回</span>' +
+                    '</div>' +
+                    '<div class="performance-metric">' +
+                        '<span class="metric-name">累計収益率</span>' +
+                        '<span class="metric-value">+' + totalProfit.toFixed(1) + '%</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="history-details">' +
                     historyData.map(function(day) {
-                        return '<div class="performance-metric">' + 
-                            '<span class="metric-name">' + day.date + '</span>' + 
-                            '<span class="metric-value">精度:' + day.accuracy + '% 取引:' + day.trades + '回 収益:+' + day.profit + '%</span>' + 
+                        return '<div class="performance-metric">' +
+                            '<span class="metric-name">' + day.date + '</span>' +
+                            '<span class="metric-value">精度:' + day.accuracy + '% 取引:' + day.trades + '回 収益:+' + day.profit + '%</span>' +
                         '</div>';
-                    }).join('') + 
+                    }).join('') +
                 '</div>';
         }
 
@@ -3182,22 +3182,22 @@ class DayTradeWebDashboard:
 
             const metricsGrid = document.getElementById('metricsGrid');
             const summary = data.summary;
-            metricsGrid.innerHTML = 
-                '<div class="metric-card">' + 
-                    '<div class="metric-value strong-buy">' + summary.strong_buy_count + '</div>' + 
-                    '<div class="metric-label">★強い買い★</div>' + 
-                '</div>' + 
-                '<div class="metric-card">' + 
-                    '<div class="metric-value buy">' + summary.buy_count + '</div>' + 
-                    '<div class="metric-label">●買い●</div>' + 
-                '</div>' + 
-                '<div class="metric-card">' + 
-                    '<div class="metric-value sell">' + summary.sell_count + '</div>' + 
-                    '<div class="metric-label">▽売り▽</div>' + 
-                '</div>' + 
-                '<div class="metric-card">' + 
-                    '<div class="metric-value hold">' + summary.hold_count + '</div>' + 
-                    '<div class="metric-label">■待機/ホールド■</div>' + 
+            metricsGrid.innerHTML =
+                '<div class="metric-card">' +
+                    '<div class="metric-value strong-buy">' + summary.strong_buy_count + '</div>' +
+                    '<div class="metric-label">★強い買い★</div>' +
+                '</div>' +
+                '<div class="metric-card">' +
+                    '<div class="metric-value buy">' + summary.buy_count + '</div>' +
+                    '<div class="metric-label">●買い●</div>' +
+                '</div>' +
+                '<div class="metric-card">' +
+                    '<div class="metric-value sell">' + summary.sell_count + '</div>' +
+                    '<div class="metric-label">▽売り▽</div>' +
+                '</div>' +
+                '<div class="metric-card">' +
+                    '<div class="metric-value hold">' + summary.hold_count + '</div>' +
+                    '<div class="metric-label">■待機/ホールド■</div>' +
                 '</div>';
         }
 
@@ -3232,31 +3232,31 @@ class DayTradeWebDashboard:
                     const priceChange = rec.current_price - rec.opening_price;
                     const progressBar = createProgressBar(rec.current_price, rec.opening_price, profitTarget, stopLoss);
 
-                    priceInfo = '<div class="price-info">' + 
-                        '<div><small>始値:</small> ¥' + rec.opening_price.toFixed(0) + '</div>' + 
-                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + ' (' + (priceChange >= 0 ? '+' : '') + priceChange.toFixed(0) + '</div>' + 
-                        progressBar + 
-                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' + 
-                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' + 
-                        '<div class="trading-actions">' + 
-                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">楽天で注文</button>' + 
-                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">アラート</button>' + 
-                        '</div>' + 
+                    priceInfo = '<div class="price-info">' +
+                        '<div><small>始値:</small> ¥' + rec.opening_price.toFixed(0) + '</div>' +
+                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + ' (' + (priceChange >= 0 ? '+' : '') + priceChange.toFixed(0) + '</div>' +
+                        progressBar +
+                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
+                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
+                        '<div class="trading-actions">' +
+                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">楽天で注文</button>' +
+                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">アラート</button>' +
+                        '</div>' +
                         '</div>';
                 } else if (rec.current_price) {
                     const profitTarget = rec.current_price * (1 + rec.target_profit / 100);
                     const stopLoss = rec.current_price * (1 - rec.stop_loss / 100);
                     const progressBar = createProgressBar(rec.current_price, rec.current_price, profitTarget, stopLoss);
 
-                    priceInfo = '<div class="price-info">' + 
-                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + '</div>' + 
-                        progressBar + 
-                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' + 
-                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' + 
-                        '<div class="trading-actions">' + 
-                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">楽天で注文</button>' + 
-                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">アラート</button>' + 
-                        '</div>' + 
+                    priceInfo = '<div class="price-info">' +
+                        '<div class="' + priceChangeClass + ' price-change-animation"><strong>現在:</strong> ¥' + rec.current_price.toFixed(0) + '</div>' +
+                        progressBar +
+                        '<div class="profit-target"><small>利確:</small> ¥' + profitTarget.toFixed(0) + '</div>' +
+                        '<div class="stop-loss"><small>損切:</small> ¥' + stopLoss.toFixed(0) + '</div>' +
+                        '<div class="trading-actions">' +
+                            '<button class="action-btn btn-order" onclick="openOrderLink(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">楽天で注文</button>' +
+                            '<button class="action-btn btn-alert" onclick="setAlert(\'" + rec.symbol.replace(/'/g, "'\'") + "\', \'" + rec.name.replace(/'/g, "'\'" ) + "\')">アラート</button>' +
+                        '</div>' +
                         '</div>';
                 } else {
                     priceInfo = '<div class="price-info">N/A</div>';
@@ -3264,19 +3264,19 @@ class DayTradeWebDashboard:
                 const isFavorite = favorites.includes(rec.symbol);
                 const favoriteIcon = isFavorite ? '⭐' : '☆';
 
-                return '<tr>' + 
-                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(\'" + rec.symbol.replace(/'/g, "'\'" ) + "\')">' + favoriteIcon + '</span></td>' + 
-                    '<td><strong>' + rec.rank + '</strong></td>' + 
-                    '<td><strong>' + rec.symbol + '</strong></td>' + 
-                    '<td>' + rec.name + '</td>' + 
-                    '<td>' + priceInfo + '</td>' + 
-                    '<td><span class="signal-badge signal-' + getSignalClass(rec.signal) + '">' + rec.signal + '</span></td>' + 
-                    '<td>' + rec.confidence.toFixed(0) + '%</td>' + 
-                    '<td>' + rec.entry_timing + '</td>' + 
-                    '<td>' + 
-                        '<span class="ml-source-badge ml-' + rec.ml_source + '">' + (rec.ml_source === 'advanced_ml' ? '高度AI' : '基本AI') + '</span>' + 
-                        (rec.backtest_score && rec.backtest_score > 0 ? '<br><small>過去' + Math.round(rec.backtest_score) + '%</small>' : '') + 
-                    '</td>' + 
+                return '<tr>' +
+                    '<td><span class="favorite-star ' + (isFavorite ? 'active' : '') + '" onclick="toggleFavorite(\'" + rec.symbol.replace(/'/g, "'\'" ) + "\')">' + favoriteIcon + '</span></td>' +
+                    '<td><strong>' + rec.rank + '</strong></td>' +
+                    '<td><strong>' + rec.symbol + '</strong></td>' +
+                    '<td>' + rec.name + '</td>' +
+                    '<td>' + priceInfo + '</td>' +
+                    '<td><span class="signal-badge signal-' + getSignalClass(rec.signal) + '">' + rec.signal + '</span></td>' +
+                    '<td>' + rec.confidence.toFixed(0) + '%</td>' +
+                    '<td>' + rec.entry_timing + '</td>' +
+                    '<td>' +
+                        '<span class="ml-source-badge ml-' + rec.ml_source + '">' + (rec.ml_source === 'advanced_ml' ? '高度AI' : '基本AI') + '</span>' +
+                        (rec.backtest_score && rec.backtest_score > 0 ? '<br><small>過去' + Math.round(rec.backtest_score) + '%</small>' : '') +
+                    '</td>' +
                 '</tr>';
             }).join('');
         }

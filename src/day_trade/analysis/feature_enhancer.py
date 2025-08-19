@@ -22,7 +22,7 @@ class NewsSentimentAnalyzer:
         try:
             # Web検索で関連ニュースを取得
             search_results = google_web_search.search(queries=[f"{company_name} 株価 ニュース"])
-            
+
             if not search_results or not search_results[0].get('results'):
                 print("No news found.")
                 return {'sentiment_score': 0.0, 'news_count': 0}
@@ -40,10 +40,10 @@ class NewsSentimentAnalyzer:
                     sentiment_score += text_to_analyze.count(p_word)
                 for n_word in self.negative_keywords:
                     sentiment_score -= text_to_analyze.count(n_word)
-            
+
             # 記事数で正規化（単純化）
             normalized_score = sentiment_score / news_count if news_count > 0 else 0
-            
+
             print(f"Found {news_count} articles, sentiment score: {normalized_score}")
             return {'sentiment_score': normalized_score, 'news_count': news_count}
 

@@ -49,7 +49,7 @@ class RuleBasedModel(TradingModel):
         super().__init__()
         self.logger = logging.getLogger(__name__)
         self.indicators = TechnicalIndicators()
-    
+
     def predict(self, data: DataFrame, symbol: str, company_name: str) -> TechnicalSignal:
         # センチメント特徴量はこのモデルでは使用しないが、インターフェースを合わせる
         try:
@@ -69,7 +69,7 @@ class RuleBasedModel(TradingModel):
             signals = []
             if current_rsi < 30: signals.append(('BUY', 0.7, 'RSI過売り'))
             elif current_rsi > 70: signals.append(('SELL', 0.7, 'RSI過買い'))
-            
+
             # ... other rules ...
 
             buy_signals = [s for s in signals if s[0] == 'BUY']
@@ -97,15 +97,15 @@ class RiskManager:
         return int(final_position_value / stock_price)
 
 def create_trading_recommendation_pl(
-    symbol: str, 
+    symbol: str,
     company_name: str,
-    data: DataFrame, 
-    account_balance: float = 1000000, 
+    data: DataFrame,
+    account_balance: float = 1000000,
     model_type: str = 'rule_based'
 ) -> Dict[str, Any]:
     """取引推奨情報の生成 (センチメント特徴量対応)"""
     risk_manager = RiskManager()
-    
+
     if model_type == 'lightgbm':
         model = LightGBMModel()
         prediction = model.predict(data, symbol, company_name)
@@ -122,7 +122,7 @@ def create_trading_recommendation_pl(
     position_size = 0
     if signal.stop_loss:
         position_size = risk_manager.calculate_position_size(account_balance, current_price, signal.stop_loss)
-    
+
     return {
         'symbol': symbol,
         'signal': signal.signal_type.value,

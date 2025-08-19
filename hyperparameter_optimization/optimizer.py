@@ -105,7 +105,7 @@ def main():
     best_params_path = Path(__file__).parent / 'best_params.json'
     with open(best_params_path, 'w') as f:
         json.dump(trial.params, f, indent=4)
-    
+
     print(f"Best parameters saved to {best_params_path}")
 
 if __name__ == "__main__":

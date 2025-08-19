@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*- 
+# -*- coding: utf-8 -*-
 """
 Day Trade Web Server - プロダクション対応Webサーバー
 Issue #939対応: Gunicorn対応のためのApplication Factoryパターン導入
@@ -50,10 +50,10 @@ def create_app() -> Flask:
                 g.redis_client.ping()
             except redis.exceptions.ConnectionError:
                 g.redis_client = None
-        
+
         if 'recommendation_service' not in g:
             g.recommendation_service = RecommendationService(redis_client=g.redis_client)
-        
+
         if 'template_service' not in g:
             g.template_service = TemplateService()
 
