@@ -1,10 +1,7 @@
-feat(ml): Add framework for advanced ML models
+feat(ml): Add news sentiment analysis for feature expansion
 
-- Introduces a model management framework in `src/day_trade/analysis/models.py` with a base `TradingModel` class.
-- Adds a placeholder `LightGBMModel`.
-- Refactors the existing rule-based logic into a `RuleBasedModel`.
-- The `create_trading_recommendation_pl` function can now select which model to use for prediction.
-- The recommendation service is updated to use the new LightGBM model by default.
-- Adds `lightgbm` to dependencies.
+- Creates a `NewsSentimentAnalyzer` in `feature_enhancer.py` to fetch and score news sentiment using a keyword-based approach.
+- Integrates the sentiment score as a new feature in the `TradingModel`'s feature creation process.
+- Updates the analysis pipeline to pass company name information for sentiment analysis.
 
-This addresses the "Introduction of Advanced Machine Learning Models" part of issue #939.
+This addresses the "Feature Expansion" part of issue #939.

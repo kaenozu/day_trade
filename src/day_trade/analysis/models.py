@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Trading Models - 機械学習モデル管理
-Issue #939対応: 高度なMLモデル導入のための基盤
+Issue #939対応: センチメント特徴量の追加
 """
 
 from abc import ABC, abstractmethod
@@ -10,28 +10,42 @@ import polars as pl
 from polars import DataFrame
 import lightgbm as lgb
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+
+# 特徴量拡充モジュールのインポート
+from src.day_trade.analysis.feature_enhancer import NewsSentimentAnalyzer
 
 class TradingModel(ABC):
     """取引モデルの抽象基底クラス"""
     
+    def __init__(self):
+        self.sentiment_analyzer = NewsSentimentAnalyzer()
+
     @abstractmethod
-    def predict(self, data: DataFrame) -> Dict[str, Any]:
+    def predict(self, data: DataFrame, symbol: str, company_name: str) -> Dict[str, Any]:
         """予測を生成"""
         pass
 
-    def _create_features(self, data: DataFrame) -> DataFrame:
-        """特徴量エンジニアリング"""
-        # 基本的な特徴量を追加 (移動平均、RSIなど)
+    def _create_features(self, data: DataFrame, symbol: str, company_name: str) -> DataFrame:
+        """特徴量エンジニアリング (センチメント分析対応)"""
+        # 1. テクニカル指標の追加
         features = data.with_columns([
             pl.col("Close").rolling_mean(window_size=5).alias("sma5"),
             pl.col("Close").rolling_mean(window_size=25).alias("sma25"),
             pl.col("Close").diff().clip_lower(0).rolling_mean(14).alias("gain"),
             (-pl.col("Close").diff().clip_upper(0)).rolling_mean(14).alias("loss"),
         ])
-        
         features = features.with_columns([
             (100 - (100 / (1 + pl.col("gain") / pl.col("loss")))).alias("rsi")
+        ])
+        
+        # 2. ニュースセンチメントの追加
+        sentiment_data = self.sentiment_analyzer.get_sentiment_for_symbol(symbol, company_name)
+        sentiment_score = sentiment_data.get('sentiment_score', 0.0)
+        
+        # 全ての行に同じセンチメントスコアを追加
+        features = features.with_columns([
+            pl.lit(sentiment_score).alias('sentiment_score')
         ])
         
         return features.drop_nulls()
@@ -40,6 +54,7 @@ class LightGBMModel(TradingModel):
     """LightGBMモデル"""
     
     def __init__(self, model_path: str = None):
+        super().__init__()
         self.model = None
         if model_path:
             try:
@@ -51,29 +66,24 @@ class LightGBMModel(TradingModel):
             self.model = self._create_dummy_model()
 
     def _create_dummy_model(self):
-        """ダミーモデルを作成（デモ用）"""
-        # 本来はここで学習済みモデルをロードする
         print("Creating a dummy LightGBM model.")
-        return None # ダミーなので何もしない
+        return None
 
-    def predict(self, data: DataFrame) -> Dict[str, Any]:
+    def predict(self, data: DataFrame, symbol: str, company_name: str) -> Dict[str, Any]:
         if self.model is None:
-            # ダミーモデルのロジック
             return {
                 'signal': np.random.choice(['BUY', 'SELL', 'HOLD']),
                 'confidence': np.random.uniform(0.5, 0.9),
                 'reason': 'Dummy LightGBM Model Prediction'
             }
 
-        features = self._create_features(data)
+        features = self._create_features(data, symbol, company_name)
         if features.is_empty():
             return {'signal': 'HOLD', 'confidence': 0.1, 'reason': 'Not enough data for prediction'}
         
-        # 特徴量を選択 (学習時と合わせる)
         feature_cols = [col for col in features.columns if col not in ['Date', 'Symbol']]
         prediction = self.model.predict(features[feature_cols])
         
-        # 予測結果を解釈 (例: 3クラス分類の場合)
         predicted_class = np.argmax(prediction, axis=1)[-1]
         confidence = prediction[0][predicted_class]
         signal_map = {0: 'SELL', 1: 'HOLD', 2: 'BUY'}
@@ -83,6 +93,3 @@ class LightGBMModel(TradingModel):
             'confidence': confidence,
             'reason': f'LightGBM prediction (class: {predicted_class})'
         }
-
-# RuleBasedModelはtechnical_indicators.py内のSignalGeneratorが担当するため、ここでは定義しない。
-# 代わりに、technical_indicators.pyでモデルを選択するロジックを実装する。

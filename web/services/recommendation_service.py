@@ -25,7 +25,7 @@ except ImportError as e:
     REAL_DATA_AVAILABLE = False
 
 class RecommendationService:
-    """株式推奨サービス (モデル選択対応)"""
+    """株式推奨サービス (センチメント特徴量対応)"""
     
     CACHE_EXPIRATION_SECONDS = 3600
 
@@ -88,7 +88,7 @@ class RecommendationService:
         return recommendations
 
     def analyze_single_symbol(self, symbol: str, model_type: str = 'lightgbm') -> Dict[str, Any]:
-        """個別銘柄分析 (モデル選択対応)"""
+        # ... (same as before) ...
         if self.redis_client:
             cache_key = f"recommendation:{symbol}:{model_type}"
             try:
@@ -115,7 +115,7 @@ class RecommendationService:
 
     def _perform_actual_analysis(self, symbol_data: Dict[str, Any], model_type: str) -> Dict[str, Any]:
         try:
-            analysis_result = self._get_real_analysis_pl(symbol_data['code'], model_type)
+            analysis_result = self._get_real_analysis_pl(symbol_data, model_type)
             if analysis_result:
                 return self._enrich_real_analysis(analysis_result, symbol_data)
         except Exception as e:
@@ -123,11 +123,14 @@ class RecommendationService:
         
         return self._create_simulated_analysis(symbol_data)
 
-    def _get_real_analysis_pl(self, symbol: str, model_type: str) -> Optional[Dict[str, Any]]:
+    def _get_real_analysis_pl(self, symbol_data: Dict[str, Any], model_type: str) -> Optional[Dict[str, Any]]:
         if not REAL_DATA_AVAILABLE:
             return None
         
         try:
+            symbol = symbol_data['code']
+            company_name = symbol_data['name']
+
             provider = ImprovedMultiSourceDataProvider()
             jp_symbol = f"{symbol}.T"
             result = provider.get_stock_data_sync(jp_symbol, period="1mo")
@@ -137,6 +140,7 @@ class RecommendationService:
                 
                 recommendation = create_trading_recommendation_pl(
                     symbol=symbol,
+                    company_name=company_name,
                     data=pl_data,
                     account_balance=1000000,
                     model_type=model_type
@@ -150,7 +154,7 @@ class RecommendationService:
         return None
 
     def _enrich_real_analysis(self, analysis: Dict[str, Any], symbol_data: Dict[str, Any]) -> Dict[str, Any]:
-        # ... (same as before, but add model_used)
+        # ... (same as before) ...
         recommendation = analysis.get('signal', 'HOLD')
         confidence = analysis.get('confidence', 0.7)
         price = analysis.get('current_price', 0)
@@ -175,7 +179,7 @@ class RecommendationService:
             'timing': self._get_timing_advice(recommendation),
             'amount_suggestion': self._get_amount_suggestion(price, category),
             'timestamp': time.time(),
-            'model_used': analysis.get('model_used', 'rule_based') # モデル情報を追加
+            'model_used': analysis.get('model_used', 'rule_based')
         })
         return enriched_result
 
