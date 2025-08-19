@@ -7,7 +7,7 @@ HTMLテンプレート管理サービス
 
 class TemplateService:
     """HTMLテンプレート管理サービス"""
-    
+
     @staticmethod
     def get_dashboard_template() -> str:
         """メインダッシュボードテンプレート"""
@@ -26,7 +26,7 @@ class TemplateService:
             <h1>🏠 Day Trade Personal</h1>
             <p>プロダクション対応 - 個人投資家専用版</p>
         </div>
-        
+
         <div class="dashboard">
             <div class="card">
                 <h3>📊 システム状態</h3>
@@ -45,7 +45,7 @@ class TemplateService:
                     </div>
                 </div>
             </div>
-            
+
             <div class="card">
                 <h3>🎯 分析機能</h3>
                 <p>主要銘柄の即座分析が可能です</p>
@@ -54,7 +54,7 @@ class TemplateService:
                 <div id="analysisResult" style="margin-top: 15px; padding: 10px; background: #f7fafc; border-radius: 6px; display: none;"></div>
             </div>
         </div>
-        
+
         <!-- 拡張推奨銘柄セクション -->
         <div class="recommendations-section" style="margin-top: 30px;">
             <h2 style="color: white; text-align: center; margin-bottom: 20px;">📈 推奨銘柄一覧 (35銘柄)</h2>
@@ -65,13 +65,13 @@ class TemplateService:
                 <div id="recommendationsList" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;"></div>
             </div>
         </div>
-        
+
         <div class="footer">
             <p>🤖 Issue #959 リファクタリング対応 - モジュール化完了</p>
             <p>Generated with Claude Code</p>
         </div>
     </div>
-    
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

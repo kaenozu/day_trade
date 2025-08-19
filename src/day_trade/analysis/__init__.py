@@ -12,7 +12,7 @@ from .signals import (
 # Issue #937: 売買判断システムの実装
 from .technical_indicators import (
     TechnicalIndicators as TechnicalIndicatorsV2,
-    SignalGenerator, 
+    SignalGenerator,
     RiskManager,
     TechnicalSignal,
     SignalType as SignalTypeV2,
@@ -30,7 +30,7 @@ __all__ = [
     # Issue #937対応
     "TechnicalIndicatorsV2",
     "SignalGenerator",
-    "RiskManager", 
+    "RiskManager",
     "TechnicalSignal",
     "SignalTypeV2",
     "create_trading_recommendation"

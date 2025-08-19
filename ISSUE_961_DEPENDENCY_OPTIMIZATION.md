@@ -133,21 +133,21 @@ import subprocess
 
 class DependencyAnalyzer:
     \"\"\"依存関係分析クラス\"\"\"
-    
+
     def __init__(self, project_root: Path):
         self.project_root = project_root
         self.source_files = self._find_python_files()
         self.imports = self._extract_imports()
-    
+
     def find_unused_dependencies(self) -> Set[str]:
         \"\"\"未使用依存関係の特定\"\"\"
         installed_packages = {pkg.project_name for pkg in pkg_resources.working_set}
         used_packages = self._get_used_packages()
         return installed_packages - used_packages
-    
+
     def find_missing_dependencies(self) -> Set[str]:
         \"\"\"不足している依存関係の特定\"\"\"
-        
+
     def check_security_vulnerabilities(self) -> List[Dict]:
         \"\"\"セキュリティ脆弱性チェック\"\"\"
         result = subprocess.run(
@@ -156,7 +156,7 @@ class DependencyAnalyzer:
             text=True
         )
         return json.loads(result.stdout) if result.returncode == 0 else []
-    
+
     def analyze_version_compatibility(self) -> Dict[str, str]:
         \"\"\"バージョン互換性分析\"\"\"
 ```
@@ -168,22 +168,22 @@ class DependencyAnalyzer:
 
 class DependencyOptimizer:
     \"\"\"依存関係最適化クラス\"\"\"
-    
+
     def __init__(self, analyzer: DependencyAnalyzer):
         self.analyzer = analyzer
-        
+
     def optimize_requirements(self) -> None:
         \"\"\"requirements.txtの最適化\"\"\"
         # 1. 未使用依存関係の除去
         # 2. バージョン範囲の最適化
         # 3. セキュリティアップデート
-        
+
     def create_optional_groups(self) -> None:
         \"\"\"オプショナル依存関係グループの作成\"\"\"
         # 1. 機能別グループ化
         # 2. 最小構成の定義
         # 3. 拡張機能の分離
-        
+
     def update_pyproject_toml(self) -> None:
         \"\"\"pyproject.tomlの更新\"\"\"
         # 1. 新しい依存関係構造の適用
@@ -211,7 +211,7 @@ def check_dependencies() -> Dict[str, Any]:
         "outdated": check_outdated_packages(),
         "conflicts": check_dependency_conflicts(),
     }
-    
+
     return results
 
 def find_unused_dependencies() -> List[str]:
@@ -255,23 +255,23 @@ from packaging.requirements import Requirement
 
 class RequirementsGenerator:
     \"\"\"requirements.txt生成クラス\"\"\"
-    
+
     def __init__(self, pyproject_path: str):
         self.pyproject_data = toml.load(pyproject_path)
-        
+
     def generate_minimal_requirements(self) -> List[str]:
         \"\"\"最小構成のrequirements.txt生成\"\"\"
         core_deps = self.pyproject_data["project"]["dependencies"]
         return self._format_requirements(core_deps)
-    
+
     def generate_feature_requirements(self, feature: str) -> List[str]:
         \"\"\"機能別requirements.txt生成\"\"\"
         optional_deps = self.pyproject_data["project"]["optional-dependencies"]
         feature_deps = optional_deps.get(feature, [])
         core_deps = self.pyproject_data["project"]["dependencies"]
-        
+
         return self._format_requirements(core_deps + feature_deps)
-    
+
     def _format_requirements(self, dependencies: List[str]) -> List[str]:
         \"\"\"依存関係のフォーマット\"\"\"
         formatted = []
@@ -299,27 +299,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-          
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pip-audit pip-check-reqs deptry
           pip install -e .
-          
+
       - name: Check for unused dependencies
         run: pip-check-reqs src/
-        
+
       - name: Security vulnerability scan
         run: pip-audit --format=json --output=security-report.json
-        
+
       - name: Check dependency tree
         run: deptry .
-        
+
       - name: Upload security report
         uses: actions/upload-artifact@v3
         if: always()

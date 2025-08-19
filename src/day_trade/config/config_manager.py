@@ -220,7 +220,7 @@ class AutoOptimizerSettings(BaseModel):
 
 class TechnicalIndicatorSettings(BaseModel):
     """テクニカル指標設定"""
-    
+
     rsi: Dict[str, Any] = Field(default_factory=lambda: {
         "period": 14,
         "overbought_threshold": 70,
@@ -247,7 +247,7 @@ class TechnicalIndicatorSettings(BaseModel):
 
 class AnalysisSettings(BaseModel):
     """分析設定"""
-    
+
     technical_indicators: TechnicalIndicatorSettings = Field(default_factory=TechnicalIndicatorSettings)
     confidence: Dict[str, float] = Field(default_factory=lambda: {
         "default_confidence": 0.85,
@@ -437,7 +437,7 @@ class ConfigManager:
 
     def get_config(self) -> Dict[str, Any]:
         """設定データを取得
-        
+
         Returns:
             設定データの辞書
         """

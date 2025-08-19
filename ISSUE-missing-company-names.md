@@ -37,7 +37,7 @@
 ### 2. 優先順位問題
 現在のフロー:
 ```
-1. application.py の _display_results() 
+1. application.py の _display_results()
 2. → display_formatter.py の print_analysis_results()
 3. → display_formatter.py の _get_company_name_safe() ← ここで7銘柄のみ対応
 ```
@@ -65,11 +65,11 @@ company_map = {
 {
   "code": "8001",
   "name": "伊藤忠商事",
-  "group": "商社", 
+  "group": "商社",
   "priority": "high"
 },
 {
-  "code": "7267", 
+  "code": "7267",
   "name": "ホンダ",
   "group": "自動車",
   "priority": "high"

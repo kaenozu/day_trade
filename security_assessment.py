@@ -112,7 +112,7 @@ class SecurityScanResult:
 
 class FileSecurityScanner:
     """ファイルセキュリティスキャナー"""
-    
+
     def __init__(self):
         self.dangerous_functions = {
             'python': [
@@ -130,7 +130,7 @@ class FileSecurityScanner:
                 'EXEC', 'EXECUTE', 'xp_', 'sp_'
             ]
         }
-        
+
         self.security_patterns = {
             'hardcoded_secrets': [
                 r'(?i)(api[_-]?key|password|secret|token)\s*[=:]\s*["\']([a-z0-9]{20,})["\']',
@@ -158,19 +158,19 @@ class FileSecurityScanner:
                 r'(?i)ssl[_-]?verify\s*=\s*False'
             ]
         }
-    
+
     def scan_file(self, file_path: str) -> List[SecurityVulnerability]:
         """ファイルスキャン"""
         vulnerabilities = []
-        
+
         if not os.path.exists(file_path):
             return vulnerabilities
-        
+
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
                 lines = content.split('\n')
-            
+
             # パターンマッチング検査
             for category, patterns in self.security_patterns.items():
                 for pattern in patterns:
@@ -181,11 +181,11 @@ class FileSecurityScanner:
                             )
                             if vuln:
                                 vulnerabilities.append(vuln)
-            
+
             # 危険関数検査
             file_ext = os.path.splitext(file_path)[1].lower()
             lang = self._get_language(file_ext)
-            
+
             if lang in self.dangerous_functions:
                 for func in self.dangerous_functions[lang]:
                     for line_num, line in enumerate(lines, 1):
@@ -195,12 +195,12 @@ class FileSecurityScanner:
                             )
                             if vuln:
                                 vulnerabilities.append(vuln)
-            
+
         except Exception as e:
             logging.error(f"File scan error for {file_path}: {e}")
-        
+
         return vulnerabilities
-    
+
     def _get_language(self, file_ext: str) -> str:
         """ファイル拡張子から言語判定"""
         lang_map = {
@@ -212,7 +212,7 @@ class FileSecurityScanner:
             '.php': 'php'
         }
         return lang_map.get(file_ext, 'unknown')
-    
+
     def _create_vulnerability(self, category: str, pattern: str, file_path: str,
                             line_num: int, line_content: str) -> Optional[SecurityVulnerability]:
         """脆弱性オブジェクト作成"""
@@ -258,13 +258,13 @@ class FileSecurityScanner:
                 'remediation': 'HTTPS通信を使用し、SSL証明書を適切に検証してください。'
             }
         }
-        
+
         if category not in vuln_map:
             return None
-        
+
         vuln_info = vuln_map[category]
         vuln_id = self._generate_vuln_id(file_path, line_num, category)
-        
+
         return SecurityVulnerability(
             vuln_id=vuln_id,
             title=vuln_info['title'],
@@ -278,7 +278,7 @@ class FileSecurityScanner:
             references=[],
             detected_at=datetime.now()
         )
-    
+
     def _create_function_vulnerability(self, func_name: str, file_path: str,
                                      line_num: int, line_content: str,
                                      language: str) -> Optional[SecurityVulnerability]:
@@ -309,7 +309,7 @@ class FileSecurityScanner:
                 'description': 'pickle.load()は信頼できないデータで実行すると危険です。'
             }
         }
-        
+
         if func_name not in risk_functions:
             # 一般的な危険関数として処理
             func_info = {
@@ -320,9 +320,9 @@ class FileSecurityScanner:
             }
         else:
             func_info = risk_functions[func_name]
-        
+
         vuln_id = self._generate_vuln_id(file_path, line_num, f"func_{func_name}")
-        
+
         return SecurityVulnerability(
             vuln_id=vuln_id,
             title=func_info['title'],
@@ -336,7 +336,7 @@ class FileSecurityScanner:
             references=[],
             detected_at=datetime.now()
         )
-    
+
     def _generate_vuln_id(self, file_path: str, line_num: int, category: str) -> str:
         """脆弱性ID生成"""
         content = f"{file_path}:{line_num}:{category}:{datetime.now()}"
@@ -345,7 +345,7 @@ class FileSecurityScanner:
 
 class DependencyScanner:
     """依存関係スキャナー"""
-    
+
     def __init__(self):
         self.known_vulnerabilities = {
             # 既知の脆弱性データベース（簡易版）
@@ -358,34 +358,34 @@ class DependencyScanner:
                 '0.12.0': ['CVE-2018-1000656']
             }
         }
-    
+
     def scan_requirements(self, requirements_file: str = "requirements.txt") -> List[SecurityVulnerability]:
         """requirements.txtスキャン"""
         vulnerabilities = []
-        
+
         if not os.path.exists(requirements_file):
             return vulnerabilities
-        
+
         try:
             with open(requirements_file, 'r', encoding='utf-8') as f:
                 requirements = f.readlines()
-            
+
             for line_num, line in enumerate(requirements, 1):
                 line = line.strip()
                 if not line or line.startswith('#'):
                     continue
-                
+
                 # パッケージ名とバージョン解析
                 if '==' in line:
                     package, version = line.split('==')
                     package = package.strip()
                     version = version.strip()
-                    
+
                     # 既知の脆弱性チェック
                     if package in self.known_vulnerabilities:
                         if version in self.known_vulnerabilities[package]:
                             cves = self.known_vulnerabilities[package][version]
-                            
+
                             vuln = SecurityVulnerability(
                                 vuln_id=f"DEP-{hashlib.md5(f'{package}{version}'.encode()).hexdigest()[:8].upper()}",
                                 title=f"脆弱性のある依存関係: {package} {version}",
@@ -400,16 +400,16 @@ class DependencyScanner:
                                 detected_at=datetime.now()
                             )
                             vulnerabilities.append(vuln)
-        
+
         except Exception as e:
             logging.error(f"Requirements scan error: {e}")
-        
+
         return vulnerabilities
 
 
 class ConfigurationScanner:
     """設定ファイルスキャナー"""
-    
+
     def __init__(self):
         self.insecure_configs = {
             'debug': ['true', 'True', '1', 'on'],
@@ -418,35 +418,35 @@ class ConfigurationScanner:
             'cors_origins': ['*'],
             'secret_key': ['debug', 'development', 'test', '123456']
         }
-    
+
     def scan_config_files(self, config_dir: str = ".") -> List[SecurityVulnerability]:
         """設定ファイルスキャン"""
         vulnerabilities = []
         config_files = []
-        
+
         # 設定ファイル検索
         for root, dirs, files in os.walk(config_dir):
             for file in files:
                 if any(file.endswith(ext) for ext in ['.json', '.yaml', '.yml', '.ini', '.cfg', '.conf', '.env']):
                     config_files.append(os.path.join(root, file))
-        
+
         for config_file in config_files:
             try:
                 with open(config_file, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
                     lines = content.split('\n')
-                
+
                 for line_num, line in enumerate(lines, 1):
                     line = line.strip()
                     if not line or line.startswith('#'):
                         continue
-                    
+
                     # key=value 形式の設定チェック
                     if '=' in line:
                         key, value = line.split('=', 1)
                         key = key.strip().lower()
                         value = value.strip().strip('"\'')
-                        
+
                         for insecure_key, insecure_values in self.insecure_configs.items():
                             if insecure_key in key and value.lower() in [v.lower() for v in insecure_values]:
                                 vuln = SecurityVulnerability(
@@ -463,29 +463,29 @@ class ConfigurationScanner:
                                     detected_at=datetime.now()
                                 )
                                 vulnerabilities.append(vuln)
-            
+
             except Exception as e:
                 logging.error(f"Config file scan error for {config_file}: {e}")
-        
+
         return vulnerabilities
 
 
 class NetworkSecurityScanner:
     """ネットワークセキュリティスキャナー"""
-    
+
     def __init__(self):
         self.common_ports = [21, 22, 23, 25, 53, 80, 110, 143, 443, 993, 995]
         self.dangerous_ports = [21, 23, 25, 110, 143]  # 暗号化されていないプロトコル
-    
+
     def scan_open_ports(self, target: str = "localhost") -> List[SecurityVulnerability]:
         """オープンポートスキャン"""
         vulnerabilities = []
-        
+
         try:
             for port in self.common_ports:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(1)
-                
+
                 result = sock.connect_ex((target, port))
                 if result == 0:  # ポートが開いている
                     if port in self.dangerous_ports:
@@ -503,21 +503,21 @@ class NetworkSecurityScanner:
                             detected_at=datetime.now()
                         )
                         vulnerabilities.append(vuln)
-                
+
                 sock.close()
-        
+
         except Exception as e:
             logging.error(f"Network scan error: {e}")
-        
+
         return vulnerabilities
-    
+
     def check_ssl_configuration(self, hostname: str, port: int = 443) -> List[SecurityVulnerability]:
         """SSL設定チェック"""
         vulnerabilities = []
-        
+
         if not HAS_REQUESTS:
             return vulnerabilities
-        
+
         try:
             # SSL証明書情報取得
             context = ssl.create_default_context()
@@ -525,7 +525,7 @@ class NetworkSecurityScanner:
                 with context.wrap_socket(sock, server_hostname=hostname) as ssock:
                     cert = ssock.getpeercert()
                     cipher = ssock.cipher()
-                    
+
                     # 弱い暗号化スイートチェック
                     if cipher and len(cipher) >= 3:
                         cipher_name = cipher[0]
@@ -544,15 +544,15 @@ class NetworkSecurityScanner:
                                 detected_at=datetime.now()
                             )
                             vulnerabilities.append(vuln)
-                    
+
                     # 証明書有効期限チェック
                     if cert:
                         not_after = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
                         days_until_expiry = (not_after - datetime.now()).days
-                        
+
                         if days_until_expiry < 30:
                             severity = VulnerabilityLevel.HIGH if days_until_expiry < 7 else VulnerabilityLevel.MEDIUM
-                            
+
                             vuln = SecurityVulnerability(
                                 vuln_id=f"SSL-EXPIRY-{hostname}",
                                 title="SSL証明書の期限切れが近い",
@@ -567,36 +567,36 @@ class NetworkSecurityScanner:
                                 detected_at=datetime.now()
                             )
                             vulnerabilities.append(vuln)
-        
+
         except Exception as e:
             logging.error(f"SSL check error for {hostname}: {e}")
-        
+
         return vulnerabilities
 
 
 class SecurityAssessmentEngine:
     """セキュリティ評価エンジン"""
-    
+
     def __init__(self):
         self.file_scanner = FileSecurityScanner()
         self.dependency_scanner = DependencyScanner()
         self.config_scanner = ConfigurationScanner()
         self.network_scanner = NetworkSecurityScanner()
-        
+
         # データベース初期化
         self._init_database()
-        
+
         # スキャン結果履歴
         self.scan_history: List[SecurityScanResult] = []
-    
+
     def _init_database(self):
         """データベース初期化"""
         self.db_path = "data/security_assessment.db"
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vulnerabilities (
                 vuln_id TEXT PRIMARY KEY,
@@ -613,7 +613,7 @@ class SecurityAssessmentEngine:
                 status TEXT
             )
         """)
-        
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS scan_results (
                 scan_id TEXT PRIMARY KEY,
@@ -629,55 +629,55 @@ class SecurityAssessmentEngine:
                 low_vulns INTEGER
             )
         """)
-        
+
         conn.commit()
         conn.close()
-    
+
     def comprehensive_security_scan(self, target_dir: str = ".") -> SecurityScanResult:
         """包括的セキュリティスキャン"""
         scan_id = f"SCAN-{int(time.time())}-{secrets.token_hex(4)}"
         started_at = datetime.now()
-        
+
         logging.info(f"Starting comprehensive security scan: {scan_id}")
-        
+
         all_vulnerabilities = []
         files_scanned = 0
-        
+
         try:
             # 1. ファイルスキャン
             logging.info("Scanning files for security vulnerabilities...")
             for root, dirs, files in os.walk(target_dir):
                 # システムディレクトリを除外
                 dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['__pycache__', 'node_modules', 'venv']]
-                
+
                 for file in files:
                     file_path = os.path.join(root, file)
                     if any(file.endswith(ext) for ext in ['.py', '.js', '.ts', '.sql', '.html', '.php']):
                         file_vulns = self.file_scanner.scan_file(file_path)
                         all_vulnerabilities.extend(file_vulns)
                         files_scanned += 1
-            
+
             # 2. 依存関係スキャン
             logging.info("Scanning dependencies...")
             dep_vulns = self.dependency_scanner.scan_requirements()
             all_vulnerabilities.extend(dep_vulns)
-            
+
             # 3. 設定ファイルスキャン
             logging.info("Scanning configuration files...")
             config_vulns = self.config_scanner.scan_config_files(target_dir)
             all_vulnerabilities.extend(config_vulns)
-            
+
             # 4. ネットワークスキャン（オプション）
             logging.info("Performing network security checks...")
             network_vulns = self.network_scanner.scan_open_ports()
             all_vulnerabilities.extend(network_vulns)
-            
+
         except Exception as e:
             logging.error(f"Security scan error: {e}")
-        
+
         completed_at = datetime.now()
         duration_ms = (completed_at - started_at).total_seconds() * 1000
-        
+
         # 結果サマリー生成
         severity_counts = Counter([v.severity for v in all_vulnerabilities])
         summary = {
@@ -688,7 +688,7 @@ class SecurityAssessmentEngine:
             'low': severity_counts.get(VulnerabilityLevel.LOW, 0),
             'info': severity_counts.get(VulnerabilityLevel.INFO, 0)
         }
-        
+
         # スキャン結果作成
         scan_result = SecurityScanResult(
             scan_id=scan_id,
@@ -700,22 +700,22 @@ class SecurityAssessmentEngine:
             duration_ms=duration_ms,
             summary=summary
         )
-        
+
         # データベース保存
         self._save_scan_result(scan_result)
         self.scan_history.append(scan_result)
-        
+
         logging.info(f"Security scan completed: {len(all_vulnerabilities)} vulnerabilities found")
         return scan_result
-    
+
     def _save_scan_result(self, scan_result: SecurityScanResult):
         """スキャン結果保存"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         # スキャン結果保存
         cursor.execute("""
-            INSERT INTO scan_results 
+            INSERT INTO scan_results
             (scan_id, scan_type, started_at, completed_at, files_scanned, duration_ms,
              total_vulns, critical_vulns, high_vulns, medium_vulns, low_vulns)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -732,11 +732,11 @@ class SecurityAssessmentEngine:
             scan_result.summary['medium'],
             scan_result.summary['low']
         ))
-        
+
         # 脆弱性詳細保存
         for vuln in scan_result.vulnerabilities:
             cursor.execute("""
-                INSERT OR REPLACE INTO vulnerabilities 
+                INSERT OR REPLACE INTO vulnerabilities
                 (vuln_id, title, description, category, threat_type, severity,
                  affected_files, location, remediation, reference_links, detected_at, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -754,10 +754,10 @@ class SecurityAssessmentEngine:
                 vuln.detected_at,
                 vuln.status
             ))
-        
+
         conn.commit()
         conn.close()
-    
+
     def generate_security_report(self, scan_id: str) -> str:
         """セキュリティレポート生成"""
         scan_result = None
@@ -765,10 +765,10 @@ class SecurityAssessmentEngine:
             if scan.scan_id == scan_id:
                 scan_result = scan
                 break
-        
+
         if not scan_result:
             return "スキャン結果が見つかりません。"
-        
+
         # HTMLレポート生成
         report_html = f"""
         <!DOCTYPE html>
@@ -801,7 +801,7 @@ class SecurityAssessmentEngine:
         <body>
             <div class="container">
                 <h1>🔒 セキュリティ評価レポート</h1>
-                
+
                 <div class="summary">
                     <div class="summary-card critical">
                         <h3>Critical</h3>
@@ -824,7 +824,7 @@ class SecurityAssessmentEngine:
                         <div style="font-size: 2em; font-weight: bold;">{scan_result.summary['info']}</div>
                     </div>
                 </div>
-                
+
                 <h2>📊 スキャン詳細</h2>
                 <ul>
                     <li><strong>スキャンID:</strong> {scan_result.scan_id}</li>
@@ -833,13 +833,13 @@ class SecurityAssessmentEngine:
                     <li><strong>対象ファイル数:</strong> {scan_result.files_scanned}</li>
                     <li><strong>検出脆弱性:</strong> {scan_result.summary['total']}件</li>
                 </ul>
-                
+
                 <h2>🚨 検出された脆弱性</h2>
         """
-        
+
         # 脆弱性を重要度別にソート
         sorted_vulns = sorted(scan_result.vulnerabilities, key=lambda v: v.severity.value, reverse=True)
-        
+
         for vuln in sorted_vulns:
             severity_class = vuln.severity.name.lower()
             severity_name = {
@@ -849,7 +849,7 @@ class SecurityAssessmentEngine:
                 'LOW': '低',
                 'INFO': '情報'
             }.get(vuln.severity.name, vuln.severity.name)
-            
+
             report_html += f"""
                 <div class="vuln vuln-{severity_class}">
                     <h3>{vuln.title} <span style="background: #{severity_class}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">{severity_name}</span></h3>
@@ -863,45 +863,45 @@ class SecurityAssessmentEngine:
                     </div>
                 </div>
             """
-        
+
         report_html += """
             </div>
         </body>
         </html>
         """
-        
+
         return report_html
-    
+
     def get_security_metrics(self) -> Dict[str, Any]:
         """セキュリティメトリクス取得"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         # 最新スキャン結果
         cursor.execute("""
             SELECT * FROM scan_results ORDER BY completed_at DESC LIMIT 1
         """)
         latest_scan = cursor.fetchone()
-        
+
         # トレンド分析
         cursor.execute("""
             SELECT scan_type, AVG(total_vulns), AVG(critical_vulns), AVG(high_vulns)
-            FROM scan_results 
+            FROM scan_results
             WHERE completed_at >= datetime('now', '-30 days')
             GROUP BY scan_type
         """)
         trends = cursor.fetchall()
-        
+
         # 脆弱性分布
         cursor.execute("""
-            SELECT category, COUNT(*) FROM vulnerabilities 
+            SELECT category, COUNT(*) FROM vulnerabilities
             WHERE status = 'OPEN'
             GROUP BY category
         """)
         category_distribution = dict(cursor.fetchall())
-        
+
         conn.close()
-        
+
         return {
             'latest_scan': latest_scan,
             'monthly_trends': trends,
@@ -931,11 +931,11 @@ def get_security_metrics() -> Dict[str, Any]:
 
 if __name__ == "__main__":
     print("=== Security Assessment Test ===")
-    
+
     # セキュリティスキャン実行
     print("Running comprehensive security scan...")
     scan_result = run_security_scan(".")
-    
+
     print(f"Scan completed: {scan_result.scan_id}")
     print(f"Duration: {scan_result.duration_ms:.1f}ms")
     print(f"Files scanned: {scan_result.files_scanned}")
@@ -944,23 +944,23 @@ if __name__ == "__main__":
     print(f"  High: {scan_result.summary['high']}")
     print(f"  Medium: {scan_result.summary['medium']}")
     print(f"  Low: {scan_result.summary['low']}")
-    
+
     # レポート生成
     print("\nGenerating security report...")
     report_html = generate_security_report(scan_result.scan_id)
-    
+
     # レポートファイル保存
     report_file = f"data/security_report_{scan_result.scan_id}.html"
     os.makedirs(os.path.dirname(report_file), exist_ok=True)
     with open(report_file, 'w', encoding='utf-8') as f:
         f.write(report_html)
-    
+
     print(f"Security report saved: {report_file}")
-    
+
     # メトリクス確認
     metrics = get_security_metrics()
     print(f"\nSecurity metrics:")
     print(f"Total scans performed: {metrics['total_scans']}")
     print(f"Open vulnerabilities by category: {metrics['open_vulnerabilities_by_category']}")
-    
+
     print("\nSecurity assessment test completed!")

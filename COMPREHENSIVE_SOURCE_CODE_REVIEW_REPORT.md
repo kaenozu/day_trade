@@ -78,7 +78,7 @@ def setup_environment() -> None:
 ```python
 class DayTradeCore:
     """統合デイトレードシステムコア"""
-    
+
     async def run_quick_analysis(self, symbols: Optional[List[str]] = None) -> int:
         """クイック分析モード実行"""
         # 非同期処理による高速分析
@@ -96,7 +96,7 @@ class DayTradeCore:
 ```python
 class DayTradeWebServer:
     """プロダクション対応Web投資プラットフォーム"""
-    
+
     @self.app.route('/api/recommendations')
     def api_recommendations():
         # 35銘柄の包括的推奨システム
@@ -129,7 +129,7 @@ def calculate_advanced_signals(self, data: pd.DataFrame) -> Dict[str, Any]:
 ```python
 class QuantumAIEngine:
     """量子コンピューティングAI分析エンジン"""
-    
+
     def quantum_circuit_simulation(self, market_data: np.ndarray) -> Dict[str, Any]:
         """量子回路シミュレーション"""
         # 量子状態による市場分析
@@ -147,7 +147,7 @@ class QuantumAIEngine:
 ```python
 class SecurityAssessment:
     """高度なセキュリティ強化・脆弱性評価システム"""
-    
+
     def __init__(self):
         self.encryption_key = Fernet.generate_key()
         self.threat_detector = ThreatDetectionEngine()
@@ -165,7 +165,7 @@ class SecurityAssessment:
 ```python
 class SystemWatchdog:
     """システム監視・自動回復システム"""
-    
+
     def monitor_system_health(self):
         """システムヘルス監視"""
         cpu_usage = psutil.cpu_percent()
