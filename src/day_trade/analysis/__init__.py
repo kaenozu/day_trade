@@ -12,11 +12,10 @@ from .signals import (
 # Issue #937: 売買判断システムの実装
 from .technical_indicators import (
     TechnicalIndicators as TechnicalIndicatorsV2,
-    SignalGenerator,
     RiskManager,
     TechnicalSignal,
     SignalType as SignalTypeV2,
-    create_trading_recommendation
+    create_trading_recommendation_pl as create_trading_recommendation
 )
 
 __all__ = [
@@ -29,7 +28,6 @@ __all__ = [
     "VolumeSpikeBuyRule",
     # Issue #937対応
     "TechnicalIndicatorsV2",
-    "SignalGenerator",
     "RiskManager",
     "TechnicalSignal",
     "SignalTypeV2",
