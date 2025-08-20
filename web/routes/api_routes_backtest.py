@@ -19,10 +19,10 @@ except ImportError as e:
 
 def setup_backtest_routes(app: Flask) -> None:
     """バックテストAPIルート設定"""
-    
+
     # バックテストサービス初期化
     backtest_service = BacktestService() if BACKTEST_SERVICE_AVAILABLE else None
-    
+
     @app.route('/api/backtest/strategies')
     def api_backtest_strategies():
         """利用可能な戦略一覧API"""
@@ -31,7 +31,7 @@ def setup_backtest_routes(app: Flask) -> None:
                 'error': 'バックテストサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             strategies = backtest_service.get_strategy_templates()
             return jsonify({
@@ -39,13 +39,13 @@ def setup_backtest_routes(app: Flask) -> None:
                 'count': len(strategies),
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/backtest/run', methods=['POST'])
     def api_backtest_run():
         """バックテスト実行API"""
@@ -54,10 +54,10 @@ def setup_backtest_routes(app: Flask) -> None:
                 'error': 'バックテストサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             data = request.get_json()
-            
+
             # 必須フィールドチェック
             required_fields = ['strategy_name', 'symbol']
             for field in required_fields:
@@ -66,7 +66,7 @@ def setup_backtest_routes(app: Flask) -> None:
                         'error': f'必須フィールドが不足: {field}',
                         'timestamp': datetime.now().isoformat()
                     }), 400
-            
+
             # バックテスト実行
             result = backtest_service.run_backtest(
                 strategy_name=data['strategy_name'],
@@ -75,26 +75,26 @@ def setup_backtest_routes(app: Flask) -> None:
                 start_date=data.get('start_date'),
                 end_date=data.get('end_date')
             )
-            
+
             if 'error' in result:
                 return jsonify({
                     'error': result['error'],
                     'timestamp': datetime.now().isoformat()
                 }), 500
-            
+
             return jsonify({
                 'success': True,
                 'result': result,
                 'message': 'バックテストが完了しました',
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/backtest/results')
     def api_backtest_results():
         """バックテスト結果一覧API"""
@@ -103,23 +103,23 @@ def setup_backtest_routes(app: Flask) -> None:
                 'error': 'バックテストサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             limit = int(request.args.get('limit', 20))
             results = backtest_service.get_saved_results(limit)
-            
+
             return jsonify({
                 'results': results,
                 'count': len(results),
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/backtest/quick-test', methods=['POST'])
     def api_backtest_quick_test():
         """クイックバックテストAPI"""
@@ -128,11 +128,11 @@ def setup_backtest_routes(app: Flask) -> None:
                 'error': 'バックテストサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             data = request.get_json()
             symbol = data.get('symbol', '7203')
-            
+
             # 複数戦略での簡単比較
             strategies_to_test = [
                 {
@@ -151,7 +151,7 @@ def setup_backtest_routes(app: Flask) -> None:
                     'display_name': 'RSI(14,30,70)'
                 }
             ]
-            
+
             results = []
             for strategy in strategies_to_test:
                 try:
@@ -162,7 +162,7 @@ def setup_backtest_routes(app: Flask) -> None:
                         start_date=data.get('start_date'),
                         end_date=data.get('end_date')
                     )
-                    
+
                     if 'error' not in result:
                         # 要約データのみ抽出
                         summary = {
@@ -174,13 +174,13 @@ def setup_backtest_routes(app: Flask) -> None:
                             'total_trades': result.get('total_trades', 0)
                         }
                         results.append(summary)
-                    
+
                 except Exception as strategy_error:
                     results.append({
                         'strategy_name': strategy['display_name'],
                         'error': str(strategy_error)
                     })
-            
+
             return jsonify({
                 'success': True,
                 'symbol': symbol,
@@ -188,13 +188,13 @@ def setup_backtest_routes(app: Flask) -> None:
                 'message': f'{symbol} のクイック戦略比較が完了しました',
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/backtest/optimize', methods=['POST'])
     def api_backtest_optimize():
         """戦略最適化API"""
@@ -203,10 +203,10 @@ def setup_backtest_routes(app: Flask) -> None:
                 'error': 'バックテストサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             data = request.get_json()
-            
+
             required_fields = ['strategy_name', 'symbol', 'parameter_ranges']
             for field in required_fields:
                 if field not in data:
@@ -214,19 +214,19 @@ def setup_backtest_routes(app: Flask) -> None:
                         'error': f'必須フィールドが不足: {field}',
                         'timestamp': datetime.now().isoformat()
                     }), 400
-            
+
             strategy_name = data['strategy_name']
             symbol = data['symbol']
             parameter_ranges = data['parameter_ranges']
-            
+
             # パラメータ組み合わせ生成
             optimization_results = []
-            
+
             if strategy_name == 'sma':
                 # SMA戦略の最適化
                 short_windows = parameter_ranges.get('short_window', [5, 10, 15])
                 long_windows = parameter_ranges.get('long_window', [20, 30, 50])
-                
+
                 for short in short_windows:
                     for long in long_windows:
                         if short < long:  # 短期 < 長期の条件
@@ -238,7 +238,7 @@ def setup_backtest_routes(app: Flask) -> None:
                                     start_date=data.get('start_date'),
                                     end_date=data.get('end_date')
                                 )
-                                
+
                                 if 'error' not in result:
                                     optimization_results.append({
                                         'parameters': {'short_window': short, 'long_window': long},
@@ -247,16 +247,16 @@ def setup_backtest_routes(app: Flask) -> None:
                                         'max_drawdown_pct': result.get('max_drawdown_pct', 0),
                                         'win_rate': result.get('win_rate', 0)
                                     })
-                                    
+
                             except Exception as param_error:
                                 continue
-            
+
             elif strategy_name == 'rsi':
                 # RSI戦略の最適化
                 rsi_periods = parameter_ranges.get('rsi_period', [10, 14, 20])
                 oversolds = parameter_ranges.get('oversold', [20, 30, 40])
                 overboughts = parameter_ranges.get('overbought', [60, 70, 80])
-                
+
                 for period in rsi_periods:
                     for oversold in oversolds:
                         for overbought in overboughts:
@@ -273,7 +273,7 @@ def setup_backtest_routes(app: Flask) -> None:
                                         start_date=data.get('start_date'),
                                         end_date=data.get('end_date')
                                     )
-                                    
+
                                     if 'error' not in result:
                                         optimization_results.append({
                                             'parameters': {
@@ -286,16 +286,16 @@ def setup_backtest_routes(app: Flask) -> None:
                                             'max_drawdown_pct': result.get('max_drawdown_pct', 0),
                                             'win_rate': result.get('win_rate', 0)
                                         })
-                                        
+
                                 except Exception as param_error:
                                     continue
-            
+
             # 結果をソート（リターン順）
             optimization_results.sort(key=lambda x: x['total_return_pct'], reverse=True)
-            
+
             # 最適パラメータ
             best_params = optimization_results[0] if optimization_results else None
-            
+
             return jsonify({
                 'success': True,
                 'symbol': symbol,
@@ -306,7 +306,7 @@ def setup_backtest_routes(app: Flask) -> None:
                 'message': f'{strategy_name} 戦略の最適化が完了しました',
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),

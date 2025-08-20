@@ -41,7 +41,7 @@ except ImportError:
         @staticmethod
         def now_ns():
             return time.time_ns()
-        
+
         @staticmethod
         def elapsed_us(start_ns):
             return (time.time_ns() - start_ns) // 1000
@@ -589,7 +589,7 @@ class GPUAcceleratedInferenceEngine:
         """モデル情報取得"""
         if model_name not in self.sessions:
             return None
-        
+
         session = self.sessions[model_name]
         return {
             "model_name": model_name,

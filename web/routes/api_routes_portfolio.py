@@ -19,10 +19,10 @@ except ImportError as e:
 
 def setup_portfolio_routes(app: Flask) -> None:
     """ポートフォリオAPIルート設定"""
-    
+
     # ポートフォリオサービス初期化
     portfolio_service = PortfolioService() if PORTFOLIO_SERVICE_AVAILABLE else None
-    
+
     @app.route('/api/portfolio/summary')
     def api_portfolio_summary():
         """ポートフォリオサマリーAPI"""
@@ -31,7 +31,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': 'ポートフォリオサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             summary = portfolio_service.get_portfolio_summary()
             return jsonify({
@@ -56,7 +56,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/portfolio/positions')
     def api_portfolio_positions():
         """ポートフォリオポジションAPI"""
@@ -65,11 +65,11 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': 'ポートフォリオサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             positions = portfolio_service.get_positions()
             positions_data = []
-            
+
             for pos in positions:
                 positions_data.append({
                     'symbol': pos.symbol,
@@ -87,7 +87,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                     'purchase_date': pos.purchase_date,
                     'last_updated': pos.last_updated
                 })
-            
+
             return jsonify({
                 'positions': positions_data,
                 'count': len(positions_data),
@@ -98,7 +98,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/portfolio/transactions')
     def api_portfolio_transactions():
         """取引履歴API"""
@@ -107,11 +107,11 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': 'ポートフォリオサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             limit = int(request.args.get('limit', 50))
             transactions = portfolio_service.get_transactions(limit)
-            
+
             transactions_data = []
             for txn in transactions:
                 transactions_data.append({
@@ -127,7 +127,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                     'date': txn.date,
                     'notes': txn.notes
                 })
-            
+
             return jsonify({
                 'transactions': transactions_data,
                 'count': len(transactions_data),
@@ -138,7 +138,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/portfolio/buy', methods=['POST'])
     def api_portfolio_buy():
         """株式購入API"""
@@ -147,10 +147,10 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': 'ポートフォリオサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             data = request.get_json()
-            
+
             required_fields = ['symbol', 'name', 'quantity', 'price']
             for field in required_fields:
                 if field not in data:
@@ -158,7 +158,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                         'error': f'必須フィールドが不足: {field}',
                         'timestamp': datetime.now().isoformat()
                     }), 400
-            
+
             success = portfolio_service.add_position(
                 symbol=data['symbol'],
                 name=data['name'],
@@ -167,7 +167,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                 sector=data.get('sector', 'Unknown'),
                 category=data.get('category', 'Stock')
             )
-            
+
             if success:
                 return jsonify({
                     'success': True,
@@ -179,13 +179,13 @@ def setup_portfolio_routes(app: Flask) -> None:
                     'error': '購入処理に失敗しました',
                     'timestamp': datetime.now().isoformat()
                 }), 500
-                
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/portfolio/sell', methods=['POST'])
     def api_portfolio_sell():
         """株式売却API"""
@@ -194,10 +194,10 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': 'ポートフォリオサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             data = request.get_json()
-            
+
             required_fields = ['symbol', 'quantity', 'price']
             for field in required_fields:
                 if field not in data:
@@ -205,13 +205,13 @@ def setup_portfolio_routes(app: Flask) -> None:
                         'error': f'必須フィールドが不足: {field}',
                         'timestamp': datetime.now().isoformat()
                     }), 400
-            
+
             success = portfolio_service.sell_position(
                 symbol=data['symbol'],
                 quantity=int(data['quantity']),
                 price=float(data['price'])
             )
-            
+
             if success:
                 return jsonify({
                     'success': True,
@@ -223,13 +223,13 @@ def setup_portfolio_routes(app: Flask) -> None:
                     'error': '売却処理に失敗しました',
                     'timestamp': datetime.now().isoformat()
                 }), 500
-                
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/portfolio/performance')
     def api_portfolio_performance():
         """パフォーマンス分析API"""
@@ -238,7 +238,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': 'ポートフォリオサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             metrics = portfolio_service.get_performance_metrics()
             return jsonify({
@@ -250,7 +250,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/portfolio/risk')
     def api_portfolio_risk():
         """リスク分析API"""
@@ -259,7 +259,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': 'ポートフォリオサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             risk_analysis = portfolio_service.get_risk_analysis()
             return jsonify({
@@ -271,7 +271,7 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/portfolio/update-prices', methods=['POST'])
     def api_portfolio_update_prices():
         """ポートフォリオ価格更新API"""
@@ -280,24 +280,24 @@ def setup_portfolio_routes(app: Flask) -> None:
                 'error': 'ポートフォリオサービスが利用できません',
                 'timestamp': datetime.now().isoformat()
             }), 503
-        
+
         try:
             data = request.get_json()
-            
+
             if 'prices' not in data:
                 return jsonify({
                     'error': '価格データが不足しています',
                     'timestamp': datetime.now().isoformat()
                 }), 400
-            
+
             success = portfolio_service.update_prices(data['prices'])
-            
+
             return jsonify({
                 'success': success,
                 'message': '価格を更新しました' if success else '価格更新に失敗しました',
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),

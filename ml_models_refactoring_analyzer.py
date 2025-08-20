@@ -35,24 +35,24 @@ class ModuleAnalysis:
 def analyze_ml_models_file() -> ModuleAnalysis:
     """ML予測モデルファイルの構造分析"""
     file_path = Path("src/day_trade/ml/ml_prediction_models_improved.py")
-    
+
     if not file_path.exists():
         raise FileNotFoundError(f"ファイルが見つかりません: {file_path}")
-    
+
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
         lines = content.split('\n')
-    
+
     try:
         tree = ast.parse(content)
     except SyntaxError as e:
         print(f"構文エラー: {e}")
         return ModuleAnalysis(len(lines), [], [], [], 0)
-    
+
     classes = []
     functions = []
     imports = []
-    
+
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             # クラス情報収集
@@ -60,7 +60,7 @@ def analyze_ml_models_file() -> ModuleAnalysis:
             for item in node.body:
                 if isinstance(item, ast.FunctionDef):
                     methods.append(item.name)
-            
+
             # 継承情報
             inheritance = []
             for base in node.bases:
@@ -68,12 +68,12 @@ def analyze_ml_models_file() -> ModuleAnalysis:
                     inheritance.append(base.id)
                 elif isinstance(base, ast.Attribute):
                     inheritance.append(f"{base.value.id}.{base.attr}" if hasattr(base.value, 'id') else str(base.attr))
-            
+
             # 行数計算
             start_line = node.lineno
             end_line = max([getattr(item, 'end_lineno', item.lineno) for item in node.body] + [node.lineno])
             line_count = end_line - start_line + 1
-            
+
             classes.append(ClassInfo(
                 name=node.name,
                 start_line=start_line,
@@ -82,11 +82,11 @@ def analyze_ml_models_file() -> ModuleAnalysis:
                 line_count=line_count,
                 inheritance=inheritance
             ))
-        
+
         elif isinstance(node, ast.FunctionDef) and node.col_offset == 0:
             # トップレベル関数
             functions.append(node.name)
-        
+
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
             # インポート文
             if isinstance(node, ast.Import):
@@ -96,10 +96,10 @@ def analyze_ml_models_file() -> ModuleAnalysis:
                 module = node.module or ""
                 for alias in node.names:
                     imports.append(f"{module}.{alias.name}")
-    
+
     # 複雑度スコア計算
     complexity_score = len(classes) * 10 + len(functions) * 3 + len(imports)
-    
+
     return ModuleAnalysis(
         total_lines=len(lines),
         classes=classes,
@@ -111,17 +111,17 @@ def analyze_ml_models_file() -> ModuleAnalysis:
 
 def generate_refactoring_plan(analysis: ModuleAnalysis) -> Dict[str, Any]:
     """リファクタリング計画策定"""
-    
+
     # クラスをカテゴリ別に分類
     model_classes = []
     data_classes = []
     config_classes = []
     utility_classes = []
     exception_classes = []
-    
+
     for cls in analysis.classes:
         cls_name_lower = cls.name.lower()
-        
+
         if any(keyword in cls_name_lower for keyword in ['error', 'exception']):
             exception_classes.append(cls)
         elif any(keyword in cls_name_lower for keyword in ['config', 'settings', 'param']):
@@ -132,7 +132,7 @@ def generate_refactoring_plan(analysis: ModuleAnalysis) -> Dict[str, Any]:
             data_classes.append(cls)
         else:
             utility_classes.append(cls)
-    
+
     # モジュール分離計画
     modules = {
         "ml_exceptions.py": {
@@ -166,11 +166,11 @@ def generate_refactoring_plan(analysis: ModuleAnalysis) -> Dict[str, Any]:
             "estimated_lines": sum(cls.line_count for cls in utility_classes)
         }
     }
-    
+
     # 残り行数計算（関数、インポート、その他）
     total_class_lines = sum(cls.line_count for cls in analysis.classes)
     remaining_lines = analysis.total_lines - total_class_lines
-    
+
     return {
         "original_file": {
             "total_lines": analysis.total_lines,
@@ -199,7 +199,7 @@ def generate_refactoring_plan(analysis: ModuleAnalysis) -> Dict[str, Any]:
 
 def print_analysis_results(analysis: ModuleAnalysis, plan: Dict[str, Any]):
     """分析結果とリファクタリング計画の出力"""
-    
+
     print("ML Prediction Models リファクタリング分析")
     print("=" * 60)
     print(f"ファイル: src/day_trade/ml/ml_prediction_models_improved.py")
@@ -208,14 +208,14 @@ def print_analysis_results(analysis: ModuleAnalysis, plan: Dict[str, Any]):
     print(f"関数数: {len(analysis.functions)}")
     print(f"複雑度: {analysis.complexity_score}")
     print()
-    
+
     print("クラス詳細:")
     print("-" * 40)
     for cls in sorted(analysis.classes, key=lambda x: x.line_count, reverse=True):
         inheritance_info = f" (継承: {', '.join(cls.inheritance)})" if cls.inheritance else ""
         print(f"  {cls.name}: {cls.line_count}行, {len(cls.methods)}メソッド{inheritance_info}")
     print()
-    
+
     print("カテゴリ分類:")
     print("-" * 40)
     cat = plan["categorization"]
@@ -225,7 +225,7 @@ def print_analysis_results(analysis: ModuleAnalysis, plan: Dict[str, Any]):
     print(f"  ユーティリティクラス: {cat['utility_classes']}個")
     print(f"  例外クラス: {cat['exception_classes']}個")
     print()
-    
+
     print("提案されるモジュール分離:")
     print("-" * 40)
     for module_name, module_info in plan["modules"].items():
@@ -235,13 +235,13 @@ def print_analysis_results(analysis: ModuleAnalysis, plan: Dict[str, Any]):
             for cls in module_info["classes"]:
                 print(f"      * {cls.name} ({cls.line_count}行)")
             print()
-    
+
     print("リファクタリングフェーズ:")
     print("-" * 40)
     for phase, description in plan["phase_plan"].items():
         print(f"  {phase}: {description}")
     print()
-    
+
     # 難易度評価
     total_classes = len(analysis.classes)
     if total_classes > 15:
@@ -252,7 +252,7 @@ def print_analysis_results(analysis: ModuleAnalysis, plan: Dict[str, Any]):
         difficulty = "中程度"
     else:
         difficulty = "低い"
-    
+
     print(f"リファクタリング難易度: {difficulty}")
     print(f"推定作業時間: {total_classes * 15}分 - {total_classes * 25}分")
 
@@ -262,12 +262,12 @@ def main():
     try:
         print("ML Prediction Models 構造分析開始...")
         print()
-        
+
         analysis = analyze_ml_models_file()
         plan = generate_refactoring_plan(analysis)
-        
+
         print_analysis_results(analysis, plan)
-        
+
     except Exception as e:
         print(f"分析エラー: {e}")
         import traceback

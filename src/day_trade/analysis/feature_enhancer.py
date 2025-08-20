@@ -22,7 +22,7 @@ class NewsSentimentAnalyzer:
         try:
             # Web検索APIが利用できないため、模擬的なセンチメント分析を実行
             # 実際の実装では外部ニュースAPIやスクレイピングを使用
-            
+
             # 模擬ニュースデータ（実際はAPIから取得）
             mock_sentiment_data = {
                 'トヨタ自動車': {'sentiment_score': 0.3, 'news_count': 5},
@@ -33,7 +33,7 @@ class NewsSentimentAnalyzer:
                 '東京エレクトロン': {'sentiment_score': 0.5, 'news_count': 4},
                 '任天堂': {'sentiment_score': 0.2, 'news_count': 9},
             }
-            
+
             result = mock_sentiment_data.get(company_name, {'sentiment_score': 0.0, 'news_count': 3})
             print(f"Mock sentiment for {company_name}: {result['sentiment_score']} ({result['news_count']} articles)")
             return result

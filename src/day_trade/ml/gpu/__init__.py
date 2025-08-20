@@ -31,7 +31,7 @@ from .gpu_inference_engine import (
 
 __all__ = [
     "GPUBackend",
-    "ParallelizationMode", 
+    "ParallelizationMode",
     "GPUInferenceConfig",
     "GPUInferenceResult",
     "GPUDeviceManager",

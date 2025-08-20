@@ -154,13 +154,24 @@ class RecommendationService:
         return None
 
     def _enrich_real_analysis(self, analysis: Dict[str, Any], symbol_data: Dict[str, Any]) -> Dict[str, Any]:
-        # ... (same as before) ...
         recommendation = analysis.get('signal', 'HOLD')
         confidence = analysis.get('confidence', 0.7)
         price = analysis.get('current_price', 0)
+        previous_close = analysis.get('previous_close', price)
+        change = round(price - previous_close, 2)
+        change_pct = round((change / previous_close) * 100, 2) if previous_close > 0 else 0
         category = symbol_data.get('category', '一般株')
 
+        # 売買タイミングを計算
+        strategy = 'スイング'  # 仮の戦略
+        buy_timing, sell_timing = self._calculate_trading_timing(
+            price, previous_close, change_pct, symbol_data['sector'], strategy, confidence
+        )
+
         enriched_result = analysis.copy()
+        if 'current_price' in enriched_result:
+            enriched_result['price'] = enriched_result.pop('current_price')
+
         enriched_result.update({
             'name': symbol_data['name'],
             'sector': symbol_data['sector'],
@@ -169,7 +180,7 @@ class RecommendationService:
             'recommendation_friendly': recommendation,
             'confidence_friendly': self._get_confidence_friendly(confidence),
             'star_rating': self._get_star_rating(confidence),
-            'change': round(price - analysis.get('previous_close', price), 2), # 仮
+            'change': change,
             'risk_level': self._get_risk_level(category),
             'risk_friendly': self._get_risk_level(category),
             'stability': symbol_data.get('stability', '中安定'),
@@ -179,7 +190,9 @@ class RecommendationService:
             'timing': self._get_timing_advice(recommendation),
             'amount_suggestion': self._get_amount_suggestion(price, category),
             'timestamp': time.time(),
-            'model_used': analysis.get('model_used', 'rule_based')
+            'model_used': analysis.get('model_used', 'rule_based'),
+            'buy_timing': buy_timing,
+            'sell_timing': sell_timing
         })
         return enriched_result
 
