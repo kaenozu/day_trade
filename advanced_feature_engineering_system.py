@@ -102,31 +102,31 @@ class MacroeconomicIndicators:
 
 class AdvancedFeatureEngineeringSystem:
     """高度特徴量エンジニアリングシステム"""
-    
+
     def __init__(self, cache_dir: str = "data/features", cache_hours: int = 6):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.cache_hours = cache_hours
-        
+
         # データベース初期化
         self.db_path = self.cache_dir / "features.db"
         self._initialize_database()
-        
+
         # センチメント分析器
         self.sentiment_analyzers = {}
         if HAS_VADER:
             self.sentiment_analyzers['vader'] = SentimentIntensityAnalyzer()
-        
+
         # ニュースソース設定（実際のAPIキーが必要）
         self.news_sources = {
             # 'newsapi': 'YOUR_NEWS_API_KEY',
             # 'finnhub': 'YOUR_FINNHUB_API_KEY',
             # 'alpha_vantage': 'YOUR_ALPHA_VANTAGE_API_KEY'
         }
-        
+
         print("Advanced Feature Engineering System initialized")
-    
+
     def _initialize_database(self):
         """データベースの初期化"""
         with sqlite3.connect(self.db_path) as conn:
@@ -143,7 +143,7 @@ class AdvancedFeatureEngineeringSystem:
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            
+
             # ファンダメンタルズデータテーブル
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS fundamental_data (
@@ -162,7 +162,7 @@ class AdvancedFeatureEngineeringSystem:
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            
+
             # マクロ経済指標テーブル
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS macro_indicators (
@@ -177,16 +177,16 @@ class AdvancedFeatureEngineeringSystem:
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            
+
             # インデックス作成
             conn.execute('CREATE INDEX IF NOT EXISTS idx_sentiment_symbol ON sentiment_data(symbol)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_sentiment_timestamp ON sentiment_data(timestamp)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_fundamental_symbol ON fundamental_data(symbol)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_fundamental_timestamp ON fundamental_data(timestamp)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_macro_timestamp ON macro_indicators(timestamp)')
-            
+
             conn.commit()
-    
+
     @track_performance
     def analyze_market_sentiment(self, symbol: str, use_cache: bool = True) -> SentimentAnalysisResult:
         """市場センチメント分析"""
@@ -196,31 +196,31 @@ class AdvancedFeatureEngineeringSystem:
                 cached_result = self._get_cached_sentiment(symbol)
                 if cached_result:
                     return cached_result
-            
+
             # 実際の実装では複数のニュースソースから情報を取得
             # ここではダミーデータとロジックのデモンストレーション
             news_data = self._fetch_news_data(symbol)
             social_data = self._fetch_social_sentiment(symbol)
-            
+
             # センチメントスコア計算
             sentiment_scores = []
             confidence_scores = []
             source_count = 0
-            
+
             # ニュース記事の分析
             if news_data:
                 news_sentiment = self._analyze_text_sentiment(news_data['text'])
                 sentiment_scores.append(news_sentiment['sentiment'])
                 confidence_scores.append(news_sentiment['confidence'])
                 source_count += news_data.get('article_count', 1)
-            
+
             # ソーシャルメディアの分析
             if social_data:
                 social_sentiment = self._analyze_text_sentiment(social_data['text'])
                 sentiment_scores.append(social_sentiment['sentiment'])
                 confidence_scores.append(social_sentiment['confidence'])
                 source_count += social_data.get('post_count', 1)
-            
+
             # 総合センチメントスコア計算
             if sentiment_scores:
                 avg_sentiment = np.mean(sentiment_scores)
@@ -230,7 +230,7 @@ class AdvancedFeatureEngineeringSystem:
                 avg_sentiment = 0.0
                 avg_confidence = 0.1
                 source_count = 0
-            
+
             # 結果作成
             result = SentimentAnalysisResult(
                 symbol=symbol,
@@ -245,17 +245,17 @@ class AdvancedFeatureEngineeringSystem:
                     'individual_scores': sentiment_scores
                 }
             )
-            
+
             # データベースに保存
             self._save_sentiment_data(result)
-            
+
             return result
-            
+
         except Exception as e:
             print(f"センチメント分析エラー: {e}")
             if HAS_AUDIT_LOGGER:
                 audit_logger.log_error_with_context(e, {"symbol": symbol, "context": "sentiment_analysis"})
-            
+
             # エラー時はニュートラルなセンチメントを返す
             return SentimentAnalysisResult(
                 symbol=symbol,
@@ -266,80 +266,80 @@ class AdvancedFeatureEngineeringSystem:
                 timestamp=datetime.now(),
                 raw_data={'error': str(e)}
             )
-    
+
     def _fetch_news_data(self, symbol: str) -> Optional[Dict[str, Any]]:
         """ニュースデータを取得（ダミー実装）"""
         # 実際の実装では、NewsAPI、Finnhub、Bloomberg APIなどを使用
-        
+
         # ダミーニュース記事（実際にはAPIから取得）
         dummy_articles = [
             f"{symbol}の業績が好調で投資家の注目を集めている",
-            f"{symbol}は新しい技術革新により市場での競争力を高めている", 
+            f"{symbol}は新しい技術革新により市場での競争力を高めている",
             f"アナリストは{symbol}の将来性を楽観視している",
             f"{symbol}の株価は最近のニュースにより変動している"
         ]
-        
+
         # 銘柄に基づいた簡単なセンチメント調整
         sentiment_modifier = hash(symbol) % 3 - 1  # -1, 0, 1
         if sentiment_modifier > 0:
             dummy_articles.append(f"{symbol}は市場の期待を上回る成果を発表")
         elif sentiment_modifier < 0:
             dummy_articles.append(f"{symbol}は一時的な課題に直面している")
-        
+
         return {
             'text': ' '.join(dummy_articles),
             'article_count': len(dummy_articles),
             'sources': ['dummy_financial_news', 'dummy_market_report'],
             'timestamp': datetime.now()
         }
-    
+
     def _fetch_social_sentiment(self, symbol: str) -> Optional[Dict[str, Any]]:
         """ソーシャルメディアセンチメント取得（ダミー実装）"""
         # 実際の実装では、Twitter API、Reddit API、Discord API等を使用
-        
+
         # ダミーソーシャルメディア投稿
         dummy_posts = [
             f"{symbol}の株価動向に注目している",
             f"{symbol}は長期投資に適していると思う",
             f"市場全体の調整で{symbol}も影響を受けている",
         ]
-        
+
         # 銘柄に基づいたセンチメント調整
         social_sentiment = (hash(symbol) % 100) / 100  # 0.0-1.0
         if social_sentiment > 0.6:
             dummy_posts.append(f"{symbol}は買い時だと思う！")
         elif social_sentiment < 0.4:
             dummy_posts.append(f"{symbol}の動向は少し心配")
-        
+
         return {
             'text': ' '.join(dummy_posts),
             'post_count': len(dummy_posts),
             'platforms': ['dummy_twitter', 'dummy_reddit'],
             'timestamp': datetime.now()
         }
-    
+
     def _analyze_text_sentiment(self, text: str) -> Dict[str, float]:
         """テキストセンチメント分析"""
         sentiment_results = []
-        
+
         # VADER分析
         if HAS_VADER and 'vader' in self.sentiment_analyzers:
             vader_result = self.sentiment_analyzers['vader'].polarity_scores(text)
             compound_score = vader_result['compound']  # -1.0 to 1.0
-            
+
             sentiment_results.append({
                 'sentiment': compound_score,
                 'confidence': abs(compound_score),  # 絶対値を信頼度として使用
                 'method': 'vader'
             })
-        
+
         # TextBlob分析
         if HAS_TEXTBLOB:
             try:
                 blob = TextBlob(text)
                 polarity = blob.sentiment.polarity  # -1.0 to 1.0
                 subjectivity = blob.sentiment.subjectivity  # 0.0 to 1.0
-                
+
                 sentiment_results.append({
                     'sentiment': polarity,
                     'confidence': 1.0 - subjectivity,  # 客観的ほど信頼度が高い
@@ -347,36 +347,36 @@ class AdvancedFeatureEngineeringSystem:
                 })
             except Exception as e:
                 print(f"TextBlob分析エラー: {e}")
-        
+
         # 結果が無い場合のフォールバック
         if not sentiment_results:
             return {'sentiment': 0.0, 'confidence': 0.1}
-        
+
         # 複数結果の統合
         sentiments = [r['sentiment'] for r in sentiment_results]
         confidences = [r['confidence'] for r in sentiment_results]
-        
+
         return {
             'sentiment': np.mean(sentiments),
             'confidence': np.mean(confidences)
         }
-    
+
     def _get_cached_sentiment(self, symbol: str) -> Optional[SentimentAnalysisResult]:
         """キャッシュされたセンチメントデータを取得"""
         cutoff_time = datetime.now() - timedelta(hours=self.cache_hours)
-        
+
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            
+
             row = conn.execute('''
-                SELECT * FROM sentiment_data 
+                SELECT * FROM sentiment_data
                 WHERE symbol = ? AND timestamp > ?
                 ORDER BY timestamp DESC LIMIT 1
             ''', (symbol, cutoff_time)).fetchone()
-            
+
             if row:
                 raw_data = json.loads(row['raw_data']) if row['raw_data'] else {}
-                
+
                 return SentimentAnalysisResult(
                     symbol=row['symbol'],
                     sentiment_score=row['sentiment_score'],
@@ -386,14 +386,14 @@ class AdvancedFeatureEngineeringSystem:
                     timestamp=datetime.fromisoformat(row['timestamp']),
                     raw_data=raw_data
                 )
-        
+
         return None
-    
+
     def _save_sentiment_data(self, result: SentimentAnalysisResult):
         """センチメントデータを保存"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute('''
-                INSERT INTO sentiment_data 
+                INSERT INTO sentiment_data
                 (symbol, sentiment_score, confidence, source_count, analysis_method, raw_data, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
@@ -406,7 +406,7 @@ class AdvancedFeatureEngineeringSystem:
                 result.timestamp
             ))
             conn.commit()
-    
+
     @track_performance
     def get_fundamental_data(self, symbol: str, use_cache: bool = True) -> FundamentalData:
         """ファンダメンタルズデータを取得"""
@@ -416,26 +416,26 @@ class AdvancedFeatureEngineeringSystem:
                 cached_data = self._get_cached_fundamental_data(symbol)
                 if cached_data:
                     return cached_data
-            
+
             # 実際の実装ではyfinance、Bloomberg API、EDINET等を使用
             fundamental_data = self._fetch_fundamental_data_from_api(symbol)
-            
+
             # データベースに保存
             self._save_fundamental_data(fundamental_data)
-            
+
             return fundamental_data
-            
+
         except Exception as e:
             print(f"ファンダメンタルズデータ取得エラー: {e}")
             if HAS_AUDIT_LOGGER:
                 audit_logger.log_error_with_context(e, {"symbol": symbol, "context": "fundamental_data"})
-            
+
             # エラー時はデフォルト値を返す
             return FundamentalData(
                 symbol=symbol,
                 timestamp=datetime.now()
             )
-    
+
     def _fetch_fundamental_data_from_api(self, symbol: str) -> FundamentalData:
         """APIからファンダメンタルズデータを取得"""
         # 実際の実装例（yfinanceを使用）
@@ -444,10 +444,10 @@ class AdvancedFeatureEngineeringSystem:
                 # 日本株の場合は.Tを付加
                 ticker_symbol = f"{symbol}.T" if symbol.isdigit() else symbol
                 stock = yf.Ticker(ticker_symbol)
-                
+
                 info = stock.info
                 financials = stock.financials
-                
+
                 # データ抽出
                 fundamental_data = FundamentalData(
                     symbol=symbol,
@@ -460,23 +460,23 @@ class AdvancedFeatureEngineeringSystem:
                     enterprise_value=info.get('enterpriseValue'),
                     timestamp=datetime.now()
                 )
-                
+
                 # 成長率計算（過去データがある場合）
                 if not financials.empty:
                     try:
                         recent_revenue = financials.loc['Total Revenue'].iloc[0] if 'Total Revenue' in financials.index else None
                         previous_revenue = financials.loc['Total Revenue'].iloc[1] if 'Total Revenue' in financials.index and len(financials.loc['Total Revenue']) > 1 else None
-                        
+
                         if recent_revenue and previous_revenue and previous_revenue != 0:
                             fundamental_data.revenue_growth = ((recent_revenue - previous_revenue) / previous_revenue) * 100
                     except Exception as e:
                         print(f"成長率計算エラー: {e}")
-                
+
                 return fundamental_data
-                
+
             except Exception as e:
                 print(f"yfinanceデータ取得エラー: {e}")
-        
+
         # フォールバック：ダミーデータ
         base_value = hash(symbol) % 1000
         return FundamentalData(
@@ -490,20 +490,20 @@ class AdvancedFeatureEngineeringSystem:
             market_cap=100_000_000 + base_value * 1000,
             timestamp=datetime.now()
         )
-    
+
     def _get_cached_fundamental_data(self, symbol: str) -> Optional[FundamentalData]:
         """キャッシュされたファンダメンタルズデータを取得"""
         cutoff_time = datetime.now() - timedelta(hours=self.cache_hours * 4)  # より長いキャッシュ
-        
+
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            
+
             row = conn.execute('''
-                SELECT * FROM fundamental_data 
+                SELECT * FROM fundamental_data
                 WHERE symbol = ? AND timestamp > ?
                 ORDER BY timestamp DESC LIMIT 1
             ''', (symbol, cutoff_time)).fetchone()
-            
+
             if row:
                 return FundamentalData(
                     symbol=row['symbol'],
@@ -519,16 +519,16 @@ class AdvancedFeatureEngineeringSystem:
                     enterprise_value=row['enterprise_value'],
                     timestamp=datetime.fromisoformat(row['timestamp'])
                 )
-        
+
         return None
-    
+
     def _save_fundamental_data(self, data: FundamentalData):
         """ファンダメンタルズデータを保存"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute('''
-                INSERT INTO fundamental_data 
+                INSERT INTO fundamental_data
                 (symbol, pe_ratio, pb_ratio, dividend_yield, roe, debt_to_equity,
-                 revenue_growth, earnings_growth, free_cash_flow, market_cap, 
+                 revenue_growth, earnings_growth, free_cash_flow, market_cap,
                  enterprise_value, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
@@ -537,7 +537,7 @@ class AdvancedFeatureEngineeringSystem:
                 data.free_cash_flow, data.market_cap, data.enterprise_value, data.timestamp
             ))
             conn.commit()
-    
+
     @track_performance
     def get_macroeconomic_indicators(self, use_cache: bool = True) -> MacroeconomicIndicators:
         """マクロ経済指標を取得"""
@@ -547,32 +547,32 @@ class AdvancedFeatureEngineeringSystem:
                 cached_data = self._get_cached_macro_indicators()
                 if cached_data:
                     return cached_data
-            
+
             # 実際のマクロ経済指標を取得
             indicators = self._fetch_macro_indicators()
-            
+
             # データベースに保存
             self._save_macro_indicators(indicators)
-            
+
             return indicators
-            
+
         except Exception as e:
             print(f"マクロ経済指標取得エラー: {e}")
             if HAS_AUDIT_LOGGER:
                 audit_logger.log_error_with_context(e, {"context": "macro_indicators"})
-            
+
             # エラー時はデフォルト値を返す
             return MacroeconomicIndicators(timestamp=datetime.now())
-    
+
     def _fetch_macro_indicators(self) -> MacroeconomicIndicators:
         """マクロ経済指標をAPIから取得"""
         # 実際の実装では、FRED API、Bloomberg API、日本銀行API等を使用
-        
+
         if HAS_YFINANCE:
             try:
                 # 主要指標を取得
                 indicators = {}
-                
+
                 # 日経225
                 try:
                     nikkei = yf.Ticker("^N225")
@@ -580,7 +580,7 @@ class AdvancedFeatureEngineeringSystem:
                     indicators['nikkei_225'] = float(nikkei_data['Close'].iloc[-1])
                 except:
                     pass
-                
+
                 # USD/JPY
                 try:
                     usdjpy = yf.Ticker("USDJPY=X")
@@ -588,7 +588,7 @@ class AdvancedFeatureEngineeringSystem:
                     indicators['usdjpy_rate'] = float(usdjpy_data['Close'].iloc[-1])
                 except:
                     pass
-                
+
                 # VIX指数
                 try:
                     vix = yf.Ticker("^VIX")
@@ -596,7 +596,7 @@ class AdvancedFeatureEngineeringSystem:
                     indicators['vix_index'] = float(vix_data['Close'].iloc[-1])
                 except:
                     pass
-                
+
                 # 原油価格
                 try:
                     oil = yf.Ticker("CL=F")
@@ -604,7 +604,7 @@ class AdvancedFeatureEngineeringSystem:
                     indicators['oil_price'] = float(oil_data['Close'].iloc[-1])
                 except:
                     pass
-                
+
                 # 金価格
                 try:
                     gold = yf.Ticker("GC=F")
@@ -612,7 +612,7 @@ class AdvancedFeatureEngineeringSystem:
                     indicators['gold_price'] = float(gold_data['Close'].iloc[-1])
                 except:
                     pass
-                
+
                 return MacroeconomicIndicators(
                     nikkei_225=indicators.get('nikkei_225'),
                     usdjpy_rate=indicators.get('usdjpy_rate'),
@@ -621,13 +621,13 @@ class AdvancedFeatureEngineeringSystem:
                     gold_price=indicators.get('gold_price'),
                     timestamp=datetime.now()
                 )
-                
+
             except Exception as e:
                 print(f"実際のマクロ指標取得エラー: {e}")
-        
+
         # フォールバック：ダミーデータ
         base_time = int(time.time()) // 3600  # 1時間ごとに変わる基準値
-        
+
         return MacroeconomicIndicators(
             nikkei_225=28000 + (base_time % 2000),
             usdjpy_rate=140 + (base_time % 20),
@@ -638,20 +638,20 @@ class AdvancedFeatureEngineeringSystem:
             gold_price=2000 + (base_time % 1000) / 10,
             timestamp=datetime.now()
         )
-    
+
     def _get_cached_macro_indicators(self) -> Optional[MacroeconomicIndicators]:
         """キャッシュされたマクロ経済指標を取得"""
         cutoff_time = datetime.now() - timedelta(hours=1)  # 1時間キャッシュ
-        
+
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            
+
             row = conn.execute('''
-                SELECT * FROM macro_indicators 
+                SELECT * FROM macro_indicators
                 WHERE timestamp > ?
                 ORDER BY timestamp DESC LIMIT 1
             ''', (cutoff_time,)).fetchone()
-            
+
             if row:
                 return MacroeconomicIndicators(
                     nikkei_225=row['nikkei_225'],
@@ -663,15 +663,15 @@ class AdvancedFeatureEngineeringSystem:
                     gold_price=row['gold_price'],
                     timestamp=datetime.fromisoformat(row['timestamp'])
                 )
-        
+
         return None
-    
+
     def _save_macro_indicators(self, indicators: MacroeconomicIndicators):
         """マクロ経済指標を保存"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute('''
-                INSERT INTO macro_indicators 
-                (nikkei_225, usdjpy_rate, jp_10y_yield, us_10y_yield, 
+                INSERT INTO macro_indicators
+                (nikkei_225, usdjpy_rate, jp_10y_yield, us_10y_yield,
                  vix_index, oil_price, gold_price, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
@@ -680,23 +680,23 @@ class AdvancedFeatureEngineeringSystem:
                 indicators.gold_price, indicators.timestamp
             ))
             conn.commit()
-    
-    def create_enhanced_features(self, 
+
+    def create_enhanced_features(self,
                                 symbol: str,
                                 base_features: pd.DataFrame) -> pd.DataFrame:
         """基本特徴量に高度特徴量を追加"""
         try:
             enhanced_features = base_features.copy()
-            
+
             # センチメント特徴量
             sentiment_result = self.analyze_market_sentiment(symbol)
             enhanced_features['sentiment_score'] = sentiment_result.sentiment_score
             enhanced_features['sentiment_confidence'] = sentiment_result.confidence
             enhanced_features['sentiment_source_count'] = sentiment_result.source_count
-            
+
             # ファンダメンタルズ特徴量
             fundamental_data = self.get_fundamental_data(symbol)
-            
+
             # 安全な値の設定（NoneやNaNの場合はデフォルト値）
             enhanced_features['pe_ratio'] = fundamental_data.pe_ratio or 15.0
             enhanced_features['pb_ratio'] = fundamental_data.pb_ratio or 1.5
@@ -705,7 +705,7 @@ class AdvancedFeatureEngineeringSystem:
             enhanced_features['debt_to_equity'] = fundamental_data.debt_to_equity or 0.4
             enhanced_features['revenue_growth'] = fundamental_data.revenue_growth or 5.0
             enhanced_features['market_cap_log'] = np.log10(fundamental_data.market_cap or 1000000000)
-            
+
             # マクロ経済特徴量
             macro_indicators = self.get_macroeconomic_indicators()
             enhanced_features['nikkei_225'] = macro_indicators.nikkei_225 or 28000
@@ -713,29 +713,29 @@ class AdvancedFeatureEngineeringSystem:
             enhanced_features['vix_index'] = macro_indicators.vix_index or 20
             enhanced_features['oil_price'] = macro_indicators.oil_price or 85
             enhanced_features['gold_price'] = macro_indicators.gold_price or 2000
-            
+
             # 派生特徴量の計算
             enhanced_features['valuation_score'] = (
-                (1 / enhanced_features['pe_ratio']) * 10 + 
+                (1 / enhanced_features['pe_ratio']) * 10 +
                 (1 / enhanced_features['pb_ratio']) * 5 +
                 enhanced_features['roe'] * 20
             )
-            
+
             enhanced_features['macro_risk_score'] = (
                 enhanced_features['vix_index'] / 100 +  # 0-1の範囲に正規化
                 abs(enhanced_features['usdjpy_rate'] - 145) / 50  # 145を中心とした変動
             )
-            
+
             enhanced_features['combined_score'] = (
                 enhanced_features['sentiment_score'] * 0.3 +
                 enhanced_features['valuation_score'] / 10 * 0.4 +
                 (1 - enhanced_features['macro_risk_score']) * 0.3
             )
-            
+
             # 無限値・NaN値の処理
             enhanced_features = enhanced_features.replace([np.inf, -np.inf], np.nan)
             enhanced_features = enhanced_features.fillna(0)
-            
+
             # ログ記録
             if HAS_AUDIT_LOGGER:
                 audit_logger.log_business_event(
@@ -747,25 +747,25 @@ class AdvancedFeatureEngineeringSystem:
                         "new_features": list(set(enhanced_features.columns) - set(base_features.columns))
                     }
                 )
-            
+
             return enhanced_features
-            
+
         except Exception as e:
             print(f"高度特徴量作成エラー: {e}")
             if HAS_AUDIT_LOGGER:
                 audit_logger.log_error_with_context(e, {"symbol": symbol, "context": "enhanced_features"})
-            
+
             # エラー時は基本特徴量をそのまま返す
             return base_features
-    
+
     def get_feature_engineering_summary(self) -> Dict[str, Any]:
         """特徴量エンジニアリングのサマリーを取得"""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            
+
             # センチメントデータ統計
             sentiment_stats = conn.execute('''
-                SELECT 
+                SELECT
                     COUNT(*) as total_records,
                     AVG(sentiment_score) as avg_sentiment,
                     MIN(timestamp) as oldest_record,
@@ -773,27 +773,27 @@ class AdvancedFeatureEngineeringSystem:
                 FROM sentiment_data
                 WHERE timestamp > datetime('now', '-7 days')
             ''').fetchone()
-            
+
             # ファンダメンタルズデータ統計
             fundamental_stats = conn.execute('''
-                SELECT 
+                SELECT
                     COUNT(*) as total_records,
                     AVG(pe_ratio) as avg_pe_ratio,
                     AVG(pb_ratio) as avg_pb_ratio
                 FROM fundamental_data
                 WHERE timestamp > datetime('now', '-7 days')
             ''').fetchone()
-            
+
             # マクロ経済指標統計
             macro_stats = conn.execute('''
-                SELECT 
+                SELECT
                     COUNT(*) as total_records,
                     AVG(nikkei_225) as avg_nikkei,
                     AVG(vix_index) as avg_vix
                 FROM macro_indicators
                 WHERE timestamp > datetime('now', '-1 days')
             ''').fetchone()
-        
+
         return {
             'feature_engineering_summary': {
                 'sentiment_analysis': {
@@ -827,17 +827,17 @@ advanced_feature_engineering = AdvancedFeatureEngineeringSystem()
 if __name__ == "__main__":
     # テスト実行
     print("Advanced Feature Engineering System テスト開始")
-    
+
     # テスト銘柄
     test_symbol = "7203"  # トヨタ自動車
-    
+
     # センチメント分析テスト
     print(f"\n1. センチメント分析テスト: {test_symbol}")
     sentiment = advanced_feature_engineering.analyze_market_sentiment(test_symbol)
     print(f"   センチメントスコア: {sentiment.sentiment_score:.3f}")
     print(f"   信頼度: {sentiment.confidence:.3f}")
     print(f"   ソース数: {sentiment.source_count}")
-    
+
     # ファンダメンタルズ分析テスト
     print(f"\n2. ファンダメンタルズ分析テスト: {test_symbol}")
     fundamental = advanced_feature_engineering.get_fundamental_data(test_symbol)
@@ -845,7 +845,7 @@ if __name__ == "__main__":
     print(f"   P/B Ratio: {fundamental.pb_ratio}")
     print(f"   ROE: {fundamental.roe}")
     print(f"   売上成長率: {fundamental.revenue_growth}%")
-    
+
     # マクロ経済指標テスト
     print(f"\n3. マクロ経済指標テスト")
     macro = advanced_feature_engineering.get_macroeconomic_indicators()
@@ -853,10 +853,10 @@ if __name__ == "__main__":
     print(f"   USD/JPY: {macro.usdjpy_rate}")
     print(f"   VIX指数: {macro.vix_index}")
     print(f"   原油価格: {macro.oil_price}")
-    
+
     # 高度特徴量作成テスト
     print(f"\n4. 高度特徴量作成テスト")
-    
+
     # ダミー基本特徴量
     base_features = pd.DataFrame({
         'price': [1500],
@@ -865,15 +865,15 @@ if __name__ == "__main__":
         'macd': [0.12],
         'bb_ratio': [0.3]
     })
-    
+
     enhanced_features = advanced_feature_engineering.create_enhanced_features(test_symbol, base_features)
     print(f"   基本特徴量数: {len(base_features.columns)}")
     print(f"   拡張特徴量数: {len(enhanced_features.columns)}")
     print(f"   追加された特徴量: {list(set(enhanced_features.columns) - set(base_features.columns))}")
-    
+
     # サマリー情報
     print(f"\n5. システムサマリー")
     summary = advanced_feature_engineering.get_feature_engineering_summary()
     print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
-    
+
     print("\nテスト完了 ✅")

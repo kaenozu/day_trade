@@ -45,36 +45,36 @@ def setup_api_routes(app: Flask) -> None:
             category_filter = request.args.get('category', '').lower()
             confidence_filter = request.args.get('confidence', '').lower()
             recommendation_filter = request.args.get('recommendation', '').lower()
-            
+
             recommendations = g.recommendation_service.get_recommendations()
-            
+
             # フィルタリング適用
             filtered_recommendations = recommendations
-            
+
             if category_filter:
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('category', '').lower() == category_filter]
-            
+
             if confidence_filter == 'high':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('confidence', 0) > 0.8]
             elif confidence_filter == 'medium':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if 0.6 <= r.get('confidence', 0) <= 0.8]
             elif confidence_filter == 'low':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('confidence', 0) < 0.6]
-            
+
             if recommendation_filter == 'buy':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('recommendation', '') in ['BUY', 'STRONG_BUY']]
             elif recommendation_filter == 'sell':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('recommendation', '') in ['SELL', 'STRONG_SELL']]
             elif recommendation_filter == 'hold':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('recommendation', '') == 'HOLD']
-            
+
             # 統計計算（全体とフィルタ後）
             total_count = len(recommendations)
             filtered_count = len(filtered_recommendations)
@@ -127,28 +127,28 @@ def setup_api_routes(app: Flask) -> None:
                 'task_id': task_id,
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/realtime/<symbol>')
     def api_realtime_price(symbol):
         """リアルタイム価格取得API"""
         try:
             import yfinance as yf
-            
+
             # 日本株式のシンボル形式に変換
             jp_symbol = f"{symbol}.T"
             ticker = yf.Ticker(jp_symbol)
-            
+
             # リアルタイム情報取得
             info = ticker.info
             hist = ticker.history(period="2d")  # 最新2日分
-            
+
             if len(hist) > 0:
                 current_price = info.get('currentPrice') or info.get('regularMarketPrice') or hist['Close'].iloc[-1]
                 prev_close = info.get('previousClose') or hist['Close'].iloc[-2] if len(hist) > 1 else current_price
-                
+
                 price_change = current_price - prev_close
                 price_change_pct = (price_change / prev_close) * 100 if prev_close > 0 else 0
-                
+
                 return jsonify({
                     'symbol': symbol,
                     'name': info.get('longName', f'株式会社{symbol}'),
@@ -169,7 +169,7 @@ def setup_api_routes(app: Flask) -> None:
                     'symbol': symbol,
                     'timestamp': datetime.now().isoformat()
                 }), 404
-                
+
         except ImportError:
             return jsonify({
                 'error': 'Yahoo Finance APIが利用できません',
@@ -182,22 +182,22 @@ def setup_api_routes(app: Flask) -> None:
                 'symbol': symbol,
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/realtime/batch')
     def api_realtime_batch():
         """複数銘柄のリアルタイム価格一括取得API"""
         try:
             symbols = request.args.get('symbols', '').split(',')
             symbols = [s.strip() for s in symbols if s.strip()]
-            
+
             if not symbols:
                 return jsonify({
                     'error': 'シンボルが指定されていません',
                     'timestamp': datetime.now().isoformat()
                 }), 400
-            
+
             import yfinance as yf
-            
+
             results = []
             for symbol in symbols[:10]:  # 最大10銘柄まで
                 try:
@@ -205,14 +205,14 @@ def setup_api_routes(app: Flask) -> None:
                     ticker = yf.Ticker(jp_symbol)
                     info = ticker.info
                     hist = ticker.history(period="2d")
-                    
+
                     if len(hist) > 0:
                         current_price = info.get('currentPrice') or info.get('regularMarketPrice') or hist['Close'].iloc[-1]
                         prev_close = info.get('previousClose') or hist['Close'].iloc[-2] if len(hist) > 1 else current_price
-                        
+
                         price_change = current_price - prev_close
                         price_change_pct = (price_change / prev_close) * 100 if prev_close > 0 else 0
-                        
+
                         results.append({
                             'symbol': symbol,
                             'current_price': round(current_price, 2),
@@ -227,21 +227,21 @@ def setup_api_routes(app: Flask) -> None:
                             'error': 'データ取得失敗',
                             'status': 'error'
                         })
-                        
+
                 except Exception as e:
                     results.append({
                         'symbol': symbol,
                         'error': str(e),
                         'status': 'error'
                     })
-            
+
             return jsonify({
                 'results': results,
                 'total_requested': len(symbols),
                 'successful': len([r for r in results if r.get('status') == 'success']),
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except ImportError:
             return jsonify({
                 'error': 'Yahoo Finance APIが利用できません',
@@ -252,17 +252,17 @@ def setup_api_routes(app: Flask) -> None:
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/search-stocks')
     def api_search_stocks():
         """銘柄検索・フィルタリングAPI - Issues #955対応"""
         try:
             query = request.args.get('q', '').lower()
             category_filter = request.args.get('category', '').lower()
-            
+
             if not query and not category_filter:
                 return jsonify({'results': [], 'count': 0})
-            
+
             # 35銘柄の拡張リスト
             all_stocks = [
                 # 大型株（8銘柄）
@@ -274,7 +274,7 @@ def setup_api_routes(app: Flask) -> None:
                 {'symbol': '8001', 'name': '伊藤忠商事', 'sector': '商社', 'category': '大型株'},
                 {'symbol': '4502', 'name': '武田薬品工業', 'sector': '医薬品', 'category': '大型株'},
                 {'symbol': '6501', 'name': '日立製作所', 'sector': 'テクノロジー', 'category': '大型株'},
-                
+
                 # 中型株（8銘柄）
                 {'symbol': '4755', 'name': '楽天グループ', 'sector': 'テクノロジー', 'category': '中型株'},
                 {'symbol': '4385', 'name': 'メルカリ', 'sector': 'テクノロジー', 'category': '中型株'},
@@ -284,7 +284,7 @@ def setup_api_routes(app: Flask) -> None:
                 {'symbol': '4704', 'name': 'トレンドマイクロ', 'sector': 'セキュリティ', 'category': '中型株'},
                 {'symbol': '4751', 'name': 'サイバーエージェント', 'sector': 'テクノロジー', 'category': '中型株'},
                 {'symbol': '3659', 'name': 'ネクソン', 'sector': 'ゲーム', 'category': '中型株'},
-                
+
                 # 高配当株（8銘柄）
                 {'symbol': '8593', 'name': '三菱HCキャピタル', 'sector': '金融', 'category': '高配当株'},
                 {'symbol': '8316', 'name': 'みずほフィナンシャルグループ', 'sector': '金融', 'category': '高配当株'},
@@ -294,7 +294,7 @@ def setup_api_routes(app: Flask) -> None:
                 {'symbol': '9432', 'name': '日本電信電話', 'sector': '通信', 'category': '高配当株'},
                 {'symbol': '8604', 'name': '野村ホールディングス', 'sector': '金融', 'category': '高配当株'},
                 {'symbol': '7751', 'name': 'キヤノン', 'sector': '精密機器', 'category': '高配当株'},
-                
+
                 # 成長株（6銘柄）
                 {'symbol': '4503', 'name': 'アステラス製薬', 'sector': '医薬品', 'category': '成長株'},
                 {'symbol': '6981', 'name': '村田製作所', 'sector': '電子部品', 'category': '成長株'},
@@ -302,7 +302,7 @@ def setup_api_routes(app: Flask) -> None:
                 {'symbol': '4704', 'name': 'トレンドマイクロ', 'sector': 'セキュリティ', 'category': '成長株'},
                 {'symbol': '2491', 'name': 'バリューコマース', 'sector': 'テクノロジー', 'category': '成長株'},
                 {'symbol': '3900', 'name': 'クラウドワークス', 'sector': 'テクノロジー', 'category': '成長株'},
-                
+
                 # 小型株（5銘柄）
                 {'symbol': '4478', 'name': 'フリー', 'sector': 'テクノロジー', 'category': '小型株'},
                 {'symbol': '4375', 'name': 'セーフィー', 'sector': 'テクノロジー', 'category': '小型株'},
@@ -310,29 +310,29 @@ def setup_api_routes(app: Flask) -> None:
                 {'symbol': '4475', 'name': 'HENNGE', 'sector': 'テクノロジー', 'category': '小型株'},
                 {'symbol': '4478', 'name': 'フリー', 'sector': 'テクノロジー', 'category': '小型株'}
             ]
-            
+
             # 検索・フィルタリング実行
             results = []
             for stock in all_stocks:
                 match = False
-                
+
                 # カテゴリフィルター
                 if category_filter and stock['category'].lower() != category_filter:
                     continue
-                
+
                 # テキスト検索
                 if query:
-                    if (query in stock['symbol'].lower() or 
-                        query in stock['name'].lower() or 
+                    if (query in stock['symbol'].lower() or
+                        query in stock['name'].lower() or
                         query in stock['sector'].lower() or
                         query in stock['category'].lower()):
                         match = True
                 else:
                     match = True  # カテゴリフィルターのみの場合
-                
+
                 if match:
                     results.append(stock)
-            
+
             return jsonify({
                 'results': results[:20],
                 'count': len(results),
@@ -340,14 +340,14 @@ def setup_api_routes(app: Flask) -> None:
                 'category_filter': category_filter or None,
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
                 'status': 'error',
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/scheduler/tasks')
     def api_scheduler_tasks():
         """スケジューラー状態API"""
@@ -394,7 +394,7 @@ def setup_api_routes(app: Flask) -> None:
                     'success_rate': 92.8
                 }
             ]
-            
+
             return jsonify({
                 'tasks': scheduled_tasks,
                 'total_tasks': len(scheduled_tasks),
@@ -403,35 +403,35 @@ def setup_api_routes(app: Flask) -> None:
                 'scheduler_status': 'running',
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
                 'status': 'error',
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/scheduler/start/<task_id>', methods=['POST'])
     def api_scheduler_start_task(task_id):
         """スケジュールタスク手動実行API"""
         try:
             # 実際にはExecutionSchedulerのstart_task()を呼び出す
             # ここでは模擬応答
-            
+
             task_names = {
                 'daily_analysis': '日次分析実行',
                 'market_data_update': '市場データ更新',
                 'risk_monitoring': 'リスク監視',
                 'swing_analysis': 'スイングトレード分析'
             }
-            
+
             if task_id not in task_names:
                 return jsonify({
                     'error': f'Task not found: {task_id}',
                     'status': 'error',
                     'timestamp': datetime.now().isoformat()
                 }), 404
-            
+
             return jsonify({
                 'task_id': task_id,
                 'task_name': task_names[task_id],
@@ -440,14 +440,14 @@ def setup_api_routes(app: Flask) -> None:
                 'execution_id': f'manual_{task_id}_{int(datetime.now().timestamp())}',
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
                 'status': 'error',
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/swing-trade-stocks')
     def api_swing_trade_stocks():
         """スイングトレード向け銘柄API"""
@@ -482,7 +482,7 @@ def setup_api_routes(app: Flask) -> None:
                     'technical_setup': 'ボラティリティ拡大'
                 }
             ]
-            
+
             return jsonify({
                 'stocks': swing_stocks,
                 'count': len(swing_stocks),
@@ -495,14 +495,14 @@ def setup_api_routes(app: Flask) -> None:
                 ],
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
                 'status': 'error',
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/scheduler/tasks')
     def api_scheduler_tasks():
         """スケジューラー状態API"""
@@ -549,7 +549,7 @@ def setup_api_routes(app: Flask) -> None:
                     'success_rate': 92.8
                 }
             ]
-            
+
             return jsonify({
                 'tasks': scheduled_tasks,
                 'total_tasks': len(scheduled_tasks),
@@ -558,35 +558,35 @@ def setup_api_routes(app: Flask) -> None:
                 'scheduler_status': 'running',
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
                 'status': 'error',
                 'timestamp': datetime.now().isoformat()
             }), 500
-    
+
     @app.route('/api/scheduler/start/<task_id>', methods=['POST'])
     def api_scheduler_start_task(task_id):
         """スケジュールタスク手動実行API"""
         try:
             # 実際にはExecutionSchedulerのstart_task()を呼び出す
             # ここでは模擬応答
-            
+
             task_names = {
                 'daily_analysis': '日次分析実行',
                 'market_data_update': '市場データ更新',
                 'risk_monitoring': 'リスク監視',
                 'swing_analysis': 'スイングトレード分析'
             }
-            
+
             if task_id not in task_names:
                 return jsonify({
                     'error': f'Task not found: {task_id}',
                     'status': 'error',
                     'timestamp': datetime.now().isoformat()
                 }), 404
-            
+
             return jsonify({
                 'task_id': task_id,
                 'task_name': task_names[task_id],
@@ -595,7 +595,7 @@ def setup_api_routes(app: Flask) -> None:
                 'execution_id': f'manual_{task_id}_{int(datetime.now().timestamp())}',
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),

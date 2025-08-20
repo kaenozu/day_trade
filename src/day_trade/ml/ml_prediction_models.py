@@ -24,7 +24,7 @@ from .ml_config import ModelType, PredictionTask, DataQuality, TrainingConfig
 from .ml_exceptions import ModelTrainingError, DataPreparationError
 from .ml_model_base import BaseModelTrainer, RandomForestTrainer, XGBoostTrainer, LightGBMTrainer
 from .ml_utilities import (
-    ModelMetadataManager, DataPreparationPipeline, ModelMetadata, 
+    ModelMetadataManager, DataPreparationPipeline, ModelMetadata,
     ModelPerformance, PredictionResult, EnsemblePrediction
 )
 
@@ -469,10 +469,10 @@ class MLPredictionModels:
                 # 重み正規化
                 total_score = sum(task_performances.values())
                 if total_score > 0:
-                    weights = {model_type: score / total_score 
+                    weights = {model_type: score / total_score
                              for model_type, score in task_performances.items()}
                 else:
-                    weights = {model_type: 1.0 / len(task_performances) 
+                    weights = {model_type: 1.0 / len(task_performances)
                              for model_type in task_performances.keys()}
 
                 self.ensemble_weights[symbol][task] = weights
@@ -489,8 +489,8 @@ class MLPredictionModels:
                 for model_type, task_perfs in performances.items():
                     for task, performance in task_perfs.items():
                         conn.execute("""
-                            INSERT INTO model_performance_history 
-                            (model_id, evaluation_date, dataset_type, accuracy, precision_score, 
+                            INSERT INTO model_performance_history
+                            (model_id, evaluation_date, dataset_type, accuracy, precision_score,
                              recall_score, f1_score, r2_score, mse, rmse, mae, cross_val_mean, cross_val_std)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (

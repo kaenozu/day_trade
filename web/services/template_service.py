@@ -40,7 +40,7 @@ class TemplateService:
         <!-- 拡張推奨銘柄セクション -->
         <div class="recommendations-section" style="margin-top: 30px;">
             <h2 style="color: white; text-align: center; margin-bottom: 20px;">📈 推奨銘柄分析</h2>
-            
+
             <div id="progressIndicator" style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: none; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <div id="loadingSpinner" style="width: 24px; height: 24px; border: 3px solid #e5e7eb; border-top: 3px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
@@ -175,12 +175,12 @@ class TemplateService:
         .nav { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
         .nav-btn { padding: 10px 20px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: white; cursor: pointer; transition: all 0.2s; }
         .nav-btn:hover { background: #334155; }
-        
+
         .scheduler-status { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
         .status-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155; border-radius: 12px; padding: 20px; text-align: center; }
         .status-number { font-size: 2rem; font-weight: bold; margin-bottom: 5px; color: #38bdf8; }
         .status-label { color: #94a3b8; }
-        
+
         .tasks-grid { display: grid; gap: 20px; }
         .task-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; transition: transform 0.2s; }
         .task-card:hover { transform: translateY(-2px); border-color: #38bdf8; }
@@ -190,12 +190,12 @@ class TemplateService:
         .status-ready { background: #065f46; color: #34d399; }
         .status-running { background: #7c2d12; color: #fb923c; }
         .status-paused { background: #374151; color: #9ca3af; }
-        
+
         .task-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px; }
         .task-detail { }
         .detail-label { font-size: 0.8rem; color: #94a3b8; margin-bottom: 2px; }
         .detail-value { color: #f1f5f9; font-weight: 500; }
-        
+
         .task-actions { display: flex; gap: 10px; justify-content: center; }
         .action-btn { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 500; transition: all 0.2s; }
         .btn-start { background: #059669; color: white; }
@@ -212,34 +212,34 @@ class TemplateService:
             <h1>⚙️ スケジューラー管理</h1>
             <p>自動化タスクの監視・管理システム</p>
         </div>
-        
+
         <div class="nav">
             <button class="nav-btn" onclick="location.href=\'/\' ">ホーム</button>
             <button class="nav-btn" onclick="location.href=\'/swing-trade\' ">スイング</button>
         </div>
-        
+
         <div class="scheduler-status" id="statusContainer">
             <!-- ステータス情報がJavaScriptで動的に表示される -->
         </div>
-        
+
         <div class="tasks-grid" id="tasksContainer">
             <!-- タスク情報がJavaScriptで動的に表示される -->
         </div>
     </div>
-    
+
     <script>
         async function loadSchedulerData() {
             try {
                 const response = await fetch('/api/scheduler/tasks');
                 const data = await response.json();
-                
+
                 displayStatus(data);
                 displayTasks(data.tasks);
             } catch (error) {
                 console.error('データ取得エラー:', error);
             }
         }
-        
+
         function displayStatus(data) {
             const statusHtml = `
                 <div class="status-card">
@@ -261,7 +261,7 @@ class TemplateService:
             `;
             document.getElementById('statusContainer').innerHTML = statusHtml;
         }
-        
+
         function displayTasks(tasks) {
             const tasksHtml = tasks.map(task => `
                 <div class="task-card">
@@ -269,7 +269,7 @@ class TemplateService:
                         <div class="task-name">${task.name}</div>
                         <div class="task-status status-${task.status}">${task.status.toUpperCase()}</div>
                     </div>
-                    
+
                     <div class="task-details">
                         <div class="task-detail">
                             <div class="detail-label">スケジュール</div>
@@ -292,7 +292,7 @@ class TemplateService:
                             <div class="detail-value">${new Date(task.next_execution).toLocaleString('ja-JP')}</div>
                         </div>
                     </div>
-                    
+
                     <div class="task-actions">
                         <button class="action-btn btn-start" onclick="startTask('${task.task_id}')">手動実行</button>
                         <button class="action-btn btn-pause">一時停止</button>
@@ -302,12 +302,12 @@ class TemplateService:
             `).join('');
             document.getElementById('tasksContainer').innerHTML = tasksHtml;
         }
-        
+
         async function startTask(taskId) {
             try {
                 const response = await fetch(`/api/scheduler/start/${taskId}`, { method: 'POST' });
                 const result = await response.json();
-                
+
                 if (response.ok) {
                     alert(`タスク「${result.task_name}」を手動実行しました`);
                     loadSchedulerData(); // データを再読み込み
@@ -319,10 +319,10 @@ class TemplateService:
                 alert('タスク実行でエラーが発生しました');
             }
         }
-        
+
         // 初期表示
         document.addEventListener('DOMContentLoaded', loadSchedulerData);
-        
+
         // 30秒ごとに自動更新
         setInterval(loadSchedulerData, 30000);
     </script>

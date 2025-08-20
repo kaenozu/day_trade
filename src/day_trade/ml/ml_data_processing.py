@@ -519,17 +519,17 @@ class DataPreparationPipeline:
         """データ分割とフィルタリング（既存メソッド互換性）"""
         try:
             from sklearn.model_selection import train_test_split
-            
+
             # 基本的な分割
             X_train, X_test, y_train, y_test = train_test_split(
-                X, y, 
+                X, y,
                 test_size=config.test_size,
                 random_state=config.random_state,
                 stratify=y if config.stratify else None
             )
-            
+
             return X_train, X_test, y_train, y_test
-            
+
         except Exception as e:
             self.logger.error(f"データ準備エラー: {e}")
             # 基本的な時系列分割

@@ -32,7 +32,7 @@ except ImportError:
         @staticmethod
         def now_ns():
             return time.time_ns()
-        
+
         @staticmethod
         def elapsed_us(start_ns):
             return (time.time_ns() - start_ns) // 1000
@@ -139,11 +139,11 @@ class GPUStreamManager:
         """ストリームリソースクリーンアップ"""
         try:
             self.synchronize_all_streams()
-            
+
             # アクティブストリームのクリア
             with self.stream_lock:
                 self.active_streams.clear()
-            
+
             # ストリームの削除
             for device_id in self.streams:
                 self.streams[device_id].clear()
@@ -153,9 +153,9 @@ class GPUStreamManager:
                         self.stream_queues[device_id].get_nowait()
                     except queue.Empty:
                         break
-            
+
             logger.debug("GPU ストリームマネージャークリーンアップ完了")
-            
+
         except Exception as e:
             logger.error(f"GPU ストリームマネージャークリーンアップエラー: {e}")
 
@@ -216,7 +216,7 @@ class GPUBatchProcessor:
     async def _process_batch(self, device_id: int):
         """バッチ処理実行"""
         batch_start_time = MicrosecondTimer.now_ns()
-        
+
         with self.batch_lock:
             if not self.pending_requests[device_id]:
                 return
@@ -290,16 +290,16 @@ class GPUBatchProcessor:
     def get_batch_stats(self) -> Dict[str, Any]:
         """バッチ処理統計取得"""
         stats = self.batch_stats.copy()
-        
+
         # 現在の保留中リクエスト数
         pending_counts = {}
         with self.batch_lock:
             for device_id, requests in self.pending_requests.items():
                 pending_counts[device_id] = len(requests)
-        
+
         stats["pending_requests"] = pending_counts
         stats["total_pending"] = sum(pending_counts.values())
-        
+
         # 平均処理時間
         if self.batch_stats["total_batches_processed"] > 0:
             stats["avg_processing_time_us"] = (
@@ -307,7 +307,7 @@ class GPUBatchProcessor:
             )
         else:
             stats["avg_processing_time_us"] = 0.0
-            
+
         return stats
 
     def force_process_pending_batches(self):
@@ -317,10 +317,10 @@ class GPUBatchProcessor:
             for device_id in self.pending_requests:
                 if self.pending_requests[device_id]:
                     tasks.append(self._process_batch(device_id))
-            
+
             if tasks:
                 await asyncio.gather(*tasks)
-        
+
         # 現在のイベントループで実行
         try:
             loop = asyncio.get_event_loop()
@@ -339,20 +339,20 @@ class GPUBatchProcessor:
         try:
             # 保留中のバッチを強制処理
             self.force_process_pending_batches()
-            
+
             # タイマーのキャンセル
             with self.batch_lock:
                 for device_id, timer in self.batch_timers.items():
                     if timer and not timer.done():
                         timer.cancel()
                 self.batch_timers.clear()
-                
+
                 # 保留中リクエストのクリア
                 for device_id in self.pending_requests:
                     self.pending_requests[device_id].clear()
-            
+
             logger.debug("GPU バッチプロセッサークリーンアップ完了")
-            
+
         except Exception as e:
             logger.error(f"GPU バッチプロセッサークリーンアップエラー: {e}")
 
@@ -365,7 +365,7 @@ class GPUBatchProcessor:
     def get_performance_metrics(self) -> Dict[str, Any]:
         """バッチ処理パフォーマンスメトリクス"""
         stats = self.get_batch_stats()
-        
+
         metrics = {
             "efficiency": {
                 "batch_utilization": stats["avg_batch_size"] / max(self.config.max_batch_size, 1),
@@ -380,7 +380,7 @@ class GPUBatchProcessor:
                 "estimated_queueing_time_ms": self.config.batch_timeout_ms
             }
         }
-        
+
         # スループット計算（統計期間を仮定）
         if stats["avg_processing_time_us"] > 0:
             metrics["efficiency"]["throughput_batches_per_sec"] = (
@@ -389,5 +389,5 @@ class GPUBatchProcessor:
             metrics["efficiency"]["throughput_requests_per_sec"] = (
                 metrics["efficiency"]["throughput_batches_per_sec"] * stats["avg_batch_size"]
             )
-        
+
         return metrics

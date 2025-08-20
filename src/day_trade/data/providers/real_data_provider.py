@@ -113,7 +113,7 @@ class DataFetchResult:
     error_message: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     cached: bool = False
-    
+
     @property
     def success(self) -> bool:
         """データ取得成功フラグ"""
@@ -142,7 +142,7 @@ class DataSourceConfigManager:
                         rate_limits = data.pop('rate_limits')
                         data['rate_limit_per_minute'] = rate_limits.get('requests_per_minute', 60)
                         data['rate_limit_per_day'] = rate_limits.get('daily_limit', 1000)
-                    
+
                     # DataSourceConfigで未対応のフィールドを除外
                     unsupported_fields = ['quality_settings', 'retry_config', 'fallback_priority']
                     for field in unsupported_fields:
@@ -1074,7 +1074,7 @@ class ImprovedMultiSourceDataProvider:
                           use_cache: bool = True) -> DataFetchResult:
         """株価データ取得（同期版）"""
         import asyncio
-        
+
         # 既存のイベントループがある場合の対応
         try:
             loop = asyncio.get_event_loop()
@@ -1083,7 +1083,7 @@ class ImprovedMultiSourceDataProvider:
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(
-                        asyncio.run, 
+                        asyncio.run,
                         self.get_stock_data(symbol, period, preferred_source, use_cache)
                     )
                     return future.result()
