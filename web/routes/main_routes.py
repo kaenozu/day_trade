@@ -26,6 +26,14 @@ def setup_main_routes(app: Flask) -> None:
 
         return response
 
+    @app.route('/portfolio')
+    def portfolio_page():
+        """ポートフォリオ追跡ページ"""
+        template_content = g.template_service.get_portfolio_template()
+        return render_template_string(
+            template_content,
+            title="ポートフォリオ追跡 - 購入銘柄管理"
+        )
     @app.route('/health')
     def health_check():
         """ヘルスチェック"""
