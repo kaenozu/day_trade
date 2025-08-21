@@ -123,6 +123,22 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Skip Lighthouse for merge
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
       run: |
-        echo "Lighthouse CI temporarily disabled for merge"
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Start web server
+      run: |
+        gunicorn --config gunicorn.conf.py daytrade_web:app &
+        sleep 10
+
+    - name: Lighthouse CI Action
+      uses: treosh/lighthouse-ci-action@v10
+      with:
+        urls: 'http://localhost:8000/'
