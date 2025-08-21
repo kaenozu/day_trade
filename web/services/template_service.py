@@ -37,7 +37,7 @@ class TemplateService:
             </div>
         </div>
 
-        
+
 
         <!-- 拡張推奨銘柄セクション -->
         <div class="recommendations-section" style="margin-top: 30px;">

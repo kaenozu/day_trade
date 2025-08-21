@@ -157,12 +157,12 @@ class RecommendationService:
         """売買タイミングを計算する（仮実装）"""
         buy_timing = "市場の動向を注視"
         sell_timing = "過熱感が出たら検討"
-        
+
         if change_pct > 2.0 and confidence > 0.7:
             buy_timing = "強い上昇トレンド。押し目買いを検討。"
         elif change_pct < -2.0 and confidence > 0.7:
             sell_timing = "下落トレンド注意。戻り売りを検討。"
-            
+
         return buy_timing, sell_timing
 
     def _enrich_real_analysis(self, analysis: Dict[str, Any], symbol_data: Dict[str, Any]) -> Dict[str, Any]:
