@@ -43,31 +43,6 @@ def setup_main_routes(app: Flask) -> None:
             'service': 'daytrade-web'
         })
 
-    @app.route('/debug/info')
-    def debug_info():
-        """デバッグ情報"""
-        return jsonify({
-            'version': app.config.get('VERSION_INFO', {}),
-            'redis_connected': g.redis_client is not None,
-            'celery_status': 'Celery integration is active',
-            'config': {
-                'SECRET_KEY': '********' if app.secret_key else None,
-                'DEBUG': app.debug
-            },
-            'request_headers': {k: v for k, v in request.headers}
-        })
-
-    @app.route('/debug/error')
-    def trigger_error():
-        """エラーテスト用"""
-        raise Exception("This is a test exception for debugging.")
-
-    @app.route('/debug/slow')
-    def slow_response():
-        """低速レスポンステスト用"""
-        time.sleep(5)
-        return "This page was intentionally slow."
-
     @app.errorhandler(404)
     def page_not_found(e):
         """404エラーハンドラ"""

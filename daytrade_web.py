@@ -6,8 +6,6 @@ Issue #939対応: Gunicorn対応のためのApplication Factoryパターン導�
 """
 
 import os
-os.environ["LOG_LEVEL"] = "DEBUG"
-
 import sys
 import logging
 import argparse
