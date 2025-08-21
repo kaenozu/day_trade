@@ -290,6 +290,9 @@ class Database:
             db_path = Path("data/databases/boatrace.db")
             db_path.parent.mkdir(parents=True, exist_ok=True)
             database_url = f"sqlite:///{db_path.absolute()}"
+        elif database_url == ":memory:":
+            # インメモリデータベース用の正しい形式
+            database_url = "sqlite:///:memory:"
         
         self.database_url = database_url
         self.engine = create_engine(
