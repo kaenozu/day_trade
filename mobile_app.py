@@ -45,15 +45,15 @@ class MobileConfig:
 
 class MobileAppGenerator:
     """モバイルアプリ生成器"""
-    
+
     def __init__(self, config: MobileConfig = None):
         self.config = config or MobileConfig()
         self.static_dir = "static"
         self.templates_dir = "templates"
-        
+
         os.makedirs(self.static_dir, exist_ok=True)
         os.makedirs(self.templates_dir, exist_ok=True)
-    
+
     def generate_pwa_manifest(self) -> str:
         """PWAマニフェスト生成"""
         manifest = {
@@ -110,13 +110,13 @@ class MobileAppGenerator:
                 }
             ]
         }
-        
+
         manifest_path = os.path.join(self.static_dir, "manifest.json")
         with open(manifest_path, 'w', encoding='utf-8') as f:
             json.dump(manifest, f, ensure_ascii=False, indent=2)
-        
+
         return manifest_path
-    
+
     def generate_service_worker(self) -> str:
         """Service Worker生成"""
         service_worker_js = f"""
@@ -168,7 +168,7 @@ self.addEventListener('fetch', event => {{
             .then(response => {{
                 // レスポンスのクローンを作成
                 const responseClone = response.clone();
-                
+
                 // 成功レスポンスのみキャッシュ
                 if (response.status === 200) {{
                     caches.open(CACHE_NAME)
@@ -176,7 +176,7 @@ self.addEventListener('fetch', event => {{
                             cache.put(event.request, responseClone);
                         }});
                 }}
-                
+
                 return response;
             }})
             .catch(() => {{
@@ -186,12 +186,12 @@ self.addEventListener('fetch', event => {{
                         if (response) {{
                             return response;
                         }}
-                        
+
                         // オフラインページを返す
                         if (event.request.destination === 'document') {{
                             return caches.match('/offline.html');
                         }}
-                        
+
                         return new Response('オフラインです', {{
                             status: 503,
                             statusText: 'Service Unavailable'
@@ -204,7 +204,7 @@ self.addEventListener('fetch', event => {{
 // プッシュ通知
 self.addEventListener('push', event => {{
     console.log('[SW] Push received');
-    
+
     const options = {{
         body: event.data ? event.data.text() : '新しい市場情報があります',
         icon: '/static/icons/icon-192x192.png',
@@ -227,7 +227,7 @@ self.addEventListener('push', event => {{
             }}
         ]
     }};
-    
+
     event.waitUntil(
         self.registration.showNotification('{self.config.app_name}', options)
     );
@@ -237,7 +237,7 @@ self.addEventListener('push', event => {{
 self.addEventListener('notificationclick', event => {{
     console.log('[SW] Notification clicked');
     event.notification.close();
-    
+
     if (event.action === 'explore') {{
         event.waitUntil(
             clients.openWindow('/dashboard')
@@ -264,13 +264,13 @@ function doBackgroundSync() {{
         }});
 }}
 """
-        
+
         sw_path = os.path.join(self.static_dir, "sw.js")
         with open(sw_path, 'w', encoding='utf-8') as f:
             f.write(service_worker_js)
-        
+
         return sw_path
-    
+
     def generate_mobile_css(self) -> str:
         """モバイル用CSS生成"""
         mobile_css = """
@@ -586,16 +586,16 @@ body {
     .mobile-main {
         padding: 12px;
     }
-    
+
     .mobile-grid {
         grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
         gap: 8px;
     }
-    
+
     .mobile-card {
         padding: 12px;
     }
-    
+
     .stock-item {
         padding: 12px;
     }
@@ -606,12 +606,12 @@ body {
     .mobile-header {
         height: 48px;
     }
-    
+
     .mobile-main {
         margin-top: 48px;
         padding: 12px;
     }
-    
+
     .mobile-bottom-nav {
         height: 48px;
     }
@@ -623,34 +623,34 @@ body {
         background: #121212;
         color: #ffffff;
     }
-    
+
     .mobile-card {
         background: #1e1e1e;
         border-color: #333;
         color: #ffffff;
     }
-    
+
     .mobile-input {
         background: #1e1e1e;
         color: #ffffff;
         border-color: #333;
     }
-    
+
     .stock-item {
         background: #1e1e1e;
         border-color: #333;
     }
-    
+
     .mobile-bottom-nav {
         background: #1e1e1e;
         border-top-color: #333;
     }
-    
+
     .mobile-tabs {
         background: #1e1e1e;
         border-color: #333;
     }
-    
+
     .mobile-tab {
         background: #2e2e2e;
         color: #ffffff;
@@ -713,14 +713,14 @@ body {
     animation: tap-feedback 0.2s ease;
 }
 """
-        
+
         css_path = os.path.join(self.static_dir, "css", "mobile.css")
         os.makedirs(os.path.dirname(css_path), exist_ok=True)
         with open(css_path, 'w', encoding='utf-8') as f:
             f.write(mobile_css)
-        
+
         return css_path
-    
+
     def generate_mobile_js(self) -> str:
         """モバイル用JavaScript生成"""
         mobile_js = f"""
@@ -732,7 +732,7 @@ class MobileApp {{
         this.currentPage = 'dashboard';
         this.init();
     }}
-    
+
     init() {{
         this.registerServiceWorker();
         this.setupEventListeners();
@@ -741,25 +741,25 @@ class MobileApp {{
         this.setupTouchFeedback();
         this.loadInitialData();
     }}
-    
+
     // Service Worker登録
     async registerServiceWorker() {{
         if ('serviceWorker' in navigator) {{
             try {{
                 const registration = await navigator.serviceWorker.register('/static/sw.js');
                 console.log('SW registered:', registration);
-                
+
                 // アップデート検出
                 registration.addEventListener('updatefound', () => {{
                     this.showUpdateNotification();
                 }});
-                
+
             }} catch (error) {{
                 console.error('SW registration failed:', error);
             }}
         }}
     }}
-    
+
     // イベントリスナー設定
     setupEventListeners() {{
         // ハンバーガーメニュー
@@ -767,104 +767,104 @@ class MobileApp {{
         if (hamburger) {{
             hamburger.addEventListener('click', this.toggleMenu.bind(this));
         }}
-        
+
         // ボトムナビゲーション
         document.querySelectorAll('.nav-item').forEach(item => {{
             item.addEventListener('click', this.handleNavigation.bind(this));
         }});
-        
+
         // プッシュ通知許可
         const notificationBtn = document.querySelector('.enable-notifications');
         if (notificationBtn) {{
             notificationBtn.addEventListener('click', this.requestNotificationPermission.bind(this));
         }}
-        
+
         // オンライン/オフライン検出
         window.addEventListener('online', this.handleOnline.bind(this));
         window.addEventListener('offline', this.handleOffline.bind(this));
-        
+
         // ビューポート変更対応
         window.addEventListener('resize', this.handleViewportChange.bind(this));
         window.addEventListener('orientationchange', this.handleOrientationChange.bind(this));
     }}
-    
+
     // オフライン処理設定
     setupOfflineHandling() {{
         this.updateOnlineStatus();
-        
+
         // オフラインデータキャッシュ
         this.setupOfflineCache();
     }}
-    
+
     updateOnlineStatus() {{
         const banner = document.querySelector('.offline-banner');
         if (banner) {{
             banner.classList.toggle('show', !this.isOnline);
         }}
-        
+
         // オフライン時のUI調整
         document.body.classList.toggle('offline-mode', !this.isOnline);
     }}
-    
+
     // プルトゥリフレッシュ設定
     setupPullToRefresh() {{
         let startY = 0;
         let currentY = 0;
         let isPulling = false;
-        
+
         const wrapper = document.querySelector('.ptr-wrapper');
         const element = document.querySelector('.ptr-element');
-        
+
         if (!wrapper || !element) return;
-        
+
         wrapper.addEventListener('touchstart', (e) => {{
             if (window.scrollY === 0) {{
                 startY = e.touches[0].pageY;
                 isPulling = true;
             }}
         }});
-        
+
         wrapper.addEventListener('touchmove', (e) => {{
             if (!isPulling) return;
-            
+
             currentY = e.touches[0].pageY;
             const pullDistance = currentY - startY;
-            
+
             if (pullDistance > 0) {{
                 e.preventDefault();
-                
+
                 if (pullDistance > 100) {{
                     element.classList.add('pulling');
                 }} else {{
                     element.classList.remove('pulling');
                 }}
-                
+
                 element.style.transform = `translateX(-50%) translateY(${{Math.min(pullDistance - 50, 50)}}px)`;
             }}
         }});
-        
+
         wrapper.addEventListener('touchend', () => {{
             if (!isPulling) return;
-            
+
             const pullDistance = currentY - startY;
-            
+
             if (pullDistance > 100) {{
                 this.refreshData();
             }}
-            
+
             element.style.transform = 'translateX(-50%) translateY(-50px)';
             element.classList.remove('pulling');
             isPulling = false;
         }});
     }}
-    
+
     // タッチフィードバック設定
     setupTouchFeedback() {{
         document.querySelectorAll('.mobile-btn, .stock-item, .nav-item').forEach(element => {{
             element.addEventListener('touchstart', () => {{
                 element.classList.add('tap-feedback');
             }});
-            
+
             element.addEventListener('touchend', () => {{
                 setTimeout(() => {{
                     element.classList.remove('tap-feedback');
@@ -872,7 +872,7 @@ class MobileApp {{
             }});
         }});
     }}
-    
+
     // メニュー切り替え
     toggleMenu() {{
         const menu = document.querySelector('.mobile-menu');
@@ -880,34 +880,34 @@ class MobileApp {{
             menu.classList.toggle('open');
         }}
     }}
-    
+
     // ナビゲーション処理
     handleNavigation(event) {{
         event.preventDefault();
         const target = event.currentTarget.getAttribute('data-page');
-        
+
         if (target && target !== this.currentPage) {{
             this.navigateTo(target);
         }}
     }}
-    
+
     navigateTo(page) {{
         // アクティブタブ更新
         document.querySelectorAll('.nav-item').forEach(item => {{
             item.classList.remove('active');
         }});
-        
+
         document.querySelector(`[data-page="${{page}}"]`).classList.add('active');
-        
+
         // ページコンテンツ切り替え
         this.loadPage(page);
         this.currentPage = page;
     }}
-    
+
     async loadPage(page) {{
         const main = document.querySelector('.mobile-main');
         if (!main) return;
-        
+
         // ローディング表示
         main.innerHTML = `
             <div class="mobile-loading">
@@ -915,18 +915,18 @@ class MobileApp {{
                 <p>読み込み中...</p>
             </div>
         `;
-        
+
         try {{
             const response = await fetch(`/api/mobile/${{page}}`);
             const html = await response.text();
             main.innerHTML = html;
-            
+
             // ページ固有の初期化
             this.initializePage(page);
-            
+
         }} catch (error) {{
             console.error('Page load failed:', error);
-            
+
             if (!this.isOnline) {{
                 // オフラインキャッシュからロード
                 const cachedData = this.getOfflineData(page);
@@ -942,7 +942,7 @@ class MobileApp {{
             }}
         }}
     }}
-    
+
     initializePage(page) {{
         switch (page) {{
             case 'dashboard':
@@ -959,36 +959,36 @@ class MobileApp {{
                 break;
         }}
     }}
-    
+
     initDashboard() {{
         // ダッシュボード初期化
         this.loadStockSummary();
         this.loadAIRecommendations();
         this.startRealTimeUpdates();
     }}
-    
+
     initStocks() {{
         // 銘柄リスト初期化
         this.loadWatchlist();
         this.setupStockSearch();
     }}
-    
+
     initAIAnalysis() {{
         // AI分析初期化
         this.loadAISignals();
         this.setupAnalysisFilters();
     }}
-    
+
     initSettings() {{
         // 設定画面初期化
         this.loadUserSettings();
         this.setupSettingsForm();
     }}
-    
+
     // データ更新
     async refreshData() {{
         console.log('Refreshing data...');
-        
+
         try {{
             await this.loadPage(this.currentPage);
             this.showToast('データを更新しました');
@@ -996,7 +996,7 @@ class MobileApp {{
             this.showToast('更新に失敗しました', 'error');
         }}
     }}
-    
+
     // 初期データ読み込み
     async loadInitialData() {{
         if (this.isOnline) {{
@@ -1005,12 +1005,12 @@ class MobileApp {{
             this.renderOfflinePage('dashboard');
         }}
     }}
-    
+
     // プッシュ通知許可要求
     async requestNotificationPermission() {{
         if ('Notification' in window) {{
             const permission = await Notification.requestPermission();
-            
+
             if (permission === 'granted') {{
                 this.showToast('通知を有効にしました');
                 this.subscribeToNotifications();
@@ -1019,7 +1019,7 @@ class MobileApp {{
             }}
         }}
     }}
-    
+
     async subscribeToNotifications() {{
         try {{
             const registration = await navigator.serviceWorker.ready;
@@ -1027,7 +1027,7 @@ class MobileApp {{
                 userVisibleOnly: true,
                 applicationServerKey: this.urlBase64ToUint8Array('{self.config.app_name}')
             }});
-            
+
             // サブスクリプションをサーバーに送信
             await fetch('/api/push/subscribe', {{
                 method: 'POST',
@@ -1036,40 +1036,40 @@ class MobileApp {{
                     'Content-Type': 'application/json'
                 }}
             }});
-            
+
         }} catch (error) {{
             console.error('Push subscription failed:', error);
         }}
     }}
-    
+
     urlBase64ToUint8Array(base64String) {{
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
         const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
         const rawData = window.atob(base64);
         const outputArray = new Uint8Array(rawData.length);
-        
+
         for (let i = 0; i < rawData.length; ++i) {{
             outputArray[i] = rawData.charCodeAt(i);
         }}
         return outputArray;
     }}
-    
+
     // オフライン処理
     handleOffline() {{
         this.isOnline = false;
         this.updateOnlineStatus();
         this.showToast('オフラインになりました', 'warning');
     }}
-    
+
     handleOnline() {{
         this.isOnline = true;
         this.updateOnlineStatus();
         this.showToast('オンラインに復帰しました', 'success');
-        
+
         // 同期処理
         this.syncOfflineData();
     }}
-    
+
     // オフラインキャッシュ管理
     setupOfflineCache() {{
         this.offlineCache = {{
@@ -1078,31 +1078,31 @@ class MobileApp {{
             aiAnalysis: null,
             lastUpdate: null
         }};
-        
+
         this.loadOfflineCache();
     }}
-    
+
     saveOfflineData(page, data) {{
         this.offlineCache[page] = data;
         this.offlineCache.lastUpdate = new Date().toISOString();
         localStorage.setItem('dayTradeOfflineCache', JSON.stringify(this.offlineCache));
     }}
-    
+
     getOfflineData(page) {{
         return this.offlineCache[page];
     }}
-    
+
     loadOfflineCache() {{
         const cached = localStorage.getItem('dayTradeOfflineCache');
         if (cached) {{
             this.offlineCache = JSON.parse(cached);
         }}
     }}
-    
+
     renderOfflinePage(page, data = null) {{
         const main = document.querySelector('.mobile-main');
         if (!main) return;
-        
+
         if (data) {{
             // キャッシュデータを使用
             main.innerHTML = this.generateOfflinePageHTML(page, data);
@@ -1118,13 +1118,13 @@ class MobileApp {{
             `;
         }}
     }}
-    
+
     // ユーティリティ
     showToast(message, type = 'info') {{
         const toast = document.createElement('div');
         toast.className = `toast toast-${{type}}`;
         toast.textContent = message;
-        
+
         const style = {{
             position: 'fixed',
             bottom: '80px',
@@ -1138,29 +1138,29 @@ class MobileApp {{
             textAlign: 'center',
             fontSize: '14px'
         }};
-        
+
         Object.assign(toast.style, style);
         document.body.appendChild(toast);
-        
+
         setTimeout(() => {{
             toast.style.opacity = '0';
             setTimeout(() => document.body.removeChild(toast), 300);
         }}, 3000);
     }}
-    
+
     handleViewportChange() {{
         // ビューポート変更対応（キーボード表示など）
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty('--vh', `${{vh}}px`);
     }}
-    
+
     handleOrientationChange() {{
         // 画面回転対応
         setTimeout(() => {{
             this.handleViewportChange();
         }}, 100);
     }}
-    
+
     showUpdateNotification() {{
         this.showToast('アプリの更新があります。再読み込みしてください。', 'info');
     }}
@@ -1177,7 +1177,7 @@ let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {{
     e.preventDefault();
     deferredPrompt = e;
-    
+
     // インストールボタン表示
     const installBtn = document.querySelector('.install-app');
     if (installBtn) {{
@@ -1189,7 +1189,7 @@ window.addEventListener('beforeinstallprompt', (e) => {{
 function showInstallPrompt() {{
     if (deferredPrompt) {{
         deferredPrompt.prompt();
-        
+
         deferredPrompt.userChoice.then((choiceResult) => {{
             if (choiceResult.outcome === 'accepted') {{
                 console.log('PWA installed');
@@ -1199,14 +1199,14 @@ function showInstallPrompt() {{
     }}
 }}
 """
-        
+
         js_path = os.path.join(self.static_dir, "js", "mobile.js")
         os.makedirs(os.path.dirname(js_path), exist_ok=True)
         with open(js_path, 'w', encoding='utf-8') as f:
             f.write(mobile_js)
-        
+
         return js_path
-    
+
     def generate_mobile_html(self) -> str:
         """モバイル用HTML生成"""
         mobile_html = f"""
@@ -1219,21 +1219,21 @@ function showInstallPrompt() {{
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="{self.config.app_short_name}">
-    
+
     <title>{self.config.app_name}</title>
-    
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="/static/manifest.json">
-    
+
     <!-- Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/icon-16x16.png">
     <link rel="apple-touch-icon" href="/static/icons/icon-152x152.png">
-    
+
     <!-- Styles -->
     <link rel="stylesheet" href="/static/css/mobile.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
+
     <!-- iOS Safari specific -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -1245,7 +1245,7 @@ function showInstallPrompt() {{
     <div class="offline-banner">
         <i class="fas fa-wifi"></i> オフラインです
     </div>
-    
+
     <!-- ヘッダー -->
     <header class="mobile-header">
         <div class="hamburger-menu">
@@ -1256,13 +1256,13 @@ function showInstallPrompt() {{
         <h1>{self.config.app_short_name}</h1>
         <div></div>
     </header>
-    
+
     <!-- プルトゥリフレッシュ -->
     <div class="ptr-wrapper">
         <div class="ptr-element">
             <i class="fas fa-sync-alt"></i>
         </div>
-        
+
         <!-- メインコンテンツ -->
         <main class="mobile-main">
             <!-- 初期ローディング -->
@@ -1272,7 +1272,7 @@ function showInstallPrompt() {{
             </div>
         </main>
     </div>
-    
+
     <!-- ボトムナビゲーション -->
     <nav class="mobile-bottom-nav">
         <a href="#dashboard" class="nav-item active" data-page="dashboard">
@@ -1292,10 +1292,10 @@ function showInstallPrompt() {{
             <span>設定</span>
         </a>
     </nav>
-    
+
     <!-- Scripts -->
     <script src="/static/js/mobile.js"></script>
-    
+
     <script>
         // PWA関連の初期化
         if ('serviceWorker' in navigator) {{
@@ -1303,13 +1303,13 @@ function showInstallPrompt() {{
                 navigator.serviceWorker.register('/static/sw.js');
             }});
         }}
-        
+
         // ビューポート高さ対応（モバイルブラウザ対応）
         const setViewportHeight = () => {{
             const vh = window.innerHeight * 0.01;
             document.documentElement.style.setProperty('--vh', `${{vh}}px`);
         }};
-        
+
         setViewportHeight();
         window.addEventListener('resize', setViewportHeight);
         window.addEventListener('orientationchange', () => {{
@@ -1319,13 +1319,13 @@ function showInstallPrompt() {{
 </body>
 </html>
 """
-        
+
         html_path = os.path.join(self.templates_dir, "mobile.html")
         with open(html_path, 'w', encoding='utf-8') as f:
             f.write(mobile_html)
-        
+
         return html_path
-    
+
     def generate_offline_page(self) -> str:
         """オフラインページ生成"""
         offline_html = f"""
@@ -1345,12 +1345,12 @@ function showInstallPrompt() {{
             <h2>オフライン</h2>
             <p>インターネット接続が利用できません。</p>
             <p>接続が復旧したら自動的に同期されます。</p>
-            
+
             <button class="mobile-btn" onclick="location.reload()">
                 <i class="fas fa-sync-alt"></i>
                 再試行
             </button>
-            
+
             <div style="margin-top: 20px;">
                 <small>キャッシュされたデータは引き続き利用できます。</small>
             </div>
@@ -1359,79 +1359,79 @@ function showInstallPrompt() {{
 </body>
 </html>
 """
-        
+
         offline_path = os.path.join(self.templates_dir, "offline.html")
         with open(offline_path, 'w', encoding='utf-8') as f:
             f.write(offline_html)
-        
+
         return offline_path
-    
+
     def generate_app_icons(self):
         """アプリアイコン生成（プレースホルダー）"""
         icons_dir = os.path.join(self.static_dir, "icons")
         os.makedirs(icons_dir, exist_ok=True)
-        
+
         # SVGアイコンを生成（実際のプロジェクトでは画像ファイルを使用）
         icon_sizes = [16, 32, 72, 96, 128, 144, 152, 192, 384, 512]
-        
+
         for size in icon_sizes:
             svg_icon = f"""
 <svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">
   <rect width="{size}" height="{size}" fill="{self.config.theme_color}" rx="{size // 8}"/>
-  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" 
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
         fill="white" font-size="{size // 3}" font-weight="bold" font-family="Arial">DT</text>
 </svg>
 """
             icon_path = os.path.join(icons_dir, f"icon-{size}x{size}.png")
-            
+
             # 実際の実装では、SVGをPNGに変換するライブラリを使用
             # ここではプレースホルダーとしてSVGを保存
             with open(icon_path.replace('.png', '.svg'), 'w', encoding='utf-8') as f:
                 f.write(svg_icon)
-        
+
         return icons_dir
-    
+
     def build_mobile_app(self) -> Dict[str, str]:
         """モバイルアプリビルド"""
         results = {}
-        
+
         logging.info("Building mobile PWA application...")
-        
+
         try:
             # 1. PWAマニフェスト生成
             results['manifest'] = self.generate_pwa_manifest()
             logging.info("Generated PWA manifest")
-            
+
             # 2. Service Worker生成
             results['service_worker'] = self.generate_service_worker()
             logging.info("Generated service worker")
-            
+
             # 3. CSS生成
             results['css'] = self.generate_mobile_css()
             logging.info("Generated mobile CSS")
-            
+
             # 4. JavaScript生成
             results['js'] = self.generate_mobile_js()
             logging.info("Generated mobile JavaScript")
-            
+
             # 5. HTML生成
             results['html'] = self.generate_mobile_html()
             logging.info("Generated mobile HTML")
-            
+
             # 6. オフラインページ生成
             results['offline'] = self.generate_offline_page()
             logging.info("Generated offline page")
-            
+
             # 7. アプリアイコン生成
             results['icons'] = self.generate_app_icons()
             logging.info("Generated app icons")
-            
+
             logging.info("Mobile PWA application build completed!")
-            
+
         except Exception as e:
             logging.error(f"Mobile app build failed: {e}")
             raise
-        
+
         return results
 
 
@@ -1444,7 +1444,7 @@ def build_mobile_app(config: MobileConfig = None) -> Dict[str, str]:
     if config:
         global mobile_app_generator
         mobile_app_generator = MobileAppGenerator(config)
-    
+
     return mobile_app_generator.build_mobile_app()
 
 
@@ -1455,7 +1455,7 @@ def get_mobile_config() -> MobileConfig:
 
 if __name__ == "__main__":
     print("=== Mobile Application Build Test ===")
-    
+
     # カスタム設定
     config = MobileConfig(
         app_name="Day Trade Personal Mobile",
@@ -1464,14 +1464,14 @@ if __name__ == "__main__":
         offline_enabled=True,
         push_notifications=True
     )
-    
+
     # モバイルアプリビルド
     results = build_mobile_app(config)
-    
+
     print("Mobile application build results:")
     for component, path in results.items():
         print(f"  {component}: {path}")
-    
+
     print(f"\\nMobile PWA features:")
     print(f"  - Offline support: {config.offline_enabled}")
     print(f"  - Push notifications: {config.push_notifications}")
@@ -1479,5 +1479,5 @@ if __name__ == "__main__":
     print(f"  - Touch gestures: Yes")
     print(f"  - Pull-to-refresh: Yes")
     print(f"  - Install prompt: Yes")
-    
+
     print("\\nMobile application build test completed!")

@@ -33,8 +33,18 @@ logger = get_context_logger(__name__)
 error_handler = get_default_error_handler()
 
 
+def mask_sensitive_info(value: str) -> str:
+    """機密情報をマスク化"""
+    if not value:
+        return ""
+    # 値の最初と最後だけ表示し、中間をマスク
+    if len(value) <= 3:
+        return "*" * len(value)
+    return value[0] + "*" * (len(value) - 2) + value[-1]
+
+
 def safe_decimal_conversion(
-    value: Union[str, int, float, Decimal], context: str = "値"
+    value: Union[str, int, float, Decimal], context: str = "値", default_value: Decimal = None
 ) -> Decimal:
     """
     安全なDecimal変換（浮動小数点誤差回避・強化版）
@@ -114,6 +124,10 @@ def safe_decimal_conversion(
             raise TypeError(f"サポートされていない型: {type(value).__name__}")
 
     except (InvalidOperation, ValueError, TypeError) as e:
+        # デフォルト値が指定されている場合はそれを返す
+        if default_value is not None:
+            return default_value
+
         # エラーメッセージに敏感な情報が含まれないようマスキング
         safe_value_str = mask_sensitive_info(str(value))
         raise ValueError(

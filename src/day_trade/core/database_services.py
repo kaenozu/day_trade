@@ -30,7 +30,7 @@ from ..utils.logging_config import get_context_logger
 class CacheStrategy(Enum):
     """キャッシュ戦略"""
     LRU = "lru"
-    LFU = "lfu" 
+    LFU = "lfu"
     TTL = "ttl"
     ADAPTIVE = "adaptive"
 
@@ -146,35 +146,35 @@ class ICacheService(ABC):
 class OptimizedDatabaseService(IDatabaseService):
     """最適化データベースサービス実装"""
 
-    def __init__(self, 
+    def __init__(self,
                  config_service: IConfigurationService,
                  cache_service: Optional['ICacheService'] = None):
         self.config_service = config_service
         self.cache_service = cache_service
         self.logger = get_context_logger(__name__, "OptimizedDatabaseService")
-        
+
         # パフォーマンス指標
         self._metrics = DatabasePerformanceMetrics()
         self._query_times = []
         self._slow_query_threshold = 1.0  # 1秒
-        
+
         # データベース設定
         self._db_config = self._create_optimized_config()
         self._db_manager = DatabaseManager(self._db_config)
-        
+
         # 接続プール監視
         self._setup_pool_monitoring()
-        
+
         self.logger.info("OptimizedDatabaseService initialized")
 
     def _create_optimized_config(self) -> DatabaseConfig:
         """最適化されたデータベース設定を作成"""
         config = self.config_service.get_config()
         db_settings = config.get('database', {})
-        
+
         # 最適化されたプール設定
         pool_settings = db_settings.get('pool', {})
-        
+
         return DatabaseConfig(
             database_url=db_settings.get('url', 'sqlite:///data/trading.db'),
             pool_size=pool_settings.get('size', 20),  # 増量
@@ -194,7 +194,7 @@ class OptimizedDatabaseService(IDatabaseService):
             @event.listens_for(self._db_manager.engine, "connect")
             def on_connect(dbapi_conn, connection_record):
                 self._metrics.total_connections += 1
-                
+
                 # SQLite最適化
                 if 'sqlite' in str(self._db_manager.engine.url):
                     dbapi_conn.execute("PRAGMA journal_mode=WAL")
@@ -207,7 +207,7 @@ class OptimizedDatabaseService(IDatabaseService):
             def on_checkout(dbapi_conn, connection_record, connection_proxy):
                 self._metrics.active_connections += 1
 
-            @event.listens_for(self._db_manager.engine, "checkin") 
+            @event.listens_for(self._db_manager.engine, "checkin")
             def on_checkin(dbapi_conn, connection_record):
                 if self._metrics.active_connections > 0:
                     self._metrics.active_connections -= 1
@@ -217,7 +217,7 @@ class OptimizedDatabaseService(IDatabaseService):
         """最適化されたセッション取得"""
         session = self._db_manager.session_factory()
         session_start = time.time()
-        
+
         try:
             yield session
             session.commit()
@@ -232,7 +232,7 @@ class OptimizedDatabaseService(IDatabaseService):
     async def execute_query(self, query: str, params: Optional[Dict] = None) -> Any:
         """最適化クエリ実行"""
         start_time = time.time()
-        
+
         # キャッシュチェック
         cache_key = None
         if self.cache_service and 'SELECT' in query.upper():
@@ -241,29 +241,29 @@ class OptimizedDatabaseService(IDatabaseService):
             if cached_result:
                 self.logger.debug(f"Cache hit for query: {query[:50]}...")
                 return cached_result
-        
+
         try:
             with self.get_session() as session:
                 if params:
                     result = session.execute(text(query), params)
                 else:
                     result = session.execute(text(query))
-                
+
                 # 結果の取得方法を最適化
                 if result.returns_rows:
                     data = result.fetchall()
                 else:
                     data = result.rowcount
-                
+
                 # キャッシュに保存
                 if cache_key and self.cache_service:
                     self.cache_service.set(cache_key, data, ttl=300)  # 5分
-                
+
                 execution_time = time.time() - start_time
                 self._log_query_performance(query, execution_time)
-                
+
                 return data
-                
+
         except Exception as e:
             execution_time = time.time() - start_time
             self.logger.error(f"Query execution failed: {query[:50]}..., Error: {e}")
@@ -274,17 +274,17 @@ class OptimizedDatabaseService(IDatabaseService):
         """パフォーマンス指標更新"""
         self._metrics.query_count += 1
         self._query_times.append(session_time)
-        
+
         # 平均クエリ時間更新
         if len(self._query_times) > 100:
             self._query_times.pop(0)
-        
+
         self._metrics.avg_query_time = sum(self._query_times) / len(self._query_times)
-        
+
         # 遅いクエリカウント
         if session_time > self._slow_query_threshold:
             self._metrics.slow_query_count += 1
-        
+
         # 接続プール使用率
         pool = getattr(self._db_manager.engine.pool, '_creator', None)
         if hasattr(self._db_manager.engine.pool, 'size'):
@@ -307,17 +307,17 @@ class OptimizedDatabaseService(IDatabaseService):
     def get_performance_metrics(self) -> DatabasePerformanceMetrics:
         """パフォーマンス指標取得"""
         self._metrics.timestamp = datetime.now()
-        
+
         # キャッシュヒット率
         if self.cache_service:
             cache_stats = self.cache_service.get_stats()
             self._metrics.cache_hit_rate = cache_stats.get('hit_rate', 0.0)
-        
+
         return self._metrics
 
 
 @singleton(IQueryOptimizerService)
-@injectable 
+@injectable
 class QueryOptimizerService(IQueryOptimizerService):
     """クエリ最適化サービス実装"""
 
@@ -325,7 +325,7 @@ class QueryOptimizerService(IQueryOptimizerService):
         self.db_service = db_service
         self.logger = get_context_logger(__name__, "QueryOptimizerService")
         self._optimization_rules = self._load_optimization_rules()
-        
+
     def _load_optimization_rules(self) -> Dict[str, Any]:
         """最適化ルール読み込み"""
         return {
@@ -351,30 +351,30 @@ class QueryOptimizerService(IQueryOptimizerService):
         original_query = query.strip()
         optimized_query = original_query
         techniques = []
-        
+
         try:
             # 1. SELECT * の最適化
             if 'SELECT *' in original_query.upper():
                 optimized_query = self._optimize_select_star(optimized_query)
                 techniques.append('select_star_removal')
-            
+
             # 2. JOIN最適化
             if 'JOIN' in original_query.upper():
                 optimized_query = self._optimize_joins(optimized_query)
                 techniques.append('join_optimization')
-            
+
             # 3. WHERE句最適化
             if 'WHERE' in original_query.upper():
                 optimized_query = self._optimize_where_clause(optimized_query)
                 techniques.append('where_optimization')
-            
+
             # 4. ORDER BY最適化
             if 'ORDER BY' in original_query.upper():
                 optimized_query = self._optimize_order_by(optimized_query)
                 techniques.append('order_by_optimization')
-            
+
             optimization_time = time.time() - start_time
-            
+
             return QueryOptimizationResult(
                 original_query=original_query,
                 optimized_query=optimized_query,
@@ -383,7 +383,7 @@ class QueryOptimizerService(IQueryOptimizerService):
                 execution_time_before=0.0,  # 実測が必要
                 execution_time_after=optimization_time
             )
-            
+
         except Exception as e:
             self.logger.error(f"Query optimization failed: {e}")
             return QueryOptimizationResult(
@@ -477,13 +477,13 @@ class QueryOptimizerService(IQueryOptimizerService):
         """インデックス推奨取得"""
         # テーブル解析に基づくインデックス推奨
         recommendations = []
-        
+
         try:
             with self.db_service.get_session() as session:
                 # テーブル構造とクエリパターンを分析してインデックスを推奨
                 inspector = inspect(session.bind)
                 columns = inspector.get_columns(table_name)
-                
+
                 # よく使用される条件に基づくインデックス推奨
                 for column in columns:
                     if column['name'] in ['created_at', 'updated_at', 'status']:
@@ -495,10 +495,10 @@ class QueryOptimizerService(IQueryOptimizerService):
                             creation_cost=2.0,
                             maintenance_overhead=5.0
                         ))
-                        
+
         except Exception as e:
             self.logger.error(f"Failed to get index recommendations for {table_name}: {e}")
-            
+
         return recommendations
 
 
@@ -508,7 +508,7 @@ class InMemoryCacheService(ICacheService):
     """インメモリキャッシュサービス実装"""
 
     def __init__(self):
-        self.logger = get_context_logger(__name__, "InMemoryCacheService") 
+        self.logger = get_context_logger(__name__, "InMemoryCacheService")
         self._cache = {}
         self._ttl_cache = {}
         self._stats = {
@@ -530,7 +530,7 @@ class InMemoryCacheService(ICacheService):
                     del self._ttl_cache[key]
                     self._stats['misses'] += 1
                     return None
-            
+
             if key in self._cache:
                 self._stats['hits'] += 1
                 return self._cache[key]
@@ -544,14 +544,14 @@ class InMemoryCacheService(ICacheService):
             # サイズ制限チェック
             if len(self._cache) >= self._max_size and key not in self._cache:
                 self._evict_lru()
-            
+
             self._cache[key] = value
-            
+
             if ttl:
                 self._ttl_cache[key] = datetime.now() + timedelta(seconds=ttl)
             elif key in self._ttl_cache:
                 del self._ttl_cache[key]
-            
+
             self._stats['sets'] += 1
 
     def _evict_lru(self):
@@ -559,7 +559,7 @@ class InMemoryCacheService(ICacheService):
         # 簡易版: 古いエントリを削除
         if self._cache:
             oldest_key = next(iter(self._cache))
-            del self._cache[oldest_key] 
+            del self._cache[oldest_key]
             if oldest_key in self._ttl_cache:
                 del self._ttl_cache[oldest_key]
 
@@ -575,7 +575,7 @@ class InMemoryCacheService(ICacheService):
         with self._lock:
             total_requests = self._stats['hits'] + self._stats['misses']
             hit_rate = self._stats['hits'] / total_requests if total_requests > 0 else 0.0
-            
+
             return {
                 **self._stats,
                 'hit_rate': hit_rate,
@@ -587,15 +587,15 @@ class InMemoryCacheService(ICacheService):
 def register_database_services():
     """データベースサービスを登録"""
     container = get_container()
-    
+
     # キャッシュサービス
     if not container.is_registered(ICacheService):
         container.register_singleton(ICacheService, InMemoryCacheService)
-    
-    # データベースサービス  
+
+    # データベースサービス
     if not container.is_registered(IDatabaseService):
         container.register_singleton(IDatabaseService, OptimizedDatabaseService)
-    
+
     # クエリ最適化サービス
     if not container.is_registered(IQueryOptimizerService):
         container.register_singleton(IQueryOptimizerService, QueryOptimizerService)

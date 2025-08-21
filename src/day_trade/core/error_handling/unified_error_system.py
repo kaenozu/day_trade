@@ -75,7 +75,7 @@ class ErrorDetails:
 
 class ApplicationError(Exception):
     """アプリケーション基底例外"""
-    
+
     def __init__(
         self,
         message: str,
@@ -94,10 +94,10 @@ class ApplicationError(Exception):
         self.inner_exception = inner_exception
         self.recovery_suggestions = recovery_suggestions or []
         self.metadata = metadata
-        
+
         # スタックトレース保存
         self.stacktrace = traceback.format_exc()
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """辞書形式変換"""
         return {
@@ -117,7 +117,7 @@ class ApplicationError(Exception):
 
 class ValidationError(ApplicationError):
     """バリデーションエラー"""
-    
+
     def __init__(self, message: str, field: str = None, **kwargs):
         super().__init__(
             message,
@@ -130,7 +130,7 @@ class ValidationError(ApplicationError):
 
 class BusinessLogicError(ApplicationError):
     """ビジネスロジックエラー"""
-    
+
     def __init__(self, message: str, rule_name: str = None, **kwargs):
         super().__init__(
             message,
@@ -143,14 +143,14 @@ class BusinessLogicError(ApplicationError):
 
 class BusinessRuleViolationError(BusinessLogicError):
     """ビジネスルール違反エラー"""
-    
+
     def __init__(self, message: str, rule_name: str = None, **kwargs):
         super().__init__(message, rule_name, **kwargs)
 
 
 class InsufficientDataError(ApplicationError):
     """データ不足エラー"""
-    
+
     def __init__(self, message: str, data_type: str = None, **kwargs):
         super().__init__(
             message,
@@ -163,7 +163,7 @@ class InsufficientDataError(ApplicationError):
 
 class DataAccessError(ApplicationError):
     """データアクセスエラー"""
-    
+
     def __init__(self, message: str, operation: str = None, **kwargs):
         super().__init__(
             message,
@@ -176,7 +176,7 @@ class DataAccessError(ApplicationError):
 
 class ExternalServiceError(ApplicationError):
     """外部サービスエラー"""
-    
+
     def __init__(self, message: str, service_name: str = None, **kwargs):
         super().__init__(
             message,
@@ -189,7 +189,7 @@ class ExternalServiceError(ApplicationError):
 
 class SystemError(ApplicationError):
     """システムエラー"""
-    
+
     def __init__(self, message: str, **kwargs):
         super().__init__(
             message,
@@ -201,17 +201,17 @@ class SystemError(ApplicationError):
 
 class ErrorRecoveryStrategy(ABC):
     """エラー回復戦略"""
-    
+
     @abstractmethod
     def can_handle(self, error: ApplicationError) -> bool:
         """処理可能判定"""
         pass
-    
+
     @abstractmethod
     async def recover(self, error: ApplicationError, operation: Callable) -> Any:
         """回復処理"""
         pass
-    
+
     @property
     @abstractmethod
     def strategy_name(self) -> str:
@@ -221,18 +221,18 @@ class ErrorRecoveryStrategy(ABC):
 
 class RetryStrategy(ErrorRecoveryStrategy):
     """リトライ戦略"""
-    
+
     def __init__(self, max_attempts: int = 3, delay_seconds: float = 1.0):
         self.max_attempts = max_attempts
         self.delay_seconds = delay_seconds
-    
+
     def can_handle(self, error: ApplicationError) -> bool:
         """一時的なエラーのみリトライ"""
         return error.category in [
             ErrorCategory.EXTERNAL_SERVICE,
             ErrorCategory.DATA_ACCESS
         ] and error.severity != ErrorSeverity.CRITICAL
-    
+
     async def recover(self, error: ApplicationError, operation: Callable) -> Any:
         """リトライ実行"""
         for attempt in range(self.max_attempts):
@@ -245,7 +245,7 @@ class RetryStrategy(ErrorRecoveryStrategy):
                 if attempt == self.max_attempts - 1:
                     raise e
                 await asyncio.sleep(self.delay_seconds * (2 ** attempt))
-    
+
     @property
     def strategy_name(self) -> str:
         return "retry"
@@ -253,19 +253,19 @@ class RetryStrategy(ErrorRecoveryStrategy):
 
 class FallbackStrategy(ErrorRecoveryStrategy):
     """フォールバック戦略"""
-    
+
     def __init__(self, fallback_value: Any = None):
         self.fallback_value = fallback_value
-    
+
     def can_handle(self, error: ApplicationError) -> bool:
         """外部サービスエラーをフォールバック"""
         return error.category == ErrorCategory.EXTERNAL_SERVICE
-    
+
     async def recover(self, error: ApplicationError, operation: Callable) -> Any:
         """フォールバック値返却"""
         logger.warning(f"Using fallback for error: {error.message}")
         return self.fallback_value
-    
+
     @property
     def strategy_name(self) -> str:
         return "fallback"
@@ -273,22 +273,22 @@ class FallbackStrategy(ErrorRecoveryStrategy):
 
 class CircuitBreakerStrategy(ErrorRecoveryStrategy):
     """サーキットブレーカー戦略"""
-    
+
     def __init__(self, failure_threshold: int = 5, timeout_seconds: int = 60):
         self.failure_threshold = failure_threshold
         self.timeout_seconds = timeout_seconds
         self._failure_count = 0
         self._last_failure_time: Optional[datetime] = None
         self._is_open = False
-    
+
     def can_handle(self, error: ApplicationError) -> bool:
         """外部サービスエラーを対象"""
         return error.category == ErrorCategory.EXTERNAL_SERVICE
-    
+
     async def recover(self, error: ApplicationError, operation: Callable) -> Any:
         """サーキットブレーカー処理"""
         current_time = datetime.now()
-        
+
         # サーキット開放中
         if self._is_open:
             if (current_time - self._last_failure_time).total_seconds() > self.timeout_seconds:
@@ -301,27 +301,27 @@ class CircuitBreakerStrategy(ErrorRecoveryStrategy):
                     ErrorCategory.SYSTEM,
                     ErrorSeverity.HIGH
                 )
-        
+
         try:
             if asyncio.iscoroutinefunction(operation):
                 result = await operation()
             else:
                 result = operation()
-            
+
             # 成功時リセット
             self._failure_count = 0
             return result
-            
+
         except Exception as e:
             self._failure_count += 1
             self._last_failure_time = current_time
-            
+
             if self._failure_count >= self.failure_threshold:
                 self._is_open = True
                 logger.error(f"Circuit breaker opened after {self._failure_count} failures")
-            
+
             raise e
-    
+
     @property
     def strategy_name(self) -> str:
         return "circuit_breaker"
@@ -329,14 +329,14 @@ class CircuitBreakerStrategy(ErrorRecoveryStrategy):
 
 class ErrorReporter:
     """エラー報告"""
-    
+
     def __init__(self):
         self._handlers: List[Callable[[ApplicationError], None]] = []
-    
+
     def add_handler(self, handler: Callable[[ApplicationError], None]) -> None:
         """ハンドラー追加"""
         self._handlers.append(handler)
-    
+
     async def report(self, error: ApplicationError) -> None:
         """エラー報告"""
         for handler in self._handlers:
@@ -351,31 +351,31 @@ class ErrorReporter:
 
 class ErrorAnalytics:
     """エラー分析"""
-    
+
     def __init__(self):
         self._error_history: List[ApplicationError] = []
         self._error_patterns: Dict[str, int] = {}
-    
+
     def record_error(self, error: ApplicationError) -> None:
         """エラー記録"""
         self._error_history.append(error)
-        
+
         # パターン記録
         pattern = f"{error.category.value}:{error.message}"
         self._error_patterns[pattern] = self._error_patterns.get(pattern, 0) + 1
-    
+
     def get_error_trends(self, hours: int = 24) -> Dict[str, Any]:
         """エラー傾向分析"""
         cutoff_time = datetime.now().replace(microsecond=0) - timedelta(hours=hours)
         recent_errors = [e for e in self._error_history if e.context.timestamp > cutoff_time]
-        
+
         category_counts = {}
         severity_counts = {}
-        
+
         for error in recent_errors:
             category_counts[error.category.value] = category_counts.get(error.category.value, 0) + 1
             severity_counts[error.severity.value] = severity_counts.get(error.severity.value, 0) + 1
-        
+
         return {
             "total_errors": len(recent_errors),
             "categories": category_counts,
@@ -390,25 +390,25 @@ class ErrorAnalytics:
 
 class UnifiedErrorHandler:
     """統一エラーハンドラー"""
-    
+
     def __init__(self):
         self._strategies: List[ErrorRecoveryStrategy] = []
         self._reporter = ErrorReporter()
         self._analytics = ErrorAnalytics()
-        
+
         # デフォルト戦略追加
         self.add_strategy(RetryStrategy())
         self.add_strategy(FallbackStrategy())
         self.add_strategy(CircuitBreakerStrategy())
-    
+
     def add_strategy(self, strategy: ErrorRecoveryStrategy) -> None:
         """回復戦略追加"""
         self._strategies.append(strategy)
-    
+
     def add_error_handler(self, handler: Callable[[ApplicationError], None]) -> None:
         """エラーハンドラー追加"""
         self._reporter.add_handler(handler)
-    
+
     async def handle_error(
         self,
         error: Exception,
@@ -427,13 +427,13 @@ class UnifiedErrorHandler:
                 context=context,
                 inner_exception=error
             )
-        
+
         # 分析記録
         self._analytics.record_error(app_error)
-        
+
         # 報告
         await self._reporter.report(app_error)
-        
+
         # 回復試行
         if operation:
             for strategy in self._strategies:
@@ -442,10 +442,10 @@ class UnifiedErrorHandler:
                         return await strategy.recover(app_error, operation)
                     except Exception as recovery_error:
                         logger.warning(f"Recovery strategy {strategy.strategy_name} failed: {recovery_error}")
-        
+
         # 回復不可能
         raise app_error
-    
+
     @contextmanager
     def error_context(
         self,
@@ -459,7 +459,7 @@ class UnifiedErrorHandler:
             operation_name=operation_name,
             **context_data
         )
-        
+
         try:
             yield context
         except Exception as e:
@@ -473,7 +473,7 @@ class UnifiedErrorHandler:
             )
             self._analytics.record_error(app_error)
             raise
-    
+
     def get_analytics(self) -> Dict[str, Any]:
         """分析データ取得"""
         return self._analytics.get_error_trends()
@@ -500,7 +500,7 @@ def error_boundary(
                         component_name=component_name,
                         operation_name=operation_name or func.__name__
                     )
-                    
+
                     if suppress_errors:
                         try:
                             await global_error_handler.handle_error(e, context)
@@ -524,7 +524,7 @@ def error_boundary(
                         component_name=component_name,
                         operation_name=operation_name or func.__name__
                     )
-                    
+
                     if suppress_errors:
                         # 同期関数では非同期エラーハンドラを呼び出さず、
                         # 基本的なエラー記録のみ実行
@@ -540,5 +540,5 @@ def error_boundary(
                     else:
                         raise e
             return sync_wrapper
-    
+
     return decorator

@@ -1,0 +1,515 @@
+/**
+ * Day Trade Web Client - Enhanced CSS Styles
+ * リアルタイム取引判断システム用スタイルシート
+ */
+
+/* ベーススタイル */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #333;
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* ヘッダー */
+.header {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    margin-bottom: 30px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.header h1 {
+    color: #2c3e50;
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.header p {
+    color: #7f8c8d;
+    font-size: 1.1em;
+}
+
+/* ダッシュボード */
+.dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin-bottom: 40px;
+}
+
+/* カード */
+.card {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.15);
+}
+
+.card h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 1.4em;
+    font-weight: 600;
+}
+
+.card p {
+    color: #7f8c8d;
+    margin-bottom: 20px;
+    line-height: 1.6;
+}
+
+/* ボタン */
+.btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-transform: none;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* 推奨銘柄セクション */
+.recommendations-section h2 {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2em;
+    font-weight: 700;
+}
+
+.recommendations-summary {
+    margin-bottom: 30px;
+}
+
+.recommendations-summary .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+}
+
+.stat-number {
+    font-size: 2em;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.stat-label {
+    font-size: 0.9em;
+    color: #7f8c8d;
+    margin-top: 5px;
+}
+
+/* 推奨カード */
+.recommendation-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border-left: 4px solid #ddd;
+}
+
+.recommendation-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.recommendation-card.buy {
+    border-left-color: #28a745;
+}
+
+.recommendation-card.sell {
+    border-left-color: #dc3545;
+}
+
+.recommendation-card.hold {
+    border-left-color: #ffc107;
+}
+
+/* カードヘッダー */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.2em;
+    color: #2c3e50;
+}
+
+.recommendation-badge {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.recommendation-badge.buy {
+    background: #d4edda;
+    color: #155724;
+}
+
+.recommendation-badge.sell {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.recommendation-badge.hold {
+    background: #fff3cd;
+    color: #856404;
+}
+
+/* 価格セクション */
+.price-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.current-price {
+    font-size: 1.3em;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.price-change {
+    font-weight: 600;
+}
+
+.price-change.positive {
+    color: #28a745;
+}
+
+.price-change.negative {
+    color: #dc3545;
+}
+
+/* 信頼度セクション */
+.confidence-section {
+    margin-bottom: 15px;
+}
+
+.confidence-bar {
+    width: 100%;
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.confidence-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.confidence-fill.high {
+    background: #28a745;
+}
+
+.confidence-fill.medium {
+    background: #ffc107;
+}
+
+.confidence-fill.low {
+    background: #dc3545;
+}
+
+.confidence-text {
+    font-size: 0.9em;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.star-rating {
+    color: #ffc107;
+    font-size: 1.1em;
+}
+
+/* 詳細セクション */
+.details-section {
+    margin-bottom: 15px;
+}
+
+.details-section > div {
+    margin-bottom: 8px;
+    font-size: 0.9em;
+}
+
+.sector-info {
+    color: #6c757d;
+}
+
+.sector {
+    font-weight: 600;
+}
+
+.category {
+    color: #007bff;
+}
+
+.risk-level {
+    font-weight: 600;
+}
+
+.action-advice, .timing-advice, .amount-advice {
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 5px;
+}
+
+.target-info {
+    font-size: 0.85em;
+    color: #6c757d;
+}
+
+/* 理由セクション */
+.reason-section {
+    margin-bottom: 15px;
+}
+
+.analysis-reason {
+    background: #e3f2fd;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    color: #1565c0;
+    margin-bottom: 8px;
+}
+
+.data-source {
+    font-size: 0.8em;
+    color: #28a745;
+    font-weight: 600;
+}
+
+/* テクニカルセクション */
+.technical-section {
+    margin-bottom: 15px;
+}
+
+.technical-section details {
+    cursor: pointer;
+}
+
+.technical-section summary {
+    font-weight: 600;
+    color: #495057;
+    padding: 5px 0;
+}
+
+.technical-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.technical-item {
+    display: flex;
+    justify-content: space-between;
+    background: #f8f9fa;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+.technical-item .label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.technical-item .value {
+    color: #007bff;
+}
+
+/* カードフッター */
+.card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #dee2e6;
+    padding-top: 15px;
+}
+
+.detail-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.3s ease;
+}
+
+.detail-btn:hover {
+    background: #0056b3;
+}
+
+.suitable-investor {
+    font-size: 0.8em;
+    color: #6c757d;
+    font-style: italic;
+    text-align: right;
+    max-width: 200px;
+}
+
+/* 分析結果 */
+.analysis-summary {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.analysis-summary h4 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.analysis-timestamp {
+    font-size: 0.9em;
+    color: #6c757d;
+    margin-top: 10px;
+}
+
+/* フッター */
+.footer {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 20px;
+    text-align: center;
+    border-radius: 10px;
+    margin-top: 40px;
+    color: #7f8c8d;
+}
+
+/* レスポンシブデザイン */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+
+    .header h1 {
+        font-size: 2em;
+    }
+
+    .dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .price-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .card-footer {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+
+    .suitable-investor {
+        text-align: left;
+        max-width: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .recommendations-summary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .technical-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* アクセシビリティ向上 */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ダークモード対応 */
+@media (prefers-color-scheme: dark) {
+    body {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    }
+
+    .header, .card, .recommendation-card, .analysis-summary {
+        background: rgba(52, 73, 94, 0.95);
+        color: #ecf0f1;
+    }
+
+    .header h1, .card h3, .card-header h3 {
+        color: #ecf0f1;
+    }
+
+    .analysis-reason {
+        background: rgba(52, 152, 219, 0.2);
+        color: #3498db;
+    }
+
+    .action-advice, .timing-advice, .amount-advice, .technical-item {
+        background: rgba(255, 255, 255, 0.1);
+    }
+}

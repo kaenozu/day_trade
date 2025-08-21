@@ -32,7 +32,7 @@ class Injectable(Protocol):
 
 class DIContainer:
     """軽量な依存性注入コンテナ"""
-    
+
     def __init__(self):
         self._services: Dict[str, Any] = {}
         self._factories: Dict[str, Callable] = {}
@@ -40,7 +40,7 @@ class DIContainer:
         self._lifecycles: Dict[str, LifecycleType] = {}
         self._lock = threading.RLock()
         self.logger = get_context_logger(__name__, "DIContainer")
-    
+
     def register_singleton(self, interface: Type[T], implementation: Type[T]) -> 'DIContainer':
         """シングルトンとして登録"""
         key = self._get_key(interface)
@@ -49,7 +49,7 @@ class DIContainer:
             self._lifecycles[key] = LifecycleType.SINGLETON
         self.logger.debug(f"Registered singleton: {key}")
         return self
-    
+
     def register_transient(self, interface: Type[T], implementation: Type[T]) -> 'DIContainer':
         """トランジェントとして登録（毎回新しいインスタンス）"""
         key = self._get_key(interface)
@@ -58,7 +58,7 @@ class DIContainer:
             self._lifecycles[key] = LifecycleType.TRANSIENT
         self.logger.debug(f"Registered transient: {key}")
         return self
-    
+
     def register_factory(self, interface: Type[T], factory: Callable[[], T]) -> 'DIContainer':
         """ファクトリーとして登録"""
         key = self._get_key(interface)
@@ -67,7 +67,7 @@ class DIContainer:
             self._lifecycles[key] = LifecycleType.TRANSIENT
         self.logger.debug(f"Registered factory: {key}")
         return self
-    
+
     def register_instance(self, interface: Type[T], instance: T) -> 'DIContainer':
         """インスタンスを直接登録（シングルトン扱い）"""
         key = self._get_key(interface)
@@ -76,42 +76,42 @@ class DIContainer:
             self._lifecycles[key] = LifecycleType.SINGLETON
         self.logger.debug(f"Registered instance: {key}")
         return self
-    
+
     def resolve(self, interface: Type[T]) -> T:
         """依存性を解決してインスタンスを取得"""
         key = self._get_key(interface)
-        
+
         # シングルトンキャッシュをチェック
         with self._lock:
             if key in self._singletons:
                 return self._singletons[key]
-        
+
         # ファクトリーをチェック
         if key in self._factories:
             instance = self._factories[key]()
             lifecycle = self._lifecycles.get(key, LifecycleType.TRANSIENT)
-            
+
             if lifecycle == LifecycleType.SINGLETON:
                 with self._lock:
                     self._singletons[key] = instance
-            
+
             return instance
-        
+
         # 登録されたサービスをチェック
         if key in self._services:
             service_class = self._services[key]
             instance = self._create_instance(service_class)
             lifecycle = self._lifecycles.get(key, LifecycleType.TRANSIENT)
-            
+
             if lifecycle == LifecycleType.SINGLETON:
                 with self._lock:
                     self._singletons[key] = instance
-            
+
             return instance
-        
+
         # 登録されていない場合は例外を発生
         raise ValueError(f"Service not registered: {interface}")
-    
+
     def _create_instance(self, service_class: Type[T]) -> T:
         """インスタンスを作成（簡易版）"""
         try:
@@ -119,7 +119,7 @@ class DIContainer:
             import inspect
             sig = inspect.signature(service_class.__init__)
             params = list(sig.parameters.values())[1:]  # selfを除く
-            
+
             kwargs = {}
             for param in params:
                 if param.annotation != param.empty:
@@ -131,22 +131,22 @@ class DIContainer:
                             kwargs[param.name] = param.default
                         else:
                             self.logger.warning(f"Cannot resolve dependency: {param.annotation}")
-            
+
             return service_class(**kwargs)
         except Exception as e:
             # フォールバック: 引数なしで作成
             self.logger.warning(f"Fallback to no-arg constructor for {service_class}: {e}")
             return service_class()
-    
+
     def _get_key(self, interface: Type) -> str:
         """インターフェースからキーを生成"""
         return f"{interface.__module__}.{interface.__name__}"
-    
+
     def is_registered(self, interface: Type) -> bool:
         """サービスが登録されているかチェック"""
         key = self._get_key(interface)
         return key in self._services or key in self._factories or key in self._singletons
-    
+
     def clear(self):
         """全ての登録をクリア"""
         with self._lock:
@@ -193,11 +193,11 @@ def transient(interface: Optional[Type] = None):
 # サービス抽象クラス
 class IConfigurationService(ABC):
     """設定サービスインターフェース"""
-    
+
     @abstractmethod
     def get_config(self) -> Dict[str, Any]:
         pass
-    
+
     @abstractmethod
     def get_analysis_config(self) -> Dict[str, Any]:
         pass
@@ -205,7 +205,7 @@ class IConfigurationService(ABC):
 
 class ILoggingService(ABC):
     """ログサービスインターフェース"""
-    
+
     @abstractmethod
     def get_logger(self, name: str, context: str = None):
         pass
@@ -213,7 +213,7 @@ class ILoggingService(ABC):
 
 class IAnalyzerService(ABC):
     """分析サービスインターフェース"""
-    
+
     @abstractmethod
     def analyze(self, symbol: str, **kwargs):
         pass
@@ -221,7 +221,7 @@ class IAnalyzerService(ABC):
 
 class IDashboardService(ABC):
     """ダッシュボードサービスインターフェース"""
-    
+
     @abstractmethod
     def start_dashboard(self, **kwargs):
         pass
@@ -229,7 +229,7 @@ class IDashboardService(ABC):
 
 class IDataProviderService(ABC):
     """データプロバイダーサービスインターフェース"""
-    
+
     @abstractmethod
     def get_stock_data(self, symbol: str, period: str):
         pass

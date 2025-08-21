@@ -114,6 +114,11 @@ class DataFetchResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
     cached: bool = False
 
+    @property
+    def success(self) -> bool:
+        """データ取得成功フラグ"""
+        return self.data is not None and not self.data.empty
+
 
 class DataSourceConfigManager:
     """データソース設定管理"""
@@ -132,6 +137,17 @@ class DataSourceConfigManager:
 
                 configs = {}
                 for name, data in config_data.get('data_sources', {}).items():
+                    # rate_limits辞書を個別パラメータに変換
+                    if 'rate_limits' in data:
+                        rate_limits = data.pop('rate_limits')
+                        data['rate_limit_per_minute'] = rate_limits.get('requests_per_minute', 60)
+                        data['rate_limit_per_day'] = rate_limits.get('daily_limit', 1000)
+
+                    # DataSourceConfigで未対応のフィールドを除外
+                    unsupported_fields = ['quality_settings', 'retry_config', 'fallback_priority']
+                    for field in unsupported_fields:
+                        data.pop(field, None)
+
                     configs[name] = DataSourceConfig(name=name, **data)
 
                 self.logger.info(f"Loaded {len(configs)} data source configurations")
@@ -1052,6 +1068,34 @@ class ImprovedMultiSourceDataProvider:
                 }
 
         return stats
+
+    def get_stock_data_sync(self, symbol: str, period: str = "1mo",
+                          preferred_source: Optional[str] = None,
+                          use_cache: bool = True) -> DataFetchResult:
+        """株価データ取得（同期版）"""
+        import asyncio
+
+        # 既存のイベントループがある場合の対応
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 別スレッドで実行
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        asyncio.run,
+                        self.get_stock_data(symbol, period, preferred_source, use_cache)
+                    )
+                    return future.result()
+            else:
+                return loop.run_until_complete(
+                    self.get_stock_data(symbol, period, preferred_source, use_cache)
+                )
+        except RuntimeError:
+            # イベントループが存在しない場合
+            return asyncio.run(
+                self.get_stock_data(symbol, period, preferred_source, use_cache)
+            )
 
     def get_source_status(self) -> Dict[str, Dict]:
         """データソース状態取得"""

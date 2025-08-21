@@ -13,7 +13,7 @@ docker --version >nul 2>&1
 if %ERRORLEVEL% == 0 (
     echo 📦 Building Docker image...
     docker build -t day-trade-personal:1.0.0 .
-    
+
     echo 🧪 Running tests...
     docker run --rm day-trade-personal:1.0.0 python -m pytest
 )

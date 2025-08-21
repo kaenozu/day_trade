@@ -42,27 +42,27 @@ graph TB
         WEB[Web Dashboard]
         API[REST API]
     end
-    
+
     subgraph "Business Logic Layer"
         AI[AI Analysis Engine]
         QAI[Quantum AI Engine]
         HFT[High Frequency Trading]
         BC[Blockchain Trading]
     end
-    
+
     subgraph "Infrastructure Layer"
         WD[System Watchdog]
         MON[Performance Monitor]
         SEC[Security Assessment]
         LOG[Advanced Logging]
     end
-    
+
     subgraph "Data Layer"
         DB[(Primary Database)]
         CACHE[(Redis Cache)]
         SEARCH[(Search Index)]
     end
-    
+
     PWA --> API
     WEB --> API
     API --> AI

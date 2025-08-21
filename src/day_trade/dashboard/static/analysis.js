@@ -102,7 +102,7 @@ function loadSymbolData() {
 function updateSymbolSelect(symbols) {
     const selectElement = document.getElementById('symbol-select');
     selectElement.innerHTML = '';
-    
+
     symbols.forEach(symbol => {
         const option = document.createElement('option');
         option.value = symbol.code;
@@ -113,26 +113,26 @@ function updateSymbolSelect(symbols) {
 
 function selectTier(tier) {
     const selectElement = document.getElementById('symbol-select');
-    
+
     // 全選択解除
     for (let option of selectElement.options) {
         option.selected = false;
     }
-    
+
     // ティア別銘柄選択（API経由で取得）
     fetch(`/api/tier-symbols/${tier}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 const symbols = data.symbols;
-                
+
                 // 該当する銘柄を選択
                 for (let option of selectElement.options) {
                     if (symbols.includes(option.value)) {
                         option.selected = true;
                     }
                 }
-                
+
                 // フィードバック表示
                 const tierNames = {
                     1: '主要銘柄',
@@ -152,24 +152,24 @@ function selectTier(tier) {
 function startAnalysis() {
     const selectElement = document.getElementById('symbol-select');
     const selectedSymbols = Array.from(selectElement.selectedOptions).map(option => option.value);
-    
+
     if (selectedSymbols.length === 0) {
         showAlert('分析する銘柄を選択してください', 'warning');
         return;
     }
-    
+
     // 大量銘柄の警告
     if (selectedSymbols.length > 100) {
         if (!confirm(`${selectedSymbols.length}銘柄の分析には時間がかかります。続行しますか？`)) {
             return;
         }
     }
-    
+
     // UI状態更新
     disableAnalyzeButton();
     showProgressBar();
     hideResults();
-    
+
     // 分析API呼び出し
     fetch('/api/analysis', {
         method: 'POST',
@@ -220,7 +220,7 @@ function showProgressBar() {
 function updateProgressBar(current, total, currentSymbol = '') {
     const percentage = Math.round((current / total) * 100);
     document.getElementById('progress-bar').style.width = percentage + '%';
-    
+
     let text = `${current}/${total} 銘柄完了 (${percentage}%)`;
     if (currentSymbol) {
         text += ` - 現在処理中: ${currentSymbol}`;
@@ -256,16 +256,16 @@ function enableAnalyzeButton() {
 
 function displayAnalysisResults(results) {
     currentResults = results;
-    
+
     // サマリー更新
     updateSummaryCards(results);
-    
+
     // 推奨別カード更新
     updateRecommendationCards(results);
-    
+
     // 詳細テーブル更新
     updateResultsTable(results);
-    
+
     // 結果表示
     showResults();
 }
@@ -278,24 +278,24 @@ function updateSummaryCards(results) {
         totalConfidence: 0,
         validResults: 0
     };
-    
+
     results.forEach(result => {
         const rec = result.recommendation;
         if (rec !== 'SKIP') {
             summary.validResults++;
             summary.totalConfidence += result.confidence || 0;
-            
+
             if (rec === 'BUY') summary.buy++;
             else if (rec === 'SELL') summary.sell++;
             else if (rec === 'HOLD') summary.hold++;
         }
     });
-    
+
     document.getElementById('buy-count').textContent = summary.buy;
     document.getElementById('sell-count').textContent = summary.sell;
     document.getElementById('hold-count').textContent = summary.hold;
-    
-    const avgConfidence = summary.validResults > 0 
+
+    const avgConfidence = summary.validResults > 0
         ? Math.round((summary.totalConfidence / summary.validResults) * 100)
         : 0;
     document.getElementById('avg-confidence').textContent = avgConfidence + '%';
@@ -305,16 +305,16 @@ function updateRecommendationCards(results) {
     const buyContainer = document.getElementById('buy-recommendations');
     const sellContainer = document.getElementById('sell-recommendations');
     const holdContainer = document.getElementById('hold-recommendations');
-    
+
     // カード内容クリア
     buyContainer.innerHTML = '';
     sellContainer.innerHTML = '';
     holdContainer.innerHTML = '';
-    
+
     const buyResults = results.filter(r => r.recommendation === 'BUY');
     const sellResults = results.filter(r => r.recommendation === 'SELL');
     const holdResults = results.filter(r => r.recommendation === 'HOLD');
-    
+
     // BUY推奨
     if (buyResults.length === 0) {
         buyContainer.innerHTML = '<p class="text-muted">BUY推奨の銘柄はありません</p>';
@@ -323,7 +323,7 @@ function updateRecommendationCards(results) {
             buyContainer.appendChild(createRecommendationCard(result));
         });
     }
-    
+
     // SELL推奨
     if (sellResults.length === 0) {
         sellContainer.innerHTML = '<p class="text-muted">SELL推奨の銘柄はありません</p>';
@@ -332,7 +332,7 @@ function updateRecommendationCards(results) {
             sellContainer.appendChild(createRecommendationCard(result));
         });
     }
-    
+
     // HOLD推奨
     if (holdResults.length === 0) {
         holdContainer.innerHTML = '<p class="text-muted">HOLD推奨の銘柄はありません</p>';
@@ -346,10 +346,10 @@ function updateRecommendationCards(results) {
 function createRecommendationCard(result) {
     const card = document.createElement('div');
     card.className = 'recommendation-item slide-in-right';
-    
+
     const confidence = Math.round((result.confidence || 0) * 100);
     const confidenceClass = confidence >= 80 ? 'high' : confidence >= 60 ? 'medium' : 'low';
-    
+
     card.innerHTML = `
         <div class="d-flex justify-content-between align-items-start">
             <div>
@@ -365,14 +365,14 @@ function createRecommendationCard(result) {
         </div>
         ${result.reason ? `<small class="text-muted mt-1 d-block">${result.reason}</small>` : ''}
     `;
-    
+
     return card;
 }
 
 function updateResultsTable(results) {
     const tableBody = document.getElementById('results-table-body');
     tableBody.innerHTML = '';
-    
+
     if (results.length === 0) {
         tableBody.innerHTML = `
             <tr>
@@ -383,18 +383,18 @@ function updateResultsTable(results) {
         `;
         return;
     }
-    
+
     results.forEach(result => {
         const row = document.createElement('tr');
         const rec = result.recommendation;
         const confidence = Math.round((result.confidence || 0) * 100);
-        
+
         // 推奨バッジのクラス
         let badgeClass = 'recommendation-skip';
         if (rec === 'BUY') badgeClass = 'recommendation-buy';
         else if (rec === 'SELL') badgeClass = 'recommendation-sell';
         else if (rec === 'HOLD') badgeClass = 'recommendation-hold';
-        
+
         row.innerHTML = `
             <td><span class="symbol-code">${result.symbol}</span></td>
             <td>${getCompanyName(result.symbol)}</td>
@@ -406,7 +406,7 @@ function updateResultsTable(results) {
             <td>${result.sma_20 ? '¥' + Math.round(result.sma_20).toLocaleString() : '-'}</td>
             <td><small>${result.reason || result.error || '-'}</small></td>
         `;
-        
+
         tableBody.appendChild(row);
     });
 }
@@ -431,7 +431,7 @@ function exportResults() {
         showAlert('エクスポートする結果がありません', 'warning');
         return;
     }
-    
+
     // CSV形式でエクスポート
     const headers = ['銘柄コード', '企業名', '推奨', '信頼度', '現在価格', 'RSI', 'MACD', 'SMA20', '判断理由'];
     const csvContent = [
@@ -448,7 +448,7 @@ function exportResults() {
             result.reason || result.error || ''
         ].map(field => `"${field}"`).join(','))
     ].join('\n');
-    
+
     // ダウンロード
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -459,14 +459,14 @@ function exportResults() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     showAlert('分析結果をCSVファイルでダウンロードしました', 'success');
 }
 
 function showAlert(message, type = 'info') {
     const alertsContainer = document.getElementById('alerts-container');
     const alertId = 'alert-' + Date.now();
-    
+
     const alertHTML = `
         <div id="${alertId}" class="alert alert-${type} alert-custom alert-dismissible fade show" role="alert">
             <strong><i class="fas fa-info-circle me-2"></i></strong>
@@ -474,9 +474,9 @@ function showAlert(message, type = 'info') {
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     `;
-    
+
     alertsContainer.insertAdjacentHTML('beforeend', alertHTML);
-    
+
     // 5秒後に自動削除
     setTimeout(function() {
         const alert = document.getElementById(alertId);

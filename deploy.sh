@@ -17,10 +17,10 @@ echo "Cloud Provider: VERCEL"
 if command -v docker &> /dev/null; then
     echo "📦 Building Docker image..."
     docker build -t day-trade-personal:1.0.0 .
-    
+
     echo "🧪 Running tests..."
     docker run --rm day-trade-personal:1.0.0 python -m pytest
-    
+
     echo "🔍 Security scan..."
     docker run --rm day-trade-personal:1.0.0 python security_assessment.py
 fi

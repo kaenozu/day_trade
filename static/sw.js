@@ -47,7 +47,7 @@ self.addEventListener('fetch', event => {
             .then(response => {
                 // レスポンスのクローンを作成
                 const responseClone = response.clone();
-                
+
                 // 成功レスポンスのみキャッシュ
                 if (response.status === 200) {
                     caches.open(CACHE_NAME)
@@ -55,7 +55,7 @@ self.addEventListener('fetch', event => {
                             cache.put(event.request, responseClone);
                         });
                 }
-                
+
                 return response;
             })
             .catch(() => {
@@ -65,12 +65,12 @@ self.addEventListener('fetch', event => {
                         if (response) {
                             return response;
                         }
-                        
+
                         // オフラインページを返す
                         if (event.request.destination === 'document') {
                             return caches.match('/offline.html');
                         }
-                        
+
                         return new Response('オフラインです', {
                             status: 503,
                             statusText: 'Service Unavailable'
@@ -83,7 +83,7 @@ self.addEventListener('fetch', event => {
 // プッシュ通知
 self.addEventListener('push', event => {
     console.log('[SW] Push received');
-    
+
     const options = {
         body: event.data ? event.data.text() : '新しい市場情報があります',
         icon: '/static/icons/icon-192x192.png',
@@ -106,7 +106,7 @@ self.addEventListener('push', event => {
             }
         ]
     };
-    
+
     event.waitUntil(
         self.registration.showNotification('Day Trade Personal Mobile', options)
     );
@@ -116,7 +116,7 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
     console.log('[SW] Notification clicked');
     event.notification.close();
-    
+
     if (event.action === 'explore') {
         event.waitUntil(
             clients.openWindow('/dashboard')

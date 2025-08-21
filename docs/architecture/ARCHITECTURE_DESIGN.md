@@ -116,13 +116,13 @@ src/day_trade/
 # src/day_trade/domain/common/value_objects.py
 class Money:
     """金額を表す値オブジェクト"""
-    
+
 class Price:
     """価格を表す値オブジェクト"""
-    
+
 class Quantity:
     """数量を表す値オブジェクト"""
-    
+
 class Symbol:
     """銘柄コードを表す値オブジェクト"""
 ```
@@ -132,7 +132,7 @@ class Symbol:
 # src/day_trade/domain/common/domain_events.py
 class TradeExecutedEvent:
     """取引実行イベント"""
-    
+
 class PortfolioUpdatedEvent:
     """ポートフォリオ更新イベント"""
 ```
@@ -154,7 +154,7 @@ class PortfolioUpdatedEvent:
 # src/day_trade/application/services/trading_service.py
 class TradingApplicationService:
     """取引アプリケーションサービス"""
-    
+
     def execute_trade(self, portfolio_id: str, trade_request: TradeRequest):
         """取引実行"""
 ```
@@ -176,7 +176,7 @@ class TradingApplicationService:
 # src/day_trade/infrastructure/repositories/
 class SqlTradeRepository:
     """SQL取引リポジトリ実装"""
-    
+
 class MemoryPortfolioRepository:
     """インメモリポートフォリオリポジトリ実装"""
 ```
@@ -200,22 +200,22 @@ class MemoryPortfolioRepository:
 ```python
 class UnifiedApplication:
     """統一アプリケーション管理"""
-    
+
     async def start(self, config: Dict[str, Any]) -> None:
         """アプリケーション開始"""
-    
+
     async def stop(self) -> None:
         """アプリケーション停止"""
-    
+
     async def health_check(self) -> Dict[str, Any]:
         """ヘルスチェック"""
 
 class ComponentRegistry:
     """コンポーネント登録・管理"""
-    
+
     def register_component(self, component_type: ComponentType, component: Any) -> None:
         """コンポーネント登録"""
-    
+
     def get_component(self, component_type: ComponentType) -> Any:
         """コンポーネント取得"""
 ```
@@ -227,16 +227,16 @@ class ComponentRegistry:
 ```python
 class UnifiedErrorHandler:
     """統一エラーハンドラー"""
-    
+
     async def handle_error(self, error: Exception, context: ErrorContext) -> ErrorHandlingResult:
         """エラー処理"""
 
 class ApplicationError(Exception):
     """アプリケーション基底例外"""
-    
+
 class ValidationError(ApplicationError):
     """バリデーションエラー"""
-    
+
 class BusinessLogicError(ApplicationError):
     """ビジネスロジックエラー"""
 ```
@@ -248,10 +248,10 @@ class BusinessLogicError(ApplicationError):
 ```python
 class OptimizationEngine:
     """最適化エンジン"""
-    
+
     def analyze_performance(self, component: str = "") -> Dict[str, Any]:
         """パフォーマンス分析"""
-    
+
     def auto_optimize(self, component: str = "") -> Dict[str, Any]:
         """自動最適化"""
 
@@ -267,13 +267,13 @@ def execute_trade():
 ```python
 class UnifiedConfigManager:
     """統一設定管理"""
-    
+
     def get(self, key: str, default: Any = None) -> Any:
         """設定値取得"""
-    
+
     def set(self, key: str, value: Any, persist: bool = False) -> bool:
         """設定値設定"""
-    
+
     def validate_config(self, config_name: str = None) -> Dict[str, Any]:
         """設定検証"""
 ```
@@ -285,16 +285,16 @@ class UnifiedConfigManager:
 ```python
 class UnifiedLoggingSystem:
     """統一ログシステム"""
-    
+
     def get_logger(self, name: str, component: str = "") -> UnifiedLogger:
         """ロガー取得"""
 
 class UnifiedLogger:
     """統一ログガー"""
-    
+
     def info(self, message: str, **kwargs) -> None:
         """INFOログ出力"""
-    
+
     def error(self, message: str, exception: Optional[Exception] = None, **kwargs) -> None:
         """ERRORログ出力"""
 ```
