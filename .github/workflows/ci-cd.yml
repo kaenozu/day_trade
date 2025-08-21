@@ -144,4 +144,4 @@ jobs:
         urls: 'http://localhost:8000/'
         uploadArtifacts: true
         temporaryPublicStorage: true
-        artifactName: lighthouse-report
+        artifactName: report
