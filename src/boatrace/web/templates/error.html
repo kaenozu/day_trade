@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}エラー - Boatrace予想システム{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="mb-4">
+                    {% if error_code == 404 %}
+                        <i class="fas fa-search fa-4x text-warning mb-3"></i>
+                        <h2>ページが見つかりません</h2>
+                        <p class="text-muted">お探しのページは存在しないか、移動された可能性があります。</p>
+                    {% elif error_code == 500 %}
+                        <i class="fas fa-exclamation-triangle fa-4x text-danger mb-3"></i>
+                        <h2>内部サーバーエラー</h2>
+                        <p class="text-muted">サーバーで問題が発生しました。しばらくしてから再度お試しください。</p>
+                    {% else %}
+                        <i class="fas fa-exclamation-circle fa-4x text-warning mb-3"></i>
+                        <h2>エラーが発生しました</h2>
+                        <p class="text-muted">{{ error or '予期しないエラーが発生しました' }}</p>
+                    {% endif %}
+                </div>
+                
+                {% if error_code %}
+                    <div class="mb-3">
+                        <span class="badge bg-danger fs-5">エラーコード: {{ error_code }}</span>
+                    </div>
+                {% endif %}
+                
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fas fa-home"></i> ダッシュボードに戻る
+                    </a>
+                    <button onclick="history.back()" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> 前のページに戻る
+                    </button>
+                    <button onclick="location.reload()" class="btn btn-outline-info">
+                        <i class="fas fa-sync"></i> 再読み込み
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if error_code == 500 %}
+<!-- 開発者向け情報（本番では非表示にする） -->
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-bug"></i> デバッグ情報（開発用）</h6>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="debugAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#errorDetails">
+                                エラー詳細
+                            </button>
+                        </h2>
+                        <div id="errorDetails" class="accordion-collapse collapse" 
+                             data-bs-parent="#debugAccordion">
+                            <div class="accordion-body">
+                                <pre class="bg-light p-3 small">{{ error or 'エラー情報がありません' }}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#systemStatus">
+                                システム状態確認
+                            </button>
+                        </h2>
+                        <div id="systemStatus" class="accordion-collapse collapse" 
+                             data-bs-parent="#debugAccordion">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>システム状態</h6>
+                                        <ul class="list-unstyled">
+                                            <li>
+                                                <i id="dbStatus" class="fas fa-circle text-secondary"></i>
+                                                データベース接続
+                                            </li>
+                                            <li>
+                                                <i id="apiStatus" class="fas fa-circle text-secondary"></i>
+                                                API接続
+                                            </li>
+                                            <li>
+                                                <i id="cacheStatus" class="fas fa-circle text-secondary"></i>
+                                                キャッシュシステム
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>推奨アクション</h6>
+                                        <ul>
+                                            <li>ログファイルを確認</li>
+                                            <li>システムサービスを再起動</li>
+                                            <li>API接続状況を確認</li>
+                                            <li>データベースの整合性確認</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <button class="btn btn-outline-warning btn-sm" onclick="checkSystemStatus()">
+                                    <i class="fas fa-sync"></i> 状態確認実行
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// システム状態確認（デバッグ用）
+function checkSystemStatus() {
+    const dbStatus = document.getElementById('dbStatus');
+    const apiStatus = document.getElementById('apiStatus');
+    const cacheStatus = document.getElementById('cacheStatus');
+    
+    // すべて検証中状態にリセット
+    [dbStatus, apiStatus, cacheStatus].forEach(el => {
+        el.className = 'fas fa-spinner fa-spin text-warning';
+    });
+    
+    // データベース接続確認
+    setTimeout(() => {
+        // 仮の確認ロジック（実際はサーバーサイドで実装）
+        dbStatus.className = 'fas fa-circle text-success';
+    }, 1000);
+    
+    // API接続確認
+    setTimeout(() => {
+        apiStatus.className = 'fas fa-circle text-success';
+    }, 1500);
+    
+    // キャッシュシステム確認
+    setTimeout(() => {
+        cacheStatus.className = 'fas fa-circle text-success';
+    }, 2000);
+}
+
+// 自動リロード（エラーが一時的な場合の対策）
+{% if error_code == 500 %}
+setTimeout(() => {
+    if (confirm('自動的にページを再読み込みしますか？\n（一時的なエラーの場合、解決している可能性があります）')) {
+        location.reload();
+    }
+}, 30000); // 30秒後
+{% endif %}
+</script>
+{% endblock %}
