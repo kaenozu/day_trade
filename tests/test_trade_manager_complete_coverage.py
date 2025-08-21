@@ -35,7 +35,7 @@ class TestCompleteRealizedPnL:
         """実現損益作成テスト - 正しいフィールド名を使用"""
         buy_date = datetime(2025, 1, 1)
         sell_date = datetime(2025, 1, 15)
-        
+
         pnl = RealizedPnL(
             symbol="7203",
             quantity=50,
@@ -48,7 +48,7 @@ class TestCompleteRealizedPnL:
             buy_date=buy_date,
             sell_date=sell_date
         )
-        
+
         assert pnl.symbol == "7203"
         assert pnl.quantity == 50
         assert pnl.buy_price == Decimal("2500")
@@ -64,7 +64,7 @@ class TestCompleteRealizedPnL:
         """実現損益辞書変換テスト"""
         buy_date = datetime(2025, 1, 1)
         sell_date = datetime(2025, 1, 15)
-        
+
         pnl = RealizedPnL(
             symbol="7203",
             quantity=50,
@@ -77,9 +77,9 @@ class TestCompleteRealizedPnL:
             buy_date=buy_date,
             sell_date=sell_date
         )
-        
+
         result = pnl.to_dict()
-        
+
         assert result["symbol"] == "7203"
         assert result["quantity"] == 50
         assert result["buy_price"] == "2500"
@@ -106,7 +106,7 @@ class TestCompleteTrade:
             timestamp=datetime.now(),
             commission=Decimal("250")
         )
-        
+
         # 手数料を含む総額を計算（total_amountプロパティがない場合の代替）
         total_with_commission = trade.quantity * trade.price + trade.commission
         assert total_with_commission == Decimal("250250")
@@ -116,7 +116,7 @@ class TestCompleteTrade:
         # 必須フィールドが不足
         with pytest.raises(ValueError, match="必須フィールド"):
             Trade.from_dict({"id": "T001"})
-        
+
         # 無効な数量
         with pytest.raises(ValueError, match="数量は正数である必要があります"):
             Trade.from_dict({
@@ -135,21 +135,21 @@ class TestCompleteTradeManagerDatabase:
     def test_add_trade_without_database(self):
         """データベース無効時の取引追加テスト"""
         manager = TradeManager(persist_to_db=False)
-        
+
         trade_id = manager.add_trade(
             symbol="7203",
             trade_type=TradeType.BUY,
             quantity=100,
             price=Decimal("2500")
         )
-        
+
         assert trade_id is not None
         assert len(manager.trades) == 1
 
     def test_manager_initialization(self):
         """TradeManager初期化テスト"""
         manager = TradeManager()
-        
+
         assert manager.initial_capital == Decimal("1000000")
         assert manager.cash_balance == Decimal("1000000")
         assert len(manager.trades) == 0
@@ -163,7 +163,7 @@ class TestCompleteFileOperations:
     def test_export_import_csv_complete_cycle(self):
         """CSV完全サイクルテスト"""
         manager = TradeManager()
-        
+
         # テスト用の取引を追加
         manager.add_trade(
             symbol="7203",
@@ -177,22 +177,22 @@ class TestCompleteFileOperations:
             quantity=50,
             price=Decimal("2600")
         )
-        
+
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as tmp_file:
             try:
                 # CSV出力
                 manager.export_to_csv(tmp_file.name)
-                
+
                 # ファイルの内容を確認
                 with open(tmp_file.name, 'r', encoding='utf-8') as f:
                     content = f.read()
                     assert '7203' in content
                     assert 'BUY' in content
                     assert 'SELL' in content
-                    
+
                 # CSVファイルが正しく作成されたことを確認
                 assert os.path.getsize(tmp_file.name) > 0
-                
+
             finally:
                 if os.path.exists(tmp_file.name):
                     os.unlink(tmp_file.name)
@@ -201,7 +201,7 @@ class TestCompleteFileOperations:
         """JSON出力成功テスト"""
         manager = TradeManager()
         manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
-        
+
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as tmp_file:
             try:
                 manager.export_to_json(tmp_file.name)
@@ -218,7 +218,7 @@ class TestCompleteAnalytics:
     def test_portfolio_performance_analytics(self):
         """ポートフォリオパフォーマンス分析テスト"""
         manager = TradeManager()
-        
+
         # 複数の取引を実行
         symbols = ["7203", "6758", "4063"]
         for symbol in symbols:
@@ -230,10 +230,10 @@ class TestCompleteAnalytics:
             )
             # 価格更新
             manager.update_current_price(symbol, Decimal("1100"))
-        
+
         # ポートフォリオサマリー取得
         summary = manager.get_portfolio_summary()
-        
+
         # 基本的な検証
         assert 'total_value' in summary
         assert 'positions' in summary
@@ -242,18 +242,18 @@ class TestCompleteAnalytics:
     def test_tax_calculation_comprehensive(self):
         """包括的な税金計算テスト"""
         manager = TradeManager(tax_rate=Decimal("0.20315"))
-        
+
         # 利益の場合
         profit = Decimal("100000")
         tax = manager.calculate_tax(profit)
         expected_tax = profit * Decimal("0.20315")
         assert tax == expected_tax
-        
+
         # 損失の場合
         loss = Decimal("-50000")
         tax_loss = manager.calculate_tax(loss)
         assert tax_loss == Decimal("0")
-        
+
         # ゼロの場合
         zero_pnl = Decimal("0")
         tax_zero = manager.calculate_tax(zero_pnl)
@@ -262,7 +262,7 @@ class TestCompleteAnalytics:
     def test_get_performance_metrics(self):
         """パフォーマンスメトリクス取得テスト"""
         manager = TradeManager()
-        
+
         # 取引履歴を作成
         manager.add_trade(
             symbol="7203",
@@ -276,11 +276,11 @@ class TestCompleteAnalytics:
             quantity=100,
             price=Decimal("2200")
         )
-        
+
         # 取引履歴取得
         history = manager.get_trade_history()
         assert len(history) == 2
-        
+
         # 実現損益履歴取得
         pnl_history = manager.get_realized_pnl_history()
         assert len(pnl_history) > 0
@@ -292,7 +292,7 @@ class TestCompleteErrorHandling:
     def test_validate_inputs_comprehensive(self):
         """包括的な入力検証テスト"""
         manager = TradeManager()
-        
+
         # 無効な銘柄コード
         with pytest.raises(ValueError):
             manager.add_trade(
@@ -301,7 +301,7 @@ class TestCompleteErrorHandling:
                 quantity=100,
                 price=Decimal("2500")
             )
-        
+
         # ゼロ価格
         with pytest.raises(ValueError):
             manager.add_trade(
@@ -310,7 +310,7 @@ class TestCompleteErrorHandling:
                 quantity=100,
                 price=Decimal("0")
             )
-        
+
         # 負の価格
         with pytest.raises(ValueError):
             manager.add_trade(
@@ -323,7 +323,7 @@ class TestCompleteErrorHandling:
     def test_boundary_conditions(self):
         """境界条件テスト"""
         manager = TradeManager()
-        
+
         # 最小値での取引
         trade_id = manager.add_trade(
             symbol="7203",
@@ -332,7 +332,7 @@ class TestCompleteErrorHandling:
             price=Decimal("0.01")
         )
         assert trade_id is not None
-        
+
         # 非常に大きな値での取引
         trade_id = manager.add_trade(
             symbol="6758",
@@ -351,11 +351,11 @@ class TestUtilityFunctions:
         # 非常に小さな値
         result = quantize_decimal(Decimal("0.000001"), 6)
         assert result == Decimal("0.000001")
-        
+
         # 非常に大きな値
         result = quantize_decimal(Decimal("999999999.999999"), 6)
         assert result == Decimal("999999999.999999")
-        
+
         # 負の値
         result = quantize_decimal(Decimal("-123.456"), 2)
         assert result == Decimal("-123.46")
@@ -365,11 +365,11 @@ class TestUtilityFunctions:
         # float入力でのエッジケース
         result = safe_decimal_conversion(123.456)
         assert isinstance(result, Decimal)
-        
+
         # 文字列でのカンマ区切り
         result = safe_decimal_conversion("1,234.56")
         assert result == Decimal("1234.56")
-        
+
         # 非常に小さなfloat値
         result = safe_decimal_conversion(1e-15, default_value=Decimal("0"))
         assert result == Decimal("0")  # エラーでデフォルト値が返される

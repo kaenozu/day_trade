@@ -127,7 +127,7 @@ def safe_decimal_conversion(
         # デフォルト値が指定されている場合はそれを返す
         if default_value is not None:
             return default_value
-        
+
         # エラーメッセージに敏感な情報が含まれないようマスキング
         safe_value_str = mask_sensitive_info(str(value))
         raise ValueError(

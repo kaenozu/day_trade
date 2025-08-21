@@ -324,7 +324,7 @@ def log_business_event(event: str, details: Dict[str, Any] = None, **kwargs) -> 
     # kwargsを詳細データに結合
     combined_details = details or {}
     combined_details.update(kwargs)
-    
+
     log_data = {"event": event, "details": combined_details}
 
     logger.info(f"Business event: {event}", extra=log_data)

@@ -42,13 +42,13 @@ class TestHelperFunctions:
         """safe_decimal_conversion正常系テスト"""
         # 文字列入力
         assert safe_decimal_conversion("123.45") == Decimal("123.45")
-        
+
         # 整数入力
         assert safe_decimal_conversion(100) == Decimal("100")
-        
+
         # 浮動小数点数入力
         assert safe_decimal_conversion(123.45) == Decimal("123.45")
-        
+
         # Decimal入力
         assert safe_decimal_conversion(Decimal("99.99")) == Decimal("99.99")
 
@@ -56,13 +56,13 @@ class TestHelperFunctions:
         """safe_decimal_conversion異常系テスト"""
         # 無効な文字列（デフォルト値を指定）
         assert safe_decimal_conversion("invalid", default_value=Decimal("0")) == Decimal("0")
-        
+
         # None入力（デフォルト値を指定）
         assert safe_decimal_conversion(None, default_value=Decimal("0")) == Decimal("0")
-        
+
         # 空文字列（デフォルト値を指定）
         assert safe_decimal_conversion("", default_value=Decimal("0")) == Decimal("0")
-        
+
         # エラーが発生する場合（デフォルト値なし）
         with pytest.raises(ValueError):
             safe_decimal_conversion("invalid")
@@ -81,7 +81,7 @@ class TestBuyLot:
             timestamp=timestamp,
             trade_id="T001"
         )
-        
+
         assert lot.quantity == 100
         assert lot.price == Decimal("2500")
         assert lot.commission == Decimal("250")
@@ -97,7 +97,7 @@ class TestBuyLot:
             timestamp=datetime.now(),
             trade_id="T001"
         )
-        
+
         # 2500 + (250 / 100) = 2502.5
         expected = Decimal("2502.5")
         assert lot.total_cost_per_share() == expected
@@ -111,7 +111,7 @@ class TestBuyLot:
             timestamp=datetime.now(),
             trade_id="T001"
         )
-        
+
         assert lot.total_cost_per_share() == Decimal("0")
 
 
@@ -127,7 +127,7 @@ class TestPosition:
             total_cost=Decimal("250000"),
             current_price=Decimal("2600")
         )
-        
+
         assert position.symbol == "7203"
         assert position.quantity == 100
         assert position.average_price == Decimal("2500")
@@ -144,7 +144,7 @@ class TestPosition:
             total_cost=Decimal("250000"),
             current_price=Decimal("2600")
         )
-        
+
         # 100 * 2600 = 260000
         assert position.market_value == Decimal("260000")
 
@@ -157,7 +157,7 @@ class TestPosition:
             total_cost=Decimal("250000"),
             current_price=Decimal("2600")
         )
-        
+
         # 260000 - 250000 = 10000
         assert position.unrealized_pnl == Decimal("10000")
 
@@ -170,7 +170,7 @@ class TestPosition:
             total_cost=Decimal("250000"),
             current_price=Decimal("2600")
         )
-        
+
         # (10000 / 250000) * 100 = 4.0
         assert position.unrealized_pnl_percent == Decimal("4.0")
 
@@ -183,7 +183,7 @@ class TestPosition:
             total_cost=Decimal("0"),
             current_price=Decimal("2600")
         )
-        
+
         assert position.unrealized_pnl_percent == Decimal("0")
 
 
@@ -205,7 +205,7 @@ class TestRealizedPnL:
             buy_trade_id="B001",
             sell_trade_id="S001"
         )
-        
+
         assert pnl.symbol == "7203"
         assert pnl.quantity == 50
         assert pnl.buy_price == Decimal("2500")
@@ -232,9 +232,9 @@ class TestRealizedPnL:
             buy_trade_id="B001",
             sell_trade_id="S001"
         )
-        
+
         result = pnl.to_dict()
-        
+
         assert result["symbol"] == "7203"
         assert result["quantity"] == 50
         assert result["buy_price"] == "2500"
@@ -264,7 +264,7 @@ class TestTradeComprehensive:
             status=TradeStatus.EXECUTED,
             notes="テスト取引"
         )
-        
+
         assert trade.id == "T001"
         assert trade.symbol == "7203"
         assert trade.trade_type == TradeType.BUY
@@ -286,7 +286,7 @@ class TestTradeComprehensive:
             price=Decimal("2500"),
             timestamp=timestamp
         )
-        
+
         assert trade.commission == Decimal("0")
         assert trade.status == TradeStatus.EXECUTED
         assert trade.notes == ""
@@ -302,7 +302,7 @@ class TestTradeComprehensive:
             timestamp=datetime.now(),
             commission=Decimal("250")
         )
-        
+
         # 100 * 2500 + 250 = 250250
         assert trade.total_amount == Decimal("250250")
 
@@ -317,9 +317,9 @@ class TestTradeComprehensive:
             "price": "2500",
             "timestamp": timestamp.isoformat()
         }
-        
+
         trade = Trade.from_dict(trade_dict)
-        
+
         assert trade.id == "T001"
         assert trade.symbol == "7203"
         assert trade.trade_type == TradeType.BUY
@@ -341,9 +341,9 @@ class TestTradeComprehensive:
             "timestamp": timestamp.isoformat(),
             "status": "invalid_status"
         }
-        
+
         trade = Trade.from_dict(trade_dict)
-        
+
         # デフォルト値が使用される
         assert trade.trade_type == TradeType.BUY
         assert trade.status == TradeStatus.EXECUTED
@@ -355,7 +355,7 @@ class TestTradeManagerInitialization:
     def test_trade_manager_default_initialization(self):
         """デフォルト初期化テスト"""
         manager = TradeManager()
-        
+
         assert manager.initial_capital == Decimal("1000000")
         assert manager.commission_rate == Decimal("0.001")
         assert manager.tax_rate == Decimal("0.20315")
@@ -370,7 +370,7 @@ class TestTradeManagerInitialization:
             commission_rate=Decimal("0.002"),
             tax_rate=Decimal("0.30")
         )
-        
+
         assert manager.initial_capital == Decimal("500000")
         assert manager.commission_rate == Decimal("0.002")
         assert manager.tax_rate == Decimal("0.30")
@@ -382,7 +382,7 @@ class TestTradeManagerCommission:
     def test_commission_calculation_basic(self):
         """基本的な手数料計算テスト"""
         manager = TradeManager(commission_rate=Decimal("0.001"))
-        
+
         commission = manager._calculate_commission(Decimal("100000"))
         expected = Decimal("100")  # 100000 * 0.001
         assert commission == expected
@@ -390,7 +390,7 @@ class TestTradeManagerCommission:
     def test_commission_calculation_minimum(self):
         """最低手数料テスト"""
         manager = TradeManager(commission_rate=Decimal("0.001"))
-        
+
         # 小額の場合でも最低手数料が適用される
         commission = manager._calculate_commission(Decimal("1000"))
         expected = Decimal("1")  # 1000 * 0.001
@@ -399,7 +399,7 @@ class TestTradeManagerCommission:
     def test_commission_calculation_zero_amount(self):
         """ゼロ金額の手数料計算テスト"""
         manager = TradeManager(commission_rate=Decimal("0.001"))
-        
+
         commission = manager._calculate_commission(Decimal("0"))
         assert commission == Decimal("0")
 
@@ -411,23 +411,23 @@ class TestTradeManagerAddTrade:
     def test_add_buy_trade_success(self, mock_log):
         """買い取引追加成功テスト"""
         manager = TradeManager()
-        
+
         trade_id = manager.add_trade(
             symbol="7203",
             trade_type=TradeType.BUY,
             quantity=100,
             price=Decimal("2500")
         )
-        
+
         assert trade_id is not None
         assert len(manager.trades) == 1
         assert len(manager.positions) == 1
-        
+
         # ポジション確認
         position = manager.positions["7203"]
         assert position.quantity == 100
         assert position.symbol == "7203"
-        
+
         # ログ呼び出し確認
         mock_log.assert_called()
 
@@ -435,7 +435,7 @@ class TestTradeManagerAddTrade:
     def test_add_sell_trade_success(self, mock_log):
         """売り取引追加成功テスト"""
         manager = TradeManager()
-        
+
         # 先に買い取引を追加
         manager.add_trade(
             symbol="7203",
@@ -443,7 +443,7 @@ class TestTradeManagerAddTrade:
             quantity=100,
             price=Decimal("2500")
         )
-        
+
         # 売り取引を追加
         trade_id = manager.add_trade(
             symbol="7203",
@@ -451,21 +451,21 @@ class TestTradeManagerAddTrade:
             quantity=50,
             price=Decimal("2600")
         )
-        
+
         assert trade_id is not None
         assert len(manager.trades) == 2
-        
+
         # ポジション確認（50株残る）
         position = manager.positions["7203"]
         assert position.quantity == 50
-        
+
         # 実現損益確認
         assert len(manager.realized_pnl_history) == 1
 
     def test_add_trade_invalid_quantity(self):
         """無効な数量での取引追加テスト"""
         manager = TradeManager()
-        
+
         with pytest.raises(ValueError, match="数量は正の整数である必要があります"):
             manager.add_trade(
                 symbol="7203",
@@ -477,7 +477,7 @@ class TestTradeManagerAddTrade:
     def test_add_trade_invalid_price(self):
         """無効な価格での取引追加テスト"""
         manager = TradeManager()
-        
+
         with pytest.raises(ValueError, match="価格は正の値である必要があります"):
             manager.add_trade(
                 symbol="7203",
@@ -489,7 +489,7 @@ class TestTradeManagerAddTrade:
     def test_add_sell_without_position(self):
         """ポジションなしでの売り取引テスト"""
         manager = TradeManager()
-        
+
         with pytest.raises(ValueError, match="ポジションが存在しません"):
             manager.add_trade(
                 symbol="7203",
@@ -501,7 +501,7 @@ class TestTradeManagerAddTrade:
     def test_add_sell_excess_quantity(self):
         """保有数量を超える売り取引テスト"""
         manager = TradeManager()
-        
+
         # 100株買い
         manager.add_trade(
             symbol="7203",
@@ -509,7 +509,7 @@ class TestTradeManagerAddTrade:
             quantity=100,
             price=Decimal("2500")
         )
-        
+
         # 150株売り（エラー）
         with pytest.raises(ValueError, match="売却数量が保有数量を超えています"):
             manager.add_trade(
@@ -526,7 +526,7 @@ class TestTradeManagerPositionUpdates:
     def test_update_current_price(self):
         """現在価格更新テスト"""
         manager = TradeManager()
-        
+
         # ポジションを作成
         manager.add_trade(
             symbol="7203",
@@ -534,17 +534,17 @@ class TestTradeManagerPositionUpdates:
             quantity=100,
             price=Decimal("2500")
         )
-        
+
         # 価格更新
         manager.update_current_price("7203", Decimal("2600"))
-        
+
         position = manager.positions["7203"]
         assert position.current_price == Decimal("2600")
 
     def test_update_current_price_no_position(self):
         """ポジションなしでの価格更新テスト"""
         manager = TradeManager()
-        
+
         # エラーが発生しないことを確認
         manager.update_current_price("7203", Decimal("2600"))
 
