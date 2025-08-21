@@ -57,7 +57,7 @@ class BaseModelTrainer(ABC):
         """データ分割の共通処理（強化版）"""
         if not SKLEARN_AVAILABLE:
             raise ModelTrainingError("sklearn が利用できません")
-            
+
         stratify = y if config.stratify and self._is_classification_task(y) else None
 
         return train_test_split(
@@ -159,7 +159,7 @@ class BaseModelTrainer(ABC):
         """性能指標計算の共通処理（強化版）"""
         if not SKLEARN_AVAILABLE:
             return {}
-            
+
         metrics = {}
 
         try:
@@ -197,7 +197,7 @@ class BaseModelTrainer(ABC):
         """クロスバリデーションの共通処理（強化版）"""
         if not SKLEARN_AVAILABLE:
             return np.array([])
-            
+
         scoring = 'accuracy' if self._is_classification_task(y) else 'r2'
         cv_strategy = TimeSeriesSplit(n_splits=config.cv_folds)
 
@@ -219,7 +219,7 @@ class BaseModelTrainer(ABC):
             self.logger.warning(f"特徴量重要度取得失敗: {e}")
             return {}
 
-    def train_and_evaluate(self, X: pd.DataFrame, y: pd.Series, config: TrainingConfig, 
+    def train_and_evaluate(self, X: pd.DataFrame, y: pd.Series, config: TrainingConfig,
                           task: PredictionTask, hyperparameters: Dict[str, Any] = None) -> Dict[str, Any]:
         """訓練と評価の統合メソッド"""
         try:
@@ -228,30 +228,30 @@ class BaseModelTrainer(ABC):
                 is_valid, quality, quality_msg = self.validate_data_quality(X, y, task)
                 if not is_valid:
                     raise ModelTrainingError(f"データ品質不足: {quality_msg}")
-                
+
                 # データ分割
                 X_train, X_test, y_train, y_test = self.prepare_data(X, y, config)
-                
+
                 # モデル作成
                 is_classifier = self._is_classification_task(y)
                 model = self.create_model(is_classifier, hyperparameters or {})
-                
+
                 # 訓練
                 model.fit(X_train, y_train)
-                
+
                 # 予測
                 y_pred = model.predict(X_test)
                 y_pred_proba = model.predict_proba(X_test) if hasattr(model, 'predict_proba') and is_classifier else None
-                
+
                 # メトリクス計算
                 metrics = self.calculate_metrics(y_test, y_pred, y_pred_proba, is_classifier)
-                
+
                 # クロスバリデーション
                 cv_scores = self.cross_validate(model, X_train, y_train, config)
-                
+
                 # 特徴量重要度
                 feature_importance = self.get_feature_importance(model, X.columns.tolist())
-                
+
                 return {
                     'model': model,
                     'metrics': metrics,
@@ -262,7 +262,7 @@ class BaseModelTrainer(ABC):
                     'test_size': len(X_test),
                     'model_type': self.model_type.value
                 }
-                
+
         except Exception as e:
             self.logger.error(f"訓練・評価エラー: {e}")
             raise ModelTrainingError(f"モデル訓練失敗: {e}") from e
@@ -275,7 +275,7 @@ class RandomForestTrainer(BaseModelTrainer):
         """Random Forestモデル作成"""
         if not SKLEARN_AVAILABLE:
             raise ModelTrainingError("sklearn が利用できません")
-            
+
         base_params = self.config.get('classifier_params' if is_classifier else 'regressor_params', {})
         final_params = {**base_params, **hyperparameters}
 
@@ -322,15 +322,15 @@ class LightGBMTrainer(BaseModelTrainer):
 def create_trainer(model_type: ModelType, config: Dict[str, Any] = None, logger=None) -> BaseModelTrainer:
     """モデルタイプに応じたトレーナーファクトリー"""
     config = config or {}
-    
+
     trainers = {
         ModelType.RANDOM_FOREST: RandomForestTrainer,
         ModelType.XGBOOST: XGBoostTrainer,
         ModelType.LIGHTGBM: LightGBMTrainer,
     }
-    
+
     trainer_class = trainers.get(model_type)
     if trainer_class is None:
         raise ModelTrainingError(f"未対応のモデルタイプ: {model_type}")
-    
+
     return trainer_class(model_type, config, logger)

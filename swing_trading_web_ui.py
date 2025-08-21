@@ -43,53 +43,53 @@ except ImportError:
 
 class SwingTradingWebUI:
     """スイングトレードWeb UI"""
-    
+
     def __init__(self, host="127.0.0.1", port=5001):
         self.app = Flask(__name__)
         self.app.secret_key = 'swing_trading_ui_secret_key'
         self.host = host
         self.port = port
-        
+
         # ルート設定
         self._setup_routes()
-        
+
         print(f"Swing Trading Web UI initialized on {host}:{port}")
-    
+
     def _setup_routes(self):
         """ルート設定"""
-        
+
         @self.app.route('/')
         def dashboard():
             """メインダッシュボード"""
             try:
                 if not HAS_SWING_SCHEDULER:
                     return "Swing Trading Scheduler not available", 500
-                
+
                 # ポートフォリオサマリー
                 summary = swing_trading_scheduler.get_portfolio_summary()
-                
+
                 # 監視対象一覧
                 monitoring_list = swing_trading_scheduler.get_monitoring_list()
-                
+
                 # 最新アラート
                 alerts = swing_trading_scheduler.get_alerts(limit=10, unread_only=True)
-                
+
                 # バージョン情報
                 version_info = get_version_info() if HAS_VERSION_INFO else {"version": "Unknown"}
-                
-                return render_template_string(DASHBOARD_TEMPLATE, 
+
+                return render_template_string(DASHBOARD_TEMPLATE,
                                             summary=summary,
                                             monitoring_list=monitoring_list,
                                             alerts=alerts,
                                             version_info=version_info)
-                
+
             except Exception as e:
                 error_msg = f"Dashboard error: {str(e)}"
                 print(error_msg)
                 if HAS_AUDIT_LOGGER:
                     audit_logger.log_error_with_context(e, {"context": "swing_trading_dashboard"})
                 return f"Error: {error_msg}", 500
-        
+
         @self.app.route('/purchase_form')
         def purchase_form():
             """購入記録フォーム"""
@@ -98,14 +98,14 @@ class SwingTradingWebUI:
                 return render_template_string(PURCHASE_FORM_TEMPLATE, strategies=strategies)
             except Exception as e:
                 return f"Error: {str(e)}", 500
-        
+
         @self.app.route('/record_purchase', methods=['POST'])
         def record_purchase():
             """購入記録処理"""
             try:
                 if not HAS_SWING_SCHEDULER:
                     return jsonify({"error": "Swing Trading Scheduler not available"}), 500
-                
+
                 # フォームデータ取得
                 symbol = request.form['symbol']
                 symbol_name = request.form['symbol_name']
@@ -116,7 +116,7 @@ class SwingTradingWebUI:
                 target_profit_percent = float(request.form.get('target_profit_percent', 20.0))
                 stop_loss_percent = float(request.form.get('stop_loss_percent', -10.0))
                 expected_hold_days = int(request.form.get('expected_hold_days', 30))
-                
+
                 # 購入記録
                 purchase_id = swing_trading_scheduler.record_purchase(
                     symbol=symbol,
@@ -129,55 +129,55 @@ class SwingTradingWebUI:
                     stop_loss_percent=stop_loss_percent,
                     expected_hold_days=expected_hold_days
                 )
-                
+
                 return jsonify({
                     "success": True,
                     "purchase_id": purchase_id,
                     "message": f"{symbol_name}の購入を記録しました"
                 })
-                
+
             except Exception as e:
                 error_msg = str(e)
                 print(f"Purchase record error: {error_msg}")
                 if HAS_AUDIT_LOGGER:
                     audit_logger.log_error_with_context(e, {"context": "record_purchase"})
                 return jsonify({"success": False, "error": error_msg}), 400
-        
+
         @self.app.route('/monitoring')
         def monitoring():
             """監視画面"""
             try:
                 if not HAS_SWING_SCHEDULER:
                     return "Swing Trading Scheduler not available", 500
-                
+
                 # フィルター取得
                 status_filter = request.args.get('status')
                 status_enum = HoldingStatus(status_filter) if status_filter else None
-                
+
                 # 監視対象一覧
                 monitoring_list = swing_trading_scheduler.get_monitoring_list(status_enum)
-                
+
                 # ステータス選択肢
                 status_options = [status.value for status in HoldingStatus]
-                
+
                 return render_template_string(MONITORING_TEMPLATE,
                                             monitoring_list=monitoring_list,
                                             status_options=status_options,
                                             current_filter=status_filter)
-                
+
             except Exception as e:
                 return f"Error: {str(e)}", 500
-        
+
         @self.app.route('/evaluate_sell/<purchase_id>')
         def evaluate_sell(purchase_id):
             """売りタイミング評価"""
             try:
                 if not HAS_SWING_SCHEDULER:
                     return jsonify({"error": "Swing Trading Scheduler not available"}), 500
-                
+
                 # 売りタイミング評価
                 monitoring_schedule = swing_trading_scheduler.evaluate_sell_timing(purchase_id)
-                
+
                 if monitoring_schedule:
                     return jsonify({
                         "success": True,
@@ -195,45 +195,45 @@ class SwingTradingWebUI:
                     })
                 else:
                     return jsonify({"success": False, "error": "Evaluation failed"}), 400
-                    
+
             except Exception as e:
                 return jsonify({"success": False, "error": str(e)}), 500
-        
+
         @self.app.route('/partial_sell_form/<purchase_id>')
         def partial_sell_form(purchase_id):
             """部分売却フォーム"""
             try:
                 if not HAS_SWING_SCHEDULER:
                     return "Swing Trading Scheduler not available", 500
-                
+
                 # 購入記録取得
                 purchase_record = swing_trading_scheduler.get_purchase_record(purchase_id)
                 if not purchase_record:
                     return "Purchase record not found", 404
-                
+
                 # 現在の保有株数
                 current_shares = swing_trading_scheduler._get_current_shares(purchase_id)
-                
+
                 return render_template_string(PARTIAL_SELL_FORM_TEMPLATE,
                                             purchase_record=purchase_record,
                                             current_shares=current_shares)
-                
+
             except Exception as e:
                 return f"Error: {str(e)}", 500
-        
+
         @self.app.route('/record_partial_sell', methods=['POST'])
         def record_partial_sell():
             """部分売却記録処理"""
             try:
                 if not HAS_SWING_SCHEDULER:
                     return jsonify({"error": "Swing Trading Scheduler not available"}), 500
-                
+
                 # フォームデータ取得
                 purchase_id = request.form['purchase_id']
                 sell_price = float(request.form['sell_price'])
                 shares_sold = int(request.form['shares_sold'])
                 sell_reason = request.form['sell_reason']
-                
+
                 # 部分売却記録
                 sell_id = swing_trading_scheduler.record_partial_sell(
                     purchase_id=purchase_id,
@@ -241,101 +241,101 @@ class SwingTradingWebUI:
                     shares_sold=shares_sold,
                     sell_reason=sell_reason
                 )
-                
+
                 return jsonify({
                     "success": True,
                     "sell_id": sell_id,
                     "message": f"{shares_sold}株の部分売却を記録しました"
                 })
-                
+
             except Exception as e:
                 error_msg = str(e)
                 print(f"Partial sell error: {error_msg}")
                 return jsonify({"success": False, "error": error_msg}), 400
-        
+
         @self.app.route('/alerts')
         def alerts():
             """アラート一覧"""
             try:
                 if not HAS_SWING_SCHEDULER:
                     return "Swing Trading Scheduler not available", 500
-                
+
                 # フィルター取得
                 unread_only = request.args.get('unread_only', 'false').lower() == 'true'
                 limit = int(request.args.get('limit', 50))
-                
+
                 # アラート一覧
                 alerts_list = swing_trading_scheduler.get_alerts(limit=limit, unread_only=unread_only)
-                
+
                 return render_template_string(ALERTS_TEMPLATE,
                                             alerts=alerts_list,
                                             unread_only=unread_only)
-                
+
             except Exception as e:
                 return f"Error: {str(e)}", 500
-        
+
         @self.app.route('/mark_alert_read/<alert_id>')
         def mark_alert_read(alert_id):
             """アラート既読処理"""
             try:
                 if not HAS_SWING_SCHEDULER:
                     return jsonify({"error": "Swing Trading Scheduler not available"}), 500
-                
+
                 success = swing_trading_scheduler.mark_alert_as_read(alert_id)
-                
+
                 return jsonify({
                     "success": success,
                     "message": "アラートを既読にしました" if success else "アラートが見つかりません"
                 })
-                
+
             except Exception as e:
                 return jsonify({"success": False, "error": str(e)}), 500
-        
+
         @self.app.route('/api/portfolio_summary')
         def api_portfolio_summary():
             """ポートフォリオサマリーAPI"""
             try:
                 if not HAS_SWING_SCHEDULER:
                     return jsonify({"error": "Swing Trading Scheduler not available"}), 500
-                
+
                 summary = swing_trading_scheduler.get_portfolio_summary()
                 return jsonify(summary)
-                
+
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
-        
+
         @self.app.route('/api/monitoring_list')
         def api_monitoring_list():
             """監視対象一覧API"""
             try:
                 if not HAS_SWING_SCHEDULER:
                     return jsonify({"error": "Swing Trading Scheduler not available"}), 500
-                
+
                 status_filter = request.args.get('status')
                 status_enum = HoldingStatus(status_filter) if status_filter else None
-                
+
                 monitoring_list = swing_trading_scheduler.get_monitoring_list(status_enum)
                 return jsonify(monitoring_list)
-                
+
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
-        
+
         @self.app.route('/api/alerts')
         def api_alerts():
             """アラートAPI"""
             try:
                 if not HAS_SWING_SCHEDULER:
                     return jsonify({"error": "Swing Trading Scheduler not available"}), 500
-                
+
                 unread_only = request.args.get('unread_only', 'false').lower() == 'true'
                 limit = int(request.args.get('limit', 50))
-                
+
                 alerts_list = swing_trading_scheduler.get_alerts(limit=limit, unread_only=unread_only)
                 return jsonify(alerts_list)
-                
+
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
-    
+
     def run(self, debug=False):
         """Webサーバー実行"""
         print(f"Starting Swing Trading Web UI on http://{self.host}:{self.port}")
@@ -501,7 +501,7 @@ DASHBOARD_TEMPLATE = """
                                                     ¥{{ "{:+,.0f}".format(item.unrealized_profit_loss) }}
                                                 </td>
                                                 <td>
-                                                    <span class="badge bg-{{ 
+                                                    <span class="badge bg-{{
                                                         'primary' if item.status == 'monitoring' else
                                                         'warning' if item.status == 'sell_consider' else
                                                         'danger' if item.status == 'attention' else
@@ -592,7 +592,7 @@ DASHBOARD_TEMPLATE = """
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('評価完了:\\n' + 
+                        alert('評価完了:\\n' +
                               'シグナル強度: ' + data.evaluation.signal_strength + '\\n' +
                               '信頼度: ' + data.evaluation.confidence_score.toFixed(2));
                         refreshMonitoring();
@@ -665,7 +665,7 @@ PURCHASE_FORM_TEMPLATE = """
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="symbol" class="form-label">銘柄コード *</label>
-                                        <input type="text" class="form-control" id="symbol" name="symbol" required 
+                                        <input type="text" class="form-control" id="symbol" name="symbol" required
                                                placeholder="例: 7203">
                                     </div>
                                 </div>
@@ -684,7 +684,7 @@ PURCHASE_FORM_TEMPLATE = """
                                         <label for="purchase_price" class="form-label">購入価格 *</label>
                                         <div class="input-group">
                                             <span class="input-group-text">¥</span>
-                                            <input type="number" class="form-control" id="purchase_price" name="purchase_price" 
+                                            <input type="number" class="form-control" id="purchase_price" name="purchase_price"
                                                    required min="1" step="1" placeholder="2500">
                                         </div>
                                     </div>
@@ -693,7 +693,7 @@ PURCHASE_FORM_TEMPLATE = """
                                     <div class="mb-3">
                                         <label for="shares" class="form-label">購入株数 *</label>
                                         <div class="input-group">
-                                            <input type="number" class="form-control" id="shares" name="shares" 
+                                            <input type="number" class="form-control" id="shares" name="shares"
                                                    required min="1" step="1" placeholder="100">
                                             <span class="input-group-text">株</span>
                                         </div>
@@ -716,7 +716,7 @@ PURCHASE_FORM_TEMPLATE = """
                                     <div class="mb-3">
                                         <label for="expected_hold_days" class="form-label">予定保有期間</label>
                                         <div class="input-group">
-                                            <input type="number" class="form-control" id="expected_hold_days" name="expected_hold_days" 
+                                            <input type="number" class="form-control" id="expected_hold_days" name="expected_hold_days"
                                                    value="30" min="1" step="1">
                                             <span class="input-group-text">日</span>
                                         </div>
@@ -729,7 +729,7 @@ PURCHASE_FORM_TEMPLATE = """
                                     <div class="mb-3">
                                         <label for="target_profit_percent" class="form-label">目標利益率</label>
                                         <div class="input-group">
-                                            <input type="number" class="form-control" id="target_profit_percent" name="target_profit_percent" 
+                                            <input type="number" class="form-control" id="target_profit_percent" name="target_profit_percent"
                                                    value="20" min="-100" step="0.1">
                                             <span class="input-group-text">%</span>
                                         </div>
@@ -739,7 +739,7 @@ PURCHASE_FORM_TEMPLATE = """
                                     <div class="mb-3">
                                         <label for="stop_loss_percent" class="form-label">ストップロス</label>
                                         <div class="input-group">
-                                            <input type="number" class="form-control" id="stop_loss_percent" name="stop_loss_percent" 
+                                            <input type="number" class="form-control" id="stop_loss_percent" name="stop_loss_percent"
                                                    value="-10" max="0" step="0.1">
                                             <span class="input-group-text">%</span>
                                         </div>
@@ -770,9 +770,9 @@ PURCHASE_FORM_TEMPLATE = """
     <script>
         document.getElementById('purchaseForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             const formData = new FormData(this);
-            
+
             fetch('/record_purchase', {
                 method: 'POST',
                 body: formData
@@ -833,14 +833,14 @@ PARTIAL_SELL_FORM_TEMPLATE = """
 
                         <form id="partialSellForm">
                             <input type="hidden" name="purchase_id" value="{{ purchase_record.id }}">
-                            
+
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="sell_price" class="form-label">売却価格 *</label>
                                         <div class="input-group">
                                             <span class="input-group-text">¥</span>
-                                            <input type="number" class="form-control" id="sell_price" name="sell_price" 
+                                            <input type="number" class="form-control" id="sell_price" name="sell_price"
                                                    required min="1" step="1" placeholder="2750">
                                         </div>
                                     </div>
@@ -849,7 +849,7 @@ PARTIAL_SELL_FORM_TEMPLATE = """
                                     <div class="mb-3">
                                         <label for="shares_sold" class="form-label">売却株数 *</label>
                                         <div class="input-group">
-                                            <input type="number" class="form-control" id="shares_sold" name="shares_sold" 
+                                            <input type="number" class="form-control" id="shares_sold" name="shares_sold"
                                                    required min="1" max="{{ current_shares }}" step="1" placeholder="30">
                                             <span class="input-group-text">株</span>
                                         </div>
@@ -886,22 +886,22 @@ PARTIAL_SELL_FORM_TEMPLATE = """
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const purchasePrice = {{ purchase_record.purchase_price }};
-        
+
         // 損益プレビュー更新
         function updateProfitLossPreview() {
             const sellPrice = parseFloat(document.getElementById('sell_price').value);
             const sharesSold = parseInt(document.getElementById('shares_sold').value);
-            
+
             if (sellPrice && sharesSold) {
                 const profitLoss = (sellPrice - purchasePrice) * sharesSold;
                 const profitLossPercent = ((sellPrice - purchasePrice) / purchasePrice) * 100;
-                
+
                 const preview = document.getElementById('profitLossPreview');
                 const text = document.getElementById('profitLossText');
-                
+
                 const colorClass = profitLoss >= 0 ? 'text-success' : 'text-danger';
                 const sign = profitLoss >= 0 ? '+' : '';
-                
+
                 text.innerHTML = `<span class="${colorClass}">` +
                                `${sign}¥${profitLoss.toLocaleString()} (${sign}${profitLossPercent.toFixed(1)}%)` +
                                '</span>';
@@ -910,21 +910,21 @@ PARTIAL_SELL_FORM_TEMPLATE = """
                 document.getElementById('profitLossPreview').style.display = 'none';
             }
         }
-        
+
         // イベントリスナー
         document.getElementById('sell_price').addEventListener('input', updateProfitLossPreview);
         document.getElementById('shares_sold').addEventListener('input', updateProfitLossPreview);
-        
+
         // フォーム送信
         document.getElementById('partialSellForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             if (!confirm('売却を実行しますか？')) {
                 return;
             }
-            
+
             const formData = new FormData(this);
-            
+
             fetch('/record_partial_sell', {
                 method: 'POST',
                 body: formData
@@ -1032,7 +1032,7 @@ MONITORING_TEMPLATE = """
                                             ¥{{ "{:+,.0f}".format(item.unrealized_profit_loss) }}
                                         </td>
                                         <td>
-                                            <span class="badge bg-{{ 
+                                            <span class="badge bg-{{
                                                 'primary' if item.status == 'monitoring' else
                                                 'warning' if item.status == 'sell_consider' else
                                                 'danger' if item.status == 'attention' else
@@ -1144,7 +1144,7 @@ ALERTS_TEMPLATE = """
                             <div class="d-flex justify-content-between">
                                 <div>
                                     <h6 class="alert-heading">
-                                        <i class="bi bi-{{ 
+                                        <i class="bi bi-{{
                                             'exclamation-triangle-fill text-danger' if alert.priority <= 2 else
                                             'exclamation-circle text-warning' if alert.priority == 3 else
                                             'info-circle text-info'
@@ -1156,7 +1156,7 @@ ALERTS_TEMPLATE = """
                                     </h6>
                                     <p class="mb-1">{{ alert.message }}</p>
                                     <small class="text-muted">
-                                        {{ alert.created_at }} | 
+                                        {{ alert.created_at }} |
                                         優先度: {{ alert.priority }} |
                                         種類: {{ alert.alert_type }}
                                     </small>
@@ -1173,7 +1173,7 @@ ALERTS_TEMPLATE = """
                             </div>
                         </div>
                         {% endfor %}
-                        
+
                         {% if alerts|length == 0 %}
                         <div class="text-center text-muted py-5">
                             <i class="bi bi-bell-slash display-4"></i>
@@ -1215,12 +1215,12 @@ swing_trading_web_ui = SwingTradingWebUI()
 if __name__ == "__main__":
     # テスト実行
     print("Swing Trading Web UI テスト開始")
-    
+
     # Web UI起動
     ui = SwingTradingWebUI(host="127.0.0.1", port=5001)
-    
+
     print("Web UI starting...")
     print("ブラウザで http://127.0.0.1:5001 にアクセスしてください")
-    
+
     # デバッグモードで起動
     ui.run(debug=True)

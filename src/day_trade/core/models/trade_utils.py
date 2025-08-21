@@ -175,11 +175,11 @@ def validate_file_path(filepath: str, operation: str = "ファイル操作") -> 
 
         # パストラバーサル攻撃をチェック
         normalized_path = path.resolve()
-        
+
         # 危険なパスパターンをチェック
         dangerous_patterns = ["../", "..\\", "/etc/", "/sys/", "/proc/", "C:\\Windows", "C:\\System"]
         path_str = str(normalized_path).lower()
-        
+
         for pattern in dangerous_patterns:
             if pattern.lower() in path_str:
                 raise ValueError(f"{operation}: 危険なパスパターンが検出されました")

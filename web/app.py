@@ -22,23 +22,23 @@ def create_app():
     """Flaskアプリケーションの作成"""
     app = Flask(__name__)
     app.secret_key = 'day-trade-personal-2025-refactored'
-    
+
     # 静的ファイルとテンプレートのパス設定
     app.static_folder = str(project_root / 'static')
     app.template_folder = str(project_root / 'templates')
-    
+
     # サービス初期化
     recommendation_service = RecommendationService()
     timing_service = TradingTimingService()
-    
+
     # ブループリント登録
     app.register_blueprint(portfolio_api)
-    
+
     @app.route('/')
     def index():
         """メインダッシュボード"""
         return render_template('index.html')
-    
+
     @app.route('/health')
     def health_check():
         """ヘルスチェック"""
@@ -47,7 +47,7 @@ def create_app():
             'timestamp': str(datetime.now()),
             'service': 'Day Trade Web'
         })
-    
+
     @app.route('/api/status')
     def api_status():
         """APIステータス"""
@@ -56,20 +56,20 @@ def create_app():
             'timestamp': str(datetime.now()),
             'api_version': '2.1.0'
         })
-    
+
     @app.route('/api/recommendations')
     def api_recommendations():
         """推奨銘柄API"""
         try:
             recommendations = recommendation_service.get_recommendations()
-            
+
             # 統計情報の計算
             total_count = len(recommendations)
             high_confidence_count = len([r for r in recommendations if r['confidence'] > 0.8])
             buy_count = len([r for r in recommendations if r['recommendation'] in ['BUY', 'STRONG_BUY']])
             sell_count = len([r for r in recommendations if r['recommendation'] in ['SELL', 'STRONG_SELL']])
             hold_count = len([r for r in recommendations if r['recommendation'] == 'HOLD'])
-            
+
             return jsonify({
                 'recommendations': recommendations,
                 'total_count': total_count,
@@ -81,13 +81,13 @@ def create_app():
             })
         except Exception as e:
             return jsonify({'error': str(e)}), 500
-    
+
     @app.route('/api/recommendations-with-timing')
     def api_recommendations_with_timing():
         """売買タイミング付き推奨銘柄API"""
         try:
             recommendations = recommendation_service.get_recommendations()
-            
+
             # 各推奨銘柄にタイミング情報を追加
             enhanced_recommendations = []
             for rec in recommendations:
@@ -98,23 +98,23 @@ def create_app():
                     recommendation=rec['recommendation'],
                     confidence=rec['confidence']
                 )
-                
+
                 # レコメンデーションにタイミング情報を追加
                 rec['buy_timing'] = timing_strategy.buy_timing.predicted_time
                 rec['sell_timing'] = timing_strategy.sell_timing.predicted_time
                 rec['strategy_type'] = timing_strategy.strategy_type
                 rec['expected_return'] = timing_strategy.expected_return
                 rec['time_horizon'] = timing_strategy.time_horizon
-                
+
                 enhanced_recommendations.append(rec)
-            
+
             # 統計情報の計算
             total_count = len(enhanced_recommendations)
             high_confidence_count = len([r for r in enhanced_recommendations if r['confidence'] > 0.8])
             buy_count = len([r for r in enhanced_recommendations if r['recommendation'] in ['BUY', 'STRONG_BUY']])
             sell_count = len([r for r in enhanced_recommendations if r['recommendation'] in ['SELL', 'STRONG_SELL']])
             hold_count = len([r for r in enhanced_recommendations if r['recommendation'] == 'HOLD'])
-            
+
             return jsonify({
                 'recommendations': enhanced_recommendations,
                 'total_count': total_count,
@@ -127,14 +127,14 @@ def create_app():
             })
         except Exception as e:
             return jsonify({'error': str(e)}), 500
-    
+
     @app.route('/api/trading-timing/<symbol>')
     def api_trading_timing(symbol):
         """個別銘柄の詳細売買タイミング"""
         try:
             # 銘柄の基本情報を取得
             stock_analysis = recommendation_service.analyze_single_symbol(symbol)
-            
+
             # 詳細タイミング予想
             timing_strategy = timing_service.predict_trading_timing(
                 symbol=symbol,
@@ -142,7 +142,7 @@ def create_app():
                 recommendation=stock_analysis['recommendation'],
                 confidence=stock_analysis['confidence']
             )
-            
+
             # レスポンス構築（Enumを文字列に変換）
             response_data = {
                 'symbol': symbol,
@@ -176,11 +176,11 @@ def create_app():
                 'market_events': timing_strategy.market_events,
                 'timestamp': str(datetime.now())
             }
-            
+
             return jsonify(response_data)
         except Exception as e:
             return jsonify({'error': str(e)}), 500
-    
+
     @app.route('/api/profit-analysis')
     def api_profit_analysis():
         """収益分析API"""
@@ -188,29 +188,29 @@ def create_app():
             # 推奨銘柄を取得
             recommendations = recommendation_service.get_recommendations()
             buy_recommendations = [r for r in recommendations if r['recommendation'] in ['BUY', 'STRONG_BUY']]
-            
+
             # 投資シナリオ
             scenarios = [
                 {"name": "少額投資", "capital": 500000, "risk": "低"},
                 {"name": "標準投資", "capital": 1000000, "risk": "中"},
                 {"name": "積極投資", "capital": 2000000, "risk": "高"}
             ]
-            
+
             analysis_results = []
-            
+
             for scenario in scenarios:
                 total_investment = 0
                 total_expected = 0
                 positions = []
-                
+
                 for stock in buy_recommendations:
                     price = stock.get('price', 0)
                     expected_return = stock.get('expected_return', 10.0)
                     confidence = stock.get('confidence', 0.7)
-                    
+
                     if price <= 0:
                         continue
-                    
+
                     # リスクレベル別の配分率
                     if scenario['risk'] == "低":
                         allocation_rate = min(0.05, confidence * 0.08)
@@ -218,17 +218,17 @@ def create_app():
                         allocation_rate = min(0.10, confidence * 0.12)
                     else:  # 高
                         allocation_rate = min(0.15, confidence * 0.15)
-                    
+
                     investment_amount = scenario['capital'] * allocation_rate
                     shares = int(investment_amount / price / 100) * 100
-                    
+
                     if shares > 0:
                         actual_investment = shares * price
                         expected_profit = actual_investment * (expected_return / 100)
-                        
+
                         total_investment += actual_investment
                         total_expected += expected_profit
-                        
+
                         positions.append({
                             'symbol': stock['symbol'],
                             'name': stock['name'],
@@ -239,10 +239,10 @@ def create_app():
                             'expected_return': expected_return,
                             'confidence': confidence
                         })
-                
+
                 # 期待利回り計算
                 expected_rate = (total_expected / total_investment * 100) if total_investment > 0 else 0
-                
+
                 analysis_results.append({
                     'scenario_name': scenario['name'],
                     'capital': scenario['capital'],
@@ -256,12 +256,12 @@ def create_app():
                         '6_months': total_expected * 1.0
                     }
                 })
-            
+
             # 高期待銘柄ランキング
-            top_stocks = sorted(buy_recommendations, 
-                              key=lambda x: x.get('expected_return', 0) * x.get('confidence', 0), 
+            top_stocks = sorted(buy_recommendations,
+                              key=lambda x: x.get('expected_return', 0) * x.get('confidence', 0),
                               reverse=True)[:5]
-            
+
             return jsonify({
                 'success': True,
                 'analysis_time': str(datetime.now()),
@@ -274,10 +274,10 @@ def create_app():
                     'avg_expected_return': sum([s.get('expected_return', 0) for s in buy_recommendations]) / len(buy_recommendations) if buy_recommendations else 0
                 }
             })
-            
+
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
-    
+
     return app
 
 # Flask CLIで使用するためのアプリケーションインスタンス

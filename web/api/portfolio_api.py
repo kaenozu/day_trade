@@ -27,13 +27,13 @@ def get_positions():
     try:
         status = request.args.get('status')  # 'OPEN', 'CLOSED', または None
         positions = portfolio_service.get_positions(status)
-        
+
         # 現在価格を更新
         open_positions = [p for p in positions if p.status == 'OPEN']
         if open_positions:
             symbols = [p.symbol for p in open_positions]
             portfolio_service.update_current_prices(symbols)
-        
+
         # レスポンス用にフォーマット
         formatted_positions = []
         for position in positions:
@@ -59,13 +59,13 @@ def get_positions():
                 'sector': position.sector,
                 'notes': position.notes
             })
-        
+
         return jsonify({
             'success': True,
             'positions': formatted_positions,
             'count': len(formatted_positions)
         })
-        
+
     except Exception as e:
         logger.error(f"ポジション取得エラー: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -75,7 +75,7 @@ def get_portfolio_summary():
     """ポートフォリオサマリー取得"""
     try:
         summary = portfolio_service.get_portfolio_summary()
-        
+
         return jsonify({
             'success': True,
             'summary': {
@@ -93,7 +93,7 @@ def get_portfolio_summary():
                 'last_updated': summary.last_updated
             }
         })
-        
+
     except Exception as e:
         logger.error(f"サマリー取得エラー: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -103,31 +103,31 @@ def create_position():
     """新規ポジション作成"""
     try:
         data = request.get_json()
-        
+
         # 必須フィールドの検証
         required_fields = ['symbol', 'quantity', 'investment_amount']
         for field in required_fields:
             if field not in data:
                 return jsonify({'success': False, 'error': f'必須フィールドが不足: {field}'}), 400
-        
+
         symbol = data['symbol']
         quantity = int(data['quantity'])
         investment_amount = float(data['investment_amount'])
-        
+
         # 推奨データから基本情報を取得
         recommendations = recommendation_service.get_recommendations()
         stock_data = next((r for r in recommendations if r['symbol'] == symbol), None)
-        
+
         if not stock_data:
             return jsonify({'success': False, 'error': '該当する推奨銘柄が見つかりません'}), 404
-        
+
         # ポジション作成
         position_id = portfolio_service.create_position_from_recommendation(
             symbol=symbol,
             recommendation_data=stock_data,
             investment_amount=investment_amount
         )
-        
+
         if position_id:
             return jsonify({
                 'success': True,
@@ -136,7 +136,7 @@ def create_position():
             })
         else:
             return jsonify({'success': False, 'error': 'ポジション作成に失敗しました'}), 500
-            
+
     except Exception as e:
         logger.error(f"ポジション作成エラー: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -148,9 +148,9 @@ def close_position(position_id: str):
         data = request.get_json() or {}
         exit_price = data.get('exit_price')  # None の場合は現在価格を使用
         notes = data.get('notes', '手動クローズ')
-        
+
         success = portfolio_service.close_position(position_id, exit_price, notes)
-        
+
         if success:
             return jsonify({
                 'success': True,
@@ -158,7 +158,7 @@ def close_position(position_id: str):
             })
         else:
             return jsonify({'success': False, 'error': 'ポジションクローズに失敗しました'}), 500
-            
+
     except Exception as e:
         logger.error(f"ポジションクローズエラー: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -168,12 +168,12 @@ def get_dashboard_data():
     """ダッシュボード用データ取得"""
     try:
         dashboard_data = portfolio_service.get_portfolio_dashboard_data()
-        
+
         return jsonify({
             'success': True,
             'data': dashboard_data
         })
-        
+
     except Exception as e:
         logger.error(f"ダッシュボードデータ取得エラー: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -184,13 +184,13 @@ def get_alerts():
     try:
         dashboard_data = portfolio_service.get_portfolio_dashboard_data()
         alerts = dashboard_data.get('alerts', [])
-        
+
         return jsonify({
             'success': True,
             'alerts': alerts,
             'count': len(alerts)
         })
-        
+
     except Exception as e:
         logger.error(f"アラート取得エラー: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -200,13 +200,13 @@ def get_position_recommendations():
     """ポジション推奨アクション取得"""
     try:
         recommendations = portfolio_service.get_position_recommendations()
-        
+
         return jsonify({
             'success': True,
             'recommendations': recommendations,
             'count': len(recommendations)
         })
-        
+
     except Exception as e:
         logger.error(f"推奨アクション取得エラー: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -217,20 +217,20 @@ def get_performance_analysis():
     try:
         # 基本パフォーマンス指標
         performance = portfolio_service.get_performance_metrics()
-        
+
         # 戦略別パフォーマンス
         strategy_performance = portfolio_service.get_performance_by_strategy()
-        
+
         # リスク分析
         risk_analysis = portfolio_service.get_risk_analysis()
-        
+
         return jsonify({
             'success': True,
             'performance': performance,
             'strategy_performance': strategy_performance,
             'risk_analysis': risk_analysis
         })
-        
+
     except Exception as e:
         logger.error(f"パフォーマンス分析エラー: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -241,7 +241,7 @@ def get_transactions():
     try:
         limit = request.args.get('limit', 50, type=int)
         transactions = portfolio_service.get_transactions(limit)
-        
+
         # レスポンス用にフォーマット
         formatted_transactions = []
         for txn in transactions:
@@ -258,13 +258,13 @@ def get_transactions():
                 'date': txn.date,
                 'notes': txn.notes
             })
-        
+
         return jsonify({
             'success': True,
             'transactions': formatted_transactions,
             'count': len(formatted_transactions)
         })
-        
+
     except Exception as e:
         logger.error(f"取引履歴取得エラー: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -274,10 +274,10 @@ def get_position_detail(position_id: str):
     """個別ポジション詳細取得"""
     try:
         position = portfolio_service.get_position_by_id(position_id)
-        
+
         if not position:
             return jsonify({'success': False, 'error': 'ポジションが見つかりません'}), 404
-        
+
         return jsonify({
             'success': True,
             'position': {
@@ -307,7 +307,7 @@ def get_position_detail(position_id: str):
                 'last_updated': position.last_updated
             }
         })
-        
+
     except Exception as e:
         logger.error(f"ポジション詳細取得エラー: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -318,27 +318,27 @@ def update_position(position_id: str):
     try:
         data = request.get_json()
         position = portfolio_service.get_position_by_id(position_id)
-        
+
         if not position:
             return jsonify({'success': False, 'error': 'ポジションが見つかりません'}), 404
-        
+
         # 更新可能フィールド
         updateable_fields = ['target_price', 'stop_loss_price', 'notes']
-        
+
         for field in updateable_fields:
             if field in data:
                 setattr(position, field, data[field])
-        
+
         position.last_updated = datetime.now().isoformat()
-        
+
         # 保存
         portfolio_service._save_position(position)
-        
+
         return jsonify({
             'success': True,
             'message': f'ポジション更新完了: {position_id}'
         })
-        
+
     except Exception as e:
         logger.error(f"ポジション更新エラー: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
