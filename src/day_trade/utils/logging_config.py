@@ -317,11 +317,15 @@ def log_database_operation(operation: str, duration: float = 0.0, **kwargs) -> N
         logger.debug(f"Database operation: {operation}", extra=log_data)
 
 
-def log_business_event(event: str, details: Dict[str, Any] = None) -> None:
+def log_business_event(event: str, details: Dict[str, Any] = None, **kwargs) -> None:
     """ビジネスイベントログ出力"""
     logger = get_context_logger(__name__, component="business")
 
-    log_data = {"event": event, "details": details or {}}
+    # kwargsを詳細データに結合
+    combined_details = details or {}
+    combined_details.update(kwargs)
+
+    log_data = {"event": event, "details": combined_details}
 
     logger.info(f"Business event: {event}", extra=log_data)
 
