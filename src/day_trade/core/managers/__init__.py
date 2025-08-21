@@ -10,6 +10,6 @@ from .trade_manager_execution import TradeManagerExecution
 
 __all__ = [
     "TradeManager",
-    "TradeManagerCore", 
+    "TradeManagerCore",
     "TradeManagerExecution",
 ]

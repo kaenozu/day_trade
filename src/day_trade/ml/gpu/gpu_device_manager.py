@@ -252,14 +252,14 @@ class GPUDeviceManager:
                     }
         except Exception as e:
             logger.warning(f"メモリ情報取得失敗 (デバイス {device_id}): {e}")
-        
+
         return None
 
     def collect_monitoring_data(self, device_id: int) -> Optional[GPUMonitoringData]:
         """GPU監視データ収集"""
         try:
             timestamp = time.time()
-            
+
             # 基本情報
             monitoring_data = GPUMonitoringData(
                 device_id=device_id,
@@ -279,11 +279,11 @@ class GPUDeviceManager:
 
             # GPU使用率（簡易実装 - 実際にはnvidia-smi等が必要）
             monitoring_data.gpu_utilization_percent = self._estimate_gpu_utilization(device_id)
-            
+
             # 温度・電力（ダミー値 - 実際にはハードウェア依存）
             monitoring_data.temperature_celsius = 45.0  # プレースホルダー
             monitoring_data.power_consumption_watts = 150.0  # プレースホルダー
-            
+
             # エラーチェック
             if monitoring_data.memory_utilization_percent > 100:
                 monitoring_data.has_errors = True
@@ -291,7 +291,7 @@ class GPUDeviceManager:
 
             # 監視データ保存
             self.monitoring_data[device_id] = monitoring_data
-            
+
             return monitoring_data
 
         except Exception as e:
@@ -338,7 +338,7 @@ class GPUDeviceManager:
         total_memory_mb = sum(device["memory_mb"] for device in self.available_devices)
         cuda_devices = len([d for d in self.available_devices if d["backend"] == GPUBackend.CUDA])
         opencl_devices = len([d for d in self.available_devices if d["backend"] == GPUBackend.OPENCL])
-        
+
         return {
             "total_devices": len(self.available_devices),
             "cuda_devices": cuda_devices,

@@ -46,36 +46,36 @@ def setup_api_routes(app: Flask) -> None:
             category_filter = request.args.get('category', '').lower()
             confidence_filter = request.args.get('confidence', '').lower()
             recommendation_filter = request.args.get('recommendation', '').lower()
-            
+
             recommendations = g.recommendation_service.get_recommendations()
-            
+
             # フィルタリング適用
             filtered_recommendations = recommendations
-            
+
             if category_filter:
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('category', '').lower() == category_filter]
-            
+
             if confidence_filter == 'high':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('confidence', 0) > 0.8]
             elif confidence_filter == 'medium':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if 0.6 <= r.get('confidence', 0) <= 0.8]
             elif confidence_filter == 'low':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('confidence', 0) < 0.6]
-            
+
             if recommendation_filter == 'buy':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('recommendation', '') in ['BUY', 'STRONG_BUY']]
             elif recommendation_filter == 'sell':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('recommendation', '') in ['SELL', 'STRONG_SELL']]
             elif recommendation_filter == 'hold':
-                filtered_recommendations = [r for r in filtered_recommendations 
+                filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('recommendation', '') == 'HOLD']
-            
+
             # 統計計算（全体とフィルタ後）
             total_count = len(recommendations)
             filtered_count = len(filtered_recommendations)
@@ -108,27 +108,27 @@ def setup_api_routes(app: Flask) -> None:
         """ポートフォリオに銘柄を追加するAPI"""
         try:
             data = request.get_json()
-            
+
             if not data or 'symbol' not in data:
                 return jsonify({
                     'error': '銘柄コードが必要です',
                     'timestamp': datetime.now().isoformat()
                 }), 400
-            
+
             # 簡易的なファイルベース保存（実際のプロダクションではデータベースを使用）
             import json
             import os
             portfolio_file = 'data/portfolio.json'
-            
+
             # ディレクトリ作成
             os.makedirs(os.path.dirname(portfolio_file), exist_ok=True)
-            
+
             # 既存のポートフォリオを読み込み
             portfolio = []
             if os.path.exists(portfolio_file):
                 with open(portfolio_file, 'r', encoding='utf-8') as f:
                     portfolio = json.load(f)
-            
+
             # 重複チェック
             if any(item['symbol'] == data['symbol'] for item in portfolio):
                 return jsonify({
@@ -136,7 +136,7 @@ def setup_api_routes(app: Flask) -> None:
                     'symbol': data['symbol'],
                     'timestamp': datetime.now().isoformat()
                 }), 409
-            
+
             # 新しい銘柄を追加
             portfolio_item = {
                 'id': len(portfolio) + 1,
@@ -149,13 +149,13 @@ def setup_api_routes(app: Flask) -> None:
                 'status': 'watching',  # watching, bought, sold
                 'notes': ''
             }
-            
+
             portfolio.append(portfolio_item)
-            
+
             # ファイルに保存
             with open(portfolio_file, 'w', encoding='utf-8') as f:
                 json.dump(portfolio, f, ensure_ascii=False, indent=2)
-            
+
             return jsonify({
                 'message': 'ポートフォリオに追加しました',
                 'item': portfolio_item,
@@ -175,18 +175,18 @@ def setup_api_routes(app: Flask) -> None:
             import json
             import os
             portfolio_file = 'data/portfolio.json'
-            
+
             portfolio = []
             if os.path.exists(portfolio_file):
                 with open(portfolio_file, 'r', encoding='utf-8') as f:
                     portfolio = json.load(f)
-            
+
             return jsonify({
                 'portfolio': portfolio,
                 'count': len(portfolio),
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({'error': str(e), 'timestamp': datetime.now().isoformat()}), 500
 
@@ -206,34 +206,34 @@ def setup_api_routes(app: Flask) -> None:
         """ポートフォリオの銘柄情報を更新するAPI"""
         try:
             data = request.get_json()
-            
+
             import json
             import os
             portfolio_file = 'data/portfolio.json'
-            
+
             if not os.path.exists(portfolio_file):
                 return jsonify({
                     'error': 'ポートフォリオが見つかりません',
                     'timestamp': datetime.now().isoformat()
                 }), 404
-            
+
             # ポートフォリオを読み込み
             with open(portfolio_file, 'r', encoding='utf-8') as f:
                 portfolio = json.load(f)
-            
+
             # 対象のアイテムを検索
             item_index = None
             for i, item in enumerate(portfolio):
                 if item['id'] == item_id:
                     item_index = i
                     break
-            
+
             if item_index is None:
                 return jsonify({
                     'error': '指定された銘柄が見つかりません',
                     'timestamp': datetime.now().isoformat()
                 }), 404
-            
+
             # データを更新
             if 'sell_timing' in data:
                 portfolio[item_index]['sell_timing'] = data['sell_timing']
@@ -243,19 +243,19 @@ def setup_api_routes(app: Flask) -> None:
                 portfolio[item_index]['status'] = data['status']
             if 'notes' in data:
                 portfolio[item_index]['notes'] = data['notes']
-            
+
             portfolio[item_index]['updated_date'] = datetime.now().isoformat()
-            
+
             # ファイルに保存
             with open(portfolio_file, 'w', encoding='utf-8') as f:
                 json.dump(portfolio, f, ensure_ascii=False, indent=2)
-            
+
             return jsonify({
                 'message': '銘柄情報を更新しました',
                 'item': portfolio[item_index],
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),
@@ -269,29 +269,29 @@ def setup_api_routes(app: Flask) -> None:
             import json
             import os
             portfolio_file = 'data/portfolio.json'
-            
+
             if not os.path.exists(portfolio_file):
                 return jsonify({
                     'error': 'ポートフォリオが見つかりません',
                     'timestamp': datetime.now().isoformat()
                 }), 404
-            
+
             # ポートフォリオを読み込み
             with open(portfolio_file, 'r', encoding='utf-8') as f:
                 portfolio = json.load(f)
-            
+
             # 対象のアイテムを削除
             portfolio = [item for item in portfolio if item['id'] != item_id]
-            
+
             # ファイルに保存
             with open(portfolio_file, 'w', encoding='utf-8') as f:
                 json.dump(portfolio, f, ensure_ascii=False, indent=2)
-            
+
             return jsonify({
                 'message': '銘柄をポートフォリオから削除しました',
                 'timestamp': datetime.now().isoformat()
             })
-            
+
         except Exception as e:
             return jsonify({
                 'error': str(e),

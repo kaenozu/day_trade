@@ -119,6 +119,7 @@ def create_trading_recommendation_pl(
         signal = model.predict(data, symbol, company_name)
 
     current_price = data['Close'][-1]
+    previous_close = data['Close'][-2] if len(data['Close']) > 1 else current_price
     position_size = 0
     if signal.stop_loss:
         position_size = risk_manager.calculate_position_size(account_balance, current_price, signal.stop_loss)
@@ -128,6 +129,7 @@ def create_trading_recommendation_pl(
         'signal': signal.signal_type.value,
         'confidence': signal.confidence,
         'current_price': current_price,
+        'previous_close': previous_close,
         'target_price': signal.price_target,
         'stop_loss': signal.stop_loss,
         'position_size': position_size,

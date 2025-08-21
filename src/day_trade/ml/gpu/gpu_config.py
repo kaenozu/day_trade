@@ -138,23 +138,23 @@ class GPUInferenceConfig:
             config_dict["parallelization_mode"] = ParallelizationMode(
                 config_dict["parallelization_mode"]
             )
-        
+
         return cls(**config_dict)
 
     def validate(self) -> List[str]:
         """設定の検証を行い、エラーメッセージのリストを返す"""
         errors = []
-        
+
         # デバイスID検証
         if not self.device_ids:
             errors.append("device_ids は空にできません")
         if any(device_id < 0 for device_id in self.device_ids):
             errors.append("device_ids は負の値を含むことができません")
-        
+
         # メモリ設定検証
         if self.memory_pool_size_mb <= 0:
             errors.append("memory_pool_size_mb は正の値である必要があります")
-        
+
         # バッチサイズ検証
         if self.min_batch_size <= 0:
             errors.append("min_batch_size は正の値である必要があります")
@@ -162,11 +162,11 @@ class GPUInferenceConfig:
             errors.append("max_batch_size は正の値である必要があります")
         if self.min_batch_size > self.max_batch_size:
             errors.append("min_batch_size は max_batch_size 以下である必要があります")
-        
+
         # ストリーム設定検証
         if self.max_concurrent_streams <= 0:
             errors.append("max_concurrent_streams は正の値である必要があります")
-        
+
         # 監視設定検証
         if self.monitoring_interval_ms <= 0:
             errors.append("monitoring_interval_ms は正の値である必要があります")
@@ -174,7 +174,7 @@ class GPUInferenceConfig:
             errors.append("gpu_utilization_threshold は 0-100 の範囲である必要があります")
         if not (0 <= self.gpu_memory_threshold <= 100):
             errors.append("gpu_memory_threshold は 0-100 の範囲である必要があります")
-        
+
         # TensorRT設定検証
         if self.tensorrt_precision not in ["fp32", "fp16", "int8"]:
             errors.append("tensorrt_precision は 'fp32', 'fp16', 'int8' のいずれかである必要があります")
@@ -182,11 +182,11 @@ class GPUInferenceConfig:
             errors.append("tensorrt_max_workspace_size は正の値である必要があります")
         if not (0 <= self.tensorrt_optimization_level <= 5):
             errors.append("tensorrt_optimization_level は 0-5 の範囲である必要があります")
-        
+
         # CPU設定検証
         if self.cpu_execution_mode not in ["sequential", "parallel"]:
             errors.append("cpu_execution_mode は 'sequential' または 'parallel' である必要があります")
-        
+
         return errors
 
 

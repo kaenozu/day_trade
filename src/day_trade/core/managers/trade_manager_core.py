@@ -27,7 +27,7 @@ from ...utils.logging_config import (
 class TradeManagerCore:
     """
     取引管理コア機能
-    
+
     基本的なデータ管理、設定、永続化、データアクセス機能を提供
     """
 
@@ -248,7 +248,7 @@ class TradeManagerCore:
         total_positions = len(self.positions)
         total_realized_pnl = sum(pnl.pnl for pnl in self.realized_pnl)
         total_commission = sum(trade.commission for trade in self.trades)
-        
+
         # 未実現損益の合計
         total_unrealized_pnl = sum(
             position.unrealized_pnl for position in self.positions.values()
