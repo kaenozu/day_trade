@@ -872,11 +872,11 @@ class RealMarketDataManager:
             logger.info(f"キャッシュから直近価格を取得: {symbol} = {cached_price}円")
             return cached_price
 
-        # 2. 業界平均価格による推定
-        estimated_price = self._estimate_price_by_sector(symbol)
-        if estimated_price is not None:
-            logger.info(f"業界平均による価格推定: {symbol} = {estimated_price}円")
-            return estimated_price
+        # 2. 業界平均価格による推定 (削除または改善が必要)
+        # estimated_price = self._estimate_price_by_sector(symbol)
+        # if estimated_price is not None:
+        #     logger.info(f"業界平均による価格推定: {symbol} = {estimated_price}円")
+        #     return estimated_price
 
         # 3. 最終フォールバック: 固定価格
         logger.warning(f"全てのフォールバック手法が失敗: {symbol} - デフォルト価格を使用")

@@ -42,3 +42,50 @@ def setup_main_routes(app: Flask) -> None:
             'timestamp': datetime.now().isoformat(),
             'service': 'daytrade-web'
         })
+
+    @app.route('/debug/info')
+    def debug_info():
+        """デバッグ情報"""
+        return jsonify({
+            'version': app.config.get('VERSION_INFO', {}),
+            'redis_connected': g.redis_client is not None,
+            'celery_status': 'Celery integration is active',
+            'config': {
+                'SECRET_KEY': '********' if app.secret_key else None,
+                'DEBUG': app.debug
+            },
+            'request_headers': {k: v for k, v in request.headers}
+        })
+
+    @app.route('/debug/error')
+    def trigger_error():
+        """エラーテスト用"""
+        raise Exception("This is a test exception for debugging.")
+
+    @app.route('/debug/slow')
+    def slow_response():
+        """低速レスポンステスト用"""
+        time.sleep(5)
+        return "This page was intentionally slow."
+
+    @app.errorhandler(404)
+    def page_not_found(e):
+        """404エラーハンドラ"""
+        template_content = g.template_service.get_error_template()
+        return render_template_string(
+            template_content,
+            error_code=404,
+            error_message="ページが見つかりません。",
+            error_description="お探しのページは存在しないか、移動された可能性があります。"
+        ), 404
+
+    @app.errorhandler(500)
+    def internal_server_error(e):
+        """500エラーハンドラ"""
+        template_content = g.template_service.get_error_template()
+        return render_template_string(
+            template_content,
+            error_code=500,
+            error_message="サーバー内部でエラーが発生しました。",
+            error_description="現在、問題の解決に取り組んでいます。しばらくしてから再度お試しください。"
+        ), 500
