@@ -1,5 +1,7 @@
 # 📊 Day Trade Personal - 個人投資家専用版
 
+<!-- trigger ci -->
+
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Personal Use](https://img.shields.io/badge/License-Personal%20Use%20Only-green.svg)](#利用規約)
 [![AI Accuracy](https://img.shields.io/badge/AI%20Accuracy-93%25-brightgreen.svg)](#AI精度)
