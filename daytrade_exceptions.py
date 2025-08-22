@@ -5,6 +5,7 @@ Day Trade Exceptions Module - 統一例外処理システム
 """
 
 from typing import Optional, Dict, Any
+from datetime import datetime
 
 
 class DayTradeError(Exception):
@@ -18,7 +19,6 @@ class DayTradeError(Exception):
 
     def _get_timestamp(self) -> str:
         """エラー発生時刻を取得"""
-        from datetime import datetime
         return datetime.now().isoformat()
 
     def to_dict(self) -> Dict[str, Any]:
@@ -127,16 +127,21 @@ def handle_exception(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except DayTradeError:
+        except DayTradeError as e:
             # 既知の例外はそのまま再発生
+            from daytrade_exceptions import log_and_handle_exception
+            log_and_handle_exception(e, {'function': func.__name__, 'context': 'known_exception'})
             raise
         except Exception as e:
-            # 未知の例外をDayTradeErrorでラップ
-            raise DayTradeError(
+            # 未知の例外をDayTradeErrorでラップし、ログに記録
+            wrapped_error = DayTradeError(
                 f"Unexpected error in {func.__name__}: {str(e)}",
                 error_code="UNEXPECTED_ERROR",
                 details={'function': func.__name__, 'original_error': str(e)}
-            ) from e
+            )
+            from daytrade_exceptions import log_and_handle_exception
+            log_and_handle_exception(wrapped_error, {'function': func.__name__, 'context': 'unexpected_exception'})
+            raise wrapped_error
     return wrapper
 
 
@@ -145,16 +150,21 @@ def handle_async_exception(func):
     async def wrapper(*args, **kwargs):
         try:
             return await func(*args, **kwargs)
-        except DayTradeError:
+        except DayTradeError as e:
             # 既知の例外はそのまま再発生
+            from daytrade_exceptions import log_and_handle_exception
+            log_and_handle_exception(e, {'function': func.__name__, 'context': 'known_exception'})
             raise
         except Exception as e:
-            # 未知の例外をDayTradeErrorでラップ
-            raise DayTradeError(
+            # 未知の例外をDayTradeErrorでラップし、ログに記録
+            wrapped_error = DayTradeError(
                 f"Unexpected error in {func.__name__}: {str(e)}",
                 error_code="UNEXPECTED_ERROR",
                 details={'function': func.__name__, 'original_error': str(e)}
-            ) from e
+            )
+            from daytrade_exceptions import log_and_handle_exception
+            log_and_handle_exception(wrapped_error, {'function': func.__name__, 'context': 'unexpected_exception'})
+            raise wrapped_error
     return wrapper
 
 
@@ -178,12 +188,16 @@ class ExceptionLogger:
         if context:
             log_data['context'] = context
 
+        # 辞書をJSON文字列に変換してログに出力
+        import json
+        log_message = json.dumps(log_data, ensure_ascii=False)
+
         if error.error_code and error.error_code.startswith('CRITICAL'):
-            self.logger.critical(f"Critical Error: {log_data}")
+            self.logger.critical(f"Critical Error: {log_message}")
         elif isinstance(error, (DataSourceError, MLPredictionError)):
-            self.logger.error(f"System Error: {log_data}")
+            self.logger.error(f"System Error: {log_message}")
         else:
-            self.logger.warning(f"Handled Error: {log_data}")
+            self.logger.warning(f"Handled Error: {log_message}")
 
     def _log_general_exception(self, exception: Exception, context: Optional[Dict[str, Any]] = None):
         """一般例外ログ"""
