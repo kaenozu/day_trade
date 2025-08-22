@@ -102,13 +102,15 @@ class DayTradeCLI:
                 return self._run_default_mode(parsed_args)
 
         except KeyboardInterrupt:
-            print("\\n処理を中断しました")
+            from daytrade_logging import log_error
+            log_error("処理を中断しました")
             return 1
         except Exception as e:
-            print(f"エラーが発生しました: {e}")
+            from daytrade_logging import log_error
+            log_error(f"エラーが発生しました: {e}")
             if parsed_args.debug:
                 import traceback
-                traceback.print_exc()
+                log_error(traceback.format_exc())
             return 1
 
     def _run_web_mode(self, args: argparse.Namespace) -> int:
@@ -147,11 +149,6 @@ class DayTradeCLI:
         return asyncio.run(core.run_daytrading_analysis(args.symbols))
 
 
-def main():
-    """CLIメイン関数"""
-    cli = DayTradeCLI()
-    return cli.execute()
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    cli = DayTradeCLI()
+    sys.exit(cli.execute())
