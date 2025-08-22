@@ -13,7 +13,10 @@ __build_date__ = "2025-08-18"
 
 # 統合バージョン文字列
 __version_extended__ = f"{__version__}_{__release_name__.lower()}"
-__version_full__ = f"Day Trade Personal v{__version__} {__release_name__} (Build {__build_date__})"
+__version_full__ = (
+    f"Day Trade Personal v{__version__} {__release_name__} (Build {__build_date__})"
+)
+
 
 # API用バージョン情報
 def get_version_info():
@@ -23,8 +26,9 @@ def get_version_info():
         "version_extended": __version_extended__,
         "release_name": __release_name__,
         "build_date": __build_date__,
-        "version_info": __version_info__
+        "version_info": __version_info__,
     }
+
 
 # コンポーネント別バージョン
 COMPONENTS = {
