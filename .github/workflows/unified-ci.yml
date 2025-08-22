@@ -81,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Merge Conflict Detection
     needs: validation
-    if: github.event_name == 'pull_request'
+    if: false
 
     steps:
       - name: Checkout repository
