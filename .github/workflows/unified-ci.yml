@@ -133,11 +133,7 @@ jobs:
             pip install -r requirements-dev.txt
           fi
 
-      - name: Run pre-commit hooks
-        if: false
-        run: |
-          echo "🔍 Running pre-commit hooks..."
-          pre-commit run --all-files --show-diff-on-failure --config config/.pre-commit-config.yaml
+      
 
       - name: Security scan
         run: |
