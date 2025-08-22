@@ -10,12 +10,13 @@ import sys
 import logging
 import argparse
 import redis
+import redis.exceptions
 from pathlib import Path
 from typing import Dict, Any
 from flask import Flask, g
 from datetime import datetime
 
-from src.day_trade.utils.logging_config import setup_logging # NEW LINE
+from daytrade_logging import setup_logging
 
 from celery_app import celery_app
 from celery.result import AsyncResult
@@ -25,16 +26,8 @@ from web.services.recommendation_service import RecommendationService
 from web.services.template_service import TemplateService
 
 # バージョン情報
-try:
-    from version import get_version_info
-    VERSION_INFO = get_version_info()
-except ImportError:
-    VERSION_INFO = {
-        "version": "2.4.0",
-        "version_extended": "2.4.0_production_ready",
-        "release_name": "Production Ready",
-        "build_date": "2025-08-19"
-    }
+from version import get_version_info
+VERSION_INFO = get_version_info()
 
 def create_app() -> Flask:
     """Flaskアプリケーションを生成して設定 (Application Factory)"""
@@ -100,15 +93,17 @@ def create_app() -> Flask:
 # Gunicornがこの'app'インスタンスを使用する
 app = create_app()
 
-def main():
-    """開発用サーバーを起動するメイン関数"""
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Day Trade Web Server (Production Ready)')
     parser.add_argument('--port', '-p', type=int, default=8000, help='サーバーポート')
     parser.add_argument('--debug', '-d', action='store_true', help='デバッグモード')
     args = parser.parse_args()
 
+    # create_app() を呼び出して app インスタンスを取得
+    app_instance = create_app()
+
     print(f"\n🚀 Day Trade Web Server (Production Ready) - Issue #939")
-    print(f"Version: {app.config['VERSION_INFO']['version_extended']}")
+    print(f"Version: {app_instance.config['VERSION_INFO']['version_extended']}")
     print(f"Port: {args.port}")
     print(f"Debug: {args.debug}")
     print(f"Architecture: Application Factory with Gunicorn & Celery")
@@ -116,14 +111,11 @@ def main():
     print("To run in production with Gunicorn:")
     print("gunicorn --config gunicorn.conf.py daytrade_web:app")
     print("To run the Celery worker:")
-    print("celery -A celery_app.celery_app worker --loglevel=info")
+    print("celery -A celery_app.celery_app worker --loglevel:info")
     print("=" * 50)
 
-    app.run(
+    app_instance.run(
         host='0.0.0.0',
         port=args.port,
         debug=args.debug
     )
-
-if __name__ == "__main__":
-    main()
