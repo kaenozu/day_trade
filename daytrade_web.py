@@ -27,14 +27,16 @@ from web.services.template_service import TemplateService
 
 # バージョン情報
 from version import get_version_info
+
 VERSION_INFO = get_version_info()
+
 
 def create_app() -> Flask:
     """Flaskアプリケーションを生成して設定 (Application Factory)"""
     app = Flask(__name__)
-    app.secret_key = 'day-trade-personal-2025-production-ready'
+    app.secret_key = "day-trade-personal-2025-production-ready"
     # --- バージョン情報をappコンテキストに保存 ---
-    app.config['VERSION_INFO'] = VERSION_INFO
+    app.config["VERSION_INFO"] = VERSION_INFO
 
     # --- ログ設定 ---
     setup_logging()
@@ -42,36 +44,37 @@ def create_app() -> Flask:
     # --- サービスとクライアントの初期化 ---
     @app.before_request
     def before_request():
-        if 'redis_client' not in g:
+        if "redis_client" not in g:
             try:
-                g.redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+                g.redis_client = redis.Redis(
+                    host="localhost", port=6379, db=0, decode_responses=True
+                )
                 g.redis_client.ping()
             except redis.exceptions.ConnectionError:
                 g.redis_client = None
 
-        if 'recommendation_service' not in g:
-            g.recommendation_service = RecommendationService(redis_client=g.redis_client)
+        if "recommendation_service" not in g:
+            g.recommendation_service = RecommendationService(
+                redis_client=g.redis_client
+            )
 
-        if 'template_service' not in g:
+        if "template_service" not in g:
             g.template_service = TemplateService()
 
     # --- 非同期タスクハンドラ ---
     def start_analysis_task(symbol: str) -> Dict[str, Any]:
         from celery_tasks import run_analysis
+
         task = run_analysis.delay(symbol)
-        return {'task_id': task.id}
+        return {"task_id": task.id}
 
     def get_task_status(task_id: str) -> Dict[str, Any]:
         task_result = AsyncResult(task_id, app=celery_app)
-        response = {
-            'task_id': task_id,
-            'status': task_result.status,
-            'result': None
-        }
+        response = {"task_id": task_id, "status": task_result.status, "result": None}
         if task_result.successful():
-            response['result'] = task_result.get()
+            response["result"] = task_result.get()
         elif task_result.failed():
-            response['result'] = task_result.get()
+            response["result"] = task_result.get()
         return response
 
     # --- appコンテキストに関数を登録 ---
@@ -86,17 +89,20 @@ def create_app() -> Flask:
 
     # --- ログ設定 ---
     if not app.debug:
-        logging.getLogger('werkzeug').setLevel(logging.WARNING)
+        logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
     return app
+
 
 # Gunicornがこの'app'インスタンスを使用する
 app = create_app()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Day Trade Web Server (Production Ready)')
-    parser.add_argument('--port', '-p', type=int, default=8000, help='サーバーポート')
-    parser.add_argument('--debug', '-d', action='store_true', help='デバッグモード')
+    parser = argparse.ArgumentParser(
+        description="Day Trade Web Server (Production Ready)"
+    )
+    parser.add_argument("--port", "-p", type=int, default=8000, help="サーバーポート")
+    parser.add_argument("--debug", "-d", action="store_true", help="デバッグモード")
     args = parser.parse_args()
 
     # create_app() を呼び出して app インスタンスを取得
@@ -114,8 +120,4 @@ if __name__ == "__main__":
     print("celery -A celery_app.celery_app worker --loglevel:info")
     print("=" * 50)
 
-    app_instance.run(
-        host='0.0.0.0',
-        port=args.port,
-        debug=args.debug
-    )
+    app_instance.run(host="0.0.0.0", port=args.port, debug=args.debug)
