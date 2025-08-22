@@ -31,14 +31,8 @@ def setup_environment() -> None:
 
 def _configure_windows_encoding() -> None:
     """Windows環境での文字エンコーディング設定"""
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except AttributeError:
-        # Python 3.6以下の場合のフォールバック
-        import codecs
-        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
-        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
 
 
 def _initialize_logging() -> None:
@@ -63,17 +57,19 @@ def _handle_keyboard_interrupt() -> int:
 
 def _handle_import_error(error: ImportError) -> int:
     """インポートエラーを処理する"""
-    print(f"❌ 必要なモジュールが見つかりません: {error}")
-    print("📥 pip install -r requirements.txt を実行してください")
+    from daytrade_logging import log_error
+    log_error(f"必要なモジュールが見つかりません: {error}")
+    log_error("📥 pip install -r requirements.txt を実行してください")
     return 1
 
 
 def _handle_general_error(error: Exception) -> int:
     """一般的なエラーを処理する"""
-    print(f"❌ システムエラーが発生しました: {error}")
+    from daytrade_logging import log_error
+    log_error(f"システムエラーが発生しました: {error}")
     if '--debug' in sys.argv:
         import traceback
-        traceback.print_exc()
+        log_error(traceback.format_exc()) # tracebackもログに出力
     return 1
 
 
@@ -92,13 +88,9 @@ def main() -> int:
 
 def _display_banner() -> None:
     """アプリケーションバナーを表示する"""
-    try:
-        from version import __version_full__
-        print("🚀 Day Trade Personal - 93%精度AIシステム")
-        print(f"📊 {__version_full__}")
-    except ImportError:
-        print("🚀 Day Trade Personal - 93%精度AIシステム")
-        print("📊 v2.1.0 Extended")
+    from version import __version_full__
+    print("🚀 Day Trade Personal - 93%精度AIシステム")
+    print(f"📊 {__version_full__}")
     print("=" * 50)
 
 
