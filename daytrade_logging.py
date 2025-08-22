@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-            maxBytes=LOG_FILE_MAX_BYTES, # 10 MB
+LOG_FILE_MAX_BYTES = 10 * 1024 * 1024 # 10 MB
 
 
 class DayTradeLogger:
