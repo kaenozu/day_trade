@@ -476,7 +476,22 @@ jobs:
               }
             };
 
-            const body = `## 🔍 CI/CD Pipeline Status Report\n\n            | Phase | Status | Result |\n            |-------|--------|--------|\n            | Validation | ${getStatusIcon(results.validation)} | ${results.validation} |\n            | Conflict Detection | ${getStatusIcon(results.conflicts)} | ${results.conflicts} |\n            | Code Quality | ${getStatusIcon(results.quality)} | ${results.quality} |\n            | Testing | ${getStatusIcon(results.testing)} | ${results.testing} |\n            | Config Validation | ${getStatusIcon(results.config)} | ${results.config} |\n            | Build Check | ${getStatusIcon(results.build)} | ${results.build} |\n            | Lighthouse | ${getStatusIcon(results.lighthouse)} | ${results.lighthouse} |\n            | Build and Deploy | ${getStatusIcon(results.deploy)} | ${results.deploy} |\n\n            --- \n            🤖 **自動生成レポート** - Unified CI/CD Pipeline\n            `;
+            const body = `## 🔍 CI/CD Pipeline Status Report
+
+            | Phase | Status | Result |
+            |-------|--------|--------|
+            | Validation | ${getStatusIcon(results.validation)} | ${results.validation} |
+            | Conflict Detection | ${getStatusIcon(results.conflicts)} | ${results.conflicts} |
+            | Code Quality | ${getStatusIcon(results.quality)} | ${results.quality} |
+            | Testing | ${getStatusIcon(results.testing)} | ${results.testing} |
+            | Config Validation | ${getStatusIcon(results.config)} | ${results.config} |
+            | Build Check | ${getStatusIcon(results.build)} | ${results.build} |
+            | Lighthouse | ${getStatusIcon(results.lighthouse)} | ${results.lighthouse} |
+            | Build and Deploy | ${getStatusIcon(results.deploy)} | ${results.deploy} |
+
+            --- 
+            🤖 **自動生成レポート** - Unified CI/CD Pipeline
+            `;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
