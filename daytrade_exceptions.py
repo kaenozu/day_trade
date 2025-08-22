@@ -11,7 +11,12 @@ from datetime import datetime
 class DayTradeError(Exception):
     """デイトレードシステム基底例外"""
 
-    def __init__(self, message: str, error_code: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        message: str,
+        error_code: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ):
         super().__init__(message)
         self.error_code = error_code
         self.details = details or {}
@@ -24,147 +29,183 @@ class DayTradeError(Exception):
     def to_dict(self) -> Dict[str, Any]:
         """例外情報を辞書形式で返す"""
         return {
-            'error_type': self.__class__.__name__,
-            'message': str(self),
-            'error_code': self.error_code,
-            'details': self.details,
-            'timestamp': self.timestamp
+            "error_type": self.__class__.__name__,
+            "message": str(self),
+            "error_code": self.error_code,
+            "details": self.details,
+            "timestamp": self.timestamp,
         }
 
 
 class DataSourceError(DayTradeError):
     """データソース関連例外"""
+
     pass
 
 
 class YFinanceError(DataSourceError):
     """yfinanceデータ取得例外"""
+
     pass
 
 
 class PriceDataError(DataSourceError):
     """価格データ関連例外"""
+
     pass
 
 
 class MLPredictionError(DayTradeError):
     """ML予測関連例外"""
+
     pass
 
 
 class ModelLoadError(MLPredictionError):
     """MLモデル読み込み例外"""
+
     pass
 
 
 class PredictionAccuracyError(MLPredictionError):
     """予測精度関連例外"""
+
     pass
 
 
 class AnalysisEngineError(DayTradeError):
     """分析エンジン関連例外"""
+
     pass
 
 
 class TechnicalAnalysisError(AnalysisEngineError):
     """テクニカル分析例外"""
+
     pass
 
 
 class SignalGenerationError(AnalysisEngineError):
     """シグナル生成例外"""
+
     pass
 
 
 class WebDashboardError(DayTradeError):
     """Webダッシュボード関連例外"""
+
     pass
 
 
 class APIError(WebDashboardError):
     """API関連例外"""
+
     pass
 
 
 class ChartGenerationError(WebDashboardError):
     """チャート生成例外"""
+
     pass
 
 
 class ConfigurationError(DayTradeError):
     """設定関連例外"""
+
     pass
 
 
 class ValidationError(DayTradeError):
     """バリデーション例外"""
+
     pass
 
 
 class SystemResourceError(DayTradeError):
     """システムリソース関連例外"""
+
     pass
 
 
 class DatabaseError(DayTradeError):
     """データベース関連例外"""
+
     pass
 
 
 class NetworkError(DayTradeError):
     """ネットワーク関連例外"""
+
     pass
 
 
 class TimeoutError(DayTradeError):
     """タイムアウト例外"""
+
     pass
 
 
 def handle_exception(func):
     """例外処理デコレータ"""
+
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except DayTradeError as e:
             # 既知の例外はそのまま再発生
             from daytrade_exceptions import log_and_handle_exception
-            log_and_handle_exception(e, {'function': func.__name__, 'context': 'known_exception'})
+
+            log_and_handle_exception(
+                e, {"function": func.__name__, "context": "known_exception"}
+            )
             raise
         except Exception as e:
             # 未知の例外をDayTradeErrorでラップし、ログに記録
             wrapped_error = DayTradeError(
                 f"Unexpected error in {func.__name__}: {str(e)}",
                 error_code="UNEXPECTED_ERROR",
-                details={'function': func.__name__, 'original_error': str(e)}
+                details={"function": func.__name__, "original_error": str(e)},
             )
             from daytrade_exceptions import log_and_handle_exception
-            log_and_handle_exception(wrapped_error, {'function': func.__name__, 'context': 'unexpected_exception'})
+
+            log_and_handle_exception(
+                wrapped_error,
+                {"function": func.__name__, "context": "unexpected_exception"},
+            )
             raise wrapped_error
+
     return wrapper
 
 
 def handle_async_exception(func):
     """非同期例外処理デコレータ"""
+
     async def wrapper(*args, **kwargs):
         try:
             return await func(*args, **kwargs)
         except DayTradeError as e:
             # 既知の例外はそのまま再発生
             from daytrade_exceptions import log_and_handle_exception
-            log_and_handle_exception(e, {'function': func.__name__, 'context': 'known_exception'})
+
+            log_and_handle_exception(
+                e, {"function": func.__name__, "context": "known_exception"}
+            )
             raise
         except Exception as e:
             # 未知の例外をDayTradeErrorでラップし、ログに記録
             wrapped_error = DayTradeError(
                 f"Unexpected error in {func.__name__}: {str(e)}",
                 error_code="UNEXPECTED_ERROR",
-                details={'function': func.__name__, 'original_error': str(e)}
+                details={"function": func.__name__, "original_error": str(e)},
             )
             from daytrade_exceptions import log_and_handle_exception
-            log_and_handle_exception(wrapped_error, {'function': func.__name__, 'context': 'unexpected_exception'})
+
+            log_and_handle_exception(
+                wrapped_error,
+                {"function": func.__name__, "context": "unexpected_exception"},
+            )
             raise wrapped_error
+
     return wrapper
 
 
@@ -173,33 +214,41 @@ class ExceptionLogger:
 
     def __init__(self):
         from daytrade_logging import get_logger
+
         self.logger = get_logger("exceptions")
 
-    def log_exception(self, exception: Exception, context: Optional[Dict[str, Any]] = None):
+    def log_exception(
+        self, exception: Exception, context: Optional[Dict[str, Any]] = None
+    ):
         """例外をログに記録"""
         if isinstance(exception, DayTradeError):
             self._log_daytrade_error(exception, context)
         else:
             self._log_general_exception(exception, context)
 
-    def _log_daytrade_error(self, error: DayTradeError, context: Optional[Dict[str, Any]] = None):
+    def _log_daytrade_error(
+        self, error: DayTradeError, context: Optional[Dict[str, Any]] = None
+    ):
         """DayTradeError専用ログ"""
         log_data = error.to_dict()
         if context:
-            log_data['context'] = context
+            log_data["context"] = context
 
         # 辞書をJSON文字列に変換してログに出力
         import json
+
         log_message = json.dumps(log_data, ensure_ascii=False)
 
-        if error.error_code and error.error_code.startswith('CRITICAL'):
+        if error.error_code and error.error_code.startswith("CRITICAL"):
             self.logger.critical(f"Critical Error: {log_message}")
         elif isinstance(error, (DataSourceError, MLPredictionError)):
             self.logger.error(f"System Error: {log_message}")
         else:
             self.logger.warning(f"Handled Error: {log_message}")
 
-    def _log_general_exception(self, exception: Exception, context: Optional[Dict[str, Any]] = None):
+    def _log_general_exception(
+        self, exception: Exception, context: Optional[Dict[str, Any]] = None
+    ):
         """一般例外ログ"""
         self.logger.exception(
             f"Unhandled Exception: {exception.__class__.__name__}: {str(exception)}"
@@ -213,6 +262,7 @@ class ErrorRecoveryManager:
 
     def __init__(self):
         from daytrade_logging import get_logger
+
         self.logger = get_logger("error_recovery")
         self.retry_counts = {}
         self.max_retries = 3
@@ -228,7 +278,9 @@ class ErrorRecoveryManager:
             return False
 
         self.retry_counts[operation_id] = current_count + 1
-        self.logger.info(f"Retry {current_count + 1}/{self.max_retries} for {operation_id}")
+        self.logger.info(
+            f"Retry {current_count + 1}/{self.max_retries} for {operation_id}"
+        )
         return True
 
     def reset_retry_count(self, operation_id: str):
@@ -242,27 +294,22 @@ class ErrorRecoveryManager:
 
         if data_type == "price_data":
             return {
-                'price': 1000.0,
-                'change': 0.0,
-                'volume': 100000,
-                'is_fallback': True
+                "price": 1000.0,
+                "change": 0.0,
+                "volume": 100000,
+                "is_fallback": True,
             }
         elif data_type == "ml_prediction":
             return {
-                'signal': 'HOLD',
-                'confidence': 0.5,
-                'prediction': 0,
-                'is_fallback': True
+                "signal": "HOLD",
+                "confidence": 0.5,
+                "prediction": 0,
+                "is_fallback": True,
             }
         elif data_type == "technical_indicators":
-            return {
-                'rsi': 50.0,
-                'macd': 0.0,
-                'sma20': 1000.0,
-                'is_fallback': True
-            }
+            return {"rsi": 50.0, "macd": 0.0, "sma20": 1000.0, "is_fallback": True}
         else:
-            return {'is_fallback': True}
+            return {"is_fallback": True}
 
 
 # グローバルインスタンス
@@ -286,7 +333,9 @@ def get_error_recovery_manager() -> ErrorRecoveryManager:
     return _error_recovery_manager
 
 
-def log_and_handle_exception(exception: Exception, context: Optional[Dict[str, Any]] = None):
+def log_and_handle_exception(
+    exception: Exception, context: Optional[Dict[str, Any]] = None
+):
     """例外をログに記録し、適切に処理"""
     get_exception_logger().log_exception(exception, context)
 
@@ -301,12 +350,12 @@ if __name__ == "__main__":
     try:
         raise YFinanceError("yfinance connection failed", error_code="YFINANCE_001")
     except DayTradeError as e:
-        log_and_handle_exception(e, {'symbol': '7203', 'operation': 'price_fetch'})
+        log_and_handle_exception(e, {"symbol": "7203", "operation": "price_fetch"})
 
     try:
         raise MLPredictionError("Model prediction failed", error_code="ML_002")
     except DayTradeError as e:
-        log_and_handle_exception(e, {'model': 'SimpleML', 'symbol': '8306'})
+        log_and_handle_exception(e, {"model": "SimpleML", "symbol": "8306"})
 
     # エラー回復テスト
     recovery_manager = get_error_recovery_manager()
