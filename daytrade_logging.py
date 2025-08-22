@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-LOG_FILE_MAX_BYTES = 10 * 1024 * 1024 # 10 MB
+LOG_FILE_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 class DayTradeLogger:
@@ -37,32 +37,31 @@ class DayTradeLogger:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(logging.INFO)
         console_formatter = logging.Formatter(
-            '%(asctime)s - %(levelname)s - %(message)s',
-            datefmt='%H:%M:%S'
+            "%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
         )
         console_handler.setFormatter(console_formatter)
 
         # ファイルハンドラー（DEBUG以上、日次ローテーション）
         file_handler = logging.handlers.TimedRotatingFileHandler(
             filename=self.log_dir / f"{self.name}.log",
-            when='midnight',
+            when="midnight",
             interval=1,
             backupCount=30,
-            encoding='utf-8'
+            encoding="utf-8",
         )
         file_handler.setLevel(logging.DEBUG)
         file_formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
+            "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
         )
         file_handler.setFormatter(file_formatter)
 
         # エラーファイルハンドラー（ERROR以上）
         error_handler = logging.handlers.TimedRotatingFileHandler(
             filename=self.log_dir / f"{self.name}_error.log",
-            when='midnight',
+            when="midnight",
             interval=1,
             backupCount=90,
-            encoding='utf-8'
+            encoding="utf-8",
         )
         error_handler.setLevel(logging.ERROR)
         error_handler.setFormatter(file_formatter)
@@ -109,7 +108,9 @@ class DayTradeLogger:
             f"Price: {price}, Confidence: {confidence:.2%}"
         )
 
-    def analysis_result(self, symbol: str, signal: str, accuracy: float, details: str = ""):
+    def analysis_result(
+        self, symbol: str, signal: str, accuracy: float, details: str = ""
+    ):
         """分析結果専用ログ"""
         self.logger.info(
             f"ANALYSIS_RESULT - Symbol: {symbol}, Signal: {signal}, "
@@ -125,9 +126,7 @@ class DayTradeLogger:
 
     def performance_metric(self, metric_name: str, value: float, unit: str = ""):
         """パフォーマンスメトリック専用ログ"""
-        self.logger.info(
-            f"PERFORMANCE_METRIC - {metric_name}: {value} {unit}"
-        )
+        self.logger.info(f"PERFORMANCE_METRIC - {metric_name}: {value} {unit}")
 
     def data_quality_check(self, source: str, quality_score: float, issues: str = ""):
         """データ品質チェック専用ログ"""
@@ -135,16 +134,18 @@ class DayTradeLogger:
         self.logger.log(
             level,
             f"DATA_QUALITY - Source: {source}, Score: {quality_score:.2%}, "
-            f"Issues: {issues}"
+            f"Issues: {issues}",
         )
 
-    def api_request(self, endpoint: str, method: str, response_time: float, status_code: int):
+    def api_request(
+        self, endpoint: str, method: str, response_time: float, status_code: int
+    ):
         """API リクエスト専用ログ"""
         level = logging.WARNING if status_code >= 400 else logging.DEBUG
         self.logger.log(
             level,
             f"API_REQUEST - {method} {endpoint}, Time: {response_time:.3f}s, "
-            f"Status: {status_code}"
+            f"Status: {status_code}",
         )
 
     @classmethod
@@ -157,10 +158,10 @@ class DayTradeLogger:
         root_logger.setLevel(level)
 
         # 外部ライブラリのログレベル調整
-        logging.getLogger('urllib3').setLevel(logging.WARNING)
-        logging.getLogger('requests').setLevel(logging.WARNING)
-        logging.getLogger('matplotlib').setLevel(logging.WARNING)
-        logging.getLogger('plotly').setLevel(logging.WARNING)
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("requests").setLevel(logging.WARNING)
+        logging.getLogger("matplotlib").setLevel(logging.WARNING)
+        logging.getLogger("plotly").setLevel(logging.WARNING)
 
         return cls()
 
