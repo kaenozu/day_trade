@@ -6,6 +6,8 @@ API エンドポイント定義モジュール
 Issue #939対応: Gunicorn/Application Factory対応
 """
 
+import logging
+import traceback
 from flask import Flask, jsonify, request, g
 from datetime import datetime
 def setup_api_routes(app: Flask) -> None:
@@ -101,6 +103,8 @@ def setup_api_routes(app: Flask) -> None:
             })
 
         except Exception as e:
+            logging.error(f"Error in /api/recommendations: {e}")
+            logging.error(traceback.format_exc())
             return jsonify({'error': str(e), 'timestamp': datetime.now().isoformat()}), 500
 
     @app.route('/api/portfolio/add', methods=['POST'])

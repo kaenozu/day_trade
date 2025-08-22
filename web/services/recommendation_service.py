@@ -9,6 +9,7 @@ import time
 import sys
 import os
 import json
+import logging
 import polars as pl
 from pathlib import Path
 from typing import Dict, List, Any, Optional
@@ -132,8 +133,7 @@ class RecommendationService:
             company_name = symbol_data['name']
 
             provider = ImprovedMultiSourceDataProvider()
-            jp_symbol = f"{symbol}.T"
-            result = provider.get_stock_data_sync(jp_symbol, period="1mo")
+            result = provider.get_stock_data_sync(symbol, period="1mo")
 
             if result.success and result.data is not None and len(result.data) > 20:
                 pl_data = pl.from_pandas(result.data.reset_index())
@@ -152,6 +152,18 @@ class RecommendationService:
             print(f"Polarsリアル分析エラー ({symbol}): {e}")
 
         return None
+
+    def _calculate_trading_timing(self, price, previous_close, change_pct, sector, strategy, confidence):
+        """売買タイミングを計算する（仮実装）"""
+        buy_timing = "市場の動向を注視"
+        sell_timing = "過熱感が出たら検討"
+
+        if change_pct > 2.0 and confidence > 0.7:
+            buy_timing = "強い上昇トレンド。押し目買いを検討。"
+        elif change_pct < -2.0 and confidence > 0.7:
+            sell_timing = "下落トレンド注意。戻り売りを検討。"
+
+        return buy_timing, sell_timing
 
     def _enrich_real_analysis(self, analysis: Dict[str, Any], symbol_data: Dict[str, Any]) -> Dict[str, Any]:
         recommendation = analysis.get('signal', 'HOLD')
