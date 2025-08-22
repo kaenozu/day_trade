@@ -66,7 +66,7 @@ class CorrelationResult:
     timestamp: datetime = None
 
     def __post_init__(self) -> None:
-    """__post_init__関数"""
+        """__post_init__関数"""
         if self.timestamp is None:
             self.timestamp = datetime.now(timezone.utc)
 
@@ -90,19 +90,18 @@ class MarketRegimeChange:
     detection_confidence: float
     timestamp: datetime = None
 
-    """__post_init__関数"""
     def __post_init__(self) -> None:
+        """__post_init__関数"""
         if self.timestamp is None:
             self.timestamp = datetime.now(timezone.utc)
 
 
 class DynamicCorrelationModel(nn.Module):
     """動的相関予測ニューラルネットワーク"""
-    """__init__関数"""
-
     def __init__(
         self, input_size: int = 10, hidden_size: int = 64, sequence_length: int = 24
     ) -> None:
+        """__init__関数"""
         super().__init__()
         self.sequence_length = sequence_length
 
@@ -164,14 +163,13 @@ class DynamicCorrelationModel(nn.Module):
 
 
 class CrossMarketCorrelationEngine:
-    """__init__関数"""
-    """クロスマーケット相関分析エンジン"""
-
     def __init__(
         self,
         forex_collector: Optional[ForexDataCollector] = None,
         crypto_collector: Optional[CryptoDataCollector] = None,
     ) -> None:
+        """__init__関数"""
+        """クロスマーケット相関分析エンジン"""
         self.forex_collector = forex_collector
         self.crypto_collector = crypto_collector
 
