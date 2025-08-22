@@ -23,28 +23,30 @@ def setup_environment() -> None:
     sys.path.insert(0, str(project_root))
 
     # Windows環境での文字化け対策
-    os.environ['PYTHONIOENCODING'] = 'utf-8'
+    os.environ["PYTHONIOENCODING"] = "utf-8"
 
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         _configure_windows_encoding()
 
 
 def _configure_windows_encoding() -> None:
     """Windows環境での文字エンコーディング設定"""
-    sys.stdout.reconfigure(encoding='utf-8')
-    sys.stderr.reconfigure(encoding='utf-8')
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 
 def _initialize_logging() -> None:
     """ログシステムを初期化する"""
     from daytrade_logging import setup_logging
-    debug_mode = '--debug' in sys.argv
+
+    debug_mode = "--debug" in sys.argv
     setup_logging(debug=debug_mode)
 
 
 def _execute_cli() -> int:
     """CLIを実行する"""
     from daytrade_cli import DayTradeCLI
+
     cli = DayTradeCLI()
     return cli.execute()
 
@@ -58,6 +60,7 @@ def _handle_keyboard_interrupt() -> int:
 def _handle_import_error(error: ImportError) -> int:
     """インポートエラーを処理する"""
     from daytrade_logging import log_error
+
     log_error(f"必要なモジュールが見つかりません: {error}")
     log_error("📥 pip install -r requirements.txt を実行してください")
     return 1
@@ -66,10 +69,12 @@ def _handle_import_error(error: ImportError) -> int:
 def _handle_general_error(error: Exception) -> int:
     """一般的なエラーを処理する"""
     from daytrade_logging import log_error
+
     log_error(f"システムエラーが発生しました: {error}")
-    if '--debug' in sys.argv:
+    if "--debug" in sys.argv:
         import traceback
-        log_error(traceback.format_exc()) # tracebackもログに出力
+
+        log_error(traceback.format_exc())  # tracebackもログに出力
     return 1
 
 
@@ -89,6 +94,7 @@ def main() -> int:
 def _display_banner() -> None:
     """アプリケーションバナーを表示する"""
     from version import __version_full__
+
     print("🚀 Day Trade Personal - 93%精度AIシステム")
     print(f"📊 {__version_full__}")
     print("=" * 50)
