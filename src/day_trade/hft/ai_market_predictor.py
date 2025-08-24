@@ -53,6 +53,8 @@ except ImportError:
 
 logger = get_context_logger(__name__)
 
+from .next_gen_hft_engine import HFTMarketData, MarketRegime
+
 
 class PredictionModel(Enum):
     """予測モデルタイプ"""
@@ -812,8 +814,7 @@ def create_ai_market_predictor(
 
 
 if __name__ == "__main__":
-    # テスト実行
-    async def test_ai_market_predictor():
+    async def main():
         print("=== AIMarketPredictor テスト ===")
 
         # 予測システム作成
@@ -847,7 +848,7 @@ if __name__ == "__main__":
         predictions = []
         start_time = time.time()
 
-        for symbol, market_data in test_data[-15:]:  # 最後の15件で予測
+        for symbol, market_data in test_data[-15:]:
             prediction = await predictor.predict_market(symbol, market_data)
             if prediction:
                 predictions.append(prediction)
@@ -860,7 +861,7 @@ if __name__ == "__main__":
 
         # 予測詳細表示
         if predictions:
-            for i, pred in enumerate(predictions[-5:]):  # 最後の5件表示
+            for i, pred in enumerate(predictions[-5:]):
                 print(f"\n予測{i + 1}: {pred.symbol}")
                 print(f"  価格予測: ${pred.predicted_price:.2f}")
                 print(f"  信頼度: {pred.confidence:.1%}")
@@ -885,4 +886,5 @@ if __name__ == "__main__":
 
         print("\n✅ AIMarketPredictor テスト完了")
 
-    asyncio.run(test_ai_market_predictor())
+    asyncio.run(main())
+

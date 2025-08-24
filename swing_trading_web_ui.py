@@ -46,7 +46,14 @@ class SwingTradingWebUI:
 
     def __init__(self, host="127.0.0.1", port=5001):
         self.app = Flask(__name__)
-        self.app.secret_key = 'swing_trading_ui_secret_key'
+        # セキュアなsecret key設定
+        import os
+        import secrets
+        secret_key = os.environ.get('FLASK_SECRET_KEY')
+        if not secret_key:
+            secret_key = secrets.token_urlsafe(32)
+            print("⚠️  本番環境では環境変数FLASK_SECRET_KEYを設定してください")
+        self.app.secret_key = secret_key
         self.host = host
         self.port = port
 

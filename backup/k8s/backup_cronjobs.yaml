@@ -518,9 +518,10 @@ metadata:
     component: backup
 type: Opaque
 data:
-  # Base64エンコード済み（実際の運用では適切なキー管理を使用）
-  access-key-id: QUtJQUlPU0ZPRE5OKEVYQU1QTEU=  # AKIAIOSFODNN7EXAMPLE
-  secret-access-key: d0phbFJYVXROZkVNSS9LN01ERU5HLytCQ2JYWGZUaFFEUTJsNE5zTw==  # wJalrXUtnFEMI/K7MDENG/+bCbXXfTHQDQ2l4NsO
+  # 実際の運用では、以下の値を本物の認証情報でbase64エンコードして設定してください
+  # kubectl create secret generic aws-credentials --from-literal=access-key-id=YOUR_ACCESS_KEY --from-literal=secret-access-key=YOUR_SECRET_KEY -n day-trade
+  access-key-id: <BASE64_ENCODED_AWS_ACCESS_KEY_ID>
+  secret-access-key: <BASE64_ENCODED_AWS_SECRET_ACCESS_KEY>
 
 ---
 # バックアップ監視用ServiceMonitor

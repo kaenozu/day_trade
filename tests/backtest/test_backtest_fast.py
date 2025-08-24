@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 # 強化モックシステム
-from .fixtures.performance_mocks_enhanced import (
+from tests.backtest.fixtures.performance_mocks_enhanced import (
     create_fast_test_environment,
     measure_mock_performance,
 )

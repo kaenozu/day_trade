@@ -39,7 +39,13 @@ except ImportError:
 def create_app() -> Flask:
     """Flaskアプリケーションを生成して設定 (Application Factory)"""
     app = Flask(__name__)
-    app.secret_key = 'day-trade-personal-2025-production-ready'
+    # セキュアなsecret key設定
+    import secrets
+    secret_key = os.environ.get('FLASK_SECRET_KEY')
+    if not secret_key:
+        secret_key = secrets.token_urlsafe(32)
+        print("⚠️  本番環境では環境変数FLASK_SECRET_KEYを設定してください")
+    app.secret_key = secret_key
     # --- バージョン情報をappコンテキストに保存 ---
     app.config['VERSION_INFO'] = VERSION_INFO
 

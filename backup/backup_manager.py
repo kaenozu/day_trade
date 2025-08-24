@@ -280,7 +280,7 @@ class BackupManager:
                 name="postgresql_daily",
                 backup_type=BackupType.FULL,
                 source_type="database",
-                source_path="postgresql://day_trade_user:password@localhost:5432/day_trade_ml",
+                source_path=f"postgresql://day_trade_user:{os.getenv('DB_PASSWORD', 'REPLACE_WITH_ACTUAL_PASSWORD')}@localhost:5432/day_trade_ml",
                 destination=BackupDestination.S3,
                 destination_path="day-trade-backups/database",
                 schedule="0 2 * * *",  # 毎日午前2時

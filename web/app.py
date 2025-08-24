@@ -21,7 +21,13 @@ from web.api.portfolio_api import portfolio_api
 def create_app():
     """Flaskアプリケーションの作成"""
     app = Flask(__name__)
-    app.secret_key = 'day-trade-personal-2025-refactored'
+    # セキュアなsecret key設定
+    import secrets
+    secret_key = os.environ.get('FLASK_SECRET_KEY')
+    if not secret_key:
+        secret_key = secrets.token_urlsafe(32)
+        print("⚠️  本番環境では環境変数FLASK_SECRET_KEYを設定してください")
+    app.secret_key = secret_key
 
     # 静的ファイルとテンプレートのパス設定
     app.static_folder = str(project_root / 'static')
