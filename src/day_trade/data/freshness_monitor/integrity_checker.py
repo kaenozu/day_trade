@@ -22,14 +22,20 @@ class IntegrityChecker:
     統計的異常検出などの整合性チェックを実行します。
     """
     
-    def __init__(self, db_operations: DatabaseOperations):
+    def __init__(self, db_path: Optional[str] = None):
         """整合性チェッカーを初期化
         
         Args:
-            db_operations: データベース操作インスタンス
+            db_path: データベースファイルパス（文字列または DatabaseOperations インスタンス）
         """
         self.logger = logging.getLogger(__name__)
-        self.db_operations = db_operations
+        
+        # データベース操作の初期化（柔軟性を考慮）
+        if isinstance(db_path, str) or db_path is None:
+            self.db_operations = DatabaseOperations(db_path or "data_freshness_monitor.db")
+        else:
+            # 既存のDatabaseOperationsインスタンスが渡された場合
+            self.db_operations = db_path
     
     async def check_integrity(
         self, 
@@ -571,3 +577,21 @@ class IntegrityChecker:
         except Exception as e:
             self.logger.error(f"トレンド分析エラー ({config.source_id}): {e}")
             return None
+
+    # 統合版メソッド - advanced_data_freshness_monitor.pyとの互換性
+    async def perform_integrity_checks(
+        self,
+        config: DataSourceConfig
+    ) -> List[IntegrityCheck]:
+        """整合性チェック実行（統合版）
+        
+        元のadvanced_data_freshness_monitor.pyの_perform_integrity_checksメソッドと
+        互換性を持つ統合版実装です。
+        
+        Args:
+            config: データソース設定
+            
+        Returns:
+            整合性チェック結果のリスト
+        """
+        return await self.check_integrity(config)

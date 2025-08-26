@@ -10,6 +10,7 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import List, Optional
 
+from .enums import FreshnessStatus
 from .models import (
     DataAlert,
     DataSourceConfig,
@@ -416,3 +417,150 @@ class DatabaseOperations:
         except Exception as e:
             self.logger.error(f"履歴レコード数取得エラー: {e}")
             return []
+
+    def initialize_database(self):
+        """データベース初期化（パブリックメソッド）"""
+        self._initialize_database()
+
+    def initialize_data_source(self, config: DataSourceConfig):
+        """データソース初期化
+        
+        Args:
+            config: データソース設定
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO data_source_states
+                    (source_id, current_status, metadata, updated_at)
+                    VALUES (?, ?, ?, ?)
+                """,
+                    (
+                        config.source_id,
+                        "unknown",
+                        json.dumps(
+                            {
+                                "source_type": config.source_type.value,
+                                "monitoring_level": config.monitoring_level.value,
+                                "sla_target": config.sla_target,
+                            },
+                            ensure_ascii=False,
+                        ),
+                        datetime.now(timezone.utc).isoformat(),
+                    ),
+                )
+                conn.commit()
+        except Exception as e:
+            self.logger.error(f"データソース初期化エラー: {e}")
+
+    async def update_source_state(
+        self,
+        config: DataSourceConfig,
+        freshness: FreshnessCheck,
+        integrity_results: List[IntegrityCheck],
+    ):
+        """データソース状態更新（統合版）
+        
+        Args:
+            config: データソース設定
+            freshness: 鮮度チェック結果
+            integrity_results: 整合性チェック結果リスト
+        """
+        try:
+            current_time = datetime.now(timezone.utc)
+
+            # 総合ステータス判定
+            is_healthy = freshness.status == FreshnessStatus.FRESH and all(
+                check.passed for check in integrity_results
+            )
+
+            current_status = "healthy" if is_healthy else "unhealthy"
+
+            with sqlite3.connect(self.db_path) as conn:
+                # 現在の状態取得
+                cursor = conn.execute(
+                    """
+                    SELECT consecutive_failures FROM data_source_states WHERE source_id = ?
+                """,
+                    (config.source_id,),
+                )
+
+                result = cursor.fetchone()
+                consecutive_failures = result[0] if result else 0
+
+                # 失敗カウント更新
+                if is_healthy:
+                    consecutive_failures = 0
+                    last_success = current_time
+                else:
+                    consecutive_failures += 1
+                    last_success = None
+
+                # 状態更新
+                conn.execute(
+                    """
+                    UPDATE data_source_states
+                    SET last_check = ?, current_status = ?, consecutive_failures = ?,
+                        last_success = COALESCE(?, last_success), updated_at = ?
+                    WHERE source_id = ?
+                """,
+                    (
+                        current_time.isoformat(),
+                        current_status,
+                        consecutive_failures,
+                        last_success.isoformat() if last_success else None,
+                        current_time.isoformat(),
+                        config.source_id,
+                    ),
+                )
+                conn.commit()
+
+        except Exception as e:
+            self.logger.error(f"データソース状態更新エラー ({config.source_id}): {e}")
+
+    def get_recovery_info(self, source_id: str) -> tuple:
+        """回復情報取得
+        
+        Args:
+            source_id: データソースID
+            
+        Returns:
+            (連続失敗回数, 回復試行回数) のタプル
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute(
+                    """
+                    SELECT consecutive_failures, recovery_attempts
+                    FROM data_source_states WHERE source_id = ?
+                """,
+                    (source_id,),
+                )
+                
+                result = cursor.fetchone()
+                return (result[0] if result else 0, result[1] if result else 0)
+                
+        except Exception as e:
+            self.logger.error(f"回復情報取得エラー: {e}")
+            return (0, 0)
+
+    def update_recovery_attempts(self, source_id: str):
+        """回復試行回数更新
+        
+        Args:
+            source_id: データソースID
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    """
+                    UPDATE data_source_states
+                    SET recovery_attempts = recovery_attempts + 1, updated_at = ?
+                    WHERE source_id = ?
+                """,
+                    (datetime.now(timezone.utc).isoformat(), source_id),
+                )
+                conn.commit()
+        except Exception as e:
+            self.logger.error(f"回復試行回数更新エラー: {e}")

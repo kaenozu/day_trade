@@ -379,3 +379,33 @@ class FreshnessChecker:
                 score -= min(30.0, stream_lag / config.expected_frequency * 10)
         
         return max(0.0, min(100.0, score))
+
+    # 統合版メソッド - advanced_data_freshness_monitor.pyとの互換性
+    async def perform_freshness_check(
+        self, 
+        config: DataSourceConfig,
+        quality_system: Optional[Any] = None
+    ) -> FreshnessCheck:
+        """鮮度チェック実行（統合版）
+        
+        元のadvanced_data_freshness_monitor.pyの_perform_freshness_checkメソッドと
+        互換性を持つ統合版実装です。
+        
+        Args:
+            config: データソース設定
+            quality_system: 品質システム（オプション）
+            
+        Returns:
+            鮮度チェック結果
+        """
+        # 外部品質システムが渡された場合は一時的に使用
+        original_quality_system = self.quality_system
+        if quality_system:
+            self.quality_system = quality_system
+        
+        try:
+            result = await self.check_freshness(config)
+            return result
+        finally:
+            # 元の品質システムを復元
+            self.quality_system = original_quality_system

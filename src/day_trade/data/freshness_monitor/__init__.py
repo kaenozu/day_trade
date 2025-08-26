@@ -5,7 +5,10 @@
 """
 
 # 主要なクラスと関数をインポート
-from .monitor import AdvancedFreshnessMonitor, create_advanced_freshness_monitor
+from .advanced_monitor import AdvancedDataFreshnessMonitor, create_advanced_freshness_monitor
+
+# バックワード互換性のためのエイリアス
+AdvancedFreshnessMonitor = AdvancedDataFreshnessMonitor
 
 # エンティティ・データモデル
 from .enums import (
@@ -34,8 +37,8 @@ from .integrity_checker import IntegrityChecker
 from .recovery_manager import RecoveryManager
 from .sla_metrics import SLAMetricsCalculator
 
-# バックワード互換性のためのエイリアス
-AdvancedDataFreshnessMonitor = AdvancedFreshnessMonitor
+# バックワード互換性のためのエイリアス（重複削除）
+# AdvancedDataFreshnessMonitor = AdvancedFreshnessMonitor  # 不要
 
 # パッケージメタデータ
 __version__ = "1.0.0"

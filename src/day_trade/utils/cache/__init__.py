@@ -44,11 +44,17 @@ from .circuit_breaker import (
 
 from .key_generator import (
     generate_safe_cache_key,
-    _normalize_arguments,
-    _json_serializer,
     _generate_fallback_cache_key,
     _generate_emergency_cache_key,
+)
+
+from .argument_normalizer import (
+    _normalize_arguments,
     _estimate_data_complexity,
+)
+
+from .json_serializer import (
+    _json_serializer,
 )
 
 from .statistics import (
@@ -74,6 +80,15 @@ from .ttl_cache import (
 
 from .high_performance_cache import (
     HighPerformanceCache,
+)
+
+from .basic_operations import (
+    BasicCacheOperations,
+)
+
+from .stats_manager import (
+    CacheStatsManager,
+    CacheAccessAnalyzer,
 )
 
 # デフォルトキャッシュインスタンス（設定ベース・後方互換性）
@@ -131,6 +146,16 @@ __all__ = [
     # キャッシュ実装
     "TTLCache",
     "HighPerformanceCache",
+    "BasicCacheOperations",
+    "CacheStatsManager", 
+    "CacheAccessAnalyzer",
+    
+    # 内部モジュール（互換性のため）
+    "_normalize_arguments",
+    "_estimate_data_complexity", 
+    "_json_serializer",
+    "_generate_fallback_cache_key",
+    "_generate_emergency_cache_key",
     
     # デフォルトインスタンス
     "default_cache",

@@ -10,6 +10,13 @@ from .types import (
     GPUInferenceConfig,
     GPUInferenceResult,
     GPUMonitoringData,
+    # 互換性定数
+    ONNX_GPU_AVAILABLE,
+    CUPY_AVAILABLE,
+    OPENCL_AVAILABLE,
+    TENSORRT_AVAILABLE,
+    PYCUDA_AVAILABLE,
+    PYNVML_AVAILABLE,
 )
 from .device_manager import GPUDeviceManager
 from .tensorrt_engine import TensorRTEngine
@@ -33,4 +40,11 @@ __all__ = [
     "GPUInferenceSession",
     "GPUAcceleratedInferenceEngine",
     "create_gpu_inference_engine",
+    # 互換性定数
+    "ONNX_GPU_AVAILABLE",
+    "CUPY_AVAILABLE",
+    "OPENCL_AVAILABLE", 
+    "TENSORRT_AVAILABLE",
+    "PYCUDA_AVAILABLE",
+    "PYNVML_AVAILABLE",
 ]

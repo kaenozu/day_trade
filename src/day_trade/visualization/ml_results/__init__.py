@@ -9,6 +9,8 @@ Issue #315: 高度テクニカル指標・ML機能拡張
 import warnings
 from typing import Dict, Optional
 
+import pandas as pd
+
 # バージョン情報
 __version__ = "1.0.0"
 __author__ = "ML Results Visualization System"
@@ -18,69 +20,141 @@ __description__ = "機械学習結果可視化システム統合パッケージ"
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# 基本型・設定のインポート
-from .types import (
-    # 列挙型
-    RiskLevel,
-    TradingAction,
-    SignalStrength,
-    PositionSize,
-    TrendDirection,
-    ChartType,
+# 基本クラス
+from .base import BaseMLVisualizer, MATPLOTLIB_AVAILABLE, PLOTLY_AVAILABLE, logger
+
+# 各機能モジュール
+from .dashboard_interactive import InteractiveDashboardGenerator
+from .dashboard_static import StaticDashboardGenerator
+from .lstm_chart import LSTMChartGenerator
+from .multiframe_chart import MultiframeChartGenerator
+from .report_generator import ReportGenerator
+from .test_runner import MLVisualizationTestRunner
+from .volatility_chart import VolatilityChartGenerator
+
+# 後方互換性のためのメインクラス
+class MLResultsVisualizer(BaseMLVisualizer):
+    """
+    機械学習結果可視化システム - 統合クラス
     
-    # データクラス
-    ColorPalette,
-    LSTMResults,
-    CurrentMetrics,
-    EnsembleForecast,
-    RiskAssessment,
-    VolatilityResults,
-    TechnicalIndicators,
-    TimeframeData,
-    IntegratedSignal,
-    InvestmentRecommendation,
-    IntegratedAnalysis,
-    MultiFrameResults,
-    VisualizationConfig,
-    ChartMetadata,
-    DependencyStatus,
-    
-    # デフォルト設定・定数
-    DEFAULT_CONFIG,
-    ERROR_MESSAGES,
-    JAPANESE_LABELS,
-    TIMEFRAMES,
-    CHART_SETTINGS,
-    
-    # ユーティリティ関数
-    validate_lstm_results,
-    validate_volatility_results,
-    validate_multiframe_results,
-    get_risk_color,
-    get_signal_color,
-)
+    元のMLResultsVisualizerクラスとの完全な後方互換性を提供
+    すべての機能を内部的に分割されたモジュールに委譲
+    """
 
-# データ処理モジュール
-from .data_processor import DataProcessor
+    def __init__(self, output_dir: str = "output/ml_visualizations"):
+        """
+        初期化
 
-# チャート生成モジュール
-from .chart_generators import (
-    BaseChartGenerator,
-    LSTMChartGenerator,
-    VolatilityChartGenerator,
-)
+        Args:
+            output_dir: 出力ディレクトリ
+        """
+        super().__init__(output_dir)
+        
+        # 各機能の生成クラスをインスタンス化
+        self._lstm_generator = LSTMChartGenerator(output_dir)
+        self._volatility_generator = VolatilityChartGenerator(output_dir)
+        self._multiframe_generator = MultiframeChartGenerator(output_dir)
+        self._static_dashboard_generator = StaticDashboardGenerator(output_dir)
+        self._interactive_dashboard_generator = InteractiveDashboardGenerator(output_dir)
+        self._report_generator = ReportGenerator(output_dir)
+        
+        logger.info("機械学習結果可視化システム初期化完了")
 
-# UI コンポーネント
-from .ui_components import (
-    InteractiveDashboard,
-    AdvancedChartGenerator,
-)
+    def create_lstm_prediction_chart(
+        self,
+        data: pd.DataFrame,
+        lstm_results: Dict,
+        symbol: str = "Unknown",
+        save_path: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        LSTM予測結果チャート作成
+        
+        後方互換性のため、LSTMChartGeneratorに委譲
+        """
+        return self._lstm_generator.create_lstm_prediction_chart(
+            data, lstm_results, symbol, save_path
+        )
 
-# レポート生成
-from .report_builder import ReportBuilder
+    def create_volatility_forecast_chart(
+        self,
+        data: pd.DataFrame,
+        volatility_results: Dict,
+        symbol: str = "Unknown",
+        save_path: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        ボラティリティ予測チャート作成
+        
+        後方互換性のため、VolatilityChartGeneratorに委譲
+        """
+        return self._volatility_generator.create_volatility_forecast_chart(
+            data, volatility_results, symbol, save_path
+        )
 
-# メインビジュアライザー
-from .main_visualizer import MLResultsVisualizer
+    def create_multiframe_analysis_chart(
+        self,
+        data: pd.DataFrame,
+        multiframe_results: Dict,
+        symbol: str = "Unknown",
+        save_path: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        マルチタイムフレーム分析チャート作成
+        
+        後方互換性のため、MultiframeChartGeneratorに委譲
+        """
+        return self._multiframe_generator.create_multiframe_analysis_chart(
+            data, multiframe_results, symbol, save_path
+        )
+
+    def create_comprehensive_dashboard(
+        self,
+        data: pd.DataFrame,
+        lstm_results: Optional[Dict] = None,
+        volatility_results: Optional[Dict] = None,
+        multiframe_results: Optional[Dict] = None,
+        technical_results: Optional[Dict] = None,
+        symbol: str = "Unknown",
+        save_path: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        総合ダッシュボード作成
+        
+        後方互換性のため、StaticDashboardGeneratorに委譲
+        """
+        return self._static_dashboard_generator.create_comprehensive_dashboard(
+            data, lstm_results, volatility_results, multiframe_results, 
+            technical_results, symbol, save_path
+        )
+
+    def create_interactive_plotly_dashboard(
+        self,
+        data: pd.DataFrame,
+        results_dict: Dict,
+        symbol: str = "Unknown",
+        save_path: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Plotlyによるインタラクティブダッシュボード作成
+        
+        後方互換性のため、InteractiveDashboardGeneratorに委譲
+        """
+        return self._interactive_dashboard_generator.create_interactive_plotly_dashboard(
+            data, results_dict, symbol, save_path
+        )
+
+    def generate_analysis_report(
+        self, symbol: str, results_dict: Dict, save_path: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        分析レポート生成（テキスト形式）
+        
+        後方互換性のため、ReportGeneratorに委譲
+        """
+        return self._report_generator.generate_analysis_report(
+            symbol, results_dict, save_path
+        )
 
 # バックワード互換性のためのエイリアス
 # 元の ml_results_visualizer.py からインポートしていたクラス
@@ -319,67 +393,32 @@ def generate_analysis_report(
     )
 
 
-# エクスポート対象の定義
+# 公開API定義
 __all__ = [
     # バージョン情報
     "__version__",
     "__author__", 
     "__description__",
     
-    # 主要クラス
-    "MLResultsVisualizer",
-    "Visualizer",  # バックワード互換性エイリアス
+    # メインクラス（後方互換性）
+    'MLResultsVisualizer',
     
-    # コンポーネントクラス
-    "DataProcessor",
-    "BaseChartGenerator",
-    "LSTMChartGenerator",
-    "VolatilityChartGenerator",
-    "InteractiveDashboard",
-    "AdvancedChartGenerator",
-    "ReportBuilder",
+    # 基本クラス
+    'BaseMLVisualizer',
     
-    # 型・列挙型
-    "RiskLevel",
-    "TradingAction",
-    "SignalStrength",
-    "PositionSize", 
-    "TrendDirection",
-    "ChartType",
+    # 個別生成クラス
+    'LSTMChartGenerator',
+    'VolatilityChartGenerator', 
+    'MultiframeChartGenerator',
+    'StaticDashboardGenerator',
+    'InteractiveDashboardGenerator',
+    'ReportGenerator',
+    'MLVisualizationTestRunner',
     
-    # データクラス
-    "ColorPalette",
-    "LSTMResults",
-    "CurrentMetrics", 
-    "EnsembleForecast",
-    "RiskAssessment",
-    "VolatilityResults",
-    "TechnicalIndicators",
-    "TimeframeData",
-    "IntegratedSignal",
-    "InvestmentRecommendation",
-    "IntegratedAnalysis",
-    "MultiFrameResults",
-    "VisualizationConfig",
-    "ChartMetadata",
-    "DependencyStatus",
-    
-    # 設定・定数
-    "DEFAULT_CONFIG",
-    "ERROR_MESSAGES", 
-    "JAPANESE_LABELS",
-    "TIMEFRAMES",
-    "CHART_SETTINGS",
-    
-    # ユーティリティ関数
-    "create_visualizer",
-    "check_dependencies",
-    "get_dependency_status",
-    "validate_lstm_results",
-    "validate_volatility_results",
-    "validate_multiframe_results",
-    "get_risk_color",
-    "get_signal_color",
+    # 定数
+    'MATPLOTLIB_AVAILABLE',
+    'PLOTLY_AVAILABLE',
+    'logger',
     
     # バックワード互換性関数
     "create_lstm_prediction_chart",
@@ -388,6 +427,10 @@ __all__ = [
     "create_comprehensive_dashboard",
     "create_interactive_plotly_dashboard",
     "generate_analysis_report",
+    
+    # ユーティリティ関数
+    "create_visualizer",
+    "check_dependencies",
 ]
 
 # 初期化ログ

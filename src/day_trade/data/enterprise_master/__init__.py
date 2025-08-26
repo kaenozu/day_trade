@@ -37,7 +37,7 @@ from .quality_manager import QualityManager
 from .governance_manager import GovernanceManager
 from .entity_manager import EntityManager
 from .change_manager import ChangeManager
-from .hierarchy_manager import HierarchyManager
+from .hierarchy import HierarchyManager
 from .database_operations import DatabaseOperations
 from .catalog_manager import CatalogManager
 from .main import EnterpriseMasterDataManagement, create_enterprise_mdm_system

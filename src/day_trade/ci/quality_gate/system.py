@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-品質ゲートシステム - メインシステム
+品質ゲートシステム - メインシステム（簡略版）
 
 高度品質ゲートシステムのメインクラス。
 各種コンポーネントを統合し、包括的な品質評価を実行する。
@@ -16,6 +16,13 @@ from .database import QualityDatabase
 from .enums import QualityLevel, QualityMetric
 from .gate_evaluator import QualityGateEvaluator
 from .report_generator import QualityReportGenerator
+from .system_helpers import (
+    calculate_overall_score,
+    create_quality_report_summary,
+    define_quality_gates,
+    determine_overall_level,
+    generate_recommendations,
+)
 from .types import QualityGate, QualityResult
 
 
@@ -40,91 +47,7 @@ class AdvancedQualityGateSystem:
         self.database = QualityDatabase(project_root)
 
         # 品質ゲート定義
-        self.quality_gates = self._define_quality_gates()
-
-    def _define_quality_gates(self) -> List[QualityGate]:
-        """品質ゲートを定義
-        
-        プロジェクトで使用する品質ゲートとその閾値を定義する。
-        各ゲートは独立して評価され、総合判定に寄与する。
-        
-        Returns:
-            品質ゲートのリスト
-        """
-        return [
-            # テストカバレッジ
-            QualityGate(
-                id="test_coverage",
-                name="テストカバレッジ",
-                description="単体テストカバレッジ率",
-                metric_type=QualityMetric.COVERAGE,
-                threshold_excellent=80.0,
-                threshold_good=60.0,
-                threshold_acceptable=30.0,
-                weight=2.0,
-                mandatory=True,
-            ),
-            # コード複雑度
-            QualityGate(
-                id="code_complexity",
-                name="コード複雑度",
-                description="McCabe循環的複雑度の平均",
-                metric_type=QualityMetric.COMPLEXITY,
-                threshold_excellent=5.0,
-                threshold_good=10.0,
-                threshold_acceptable=15.0,
-                weight=1.5,
-                mandatory=True,
-            ),
-            # 保守性指標
-            QualityGate(
-                id="maintainability_index",
-                name="保守性指標",
-                description="コードの保守性指標",
-                metric_type=QualityMetric.MAINTAINABILITY,
-                threshold_excellent=85.0,
-                threshold_good=70.0,
-                threshold_acceptable=50.0,
-                weight=1.5,
-                mandatory=True,
-            ),
-            # 依存関係健全性
-            QualityGate(
-                id="dependency_health",
-                name="依存関係健全性",
-                description="依存関係の脆弱性とライセンス適合性",
-                metric_type=QualityMetric.DEPENDENCIES,
-                threshold_excellent=95.0,
-                threshold_good=85.0,
-                threshold_acceptable=70.0,
-                weight=2.0,
-                mandatory=True,
-            ),
-            # セキュリティスコア
-            QualityGate(
-                id="security_score",
-                name="セキュリティスコア",
-                description="静的セキュリティ分析結果",
-                metric_type=QualityMetric.SECURITY,
-                threshold_excellent=95.0,
-                threshold_good=85.0,
-                threshold_acceptable=70.0,
-                weight=2.5,
-                mandatory=True,
-            ),
-            # 型チェック適合性
-            QualityGate(
-                id="type_checking",
-                name="型チェック適合性",
-                description="MyPy型チェック通過率",
-                metric_type=QualityMetric.TYPING,
-                threshold_excellent=95.0,
-                threshold_good=85.0,
-                threshold_acceptable=70.0,
-                weight=1.0,
-                mandatory=False,
-            ),
-        ]
+        self.quality_gates = define_quality_gates()
 
     async def run_comprehensive_quality_check(self) -> Dict[str, Any]:
         """包括的品質チェックを実行
@@ -172,12 +95,12 @@ class AdvancedQualityGateSystem:
                     )
                 )
 
-        # 総合評価計算
-        overall_score = self._calculate_overall_score(gate_results)
-        overall_level = self._determine_overall_level(overall_score, gate_results)
+        # 総合評価計算（ヘルパー使用）
+        overall_score = calculate_overall_score(gate_results, self.quality_gates)
+        overall_level = determine_overall_level(overall_score, gate_results, self.quality_gates)
 
-        # 推奨事項生成
-        recommendations = self._generate_recommendations(gate_results)
+        # 推奨事項生成（ヘルパー使用）
+        recommendations = generate_recommendations(gate_results, self.quality_gates)
 
         # レポート作成
         report = {
@@ -190,20 +113,7 @@ class AdvancedQualityGateSystem:
             "gate_results": gate_results,
             "file_reports": file_reports,
             "recommendations": recommendations,
-            "summary": {
-                "excellent_gates": len(
-                    [r for r in gate_results if r.level == QualityLevel.EXCELLENT]
-                ),
-                "good_gates": len(
-                    [r for r in gate_results if r.level == QualityLevel.GOOD]
-                ),
-                "acceptable_gates": len(
-                    [r for r in gate_results if r.level == QualityLevel.ACCEPTABLE]
-                ),
-                "critical_gates": len(
-                    [r for r in gate_results if r.level == QualityLevel.CRITICAL]
-                ),
-            },
+            "summary": create_quality_report_summary(gate_results),
         }
 
         # データベースに保存
@@ -214,110 +124,6 @@ class AdvancedQualityGateSystem:
         )
 
         return report
-
-    def _calculate_overall_score(self, results: List[QualityResult]) -> float:
-        """総合スコアを計算
-        
-        各品質ゲートの結果を重み付き平均して総合スコアを算出。
-        
-        Args:
-            results: 品質評価結果のリスト
-            
-        Returns:
-            0-100の総合スコア
-        """
-        if not results:
-            return 0.0
-
-        weighted_sum = 0.0
-        total_weight = 0.0
-
-        gate_dict = {gate.id: gate for gate in self.quality_gates}
-
-        for result in results:
-            gate = gate_dict.get(result.gate_id)
-            if gate:
-                weight = gate.weight
-                weighted_sum += result.value * weight
-                total_weight += weight
-
-        return weighted_sum / total_weight if total_weight > 0 else 0.0
-
-    def _determine_overall_level(
-        self, overall_score: float, results: List[QualityResult]
-    ) -> QualityLevel:
-        """総合品質レベルを判定
-        
-        総合スコアと必須ゲートの状況を考慮して総合品質レベルを決定。
-        
-        Args:
-            overall_score: 総合スコア
-            results: 品質評価結果のリスト
-            
-        Returns:
-            総合品質レベル
-        """
-        # 必須ゲートで失敗があるかチェック
-        gate_dict = {gate.id: gate for gate in self.quality_gates}
-
-        for result in results:
-            gate = gate_dict.get(result.gate_id)
-            if gate and gate.mandatory and not result.passed:
-                return QualityLevel.CRITICAL
-
-        # スコアベースの判定
-        if overall_score >= 85:
-            return QualityLevel.EXCELLENT
-        elif overall_score >= 70:
-            return QualityLevel.GOOD
-        elif overall_score >= 50:
-            return QualityLevel.ACCEPTABLE
-        else:
-            return QualityLevel.CRITICAL
-
-    def _generate_recommendations(self, results: List[QualityResult]) -> List[str]:
-        """総合推奨事項を生成
-        
-        各品質ゲートの結果から改善推奨事項を生成する。
-        
-        Args:
-            results: 品質評価結果のリスト
-            
-        Returns:
-            推奨事項のリスト
-        """
-        all_recommendations = []
-
-        # 各ゲートの推奨事項を収集
-        for result in results:
-            all_recommendations.extend(result.recommendations)
-
-        # 全体的な推奨事項を追加
-        failed_mandatory = [
-            r for r in results if not r.passed and self._is_mandatory_gate(r.gate_id)
-        ]
-
-        if failed_mandatory:
-            all_recommendations.insert(
-                0, "必須品質ゲートで失敗があります。最優先で修正してください。"
-            )
-
-        # 重複を除去し、優先順位でソート
-        unique_recommendations = list(dict.fromkeys(all_recommendations))
-
-        return unique_recommendations[:10]  # 上位10件に制限
-
-    def _is_mandatory_gate(self, gate_id: str) -> bool:
-        """必須ゲートかどうかを判定
-        
-        Args:
-            gate_id: ゲートID
-            
-        Returns:
-            必須ゲートかどうか
-        """
-        gate = next((g for g in self.quality_gates if g.id == gate_id), None)
-        return gate.mandatory if gate else False
 
     def get_quality_history(self, days: int = 30) -> List[Dict[str, Any]]:
         """品質履歴を取得
@@ -371,3 +177,76 @@ class AdvancedQualityGateSystem:
             keep_days: 保持する日数
         """
         self.database.cleanup_old_reports(keep_days)
+
+    def get_latest_report(self) -> Dict[str, Any]:
+        """最新の品質レポートを取得
+        
+        Returns:
+            最新の品質レポート
+        """
+        return self.database.get_latest_report()
+
+    def get_quality_statistics(self) -> Dict[str, Any]:
+        """品質統計情報を取得
+        
+        Returns:
+            品質統計データ
+        """
+        return self.database.get_statistics()
+
+    def optimize_database(self):
+        """データベースを最適化"""
+        self.database.optimize_database()
+
+    def backup_database(self, backup_path: str):
+        """データベースをバックアップ
+        
+        Args:
+            backup_path: バックアップファイルのパス
+        """
+        self.database.backup_database(backup_path)
+
+    def validate_configuration(self) -> List[str]:
+        """設定の妥当性を検証
+        
+        Returns:
+            検証エラーメッセージのリスト
+        """
+        from .system_helpers import validate_quality_gates
+        return validate_quality_gates(self.quality_gates)
+
+    def update_quality_gates(self, new_gates: List[QualityGate]):
+        """品質ゲート設定を更新
+        
+        Args:
+            new_gates: 新しい品質ゲート設定
+        """
+        validation_errors = self.validate_configuration()
+        if validation_errors:
+            raise ValueError(f"品質ゲート設定が無効です: {validation_errors}")
+        
+        self.quality_gates = new_gates
+
+    def get_quality_gates_info(self) -> List[Dict[str, Any]]:
+        """品質ゲート情報を取得
+        
+        Returns:
+            品質ゲート情報のリスト
+        """
+        return [
+            {
+                "id": gate.id,
+                "name": gate.name,
+                "description": gate.description,
+                "metric_type": gate.metric_type.value,
+                "thresholds": {
+                    "excellent": gate.threshold_excellent,
+                    "good": gate.threshold_good,
+                    "acceptable": gate.threshold_acceptable,
+                },
+                "weight": gate.weight,
+                "mandatory": gate.mandatory,
+                "enabled": gate.enabled,
+            }
+            for gate in self.quality_gates
+        ]

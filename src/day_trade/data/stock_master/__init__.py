@@ -15,6 +15,13 @@ from .operations import StockOperations
 from .search import StockSearcher
 from .utils import StockMasterUtils
 
+# 新しく分割された詳細モジュールをインポート
+from .fetching_core import StockDataFetcherCore
+from .fetching_bulk import StockDataFetcherBulk
+from .utils_validation import StockValidationUtils
+from .utils_statistics import StockStatisticsUtils
+from .utils_management import StockManagementUtils
+
 # ユーティリティ関数をインポート
 from .utils import (
     analyze_stock_code_patterns,
@@ -38,6 +45,13 @@ __all__ = [
     "StockDataFetcher",
     "StockBulkOperations",
     "StockMasterUtils",
+    
+    # 分割された詳細クラス
+    "StockDataFetcherCore",
+    "StockDataFetcherBulk",
+    "StockValidationUtils",
+    "StockStatisticsUtils",
+    "StockManagementUtils",
     
     # ユーティリティ関数
     "update_all_sector_information",
@@ -67,9 +81,14 @@ def get_module_info():
             "manager": "メインマネージャークラス（統合インターフェース）",
             "operations": "基本CRUD操作（追加・更新・削除・取得）",
             "search": "検索機能（名前・セクター・業種・複合条件）",
-            "fetching": "外部API連携によるデータ取得・更新",
+            "fetching": "外部API連携によるデータ取得・更新（統合版）",
+            "fetching_core": "基本的な単体データ取得・更新機能",
+            "fetching_bulk": "一括データ取得・更新機能",
             "bulk_operations": "大量データの一括処理",
-            "utils": "ユーティリティ機能・統計情報・データ品質分析"
+            "utils": "ユーティリティ機能・統計情報・データ品質分析（統合版）",
+            "utils_validation": "データバリデーション・品質分析機能",
+            "utils_statistics": "統計・分析機能",
+            "utils_management": "制限管理・セッション管理機能"
         },
         "compatibility": {
             "original_file": "stock_master.py (1487 lines)",

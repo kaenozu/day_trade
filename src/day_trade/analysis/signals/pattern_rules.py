@@ -1,16 +1,14 @@
 """
-パターンベースルール
-
-チャートパターンに基づくシグナルルール（ブレイクアウト、ゴールデンクロス、デッドクロス）
+チャートパターン関連のシグナルルール
 """
 
 from typing import Dict, Optional, Tuple
 
 import pandas as pd
 
-from ...utils.logging_config import get_context_logger
-from .base import SignalRule
+from .base_rules import SignalRule
 from .config import SignalRulesConfig
+from ...utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
@@ -41,7 +39,9 @@ class PatternBreakoutRule(SignalRule):
             return False, 0.0
 
         if not isinstance(breakouts, pd.DataFrame):
-            logger.warning(f"PatternBreakoutRule: breakouts is not DataFrame, got {type(breakouts)}")
+            logger.warning(
+                f"PatternBreakoutRule: breakouts is not DataFrame, got {type(breakouts)}"
+            )
             return False, 0.0
 
         if breakouts.empty:
@@ -96,6 +96,7 @@ class GoldenCrossRule(SignalRule):
         if "Golden_Cross" in crosses.columns and "Golden_Confidence" in crosses.columns:
             # Look for the most recent golden cross (within last periods from config)
             if config is None:
+                from .config import SignalRulesConfig
                 config = SignalRulesConfig()
             recent_signal_lookback = config.get_signal_settings().get(
                 "recent_signal_lookback", 5
@@ -137,6 +138,7 @@ class DeadCrossRule(SignalRule):
         if "Dead_Cross" in crosses.columns and "Dead_Confidence" in crosses.columns:
             # Look for the most recent dead cross (within last periods from config)
             if config is None:
+                from .config import SignalRulesConfig
                 config = SignalRulesConfig()
             recent_signal_lookback = config.get_signal_settings().get(
                 "recent_signal_lookback", 5

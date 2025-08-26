@@ -20,6 +20,9 @@ from .performance import (
 
 # 投票システム
 from .voting import EnsembleVotingSystem
+from .voting_base import VotingBase
+from .voting_standard import StandardVotingMethods
+from .voting_advanced import AdvancedVotingMethods
 
 # メタ特徴量計算
 from .meta_features import MetaFeatureCalculator
@@ -29,6 +32,9 @@ from .market_regime import MarketRegimeDetector
 
 # 機械学習統合
 from .ml_integration import MLIntegrationManager
+from .ml_models import MLModelManager
+from .ml_prediction import MLPredictionGenerator
+from .ml_training import MLTrainingManager
 
 # メインアンサンブル戦略
 from .strategy import EnsembleTradingStrategy
@@ -46,9 +52,15 @@ __all__ = [
     
     # コンポーネントクラス
     "EnsembleVotingSystem",
+    "VotingBase",
+    "StandardVotingMethods", 
+    "AdvancedVotingMethods",
     "MetaFeatureCalculator", 
     "MarketRegimeDetector",
     "MLIntegrationManager",
+    "MLModelManager",
+    "MLPredictionGenerator",
+    "MLTrainingManager",
     "PerformanceManager",
 ]
 

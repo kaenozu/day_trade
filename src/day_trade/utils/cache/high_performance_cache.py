@@ -6,14 +6,12 @@
 read-heavy workloadに最適化されています。
 """
 
-import threading
-import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..logging_config import get_logger
+from .basic_operations import BasicCacheOperations
 from .config import get_cache_config
-from .constants import CacheConstants
-from .validators import validate_cache_key, validate_cache_size
+from .stats_manager import CacheStatsManager, CacheAccessAnalyzer
 
 logger = get_logger(__name__)
 
@@ -35,36 +33,21 @@ class HighPerformanceCache:
             config: キャッシュ設定（Noneの場合はデフォルト設定を使用）
         """
         self._config = config or get_cache_config()
-        self._cache = {}
-        self._access_times = {}
-        self._max_size = max_size or self._config.high_perf_cache_size
         
-        # 入力検証
-        validate_cache_size(self._max_size)
+        # 基本操作を委譲するクラス
+        self._operations = BasicCacheOperations(max_size, config)
         
-        self._lock = threading.Lock()  # RLockより高速
-        self._time = time.time  # 関数参照をキャッシュ
-        self._cleanup_threshold = (
-            self._max_size * CacheConstants.DEFAULT_CLEANUP_THRESHOLD_RATIO
-        )
+        # 統計管理
+        self._stats = CacheStatsManager()
         
-        # 統計情報（軽量版）
-        self._hits = 0
-        self._misses = 0
-        self._sets = 0
-        self._evictions = 0
-        self._start_time = self._time()
-
-        logger.debug(
-            f"HighPerformanceCache initialized: max_size={self._max_size}, "
-            f"cleanup_threshold={self._cleanup_threshold}"
-        )
+        # アクセス分析（基本操作クラスのアクセス時間辞書を参照）
+        self._analyzer = CacheAccessAnalyzer(self._operations._access_times)
+        
+        logger.debug("HighPerformanceCache initialized with modular architecture")
 
     def get(self, key: str) -> Any:
         """
         超高速get操作
-        
-        read-heavy workload用にdouble-checked lockingパターンを使用
         
         Args:
             key: 取得するキー
@@ -72,31 +55,12 @@ class HighPerformanceCache:
         Returns:
             キャッシュされた値、存在しない場合はNone
         """
-        try:
-            # 基本的な検証（高速化のため最小限）
-            if not key:
-                self._misses += 1
-                return None
-
-            # ロックなしの高速パス（read-heavy workload最適化）
-            if key in self._cache:
-                current_time = self._time()
-                with self._lock:
-                    if key in self._cache:  # double-checked locking
-                        self._access_times[key] = current_time
-                        self._hits += 1
-                        value = self._cache[key]
-                        logger.debug(f"HighPerformanceCache hit for key: {key[:50]}...")
-                        return value
-
-            # キャッシュミス
-            self._misses += 1
-            return None
-
-        except Exception as e:
-            logger.error(f"Error getting value from HighPerformanceCache: {e}", exc_info=True)
-            self._misses += 1
-            return None
+        result = self._operations.get(key)
+        if result is not None:
+            self._stats.record_hit()
+        else:
+            self._stats.record_miss()
+        return result
 
     def set(self, key: str, value: Any) -> bool:
         """
@@ -109,29 +73,10 @@ class HighPerformanceCache:
         Returns:
             設定に成功したかどうか
         """
-        try:
-            # 入力検証
-            if not key or not isinstance(key, str):
-                return False
-
-            current_time = self._time()
-
-            with self._lock:
-                self._cache[key] = value
-                self._access_times[key] = current_time
-                self._sets += 1
-
-                # 自動サイズ管理
-                if len(self._cache) > self._cleanup_threshold:
-                    self._auto_cleanup()
-
-                logger.debug(f"HighPerformanceCache set key: {key[:50]}...")
-
-            return True
-
-        except Exception as e:
-            logger.error(f"Error setting value in HighPerformanceCache: {e}", exc_info=True)
-            return False
+        success = self._operations.set(key, value)
+        if success:
+            self._stats.record_set()
+        return success
 
     def delete(self, key: str) -> bool:
         """
@@ -143,129 +88,41 @@ class HighPerformanceCache:
         Returns:
             削除に成功したかどうか
         """
-        try:
-            with self._lock:
-                if key in self._cache:
-                    del self._cache[key]
-                    del self._access_times[key]
-                    logger.debug(f"HighPerformanceCache deleted key: {key[:50]}...")
-                    return True
-                return False
-
-        except Exception as e:
-            logger.error(f"Error deleting key from HighPerformanceCache: {e}", exc_info=True)
-            return False
+        return self._operations.delete(key)
 
     def clear(self) -> None:
         """キャッシュのクリア"""
-        try:
-            with self._lock:
-                cleared_count = len(self._cache)
-                self._cache.clear()
-                self._access_times.clear()
-                logger.info(f"HighPerformanceCache cleared {cleared_count} entries")
-
-        except Exception as e:
-            logger.error(f"Error clearing HighPerformanceCache: {e}", exc_info=True)
-
-    def _auto_cleanup(self) -> None:
-        """
-        自動クリーンアップ（最も使用されていないエントリを削除）
-        ロック内で呼び出される前提
-        """
-        try:
-            # 既に最適サイズ以下の場合は何もしない
-            if len(self._cache) <= self._max_size * 0.5:
-                return
-
-            # アクセス時間順でソートして古いものを削除
-            sorted_items = sorted(self._access_times.items(), key=lambda x: x[1])
-            remove_count = len(self._cache) - int(
-                self._max_size * CacheConstants.DEFAULT_HIGH_PERF_CLEANUP_RATIO
-            )
-
-            removed_keys = []
-            for key, _ in sorted_items[:remove_count]:
-                if key in self._cache:
-                    del self._cache[key]
-                    del self._access_times[key]
-                    removed_keys.append(key)
-
-            self._evictions += len(removed_keys)
-            
-            if removed_keys:
-                logger.debug(
-                    f"HighPerformanceCache auto-cleanup removed {len(removed_keys)} entries"
-                )
-
-        except Exception as e:
-            logger.error(f"Error during auto-cleanup: {e}", exc_info=True)
+        self._operations.clear()
 
     def size(self) -> int:
         """現在のキャッシュサイズ"""
-        try:
-            with self._lock:
-                return len(self._cache)
-        except Exception as e:
-            logger.error(f"Error getting cache size: {e}", exc_info=True)
-            return 0
+        return self._operations.size()
 
     def is_empty(self) -> bool:
         """キャッシュが空かどうか"""
-        return self.size() == 0
+        return self._operations.is_empty()
 
     def contains(self, key: str) -> bool:
         """キーが存在するかどうか"""
-        try:
-            return key in self._cache
-        except Exception:
-            return False
+        return self._operations.contains(key)
 
     def get_hit_rate(self) -> float:
         """ヒット率を取得"""
-        total = self._hits + self._misses
-        return self._hits / total if total > 0 else 0.0
+        return self._stats.get_hit_rate()
 
     def get_stats(self) -> Dict[str, Any]:
         """統計情報を取得"""
-        current_time = self._time()
-        uptime = current_time - self._start_time
-        total_requests = self._hits + self._misses
-        
-        return {
-            # 基本統計
-            "hits": self._hits,
-            "misses": self._misses,
-            "sets": self._sets,
-            "evictions": self._evictions,
-            "total_requests": total_requests,
-            
-            # 効率指標
-            "hit_rate": self.get_hit_rate(),
-            "miss_rate": 1.0 - self.get_hit_rate() if total_requests > 0 else 0.0,
-            
-            # キャッシュ状態
-            "cache_size": self.size(),
-            "max_size": self._max_size,
-            "cleanup_threshold": self._cleanup_threshold,
-            "fill_ratio": self.size() / self._max_size if self._max_size > 0 else 0.0,
-            
-            # パフォーマンス指標
-            "operations_per_second": total_requests / uptime if uptime > 0 else 0.0,
-            "uptime_seconds": uptime,
-            "start_time": self._start_time,
-        }
+        return self._stats.get_stats(
+            self.size(), 
+            self._operations._max_size, 
+            self._operations._cleanup_threshold
+        )
 
-    def get_keys(self) -> list:
+    def get_keys(self) -> List[str]:
         """現在のキーリストを取得（デバッグ用）"""
-        try:
-            with self._lock:
-                return list(self._cache.keys())
-        except Exception as e:
-            logger.error(f"Error getting keys: {e}", exc_info=True)
-            return []
+        return self._operations.get_keys()
 
-    def get_most_accessed_keys(self, limit: int = 10) -> list:
+    def get_most_accessed_keys(self, limit: int = 10) -> List[str]:
         """
         最もアクセスされたキーのリストを取得
         
@@ -275,20 +132,9 @@ class HighPerformanceCache:
         Returns:
             アクセス頻度順のキーリスト（新しい順）
         """
-        try:
-            with self._lock:
-                sorted_items = sorted(
-                    self._access_times.items(), 
-                    key=lambda x: x[1], 
-                    reverse=True
-                )
-                return [key for key, _ in sorted_items[:limit]]
-                
-        except Exception as e:
-            logger.error(f"Error getting most accessed keys: {e}", exc_info=True)
-            return []
+        return self._analyzer.get_most_accessed_keys(limit)
 
-    def get_least_accessed_keys(self, limit: int = 10) -> list:
+    def get_least_accessed_keys(self, limit: int = 10) -> List[str]:
         """
         最もアクセスされていないキーのリストを取得
         
@@ -298,17 +144,7 @@ class HighPerformanceCache:
         Returns:
             アクセス頻度順のキーリスト（古い順）
         """
-        try:
-            with self._lock:
-                sorted_items = sorted(
-                    self._access_times.items(), 
-                    key=lambda x: x[1]
-                )
-                return [key for key, _ in sorted_items[:limit]]
-                
-        except Exception as e:
-            logger.error(f"Error getting least accessed keys: {e}", exc_info=True)
-            return []
+        return self._analyzer.get_least_accessed_keys(limit)
 
     def trim_to_size(self, target_size: int) -> int:
         """
@@ -320,43 +156,71 @@ class HighPerformanceCache:
         Returns:
             削除されたエントリの数
         """
-        try:
-            validate_cache_size(target_size)
-            
-            with self._lock:
-                current_size = len(self._cache)
-                if current_size <= target_size:
-                    return 0
-
-                # 古いエントリから削除
-                sorted_items = sorted(self._access_times.items(), key=lambda x: x[1])
-                remove_count = current_size - target_size
-                
-                removed_keys = []
-                for key, _ in sorted_items[:remove_count]:
-                    if key in self._cache:
-                        del self._cache[key]
-                        del self._access_times[key]
-                        removed_keys.append(key)
-
-                self._evictions += len(removed_keys)
-                
-                logger.info(f"HighPerformanceCache trimmed {len(removed_keys)} entries to target size {target_size}")
-                return len(removed_keys)
-
-        except Exception as e:
-            logger.error(f"Error trimming cache to size: {e}", exc_info=True)
-            return 0
+        evicted_count = self._operations.trim_to_size(target_size)
+        if evicted_count > 0:
+            self._stats.record_evictions(evicted_count)
+        return evicted_count
 
     def reset_stats(self) -> None:
         """統計情報をリセット"""
+        self._stats.reset_stats()
+
+    def get_access_pattern_summary(self) -> Dict[str, Any]:
+        """アクセスパターンの要約を取得"""
+        return self._analyzer.get_access_pattern_summary()
+
+    def identify_cold_keys(self, threshold_seconds: float = 3600) -> List[str]:
+        """
+        長時間アクセスされていないキーを特定
+        
+        Args:
+            threshold_seconds: しきい値（秒）
+            
+        Returns:
+            長時間アクセスされていないキーのリスト
+        """
+        return self._analyzer.identify_cold_keys(threshold_seconds)
+
+    def optimize(self) -> Dict[str, Any]:
+        """
+        キャッシュを最適化し、結果を返す
+        
+        Returns:
+            最適化の結果情報
+        """
         try:
-            self._hits = 0
-            self._misses = 0
-            self._sets = 0
-            self._evictions = 0
-            self._start_time = self._time()
-            logger.debug("HighPerformanceCache stats reset")
+            initial_size = self.size()
+            initial_stats = self.get_stats()
+            
+            # コールドキーを特定して削除
+            cold_keys = self.identify_cold_keys(threshold_seconds=1800)  # 30分
+            removed_cold_keys = 0
+            
+            for key in cold_keys:
+                if self.delete(key):
+                    removed_cold_keys += 1
+            
+            # 必要に応じてサイズを調整
+            target_size = int(self._operations._max_size * 0.8)  # 80%に調整
+            trimmed_count = self.trim_to_size(target_size)
+            
+            final_size = self.size()
+            final_stats = self.get_stats()
+            
+            result = {
+                "initial_size": initial_size,
+                "final_size": final_size,
+                "removed_cold_keys": removed_cold_keys,
+                "trimmed_entries": trimmed_count,
+                "total_removed": removed_cold_keys + trimmed_count,
+                "size_reduction_ratio": (initial_size - final_size) / initial_size if initial_size > 0 else 0.0,
+                "hit_rate_before": initial_stats.get("hit_rate", 0.0),
+                "hit_rate_after": final_stats.get("hit_rate", 0.0),
+            }
+            
+            logger.info(f"HighPerformanceCache optimized: {result}")
+            return result
             
         except Exception as e:
-            logger.error(f"Error resetting stats: {e}", exc_info=True)
+            logger.error(f"Error during cache optimization: {e}", exc_info=True)
+            return {"error": str(e)}

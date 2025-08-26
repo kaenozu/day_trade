@@ -44,6 +44,15 @@ except ImportError:
     TENSORRT_AVAILABLE = False
     warnings.warn("TensorRT not available - 最適化制限", stacklevel=2)
 
+# PyCUDA支援 (フォールバック対応)
+try:
+    import pycuda.driver as cuda
+    import pycuda.autoinit
+    PYCUDA_AVAILABLE = True
+except ImportError:
+    PYCUDA_AVAILABLE = False
+    warnings.warn("PyCUDA not available - TensorRT推論制限", stacklevel=2)
+
 # NVIDIA GPU管理 (フォールバック対応)
 try:
     import pynvml

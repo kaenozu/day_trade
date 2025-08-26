@@ -1,7 +1,5 @@
 """
-設定管理クラス
-
-シグナル生成ルールの設定ファイルの読み込みと管理
+シグナルルール設定管理
 """
 
 import json
@@ -40,7 +38,7 @@ class SignalRulesConfig:
 
         # 複数の候補パスを試行
         current_file = Path(__file__)
-        project_root = current_file.parent.parent.parent.parent
+        project_root = current_file.parent.parent.parent.parent.parent
 
         candidate_paths = [
             project_root / "config" / "signal_rules.json",
@@ -131,7 +129,6 @@ class SignalRulesConfig:
             },
         }
 
-    # 設定取得メソッド群
     def get_buy_rules_config(self) -> List[Dict[str, Any]]:
         """買いルール設定を取得"""
         return self.config.get("default_buy_rules", [])
@@ -216,7 +213,7 @@ class SignalRulesConfig:
 _shared_config_instance: Optional[SignalRulesConfig] = None
 
 
-def get_shared_config() -> SignalRulesConfig:
+def _get_shared_config() -> SignalRulesConfig:
     """共有設定インスタンスを取得"""
     global _shared_config_instance
     if _shared_config_instance is None:

@@ -2,7 +2,7 @@
 Orchestra Package - Next-Gen AI Trading Engine モジュール
 機能別に分割されたオーケストレーションシステム
 
-このパッケージは元の大きなorchestrator.pyファイルを
+このパッケージは元の大きなorchestrator.py（1477行）ファイルを
 機能別に分割したモジュールから構成されています。
 
 バックワード互換性を維持しながら、
@@ -10,23 +10,27 @@ Orchestra Package - Next-Gen AI Trading Engine モジュール
 """
 
 # バックワード互換性のためのメインエクスポート
-from .orchestrator import NextGenAIOrchestrator, DayTradeOrchestrator
+from .main_orchestrator import NextGenAIOrchestrator, DayTradeOrchestrator
 
 # 設定・データクラス
-from .config import (
+from .types import (
     AIAnalysisResult,
     ExecutionReport,
     OrchestrationConfig,
-    get_default_config,
-    validate_config,
-    CI_MODE,
 )
 
 # サブコンポーネント（必要に応じて直接利用可能）
-from .analysis_engine import AnalysisEngine
+from .ai_analyzer import AIAnalyzer
 from .signal_generator import SignalGenerator
-from .task_manager import TaskManager
-from .monitor import SystemMonitor
+from .parallel_processor import ParallelProcessor
+from .data_processor import DataProcessor
+from .portfolio_analyzer import PortfolioAnalyzer
+from .resource_manager import ResourceManager
+from .core import OrchestratorCore
+
+# CI環境検出
+import os
+CI_MODE = os.getenv("CI", "false").lower() == "true"
 
 # バージョン情報
 __version__ = "2.0.0"
@@ -43,15 +47,16 @@ __all__ = [
     "AIAnalysisResult",
     "ExecutionReport", 
     "OrchestrationConfig",
-    "get_default_config",
-    "validate_config",
     "CI_MODE",
     
     # サブコンポーネント
-    "AnalysisEngine",
+    "AIAnalyzer",
     "SignalGenerator", 
-    "TaskManager",
-    "SystemMonitor",
+    "ParallelProcessor",
+    "DataProcessor",
+    "PortfolioAnalyzer",
+    "ResourceManager",
+    "OrchestratorCore",
     
     # メタデータ
     "__version__",
@@ -83,12 +88,15 @@ def get_module_info() -> dict:
         "version": __version__,
         "description": __description__,
         "modules": {
-            "orchestrator": "メインオーケストレータークラス",
-            "config": "設定・データクラス定義",
-            "analysis_engine": "分析実行エンジン",
+            "main_orchestrator": "メインオーケストレータークラス",
+            "types": "設定・データクラス定義",
+            "core": "コア機能・初期化管理",
+            "ai_analyzer": "AI分析エンジン",
             "signal_generator": "シグナル・アラート生成",
-            "task_manager": "並列実行・タスク管理",
-            "monitor": "システム監視・リスク評価",
+            "parallel_processor": "並列処理管理",
+            "data_processor": "データ処理・取得",
+            "portfolio_analyzer": "ポートフォリオ・システム分析",
+            "resource_manager": "リソース管理・クリーンアップ",
         },
         "features": {
             "safe_mode_only": True,
@@ -97,7 +105,7 @@ def get_module_info() -> dict:
             "backward_compatible": True,
         },
         "ci_mode": CI_MODE,
-        "total_lines_reduced": "1477 → 約300行×6ファイル",
+        "total_lines_reduced": "1477 → 約300行×9ファイル",
     }
 
 
@@ -113,22 +121,22 @@ def validate_installation() -> bool:
         required_components = [
             NextGenAIOrchestrator,
             OrchestrationConfig,
-            AnalysisEngine,
+            AIAnalyzer,
             SignalGenerator,
-            TaskManager,
-            SystemMonitor,
+            ParallelProcessor,
+            DataProcessor,
+            PortfolioAnalyzer,
+            ResourceManager,
         ]
         
         for component in required_components:
             if not hasattr(component, '__name__'):
                 return False
         
-        # 設定の妥当性チェック
-        default_config = get_default_config()
-        validation_errors = validate_config(default_config)
-        
-        if validation_errors:
-            logger.warning(f"設定検証で警告: {validation_errors}")
+        # 設定の基本チェック
+        default_config = OrchestrationConfig()
+        if not hasattr(default_config, 'max_workers'):
+            logger.warning("設定オブジェクトの妥当性に問題があります")
             
         logger.info("Orchestra Package インストール確認完了")
         return True

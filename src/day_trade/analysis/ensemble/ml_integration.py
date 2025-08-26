@@ -1,5 +1,6 @@
 """
 機械学習統合モジュール
+分割されたML機能を統合するメインクラス
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -7,8 +8,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
 from ...utils.logging_config import get_context_logger
+from .ml_models import MLModelManager
+from .ml_prediction import MLPredictionGenerator
+from .ml_training import MLTrainingManager
 
-logger = get_context_logger(__name__, component="ensemble_ml")
+logger = get_context_logger(__name__, component="ensemble_ml_integration")
 
 
 class MLIntegrationManager:
@@ -22,373 +26,149 @@ class MLIntegrationManager:
         """
         self.enable_ml_models = enable_ml_models
         self.models_dir = models_dir
-        
-        self.ml_manager = None
-        self.feature_engineer = None
+
+        # 各コンポーネントの初期化
+        self.model_manager = MLModelManager(enable_ml_models, models_dir)
+        self.prediction_generator = MLPredictionGenerator(self.model_manager)
+        self.training_manager = MLTrainingManager(self.model_manager)
+
+        # 履歴管理
         self.ml_predictions_history = []
-
-        if self.enable_ml_models:
-            self._initialize_ml_components()
-
-    def _initialize_ml_components(self) -> None:
-        """機械学習コンポーネントを初期化"""
-        try:
-            from ..feature_engineering import AdvancedFeatureEngineer
-            from ..ml_models import MLModelManager, ModelConfig
-
-            self.ml_manager = MLModelManager()
-            self.feature_engineer = AdvancedFeatureEngineer()
-            self._initialize_ml_models()
-            
-        except ImportError as e:
-            logger.warning(f"機械学習モジュールが利用できません: {e}")
-            self.enable_ml_models = False
-
-    def _initialize_ml_models(self) -> None:
-        """機械学習モデルを初期化"""
-        if not self.ml_manager:
-            return
-
-        try:
-            from ..ml_models import ModelConfig
-
-            # 1. 回帰モデル（リターン予測）
-            return_model_config = ModelConfig(
-                model_type="random_forest",
-                task_type="regression",
-                cv_folds=5,
-                model_params={"n_estimators": 100, "max_depth": 10},
-            )
-            self.ml_manager.create_model("return_predictor", return_model_config)
-
-            # 2. 分類モデル（方向性予測）
-            direction_model_config = ModelConfig(
-                model_type="gradient_boosting",
-                task_type="classification",
-                cv_folds=5,
-                model_params={"n_estimators": 100, "learning_rate": 0.1},
-            )
-            self.ml_manager.create_model("direction_predictor", direction_model_config)
-
-            # 3. ボラティリティ予測モデル
-            volatility_model_config = ModelConfig(
-                model_type="xgboost",
-                task_type="regression",
-                cv_folds=3,
-                model_params={"n_estimators": 50, "max_depth": 6},
-            )
-            self.ml_manager.create_model(
-                "volatility_predictor", volatility_model_config
-            )
-
-            # 4. メタラーナー（アンサンブル最適化）
-            meta_model_config = ModelConfig(
-                model_type="linear", task_type="regression", cv_folds=3
-            )
-            self.ml_manager.create_model("meta_learner", meta_model_config)
-
-            logger.info("機械学習モデルを初期化しました")
-
-        except Exception as e:
-            logger.error(f"機械学習モデル初期化エラー: {e}")
-            self.enable_ml_models = False
 
     def generate_ml_predictions(
         self, df: pd.DataFrame, indicators: Optional[pd.DataFrame] = None
     ) -> Tuple[Optional[Dict[str, float]], Optional[Dict[str, float]]]:
         """機械学習予測を生成"""
         try:
-            if not self.enable_ml_models or not self.ml_manager or not self.feature_engineer:
-                return None, None
-
-            if len(df) < 50:
-                return None, None
-
-            # 高度な特徴量を生成
-            volume_data = df["Volume"] if "Volume" in df.columns else None
-            features = self.feature_engineer.generate_all_features(
-                price_data=df, volume_data=volume_data
+            predictions, feature_importance = self.prediction_generator.generate_ml_predictions(
+                df, indicators
             )
-
-            if features.empty:
-                return None, None
-
-            # 最新の特徴量を取得
-            latest_features = features.tail(1)
-
-            predictions = {}
-            feature_importance = {}
-
-            # 各モデルで予測を実行
-            for model_name in self.ml_manager.list_models():
-                try:
-                    model = self.ml_manager.models[model_name]
-                    if model.is_fitted:
-                        pred = self.ml_manager.predict(model_name, latest_features)
-                        predictions[model_name] = (
-                            float(pred[0]) if len(pred) > 0 else 0.0
-                        )
-
-                        # 特徴量重要度を取得
-                        importance = model._get_feature_importance()
-                        if importance:
-                            feature_importance[model_name] = importance
-
-                except Exception as e:
-                    logger.warning(f"モデル {model_name} の予測でエラー: {e}")
-
+            
+            # 履歴に追加
+            if predictions:
+                self.ml_predictions_history.extend(
+                    self.prediction_generator.get_predictions_history(1)
+                )
+                
+                # 履歴サイズを制限
+                if len(self.ml_predictions_history) > 100:
+                    self.ml_predictions_history = self.ml_predictions_history[-100:]
+            
             return predictions, feature_importance
 
         except Exception as e:
-            logger.error(f"機械学習予測エラー: {e}")
+            logger.error(f"ML予測生成エラー: {e}")
             return None, None
 
     def train_ml_models(
         self, historical_data: pd.DataFrame, retrain: bool = False
     ) -> Dict[str, Any]:
         """機械学習モデルを訓練"""
-        try:
-            if (
-                not self.enable_ml_models
-                or not self.ml_manager
-                or not self.feature_engineer
-            ):
-                return {"error": "機械学習機能が無効です"}
+        return self.training_manager.train_ml_models(historical_data, retrain)
 
-            if len(historical_data) < 200:
-                return {"error": "訓練に十分なデータがありません（最低200日必要）"}
-
-            logger.info("機械学習モデルの訓練を開始")
-
-            # 特徴量生成
-            volume_data = (
-                historical_data["Volume"]
-                if "Volume" in historical_data.columns
-                else None
-            )
-            features = self.feature_engineer.generate_all_features(
-                price_data=historical_data, volume_data=volume_data
-            )
-
-            if features.empty:
-                return {"error": "特徴量生成に失敗しました"}
-
-            # ターゲット変数生成
-            from ..feature_engineering import create_target_variables
-            targets = create_target_variables(historical_data, prediction_horizon=5)
-
-            training_results = {}
-
-            # 各モデルの訓練
-            model_configs = [
-                ("return_predictor", "future_returns"),
-                ("direction_predictor", "future_direction"),
-                ("volatility_predictor", "future_high_volatility"),
-            ]
-
-            for model_name, target_name in model_configs:
-                try:
-                    if target_name not in targets:
-                        logger.warning(f"ターゲット変数 {target_name} が見つかりません")
-                        continue
-
-                    # データの整合性チェック
-                    common_index = features.index.intersection(
-                        targets[target_name].index
-                    )
-                    if len(common_index) < 100:
-                        logger.warning(
-                            f"モデル {model_name} に十分なデータがありません"
-                        )
-                        continue
-
-                    X_train = features.loc[common_index]
-                    y_train = targets[target_name].loc[common_index]
-
-                    # モデルが存在しない場合は作成
-                    if model_name not in self.ml_manager.list_models():
-                        logger.warning(
-                            f"モデル {model_name} が存在しません。スキップします。"
-                        )
-                        continue
-
-                    # 既に訓練済みでretrainがFalseの場合はスキップ
-                    if not retrain and self.ml_manager.models[model_name].is_fitted:
-                        logger.info(f"モデル {model_name} は既に訓練済みです")
-                        continue
-
-                    # モデル訓練
-                    logger.info(f"モデル {model_name} を訓練中...")
-                    result = self.ml_manager.train_model(model_name, X_train, y_train)
-                    training_results[model_name] = result
-
-                    # モデル保存
-                    try:
-                        self.ml_manager.save_model(model_name)
-                        logger.info(f"モデル {model_name} を保存しました")
-                    except Exception as e:
-                        logger.warning(f"モデル {model_name} の保存に失敗: {e}")
-
-                except Exception as e:
-                    logger.error(f"モデル {model_name} の訓練エラー: {e}")
-                    training_results[model_name] = {"error": str(e)}
-
-            # メタラーナーの訓練
-            try:
-                if len(training_results) >= 2:
-                    meta_result = self._train_meta_learner(historical_data)
-                    training_results["meta_learner"] = meta_result
-
-            except Exception as e:
-                logger.error(f"メタラーナー訓練エラー: {e}")
-                training_results["meta_learner"] = {"error": str(e)}
-
-            logger.info(f"機械学習モデル訓練完了: {len(training_results)}個のモデル")
-            return {
-                "success": True,
-                "models_trained": len(training_results),
-                "training_results": training_results,
-                "feature_count": len(features.columns),
-                "data_points": len(historical_data),
-            }
-
-        except Exception as e:
-            logger.error(f"機械学習モデル訓練エラー: {e}")
-            return {"error": str(e)}
-
-    def _train_meta_learner(self, historical_data: pd.DataFrame) -> Dict[str, Any]:
-        """メタラーナーを訓練"""
-        try:
-            meta_features_list = []
-            meta_targets_list = []
-            volume_data = (
-                historical_data["Volume"]
-                if "Volume" in historical_data.columns
-                else None
-            )
-
-            # 各データポイントでメタ特徴量を生成
-            for i in range(
-                50, len(historical_data) - 10
-            ):  # 十分な履歴とフォワードルッキングを確保
-                try:
-                    subset_data = historical_data.iloc[: i + 1]
-                    future_return = (
-                        historical_data["Close"].iloc[i + 5]
-                        / historical_data["Close"].iloc[i]
-                        - 1
-                    )
-
-                    # 各基本モデルの予測を特徴量として使用
-                    model_predictions = []
-                    for model_name in [
-                        "return_predictor",
-                        "direction_predictor",
-                        "volatility_predictor",
-                    ]:
-                        if model_name in self.ml_manager.list_models():
-                            try:
-                                subset_features = (
-                                    self.feature_engineer.generate_all_features(
-                                        price_data=subset_data,
-                                        volume_data=(
-                                            volume_data.iloc[: i + 1]
-                                            if volume_data is not None
-                                            else None
-                                        ),
-                                    )
-                                )
-                                if not subset_features.empty:
-                                    pred = self.ml_manager.predict(
-                                        model_name, subset_features.tail(1)
-                                    )
-                                    model_predictions.append(
-                                        pred[0] if len(pred) > 0 else 0.0
-                                    )
-                                else:
-                                    model_predictions.append(0.0)
-                            except Exception:
-                                model_predictions.append(0.0)
-
-                    if len(model_predictions) >= 2:
-                        meta_features_list.append(model_predictions)
-                        meta_targets_list.append(future_return)
-
-                except Exception:
-                    continue
-
-            if len(meta_features_list) >= 50:
-                meta_X = pd.DataFrame(meta_features_list)
-                meta_y = pd.Series(meta_targets_list)
-
-                meta_result = self.ml_manager.train_model(
-                    "meta_learner", meta_X, meta_y
-                )
-
-                try:
-                    self.ml_manager.save_model("meta_learner")
-                    logger.info("メタラーナーを保存しました")
-                except Exception as e:
-                    logger.warning(f"メタラーナーの保存に失敗: {e}")
-
-                return meta_result
-            else:
-                return {"error": "メタラーナー用データが不足"}
-
-        except Exception as e:
-            logger.error(f"メタラーナー訓練エラー: {e}")
-            return {"error": str(e)}
+    def validate_ml_models(self, validation_data: pd.DataFrame) -> Dict[str, Any]:
+        """機械学習モデルを検証"""
+        return self.training_manager.validate_models(validation_data)
 
     def get_ml_model_info(self) -> Dict[str, Any]:
         """機械学習モデルの情報を取得"""
-        if not self.enable_ml_models or not self.ml_manager:
-            return {"ml_enabled": False}
-
-        info = {
-            "ml_enabled": True,
-            "models": {},
-            "feature_engineer_available": self.feature_engineer is not None,
-        }
-
-        for model_name in self.ml_manager.list_models():
-            try:
-                model_info = self.ml_manager.get_model_info(model_name)
-                info["models"][model_name] = {
-                    "model_type": model_info["model_type"],
-                    "task_type": model_info["task_type"],
-                    "is_fitted": model_info["is_fitted"],
-                    "feature_count": model_info["feature_count"],
-                }
-                if model_info["is_fitted"] and "feature_importance" in model_info:
-                    # 上位5個の重要特徴量のみ表示
-                    importance = model_info["feature_importance"]
-                    if importance:
-                        top_features = dict(list(importance.items())[:5])
-                        info["models"][model_name]["top_features"] = top_features
-            except Exception as e:
-                info["models"][model_name] = {"error": str(e)}
-
-        return info
+        base_info = self.model_manager.get_ml_model_info()
+        
+        # 追加情報を付加
+        if base_info.get("ml_enabled", False):
+            base_info.update({
+                "prediction_history_count": len(self.ml_predictions_history),
+                "fitted_models": self.model_manager.get_fitted_models(),
+                "available_models": self.model_manager.get_model_list(),
+            })
+            
+            # 最近の予測パフォーマンス情報を追加
+            performance_summary = self.prediction_generator.get_model_performance_summary()
+            if performance_summary:
+                base_info["recent_performance"] = performance_summary
+        
+        return base_info
 
     def is_available(self) -> bool:
         """機械学習機能が利用可能かチェック"""
-        return (
-            self.enable_ml_models 
-            and self.ml_manager is not None 
-            and self.feature_engineer is not None
-        )
+        return self.model_manager.is_available()
 
     def get_fitted_models(self) -> List[str]:
         """訓練済みモデルのリストを取得"""
-        if not self.is_available():
-            return []
+        return self.model_manager.get_fitted_models()
 
+    def get_prediction_confidence(self, predictions: Dict[str, float]) -> float:
+        """予測結果の信頼度を計算"""
+        return self.prediction_generator.get_prediction_confidence(predictions)
+
+    def get_ensemble_prediction(self, predictions: Dict[str, float]) -> Dict[str, Any]:
+        """アンサンブル予測を計算"""
+        return self.prediction_generator.get_ensemble_prediction(predictions)
+
+    def clear_predictions_history(self) -> None:
+        """予測履歴をクリア"""
+        self.ml_predictions_history.clear()
+        self.prediction_generator.clear_predictions_history()
+
+    def get_predictions_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """予測履歴を取得"""
+        return self.ml_predictions_history[-limit:] if self.ml_predictions_history else []
+
+    def get_model_summary(self) -> Dict[str, Any]:
+        """モデルサマリーを取得"""
         try:
-            fitted_models = []
-            for model_name in self.ml_manager.list_models():
-                if self.ml_manager.models[model_name].is_fitted:
-                    fitted_models.append(model_name)
-            return fitted_models
+            if not self.is_available():
+                return {"available": False}
+
+            fitted_models = self.get_fitted_models()
+            model_info = self.get_ml_model_info()
+            
+            summary = {
+                "available": True,
+                "total_models": len(model_info.get("models", {})),
+                "fitted_models_count": len(fitted_models),
+                "fitted_models": fitted_models,
+                "prediction_history_length": len(self.ml_predictions_history),
+                "feature_engineer_available": model_info.get("feature_engineer_available", False)
+            }
+            
+            # 各モデルの基本情報を追加
+            models_detail = {}
+            for model_name, info in model_info.get("models", {}).items():
+                models_detail[model_name] = {
+                    "fitted": info.get("is_fitted", False),
+                    "type": info.get("model_type", "unknown"),
+                    "task": info.get("task_type", "unknown"),
+                    "features": info.get("feature_count", 0)
+                }
+            
+            summary["models_detail"] = models_detail
+            
+            return summary
+
         except Exception as e:
-            logger.error(f"訓練済みモデル取得エラー: {e}")
-            return []
+            logger.error(f"モデルサマリー取得エラー: {e}")
+            return {"available": False, "error": str(e)}
+
+    # 後方互換性のためのメソッド
+    def _initialize_ml_components(self):
+        """ML コンポーネントを初期化（後方互換性）"""
+        # すでに __init__ で初期化済み
+        pass
+
+    def _initialize_ml_models(self):
+        """ML モデルを初期化（後方互換性）"""
+        # すでに MLModelManager で初期化済み
+        pass
+
+    def _generate_ml_predictions(self, df, indicators=None):
+        """ML 予測を生成（後方互換性）"""
+        return self.generate_ml_predictions(df, indicators)
+
+    def _train_ml_models(self, historical_data, retrain=False):
+        """ML モデルを訓練（後方互換性）"""
+        return self.train_ml_models(historical_data, retrain)
+
+    def _get_ml_model_info(self):
+        """ML モデル情報を取得（後方互換性）"""
+        return self.get_ml_model_info()
