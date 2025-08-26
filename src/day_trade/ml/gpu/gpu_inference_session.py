@@ -51,7 +51,7 @@ except ImportError:
         @staticmethod
         def now_ns():
             return time.time_ns()
-        
+
         @staticmethod
         def elapsed_us(start_ns):
             return (time.time_ns() - start_ns) // 1000

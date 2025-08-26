@@ -39,10 +39,39 @@ try:
     )
     from .security_config import SecurityConfigManager, create_security_config_manager
     from .security_manager import SecurityManager, create_security_manager
-    from .security_test_framework import (
-        SecurityTestFramework,
-        create_security_test_framework,
-    )
+    # SecurityTestFramework - 新しいモジュール形式と旧形式両方をサポート
+    try:
+        # 新しいモジュール分割形式を優先
+        from .framework import SecurityTestFramework, create_security_test_framework
+        from .core import (
+            SecurityTest,
+            SecurityTestResult,
+            TestCategory,
+            TestSeverity,
+            TestStatus,
+        )
+        from .authentication import PasswordSecurityTest, SessionSecurityTest
+        from .validation import InputValidationTest
+        from .encryption import EncryptionTest
+        from .network import NetworkSecurityTest
+        from .compliance import ComplianceTest
+    except ImportError:
+        # 旧形式（単一ファイル）からのフォールバック
+        from .security_test_framework import (
+            SecurityTestFramework,
+            create_security_test_framework,
+            SecurityTest,
+            SecurityTestResult,
+            TestCategory,
+            TestSeverity,
+            TestStatus,
+            PasswordSecurityTest,
+            SessionSecurityTest,
+            InputValidationTest,
+            EncryptionTest,
+            NetworkSecurityTest,
+            ComplianceTest,
+        )
     from .vulnerability_manager import (
         VulnerabilityManager,
         create_vulnerability_manager,
@@ -155,6 +184,18 @@ __all__ = [
     "AccessControlManager",
     "SecurityConfigManager",
     "SecurityTestFramework",
+    # SecurityTestFramework関連クラス
+    "SecurityTest",
+    "SecurityTestResult", 
+    "TestCategory",
+    "TestSeverity",
+    "TestStatus",
+    "PasswordSecurityTest",
+    "SessionSecurityTest",
+    "InputValidationTest",
+    "EncryptionTest",
+    "NetworkSecurityTest",
+    "ComplianceTest",
     "SecureHashUtils",
     "secure_cache_key_generator",
     "replace_md5_hash",

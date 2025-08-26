@@ -529,17 +529,17 @@ class DataPreparationPipeline:
     def _create_fallback_data(self, symbol: str, period: str) -> pd.DataFrame:
         """フォールバック用ダミーデータ作成"""
         self.logger.info(f"フォールバックデータ作成: {symbol}")
-        
+
         # 期間に応じたサンプル数決定
         period_days = {"1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730}.get(period, 365)
-        
+
         dates = pd.date_range(end=datetime.now(), periods=period_days, freq='D')
         np.random.seed(hash(symbol) % 2**32)
-        
+
         base_price = 1000 + (hash(symbol) % 1000)
         prices = base_price + np.cumsum(np.random.randn(period_days) * 10)
         volumes = 1000000 + np.random.randint(-500000, 500000, period_days)
-        
+
         return pd.DataFrame({
             'Open': prices + np.random.randn(period_days) * 5,
             'High': prices + np.abs(np.random.randn(period_days)) * 5,

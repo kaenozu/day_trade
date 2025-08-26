@@ -20,7 +20,7 @@ from .trade_utils import (
 __all__ = [
     "Trade",
     "TradeStatus",
-    "BuyLot", 
+    "BuyLot",
     "Position",
     "RealizedPnL",
     "safe_decimal_conversion",

@@ -1,5 +1,0 @@
-This pull request integrates all changes from PR #902 (ML model replacement, security hardening) and PR #903 (comprehensive refactoring, web server implementation) into the main branch.
-
-Conflicts in `daytrade.py` and `tests/test_real_data_provider_v2.py` have been resolved.
-
-Please review and merge these changes into `main`.

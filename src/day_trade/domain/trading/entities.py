@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 
 from ..common.value_objects import Money, Quantity, Symbol, Price
 from ..common.domain_events import DomainEvent, TradeExecutedEvent, PositionOpenedEvent, PositionClosedEvent
+from ...models.enums import TradeType
 
 
 class TradeId:
@@ -356,14 +357,19 @@ class Portfolio:
     複数ポジションを管理する集約ルート
     """
 
-    def __init__(self, portfolio_id: UUID):
+    def __init__(self, portfolio_id: UUID, cash_balance: Money = Money(Decimal("0"))):
         self._id = portfolio_id
+        self._cash_balance = cash_balance
         self._positions: dict[Symbol, Position] = {}
         self._domain_events: List[DomainEvent] = []
 
     @property
     def id(self) -> UUID:
         return self._id
+
+    @property
+    def cash_balance(self) -> Money:
+        return self._cash_balance
 
     def get_position(self, symbol: Symbol) -> Optional[Position]:
         """ポジション取得"""
@@ -434,3 +440,17 @@ class Portfolio:
     def clear_domain_events(self):
         """ドメインイベントクリア"""
         self._domain_events.clear()
+
+    def deposit_cash(self, amount: Money):
+        """現金を預け入れる"""
+        if amount.amount <= 0:
+            raise ValueError("預け入れ額は正の値である必要があります")
+        self._cash_balance = Money(self._cash_balance.amount + amount.amount)
+
+    def withdraw_cash(self, amount: Money):
+        """現金を払い出す"""
+        if amount.amount <= 0:
+            raise ValueError("払い出し額は正の値である必要があります")
+        if self._cash_balance.amount < amount.amount:
+            raise ValueError("残高が不足しています")
+        self._cash_balance = Money(self._cash_balance.amount - amount.amount)

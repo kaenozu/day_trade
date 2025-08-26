@@ -9,6 +9,7 @@ import time
 import sys
 import os
 import json
+import logging
 import polars as pl
 from pathlib import Path
 from typing import Dict, List, Any, Optional
@@ -20,16 +21,9 @@ try:
     from src.day_trade.data.providers.real_data_provider import ImprovedMultiSourceDataProvider
     from src.day_trade.analysis.technical_indicators import create_trading_recommendation_pl
     REAL_DATA_AVAILABLE = True
-    print("Yahoo Finance APIが利用可能です")
 except ImportError as e:
-    print(f"Yahoo Finance読み込みエラー: {e}")
-    try:
-        from src.day_trade.data.providers.real_data_provider import ImprovedMultiSourceDataProvider
-        REAL_DATA_AVAILABLE = True
-        print("リアルデータプロバイダーが利用可能です")
-    except ImportError:
-        REAL_DATA_AVAILABLE = False
-        print("リアルデータモジュールが利用できません")
+    print(f"リアルデータモジュール読み込みエラー: {e}")
+    REAL_DATA_AVAILABLE = False
 
 class RecommendationService:
     """株式推奨サービス (センチメント特徴量対応)"""
@@ -92,7 +86,7 @@ class RecommendationService:
         for symbol_data in self.symbols_data:
             analysis_result = self.analyze_single_symbol(symbol_data['code'])
             recommendations.append(analysis_result)
-        
+
         # BUY推奨銘柄を一番上に表示するようにソート
         def sort_by_recommendation(rec):
             # BUY系推奨を最優先、その後confidence順
@@ -104,7 +98,6 @@ class RecommendationService:
                 return (2, -rec['confidence'])  # SELLは最後
         
         recommendations.sort(key=sort_by_recommendation)
-        
         return recommendations
 
     def analyze_single_symbol(self, symbol: str, model_type: str = 'lightgbm') -> Dict[str, Any]:
@@ -152,8 +145,7 @@ class RecommendationService:
             company_name = symbol_data['name']
 
             provider = ImprovedMultiSourceDataProvider()
-            jp_symbol = f"{symbol}.T"
-            result = provider.get_stock_data_sync(jp_symbol, period="1mo")
+            result = provider.get_stock_data_sync(symbol, period="1mo")
 
             if result.success and result.data is not None and len(result.data) > 20:
                 pl_data = pl.from_pandas(result.data.reset_index())
@@ -173,14 +165,37 @@ class RecommendationService:
 
         return None
 
+    def _calculate_trading_timing(self, price, previous_close, change_pct, sector, strategy, confidence):
+        """売買タイミングを計算する（仮実装）"""
+        buy_timing = "市場の動向を注視"
+        sell_timing = "過熱感が出たら検討"
+
+        if change_pct > 2.0 and confidence > 0.7:
+            buy_timing = "強い上昇トレンド。押し目買いを検討。"
+        elif change_pct < -2.0 and confidence > 0.7:
+            sell_timing = "下落トレンド注意。戻り売りを検討。"
+
+        return buy_timing, sell_timing
+
     def _enrich_real_analysis(self, analysis: Dict[str, Any], symbol_data: Dict[str, Any]) -> Dict[str, Any]:
-        # ... (same as before) ...
         recommendation = analysis.get('signal', 'HOLD')
         confidence = analysis.get('confidence', 0.7)
         price = analysis.get('current_price', 0)
+        previous_close = analysis.get('previous_close', price)
+        change = round(price - previous_close, 2)
+        change_pct = round((change / previous_close) * 100, 2) if previous_close > 0 else 0
         category = symbol_data.get('category', '一般株')
 
+        # 売買タイミングを計算
+        strategy = 'スイング'  # 仮の戦略
+        buy_timing, sell_timing = self._calculate_trading_timing(
+            price, previous_close, change_pct, symbol_data['sector'], strategy, confidence
+        )
+
         enriched_result = analysis.copy()
+        if 'current_price' in enriched_result:
+            enriched_result['price'] = enriched_result.pop('current_price')
+
         enriched_result.update({
             'name': symbol_data['name'],
             'sector': symbol_data['sector'],
@@ -189,7 +204,7 @@ class RecommendationService:
             'recommendation_friendly': recommendation,
             'confidence_friendly': self._get_confidence_friendly(confidence),
             'star_rating': self._get_star_rating(confidence),
-            'change': round(price - analysis.get('previous_close', price), 2), # 仮
+            'change': change,
             'risk_level': self._get_risk_level(category),
             'risk_friendly': self._get_risk_level(category),
             'stability': symbol_data.get('stability', '中安定'),
@@ -199,7 +214,9 @@ class RecommendationService:
             'timing': self._get_timing_advice(recommendation),
             'amount_suggestion': self._get_amount_suggestion(price, category),
             'timestamp': time.time(),
-            'model_used': analysis.get('model_used', 'rule_based')
+            'model_used': analysis.get('model_used', 'rule_based'),
+            'buy_timing': buy_timing,
+            'sell_timing': sell_timing
         })
         return enriched_result
 

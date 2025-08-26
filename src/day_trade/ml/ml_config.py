@@ -33,22 +33,22 @@ class DataQuality(Enum):
     FAIR = 3
     POOR = 2
     INSUFFICIENT = 1
-    
+
     def __lt__(self, other):
         if isinstance(other, DataQuality):
             return self.value < other.value
         return NotImplemented
-    
+
     def __le__(self, other):
         if isinstance(other, DataQuality):
             return self.value <= other.value
         return NotImplemented
-    
+
     def __gt__(self, other):
         if isinstance(other, DataQuality):
             return self.value > other.value
         return NotImplemented
-    
+
     def __ge__(self, other):
         if isinstance(other, DataQuality):
             return self.value >= other.value

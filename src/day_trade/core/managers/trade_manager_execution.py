@@ -26,7 +26,7 @@ from ...utils.logging_config import (
 class TradeManagerExecution(TradeManagerCore):
     """
     取引実行機能
-    
+
     取引の実行、ポジション更新、FIFO会計処理を担当
     TradeManagerCore を継承して実行機能を追加
     """

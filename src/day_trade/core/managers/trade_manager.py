@@ -18,7 +18,7 @@ from ...models.enums import TradeType
 class TradeManager(TradeManagerExecution):
     """
     統合取引管理システム（リファクタリング版）
-    
+
     以下の機能を統合提供：
     - 基本データ管理（TradeManagerCore）
     - 取引実行機能（TradeManagerExecution）
@@ -42,7 +42,7 @@ class TradeManager(TradeManagerExecution):
             load_from_db: データベースから取引履歴を読み込むかどうか
         """
         super().__init__(commission_rate, tax_rate, load_from_db)
-        
+
         self.logger.info(
             "統合取引管理システム初期化完了",
             extra={
@@ -56,32 +56,32 @@ class TradeManager(TradeManagerExecution):
     def get_trade_summary(self) -> Dict[str, any]:
         """
         取引サマリーを取得（拡張版）
-        
+
         Returns:
             詳細な取引統計情報
         """
         base_stats = self.get_summary_stats()
-        
+
         # 追加統計
         buy_trades = [t for t in self.trades if t.trade_type == TradeType.BUY]
         sell_trades = [t for t in self.trades if t.trade_type == TradeType.SELL]
-        
+
         # 勝率計算
         winning_trades = [pnl for pnl in self.realized_pnl if pnl.pnl > 0]
         total_closed_trades = len(self.realized_pnl)
         win_rate = (len(winning_trades) / total_closed_trades * 100) if total_closed_trades > 0 else 0
-        
+
         # 平均損益
         avg_pnl = (
             sum(pnl.pnl for pnl in self.realized_pnl) / total_closed_trades
             if total_closed_trades > 0
             else Decimal("0")
         )
-        
+
         # 最大損失・利益
         max_loss = min([pnl.pnl for pnl in self.realized_pnl], default=Decimal("0"))
         max_profit = max([pnl.pnl for pnl in self.realized_pnl], default=Decimal("0"))
-        
+
         extended_stats = {
             "buy_trades_count": len(buy_trades),
             "sell_trades_count": len(sell_trades),
@@ -92,41 +92,41 @@ class TradeManager(TradeManagerExecution):
             "max_profit": str(max_profit),
             "active_positions_count": len(self.positions),
         }
-        
+
         return {**base_stats, **extended_stats}
 
     def get_portfolio_performance(self) -> Dict[str, any]:
         """
         ポートフォリオパフォーマンスを取得
-        
+
         Returns:
             パフォーマンス分析結果
         """
         total_invested = sum(
             pos.total_cost for pos in self.positions.values()
         )
-        
+
         total_market_value = sum(
             pos.market_value for pos in self.positions.values()
         )
-        
+
         total_unrealized_pnl = sum(
             pos.unrealized_pnl for pos in self.positions.values()
         )
-        
+
         total_realized_pnl = sum(
             pnl.pnl for pnl in self.realized_pnl
         )
-        
+
         total_pnl = total_realized_pnl + total_unrealized_pnl
-        
+
         # ROI計算
         roi_percent = (
-            (total_pnl / total_invested * 100) 
-            if total_invested > 0 
+            (total_pnl / total_invested * 100)
+            if total_invested > 0
             else Decimal("0")
         )
-        
+
         return {
             "total_invested": str(total_invested),
             "total_market_value": str(total_market_value),
@@ -147,20 +147,20 @@ class TradeManager(TradeManagerExecution):
     def update_market_prices(self, price_updates: Dict[str, Decimal]) -> None:
         """
         市場価格を一括更新
-        
+
         Args:
             price_updates: {symbol: current_price} の辞書
         """
         updated_count = 0
-        
+
         for symbol, current_price in price_updates.items():
             if symbol in self.positions:
                 safe_price = safe_decimal_conversion(current_price, f"{symbol}の現在価格")
                 validate_positive_decimal(safe_price, f"{symbol}の現在価格")
-                
+
                 self.positions[symbol].current_price = safe_price
                 updated_count += 1
-        
+
         self.logger.info(
             "市場価格一括更新完了",
             extra={
@@ -172,35 +172,35 @@ class TradeManager(TradeManagerExecution):
     def get_position_analytics(self, symbol: str) -> Optional[Dict[str, any]]:
         """
         特定銘柄のポジション分析
-        
+
         Args:
             symbol: 銘柄コード
-            
+
         Returns:
             詳細なポジション分析結果
         """
         if symbol not in self.positions:
             return None
-            
+
         position = self.positions[symbol]
-        
+
         # 関連する取引履歴
         related_trades = [t for t in self.trades if t.symbol == symbol]
         buy_trades = [t for t in related_trades if t.trade_type == TradeType.BUY]
         sell_trades = [t for t in related_trades if t.trade_type == TradeType.SELL]
-        
+
         # 関連する実現損益
         related_pnl = [pnl for pnl in self.realized_pnl if pnl.symbol == symbol]
-        
+
         # 統計計算
         total_bought = sum(t.quantity for t in buy_trades)
         total_sold = sum(t.quantity for t in sell_trades)
         total_realized_pnl = sum(pnl.pnl for pnl in related_pnl)
-        
+
         # 平均買い価格（実際の加重平均）
         total_buy_cost = sum(t.price * t.quantity + t.commission for t in buy_trades)
         avg_buy_price = total_buy_cost / total_bought if total_bought > 0 else Decimal("0")
-        
+
         return {
             "symbol": symbol,
             "current_position": position.to_dict(),
