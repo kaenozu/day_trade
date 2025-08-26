@@ -85,7 +85,6 @@ class BuyLot:
 
     quantity: int
     price: Decimal
-    commission: Decimal
     timestamp: datetime
     remaining_quantity: int
     commission: Decimal = field(default_factory=lambda: Decimal('0'))
