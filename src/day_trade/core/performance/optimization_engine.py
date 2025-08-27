@@ -20,11 +20,12 @@ import cProfile
 import pstats
 import io
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class PerformanceMetricType(Enum):
     """パフォーマンスメトリクスタイプ"""
+
     EXECUTION_TIME = "execution_time"
     MEMORY_USAGE = "memory_usage"
     CPU_USAGE = "cpu_usage"
@@ -35,6 +36,7 @@ class PerformanceMetricType(Enum):
 
 class OptimizationStrategy(Enum):
     """最適化戦略"""
+
     CACHING = "caching"
     PARALLEL_PROCESSING = "parallel_processing"
     LAZY_LOADING = "lazy_loading"
@@ -46,6 +48,7 @@ class OptimizationStrategy(Enum):
 @dataclass
 class PerformanceMetric:
     """パフォーマンスメトリクス"""
+
     name: str
     metric_type: PerformanceMetricType
     value: float
@@ -58,6 +61,7 @@ class PerformanceMetric:
 @dataclass
 class PerformanceBenchmark:
     """パフォーマンスベンチマーク"""
+
     operation_name: str
     target_response_time_ms: float
     target_throughput_ops: float
@@ -68,6 +72,7 @@ class PerformanceBenchmark:
 @dataclass
 class OptimizationResult:
     """最適化結果"""
+
     strategy: OptimizationStrategy
     before_metrics: Dict[str, float]
     after_metrics: Dict[str, float]
@@ -99,7 +104,7 @@ class PerformanceProfiler:
 
         # 統計生成
         stats = pstats.Stats(profile)
-        stats.sort_stats('cumulative')
+        stats.sort_stats("cumulative")
 
         # 文字列バッファに出力
         s = io.StringIO()
@@ -111,7 +116,7 @@ class PerformanceProfiler:
             "operation": operation_name,
             "profile_data": s.getvalue(),
             "total_calls": stats.total_calls,
-            "total_time": stats.total_tt
+            "total_time": stats.total_tt,
         }
 
     def add_metric(self, metric: PerformanceMetric) -> None:
@@ -127,7 +132,7 @@ class PerformanceProfiler:
         component: Optional[str] = None,
         operation: Optional[str] = None,
         metric_type: Optional[PerformanceMetricType] = None,
-        hours: int = 1
+        hours: int = 1,
     ) -> List[PerformanceMetric]:
         """メトリクス取得"""
         cutoff = datetime.now() - timedelta(hours=hours)
@@ -158,15 +163,30 @@ class PerformanceProfiler:
                 continue
 
             # 平均値計算
-            response_times = [m.value for m in metrics if m.metric_type == PerformanceMetricType.EXECUTION_TIME]
-            avg_response_time = sum(response_times) / len(response_times) if response_times else 0
+            response_times = [
+                m.value
+                for m in metrics
+                if m.metric_type == PerformanceMetricType.EXECUTION_TIME
+            ]
+            avg_response_time = (
+                sum(response_times) / len(response_times) if response_times else 0
+            )
 
             # ベンチマークとの比較
             results[operation_name] = {
                 "benchmark_response_time_ms": benchmark.target_response_time_ms,
                 "actual_response_time_ms": avg_response_time,
-                "meets_benchmark": avg_response_time <= benchmark.target_response_time_ms,
-                "variance_percent": ((avg_response_time - benchmark.target_response_time_ms) / benchmark.target_response_time_ms) * 100 if benchmark.target_response_time_ms > 0 else 0
+                "meets_benchmark": avg_response_time
+                <= benchmark.target_response_time_ms,
+                "variance_percent": (
+                    (
+                        (avg_response_time - benchmark.target_response_time_ms)
+                        / benchmark.target_response_time_ms
+                    )
+                    * 100
+                    if benchmark.target_response_time_ms > 0
+                    else 0
+                ),
             }
 
         return results
@@ -202,31 +222,37 @@ class ResourceMonitor:
             try:
                 # CPU使用率
                 cpu_percent = psutil.cpu_percent(interval=None)
-                self._metrics.append(PerformanceMetric(
-                    name="system_cpu_usage",
-                    metric_type=PerformanceMetricType.CPU_USAGE,
-                    value=cpu_percent,
-                    component="system"
-                ))
+                self._metrics.append(
+                    PerformanceMetric(
+                        name="system_cpu_usage",
+                        metric_type=PerformanceMetricType.CPU_USAGE,
+                        value=cpu_percent,
+                        component="system",
+                    )
+                )
 
                 # メモリ使用率
                 memory = psutil.virtual_memory()
-                self._metrics.append(PerformanceMetric(
-                    name="system_memory_usage",
-                    metric_type=PerformanceMetricType.MEMORY_USAGE,
-                    value=memory.percent,
-                    component="system"
-                ))
+                self._metrics.append(
+                    PerformanceMetric(
+                        name="system_memory_usage",
+                        metric_type=PerformanceMetricType.MEMORY_USAGE,
+                        value=memory.percent,
+                        component="system",
+                    )
+                )
 
                 # プロセス固有メトリクス
                 process = psutil.Process()
                 process_memory = process.memory_info().rss / 1024 / 1024  # MB
-                self._metrics.append(PerformanceMetric(
-                    name="process_memory_usage",
-                    metric_type=PerformanceMetricType.MEMORY_USAGE,
-                    value=process_memory,
-                    component="process"
-                ))
+                self._metrics.append(
+                    PerformanceMetric(
+                        name="process_memory_usage",
+                        metric_type=PerformanceMetricType.MEMORY_USAGE,
+                        value=process_memory,
+                        component="process",
+                    )
+                )
 
                 time.sleep(self.interval_seconds)
 
@@ -245,7 +271,7 @@ class ResourceMonitor:
                 "cpu_percent": cpu_percent,
                 "memory_percent": memory.percent,
                 "memory_available_gb": memory.available / 1024 / 1024 / 1024,
-                "process_memory_mb": process_memory
+                "process_memory_mb": process_memory,
             }
         except Exception:
             return {}
@@ -279,7 +305,9 @@ class CacheOptimizer:
                 "misses": data["misses"],
                 "total_requests": total,
                 "hit_rate": hit_rate,
-                "efficiency": "high" if hit_rate > 0.8 else "medium" if hit_rate > 0.5 else "low"
+                "efficiency": (
+                    "high" if hit_rate > 0.8 else "medium" if hit_rate > 0.5 else "low"
+                ),
             }
 
         return stats
@@ -316,9 +344,7 @@ class ParallelProcessingOptimizer:
         self.cleanup()
 
     def optimize_for_io_bound(
-        self,
-        tasks: List[Callable],
-        max_workers: Optional[int] = None
+        self, tasks: List[Callable], max_workers: Optional[int] = None
     ) -> List[Any]:
         """IO集約的タスクの最適化"""
         if max_workers is None:
@@ -331,9 +357,7 @@ class ParallelProcessingOptimizer:
         return [future.result() for future in futures]
 
     def optimize_for_cpu_bound(
-        self,
-        tasks: List[Callable],
-        max_workers: Optional[int] = None
+        self, tasks: List[Callable], max_workers: Optional[int] = None
     ) -> List[Any]:
         """CPU集約的タスクの最適化"""
         if max_workers is None:
@@ -374,7 +398,7 @@ class MemoryOptimizer:
             "objects_collected": collected,
             "memory_freed_mb": freed_mb,
             "before_memory_mb": before_memory,
-            "after_memory_mb": after_memory
+            "after_memory_mb": after_memory,
         }
 
     @staticmethod
@@ -390,9 +414,9 @@ class MemoryOptimizer:
                 "gc_stats": {
                     "generation_0": gc.get_count()[0],
                     "generation_1": gc.get_count()[1],
-                    "generation_2": gc.get_count()[2]
+                    "generation_2": gc.get_count()[2],
                 },
-                "gc_thresholds": gc.get_threshold()
+                "gc_thresholds": gc.get_threshold(),
             }
         except Exception:
             return {}
@@ -420,17 +444,19 @@ class OptimizationEngine:
         """パフォーマンス分析"""
         # メトリクス取得
         execution_metrics = self.profiler.get_metrics(
-            component=component,
-            metric_type=PerformanceMetricType.EXECUTION_TIME
+            component=component, metric_type=PerformanceMetricType.EXECUTION_TIME
         )
 
         memory_metrics = self.profiler.get_metrics(
-            component=component,
-            metric_type=PerformanceMetricType.MEMORY_USAGE
+            component=component, metric_type=PerformanceMetricType.MEMORY_USAGE
         )
 
         # 統計計算
-        avg_execution_time = sum(m.value for m in execution_metrics) / len(execution_metrics) if execution_metrics else 0
+        avg_execution_time = (
+            sum(m.value for m in execution_metrics) / len(execution_metrics)
+            if execution_metrics
+            else 0
+        )
         max_memory_usage = max((m.value for m in memory_metrics), default=0)
 
         # ベンチマークチェック
@@ -443,7 +469,7 @@ class OptimizationEngine:
             "benchmark_results": benchmark_results,
             "cache_stats": self.cache_optimizer.get_cache_stats(),
             "memory_profile": self.memory_optimizer.get_memory_profile(),
-            "current_resource_usage": self.resource_monitor.get_current_usage()
+            "current_resource_usage": self.resource_monitor.get_current_usage(),
         }
 
     def suggest_optimizations(self, analysis: Dict[str, Any]) -> List[str]:
@@ -452,17 +478,23 @@ class OptimizationEngine:
 
         # 実行時間チェック
         if analysis["average_execution_time_ms"] > 1000:
-            suggestions.append("実行時間が長いため、並列処理またはキャッシュの導入を検討してください")
+            suggestions.append(
+                "実行時間が長いため、並列処理またはキャッシュの導入を検討してください"
+            )
 
         # メモリ使用量チェック
         if analysis["max_memory_usage_mb"] > 1000:
-            suggestions.append("メモリ使用量が高いため、メモリプール化またはデータ分割処理を検討してください")
+            suggestions.append(
+                "メモリ使用量が高いため、メモリプール化またはデータ分割処理を検討してください"
+            )
 
         # キャッシュ効率チェック
         cache_stats = analysis.get("cache_stats", {})
         for cache_name, stats in cache_stats.items():
             if stats["hit_rate"] < 0.5:
-                suggestions.append(f"キャッシュ '{cache_name}' のヒット率が低いため、キャッシュ戦略の見直しを推奨します")
+                suggestions.append(
+                    f"キャッシュ '{cache_name}' のヒット率が低いため、キャッシュ戦略の見直しを推奨します"
+                )
 
         # リソース使用率チェック
         resource_usage = analysis.get("current_resource_usage", {})
@@ -470,7 +502,9 @@ class OptimizationEngine:
             suggestions.append("CPU使用率が高いため、処理の分散または最適化が必要です")
 
         if resource_usage.get("memory_percent", 0) > 80:
-            suggestions.append("メモリ使用率が高いため、メモリクリーンアップまたは最適化が必要です")
+            suggestions.append(
+                "メモリ使用率が高いため、メモリクリーンアップまたは最適化が必要です"
+            )
 
         return suggestions
 
@@ -498,7 +532,7 @@ class OptimizationEngine:
             "analysis": analysis,
             "optimizations_applied": optimizations_applied,
             "suggestions": self.suggest_optimizations(analysis),
-            "gc_result": gc_result
+            "gc_result": gc_result,
         }
 
 
@@ -507,18 +541,19 @@ global_optimization_engine = OptimizationEngine()
 
 
 def performance_monitor(
-    component: str = "",
-    operation: str = "",
-    enable_profiling: bool = False
+    component: str = "", operation: str = "", enable_profiling: bool = False
 ):
     """パフォーマンス監視デコレーター"""
+
     def decorator(func):
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             operation_name = operation or func.__name__
 
             if enable_profiling:
-                global_optimization_engine.profiler.start_profiling(f"{component}:{operation_name}")
+                global_optimization_engine.profiler.start_profiling(
+                    f"{component}:{operation_name}"
+                )
 
             start_time = time.time()
             start_memory = psutil.Process().memory_info().rss / 1024 / 1024
@@ -538,25 +573,31 @@ def performance_monitor(
                 memory_delta_mb = end_memory - start_memory
 
                 # メトリクス記録
-                global_optimization_engine.profiler.add_metric(PerformanceMetric(
-                    name=f"{component}:{operation_name}:execution_time",
-                    metric_type=PerformanceMetricType.EXECUTION_TIME,
-                    value=execution_time_ms,
-                    component=component,
-                    operation=operation_name
-                ))
+                global_optimization_engine.profiler.add_metric(
+                    PerformanceMetric(
+                        name=f"{component}:{operation_name}:execution_time",
+                        metric_type=PerformanceMetricType.EXECUTION_TIME,
+                        value=execution_time_ms,
+                        component=component,
+                        operation=operation_name,
+                    )
+                )
 
                 if memory_delta_mb > 0:
-                    global_optimization_engine.profiler.add_metric(PerformanceMetric(
-                        name=f"{component}:{operation_name}:memory_usage",
-                        metric_type=PerformanceMetricType.MEMORY_USAGE,
-                        value=memory_delta_mb,
-                        component=component,
-                        operation=operation_name
-                    ))
+                    global_optimization_engine.profiler.add_metric(
+                        PerformanceMetric(
+                            name=f"{component}:{operation_name}:memory_usage",
+                            metric_type=PerformanceMetricType.MEMORY_USAGE,
+                            value=memory_delta_mb,
+                            component=component,
+                            operation=operation_name,
+                        )
+                    )
 
                 if enable_profiling:
-                    profile_result = global_optimization_engine.profiler.stop_profiling(f"{component}:{operation_name}")
+                    profile_result = global_optimization_engine.profiler.stop_profiling(
+                        f"{component}:{operation_name}"
+                    )
 
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
@@ -576,13 +617,15 @@ def performance_monitor(
                 memory_delta_mb = end_memory - start_memory
 
                 # メトリクス記録
-                global_optimization_engine.profiler.add_metric(PerformanceMetric(
-                    name=f"{component}:{operation_name}:execution_time",
-                    metric_type=PerformanceMetricType.EXECUTION_TIME,
-                    value=execution_time_ms,
-                    component=component,
-                    operation=operation_name
-                ))
+                global_optimization_engine.profiler.add_metric(
+                    PerformanceMetric(
+                        name=f"{component}:{operation_name}:execution_time",
+                        metric_type=PerformanceMetricType.EXECUTION_TIME,
+                        value=execution_time_ms,
+                        component=component,
+                        operation=operation_name,
+                    )
+                )
 
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
