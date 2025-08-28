@@ -148,8 +148,8 @@ class TemplateService:
         return """"""
 
     @staticmethod
-    def get_scheduler_template() -> str:
-        """スケジューラー管理テンプレート"""
+    def get_error_template() -> str:
+        """エラーページテンプレート"""
         return """
 <!DOCTYPE html>
 <html lang="ja">

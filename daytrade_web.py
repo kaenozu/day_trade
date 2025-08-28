@@ -101,6 +101,13 @@ def create_app() -> Flask:
     if not app.debug:
         logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
+    # --- デバッグ: 登録ルートの表示 ---
+    with app.app_context():
+        print("--- Registered Routes ---")
+        for rule in app.url_map.iter_rules():
+            print(f"{rule.endpoint}: {rule.rule} Methods: {','.join(rule.methods)}")
+        print("-----------------------")
+
     return app
 
 # Gunicornがこの'app'インスタンスを使用する
@@ -113,7 +120,7 @@ def main():
     parser.add_argument('--debug', '-d', action='store_true', help='デバッグモード')
     args = parser.parse_args()
 
-    print(f"\n🚀 Day Trade Web Server (Production Ready) - Issue #939")
+    print(f"\nDay Trade Web Server (Production Ready) - Issue #939")
     print(f"Version: {app.config['VERSION_INFO']['version_extended']}")
     print(f"Port: {args.port}")
     print(f"Debug: {args.debug}")
