@@ -1,0 +1,482 @@
+{% extends "base.html" %}
+
+{% block title %}競技場一覧 - Boatrace予想システム{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1><i class="fas fa-building"></i> 競技場一覧</h1>
+        <p class="text-muted">全国24場の競技場情報・特性・分析</p>
+    </div>
+</div>
+
+<!-- 競技場一覧 -->
+<div class="row">
+    {% for num, stadium in stadiums.items() %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <span class="badge bg-primary me-2">{{ num }}</span>
+                    {{ stadium.name }}
+                </h6>
+                <small class="text-muted">{{ stadium.prefecture }}</small>
+            </div>
+            <div class="card-body">
+                <!-- 基本情報 -->
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <small class="text-muted">水質</small>
+                        <div>
+                            {% set analysis = analyses.get(num) %}
+                            {% if analysis and analysis.characteristics %}
+                                {% if analysis.characteristics.water_type == 'sea' %}
+                                    <span class="badge bg-info">海水</span>
+                                {% elif analysis.characteristics.water_type == 'fresh' %}
+                                    <span class="badge bg-success">淡水</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">汽水</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">潮汐影響</small>
+                        <div>
+                            {% if analysis and analysis.characteristics and analysis.characteristics.is_tidal %}
+                                <i class="fas fa-check text-success"></i> あり
+                            {% else %}
+                                <i class="fas fa-times text-muted"></i> なし
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- コース特性 -->
+                {% if analysis and analysis.characteristics %}
+                <div class="mb-3">
+                    <small class="text-muted">コース特性</small>
+                    <div class="mt-1">
+                        {% for advantage in analysis.characteristics.course_advantages[:3] %}
+                        <span class="badge bg-outline-primary me-1">{{ advantage }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- 平均風速 -->
+                {% if analysis.characteristics.average_wind_speed %}
+                <div class="mb-3">
+                    <small class="text-muted">平均風速</small>
+                    <div>{{ analysis.characteristics.average_wind_speed }}m/s</div>
+                </div>
+                {% endif %}
+                {% endif %}
+                
+                <!-- 統計情報（今日のレース数など） -->
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">本日のレース</small>
+                            <div><strong id="todayRaces{{ num }}">-</strong>レース</div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">予想完了</small>
+                            <div><strong id="predictedRaces{{ num }}">-</strong>件</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 最近の成績 -->
+                <div class="mb-3">
+                    <small class="text-muted">最近の成績</small>
+                    <div class="progress mt-1" style="height: 6px;">
+                        <div class="progress-bar bg-success" style="width: 0%" id="winRate{{ num }}"></div>
+                    </div>
+                    <small class="text-muted">勝率: <span id="winRateText{{ num }}">-%</span></small>
+                </div>
+                
+            </div>
+            <div class="card-footer">
+                <div class="btn-group w-100">
+                    <a href="{{ url_for('stadium_detail', stadium_number=num) }}" 
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-info-circle"></i> 詳細
+                    </a>
+                    <a href="{{ url_for('races_list', stadium=num) }}" 
+                       class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-flag-checkered"></i> レース
+                    </a>
+                    <button class="btn btn-outline-success btn-sm" 
+                            onclick="quickAnalysis({{ num }})">
+                        <i class="fas fa-chart-line"></i> 分析
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 地域別フィルター -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-map"></i> 地域別競技場</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <h6>関東</h6>
+                        <ul class="list-unstyled">
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=3) }}">江戸川</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=4) }}">平和島</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=5) }}">多摩川</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=6) }}">浜名湖</a></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>関西</h6>
+                        <ul class="list-unstyled">
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=7) }}">蒲郡</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=8) }}">常滑</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=9) }}">津</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=12) }}">住之江</a></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>中国・四国</h6>
+                        <ul class="list-unstyled">
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=15) }}">丸亀</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=16) }}">児島</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=17) }}">宮島</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=18) }}">徳山</a></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>九州</h6>
+                        <ul class="list-unstyled">
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=19) }}">下関</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=20) }}">若松</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=21) }}">芦屋</a></li>
+                            <li><a href="{{ url_for('stadium_detail', stadium_number=22) }}">福岡</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 競技場比較ツール -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-balance-scale"></i> 競技場比較ツール</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="compare1" class="form-label">競技場1</label>
+                        <select class="form-select" id="compare1">
+                            <option value="">選択してください</option>
+                            {% for num, stadium in stadiums.items() %}
+                            <option value="{{ num }}">{{ stadium.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="compare2" class="form-label">競技場2</label>
+                        <select class="form-select" id="compare2">
+                            <option value="">選択してください</option>
+                            {% for num, stadium in stadiums.items() %}
+                            <option value="{{ num }}">{{ stadium.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button class="btn btn-primary w-100" onclick="compareStadiums()">
+                            <i class="fas fa-chart-bar"></i> 比較実行
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 比較結果表示エリア -->
+                <div id="comparisonResult" class="mt-4" style="display: none;">
+                    <h6>比較結果</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>項目</th>
+                                    <th id="stadium1Name">競技場1</th>
+                                    <th id="stadium2Name">競技場2</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comparisonTableBody">
+                                <!-- 比較データがここに表示される -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- クイック分析モーダル -->
+<div class="modal fade" id="quickAnalysisModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-chart-line"></i> クイック分析
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="analysisContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status"></div>
+                        <p class="mt-2">分析中...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                <button type="button" class="btn btn-primary" onclick="viewFullAnalysis()">
+                    詳細分析へ
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentAnalysisStadium = null;
+
+// ページ読み込み時に各競技場の統計情報を取得
+document.addEventListener('DOMContentLoaded', function() {
+    loadStadiumStats();
+});
+
+// 競技場統計情報読み込み
+function loadStadiumStats() {
+    // 各競技場の本日のレース数や成績を取得（将来実装）
+    {% for num, stadium in stadiums.items() %}
+    // ダミーデータ設定
+    document.getElementById('todayRaces{{ num }}').textContent = Math.floor(Math.random() * 12) + 1;
+    document.getElementById('predictedRaces{{ num }}').textContent = Math.floor(Math.random() * 8);
+    
+    const winRate = Math.random() * 100;
+    document.getElementById('winRate{{ num }}').style.width = winRate + '%';
+    document.getElementById('winRateText{{ num }}').textContent = winRate.toFixed(1) + '%';
+    {% endfor %}
+}
+
+// クイック分析
+function quickAnalysis(stadiumNumber) {
+    currentAnalysisStadium = stadiumNumber;
+    
+    const modal = new bootstrap.Modal(document.getElementById('quickAnalysisModal'));
+    modal.show();
+    
+    // 分析データをリセット
+    document.getElementById('analysisContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status"></div>
+            <p class="mt-2">分析中...</p>
+        </div>
+    `;
+    
+    // 仮の分析結果を表示（実際は API で取得）
+    setTimeout(() => {
+        const analysisData = generateMockAnalysis(stadiumNumber);
+        displayAnalysisResult(analysisData);
+    }, 1500);
+}
+
+// モック分析データ生成
+function generateMockAnalysis(stadiumNumber) {
+    const stadiumName = document.querySelector(`span.badge:contains(${stadiumNumber})`);
+    
+    return {
+        stadium_number: stadiumNumber,
+        recent_performance: {
+            races: Math.floor(Math.random() * 50) + 10,
+            win_rate: (Math.random() * 40 + 40).toFixed(1),
+            roi: (Math.random() * 20 - 10).toFixed(2)
+        },
+        trends: [
+            '1コースの勝率が高め',
+            '風の影響を受けやすい',
+            '夕方のレースが荒れがち'
+        ],
+        recommendations: [
+            '1号艇を軸にした投票が有効',
+            '風速5m以上の日は注意',
+            '穴狙いは6R以降がおすすめ'
+        ]
+    };
+}
+
+// 分析結果表示
+function displayAnalysisResult(data) {
+    const content = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-chart-pie"></i> 最近の成績</h6>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <h5>${data.recent_performance.races}</h5>
+                                <small class="text-muted">レース数</small>
+                            </div>
+                            <div class="col-4">
+                                <h5 class="text-success">${data.recent_performance.win_rate}%</h5>
+                                <small class="text-muted">勝率</small>
+                            </div>
+                            <div class="col-4">
+                                <h5 class="${data.recent_performance.roi >= 0 ? 'text-success' : 'text-danger'}">
+                                    ${data.recent_performance.roi}%
+                                </h5>
+                                <small class="text-muted">ROI</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h6 class="mt-3"><i class="fas fa-trending-up"></i> トレンド</h6>
+                <ul class="list-group list-group-flush">
+                    ${data.trends.map(trend => `<li class="list-group-item">${trend}</li>`).join('')}
+                </ul>
+            </div>
+            
+            <div class="col-md-6">
+                <h6><i class="fas fa-lightbulb"></i> 推奨事項</h6>
+                <div class="alert alert-info">
+                    <ul class="mb-0">
+                        ${data.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                    </ul>
+                </div>
+                
+                <h6 class="mt-3"><i class="fas fa-calendar"></i> 本日の状況</h6>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="text-center p-2 border rounded">
+                            <i class="fas fa-flag-checkered fa-2x text-primary mb-1"></i>
+                            <div>12レース</div>
+                            <small class="text-muted">予定</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center p-2 border rounded">
+                            <i class="fas fa-brain fa-2x text-success mb-1"></i>
+                            <div>8件</div>
+                            <small class="text-muted">予想済</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('analysisContent').innerHTML = content;
+}
+
+// 詳細分析へ
+function viewFullAnalysis() {
+    if (currentAnalysisStadium) {
+        window.location.href = `/stadium/${currentAnalysisStadium}`;
+    }
+}
+
+// 競技場比較
+function compareStadiums() {
+    const stadium1 = document.getElementById('compare1').value;
+    const stadium2 = document.getElementById('compare2').value;
+    
+    if (!stadium1 || !stadium2) {
+        alert('比較する競技場を2つ選択してください');
+        return;
+    }
+    
+    if (stadium1 === stadium2) {
+        alert('異なる競技場を選択してください');
+        return;
+    }
+    
+    // 比較実行（仮データ）
+    const comparison = generateComparison(stadium1, stadium2);
+    displayComparison(comparison);
+}
+
+// 比較データ生成
+function generateComparison(stadium1, stadium2) {
+    return {
+        stadium1: {
+            name: getStadiumName(stadium1),
+            winRate: (Math.random() * 40 + 40).toFixed(1),
+            roi: (Math.random() * 20 - 10).toFixed(2),
+            avgOdds: (Math.random() * 5 + 15).toFixed(1),
+            races: Math.floor(Math.random() * 50) + 100
+        },
+        stadium2: {
+            name: getStadiumName(stadium2),
+            winRate: (Math.random() * 40 + 40).toFixed(1),
+            roi: (Math.random() * 20 - 10).toFixed(2),
+            avgOdds: (Math.random() * 5 + 15).toFixed(1),
+            races: Math.floor(Math.random() * 50) + 100
+        }
+    };
+}
+
+// 競技場名取得
+function getStadiumName(stadiumNumber) {
+    const stadiums = {
+        {% for num, stadium in stadiums.items() %}
+        {{ num }}: '{{ stadium.name }}',
+        {% endfor %}
+    };
+    return stadiums[stadiumNumber] || '不明';
+}
+
+// 比較結果表示
+function displayComparison(data) {
+    document.getElementById('stadium1Name').textContent = data.stadium1.name;
+    document.getElementById('stadium2Name').textContent = data.stadium2.name;
+    
+    const tbody = document.getElementById('comparisonTableBody');
+    tbody.innerHTML = `
+        <tr>
+            <td>勝率</td>
+            <td class="${data.stadium1.winRate > data.stadium2.winRate ? 'text-success' : ''}">${data.stadium1.winRate}%</td>
+            <td class="${data.stadium2.winRate > data.stadium1.winRate ? 'text-success' : ''}">${data.stadium2.winRate}%</td>
+        </tr>
+        <tr>
+            <td>ROI</td>
+            <td class="${data.stadium1.roi > data.stadium2.roi ? 'text-success' : 'text-danger'}">${data.stadium1.roi}%</td>
+            <td class="${data.stadium2.roi > data.stadium1.roi ? 'text-success' : 'text-danger'}">${data.stadium2.roi}%</td>
+        </tr>
+        <tr>
+            <td>平均オッズ</td>
+            <td>${data.stadium1.avgOdds}倍</td>
+            <td>${data.stadium2.avgOdds}倍</td>
+        </tr>
+        <tr>
+            <td>分析レース数</td>
+            <td>${data.stadium1.races}</td>
+            <td>${data.stadium2.races}</td>
+        </tr>
+    `;
+    
+    document.getElementById('comparisonResult').style.display = 'block';
+}
+</script>
+{% endblock %}

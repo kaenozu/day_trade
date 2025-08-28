@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}ダッシュボード - Boatrace予想システム{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1><i class="fas fa-tachometer-alt"></i> ダッシュボード</h1>
+        <p class="text-muted">本日のレース状況とシステム概況</p>
+    </div>
+</div>
+
+<!-- 統計カード -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">本日のレース</h5>
+                        <h3>{{ system_stats.total_races_today or 0 }}レース</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-flag-checkered fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">現在の資金</h5>
+                        <h3>¥{{ "{:,.0f}".format(portfolio.current_balance or 0) }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-yen-sign fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white {% if portfolio.roi >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">ROI</h5>
+                        <h3>{{ "{:+.2f}".format(portfolio.roi or 0) }}%</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-chart-line fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white {% if system_stats.api_status == 'OK' %}bg-info{% else %}bg-warning{% endif %}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">API状態</h5>
+                        <h3>{{ system_stats.api_status or 'UNKNOWN' }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-wifi fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 注目レース -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-star"></i> 本日の注目レース</h5>
+            </div>
+            <div class="card-body">
+                {% if today_races %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>時間</th>
+                                    <th>競技場</th>
+                                    <th>R</th>
+                                    <th>レース名</th>
+                                    <th>状態</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for race in today_races %}
+                                <tr>
+                                    <td>{{ race.start_time.strftime('%H:%M') if race.start_time else '-' }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">
+                                            {{ race.stadium_name or race.stadium_number }}
+                                        </span>
+                                    </td>
+                                    <td><strong>{{ race.race_number }}R</strong></td>
+                                    <td>{{ race.title or 'レース名未取得' }}</td>
+                                    <td>
+                                        {% if race.status == 'scheduled' %}
+                                            <span class="badge bg-info">予定</span>
+                                        {% elif race.status == 'running' %}
+                                            <span class="badge bg-success">進行中</span>
+                                        {% elif race.status == 'finished' %}
+                                            <span class="badge bg-secondary">終了</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">不明</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('race_detail', race_id=race.id) }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i> 詳細
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="text-center">
+                        <a href="{{ url_for('races_list') }}" class="btn btn-primary">
+                            <i class="fas fa-list"></i> 全レース一覧
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">本日のレース情報がありません</p>
+                        <button class="btn btn-outline-primary" onclick="refreshData()">
+                            <i class="fas fa-sync"></i> データ更新
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- クイックアクション -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-bolt"></i> クイックアクション</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('races_list') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-search"></i> レース検索
+                    </a>
+                    <a href="{{ url_for('betting_interface') }}" class="btn btn-outline-success">
+                        <i class="fas fa-ticket-alt"></i> 投票画面
+                    </a>
+                    <a href="{{ url_for('portfolio_dashboard') }}" class="btn btn-outline-info">
+                        <i class="fas fa-chart-pie"></i> 成績確認
+                    </a>
+                    <button class="btn btn-outline-warning" onclick="collectTodayData()">
+                        <i class="fas fa-download"></i> データ収集
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- システム状態 -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6><i class="fas fa-info-circle"></i> システム状態</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="mb-2">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <small class="text-muted">データベース</small>
+                        <div><span class="badge bg-success">正常</span></div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-2">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <small class="text-muted">予想エンジン</small>
+                        <div><span class="badge bg-success">稼働中</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最新の投票結果 -->
+{% if portfolio.recent_tickets %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-history"></i> 最新の投票結果</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>日時</th>
+                                <th>レース</th>
+                                <th>舟券</th>
+                                <th>買い目</th>
+                                <th>金額</th>
+                                <th>結果</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ticket in portfolio.recent_tickets[:5] %}
+                            <tr>
+                                <td>{{ ticket.purchased_at.strftime('%m/%d %H:%M') if ticket.purchased_at else '-' }}</td>
+                                <td>{{ ticket.race_id }}</td>
+                                <td>{{ ticket.bet_type }}</td>
+                                <td>{{ ticket.numbers }}</td>
+                                <td>¥{{ "{:,.0f}".format(ticket.amount) }}</td>
+                                <td>
+                                    {% if ticket.is_hit is none %}
+                                        <span class="badge bg-warning">未確定</span>
+                                    {% elif ticket.is_hit %}
+                                        <span class="badge bg-success">的中</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">不的中</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// データ収集
+function collectTodayData() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 収集中...';
+    
+    fetch('/api/data_collection', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert('データ収集が完了しました');
+        location.reload();
+    })
+    .catch(error => {
+        console.error('データ収集エラー:', error);
+        alert('データ収集でエラーが発生しました');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-download"></i> データ収集';
+    });
+}
+
+// データ更新
+function refreshData() {
+    location.reload();
+}
+
+// 定期的な更新（5分毎）
+setInterval(refreshData, 300000);
+</script>
+{% endblock %}
