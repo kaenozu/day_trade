@@ -5,6 +5,9 @@ Day Trade System - Core Module
 リファクタリング済み統合コアシステム
 """
 
+# 基本インポート（mainブランチの新機能を統合）
+from ..models.enums import AlertType
+
 # バージョン情報
 __version__ = "2.0.0"
 __author__ = "Day Trade Development Team"

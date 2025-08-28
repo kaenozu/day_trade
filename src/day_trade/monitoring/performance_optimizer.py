@@ -1096,7 +1096,7 @@ import atexit
 from typing import Dict, Any
 
 from .lazy_imports import optimized_imports
-from .optimized_cache import cache_manager
+from .optimized_cache import cache_manager_v2 as cache_manager
 from .database_optimizer import get_db_manager
 from .memory_optimizer import start_memory_monitoring, stop_memory_monitoring, get_memory_stats
 from .async_optimizer import task_manager, hybrid_executor

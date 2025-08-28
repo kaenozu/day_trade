@@ -38,7 +38,10 @@ try:
     import tensorflow as tf
 
     if hasattr(tf, 'config') and hasattr(tf.config, 'experimental') and hasattr(tf.config.experimental, 'set_memory_growth'):
-        tf.config.experimental.set_memory_growth(True)
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
         TF_AVAILABLE = True
     else:
         TF_AVAILABLE = False

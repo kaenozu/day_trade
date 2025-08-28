@@ -5,6 +5,7 @@ Day Trade Web Server - プロダクション対応Webサーバー
 Issue #939対応: Gunicorn対応のためのApplication Factoryパターン導入
 """
 
+import os
 import sys
 import logging
 import argparse
@@ -13,6 +14,8 @@ from pathlib import Path
 from typing import Dict, Any
 from flask import Flask, g
 from datetime import datetime
+
+from src.day_trade.utils.logging_config import setup_logging # NEW LINE
 
 from celery_app import celery_app
 from celery.result import AsyncResult
@@ -36,9 +39,18 @@ except ImportError:
 def create_app() -> Flask:
     """Flaskアプリケーションを生成して設定 (Application Factory)"""
     app = Flask(__name__)
-    app.secret_key = 'day-trade-personal-2025-production-ready'
+    # セキュアなsecret key設定
+    import secrets
+    secret_key = os.environ.get('FLASK_SECRET_KEY')
+    if not secret_key:
+        secret_key = secrets.token_urlsafe(32)
+        print("⚠️  本番環境では環境変数FLASK_SECRET_KEYを設定してください")
+    app.secret_key = secret_key
     # --- バージョン情報をappコンテキストに保存 ---
     app.config['VERSION_INFO'] = VERSION_INFO
+
+    # --- ログ設定 ---
+    setup_logging()
 
     # --- サービスとクライアントの初期化 ---
     @app.before_request

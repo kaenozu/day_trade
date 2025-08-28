@@ -50,7 +50,10 @@ except ImportError:
 
 # テスト設定
 TEST_SYMBOLS = ["7203", "8306", "9984"]
-TEST_TIMEFRAMES = [TimeFrame.DAILY, TimeFrame.WEEKLY]
+if MULTI_TIMEFRAME_AVAILABLE:
+    TEST_TIMEFRAMES = [TimeFrame.DAILY, TimeFrame.WEEKLY]
+else:
+    TEST_TIMEFRAMES = [] # Fallback or empty list if not available
 
 class TestMultiTimeframeIntegration:
     """マルチタイムフレーム統合テスト"""
