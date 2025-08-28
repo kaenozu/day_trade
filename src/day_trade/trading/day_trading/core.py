@@ -181,9 +181,10 @@ class PersonalDayTradingEngine:
                 prediction_results, _ = await self.model_loader.predict(symbol, features)
                 return self._build_daytrading_recommendation_from_prediction(symbol, symbol_name, session, prediction_results)
             except Exception as e:
-                logger.warning(f"AI予測失敗: {e}")
+                logger.error(f"AI予測失敗 ({symbol}): {e}", exc_info=True)
 
         # フォールバック予測
+        logger.info(f"フォールバック予測を実行します ({symbol})")
         return self._build_fallback_daytrading_recommendation(symbol, symbol_name, session, market_data)
 
     def _build_daytrading_recommendation_from_prediction(self, symbol: str, symbol_name: str, 
@@ -247,11 +248,12 @@ class PersonalDayTradingEngine:
                                                   session: TradingSession, market_data: Dict[str, Any]) -> DayTradingRecommendation:
         """フォールバック当日推奨"""
         import numpy as np
-        
+
         # 簡易的な分析ロジック
         volatility = abs(market_data["High"] - market_data["Low"]) / market_data["Close"] * 100 if market_data["Close"] > 0 else 3.0
         momentum = (market_data["Close"] - market_data["PrevClose"]) / market_data["PrevClose"] * 100 if market_data["PrevClose"] > 0 else 0
-        volume_ratio = 1.0 + np.random.uniform(-0.3, 0.3)
+        avg_volume = market_data.get("AvgVolume", market_data["Volume"])
+        volume_ratio = market_data["Volume"] / avg_volume if avg_volume > 0 else 1.0
 
         session_multiplier = self.session_analyzer.get_session_multiplier(session)
         adjusted_volatility = volatility * session_multiplier

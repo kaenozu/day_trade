@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass
 from enum import Enum
 
-from fallback_notification_system import (
+from src.day_trade.alerts.fallback_notification_system import (
     notify_fallback_usage, notify_dummy_data_usage, notify_real_data_recovery,
     DataSource
 )

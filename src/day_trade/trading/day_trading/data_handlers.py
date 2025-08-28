@@ -204,6 +204,8 @@ class MarketDataHandler:
         try:
             latest_data = historical_data.iloc[-1]
             prev_close = historical_data.iloc[-2]['Close'] if len(historical_data) >= 2 else latest_data['Close']
+            # 出来高の移動平均を計算（直近を除く過去4日間）
+            avg_volume = historical_data['Volume'].iloc[:-1].mean() if len(historical_data) > 1 else latest_data['Volume']
 
             return {
                 "Open": float(latest_data.get("Open", 0)),
@@ -211,6 +213,7 @@ class MarketDataHandler:
                 "Low": float(latest_data.get("Low", 0)),
                 "Close": float(latest_data.get("Close", 0)),
                 "Volume": int(latest_data.get("Volume", 0)),
+                "AvgVolume": float(avg_volume),
                 "PrevClose": float(prev_close),
                 "DateTime": latest_data.name,
                 "DataSource": "REAL"
@@ -253,6 +256,7 @@ class MarketDataHandler:
         # 出来高も現実的に
         volume_base = 1_000_000 if price_base > 1000 else 5_000_000
         volume = int(volume_base * np.random.uniform(0.5, 3.0))
+        avg_volume = float(volume_base * 1.2) # 平均は少し多めに
 
         return {
             "Open": round(open_price, 0),
@@ -260,6 +264,7 @@ class MarketDataHandler:
             "Low": round(low_price, 0),
             "Close": round(close_price, 0),
             "Volume": volume,
+            "AvgVolume": avg_volume,
             "PrevClose": round(prev_close, 0),
             "DateTime": datetime.now(),
             "DataSource": "MOCK"

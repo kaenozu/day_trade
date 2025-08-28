@@ -248,6 +248,21 @@ class StockAnalysisApplication:
                 traceback.print_exc()
             return 1
 
+    def _calculate_rsi(self, prices, period=14):
+        delta = prices.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        return rsi
+
+    def _calculate_macd(self, prices, fast=12, slow=26, signal=9):
+        ema_fast = prices.ewm(span=fast).mean()
+        ema_slow = prices.ewm(span=slow).mean()
+        macd_line = ema_fast - ema_slow
+        macd_signal = macd_line.ewm(span=signal).mean()
+        return macd_line, macd_signal
+
     def _analyze_symbol_with_ai(self, symbol: str) -> dict:
         """個別銘柄をシンプル技術分析（DI版）"""
         try:
@@ -270,33 +285,14 @@ class StockAnalysisApplication:
             if self.debug:
                 print(f"    {symbol}: {len(stock_data)}日分のデータ取得完了")
 
-            # 技術指標計算（シンプル実装）
-            def calculate_rsi(prices, period=14):
-                delta = prices.diff()
-                gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-                loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-                rs = gain / loss
-                rsi = 100 - (100 / (1 + rs))
-                return rsi
-
-            def calculate_macd(prices, fast=12, slow=26, signal=9):
-                ema_fast = prices.ewm(span=fast).mean()
-                ema_slow = prices.ewm(span=slow).mean()
-                macd_line = ema_fast - ema_slow
-                macd_signal = macd_line.ewm(span=signal).mean()
-                return macd_line, macd_signal
-
-            # 最新価格
-            current_price = stock_data['Close'].iloc[-1]
-
             # 技術指標計算（設定を使用）
-            rsi = calculate_rsi(stock_data['Close'])
+            rsi = self._calculate_rsi(stock_data['Close'])
             rsi_config = self.analysis_config['technical_indicators'].get('rsi', {'period': 14, 'overbought_threshold': 70, 'oversold_threshold': 30})
             sma_config = self.analysis_config['technical_indicators'].get('sma', {'short_period': 20, 'long_period': 50})
 
             current_rsi = rsi.iloc[-1] if not rsi.empty else 50
 
-            macd_line, macd_signal = calculate_macd(stock_data['Close'])
+            macd_line, macd_signal = self._calculate_macd(stock_data['Close'])
             current_macd = macd_line.iloc[-1] - macd_signal.iloc[-1] if not macd_line.empty else 0
 
             # SMAピリオドを設定から取得
@@ -607,21 +603,104 @@ class StockAnalysisApplication:
 
     async def run_validation(self, symbols: list) -> int:
         """予測精度検証実行（CLI用）"""
-        print("🔍 予測精度検証モード")
+        print(" 予測精度検証モード")
         if self.debug:
             print(f"デバッグモード: ON, キャッシュ: {self.use_cache}")
 
         try:
-            print(f"🎯 精度検証対象: {', '.join(symbols)}")
-            print("📊 過去データとの照合を実行中...")
+            if not symbols:
+                symbols = self._get_default_symbols()
+            
+            print(f" 精度検証対象: {', '.join(symbols)}")
+            print(" 過去60日間のデータで検証を実行中...")
 
-            # 仮の検証結果
-            accuracy = 93.5
-            print(f"✅ 予測精度: {accuracy:.1f}%")
-            print("🎉 93%以上の精度を維持しています")
+            total_predictions = 0
+            correct_predictions = 0
+
+            if not self.data_provider_service:
+                print("[ERROR] データプロバイダーが利用できません。")
+                return 1
+
+            for symbol in symbols:
+                try:
+                    # 過去61日分のデータを取得 (60期間の検証のため)
+                    historical_data = self.data_provider_service.get_stock_data(symbol, "61d")
+                    if historical_data is None or len(historical_data) < 31: # 少なくとも30日は必要
+                        if self.debug:
+                            print(f"WARNING: {symbol}: 十分な検証データがありません。スキップします。")
+                        continue
+
+                    # テクニカル指標計算
+                    close_prices = historical_data['Close']
+                    rsi_config = self.analysis_config['technical_indicators'].get('rsi', {})
+                    sma_config = self.analysis_config['technical_indicators'].get('sma', {})
+
+                    rsi = self._calculate_rsi(close_prices, rsi_config.get('period', 14))
+                    macd_line, macd_signal = self._calculate_macd(close_prices)
+                    sma = close_prices.rolling(window=sma_config.get('short_period', 20)).mean()
+
+                    # 過去30日間を検証
+                    for i in range(len(historical_data) - 31, len(historical_data) - 1):
+                        current_rsi = rsi.iloc[i]
+                        current_macd = macd_line.iloc[i] - macd_signal.iloc[i]
+                        current_price = close_prices.iloc[i]
+                        current_sma = sma.iloc[i]
+                        next_day_price = close_prices.iloc[i+1]
+
+                        if pd.isna(current_rsi) or pd.isna(current_macd) or pd.isna(current_sma):
+                            continue
+
+                        # _analyze_symbol_with_ai のロジックを模倣
+                        trend_score = 0
+                        if current_rsi < rsi_config.get('oversold_threshold', 30):
+                            trend_score += 0.4
+                        elif current_rsi > rsi_config.get('overbought_threshold', 70):
+                            trend_score -= 0.4
+                        if current_macd > 0:
+                            trend_score += 0.3
+                        else:
+                            trend_score -= 0.3
+                        if current_price > current_sma:
+                            trend_score += 0.2
+                        else:
+                            trend_score -= 0.2
+
+                        recommendation = 'HOLD'
+                        if trend_score > 0.4:
+                            recommendation = 'BUY'
+                        elif trend_score < -0.4:
+                            recommendation = 'SELL'
+
+                        # 結果判定
+                        if recommendation == 'BUY' and next_day_price > current_price:
+                            correct_predictions += 1
+                        elif recommendation == 'SELL' and next_day_price < current_price:
+                            correct_predictions += 1
+                        elif recommendation == 'HOLD' and abs(next_day_price - current_price) / current_price < 0.02: # 2%未満の変動
+                            correct_predictions += 1
+                        
+                        if recommendation in ['BUY', 'SELL']:
+                            total_predictions += 1
+
+                except Exception as e:
+                    if self.debug:
+                        print(f"[ERROR] {symbol} の検証中にエラー: {e}")
+
+            if total_predictions > 0:
+                accuracy = (correct_predictions / total_predictions) * 100
+                print(f"[OK] 検証完了 - 予測精度: {accuracy:.2f}% ({correct_predictions}/{total_predictions}) [BUY/SELLのみ対象]")
+                if accuracy >= 85:
+                    print(" 素晴らしい精度です！")
+                elif accuracy >= 70:
+                    print(" 良好な精度です。")
+                else:
+                    print(" さらなるモデル改善の余地がありそうです。")
+            else:
+                print("- 検証対象の予測がありませんでした。")
+
             return 0
         except Exception as e:
-            print(f"❌ 検証エラー: {e}")
+            print(f"[ERROR] 検証エラー: {e}")
             if self.debug:
                 import traceback
                 traceback.print_exc()

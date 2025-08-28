@@ -113,10 +113,35 @@ class DayTradeCLI:
 
     def _run_web_mode(self, args: argparse.Namespace) -> int:
         """Webダッシュボードモード実行"""
-        from daytrade_web import DayTradeWebServer
+        import subprocess
+        import sys
 
-        server = DayTradeWebServer(port=args.port, debug=args.debug)
-        return server.run()
+        # CLIスクリプトと同じディレクトリにあるdaytrade_web.pyのパスを構築
+        web_script_path = Path(__file__).parent / "daytrade_web.py"
+        
+        command = [
+            sys.executable, 
+            str(web_script_path),
+            f"--port={args.port}"
+        ]
+        if args.debug:
+            command.append("--debug")
+
+        print(f"Webサーバーを起動します...")
+        print(f"コマンド: {' '.join(command)}")
+        print(f"ブラウザで http://localhost:{args.port} を開いてください。")
+        print("サーバーを停止するには Ctrl+C を押してください。")
+
+        try:
+            # subprocess.runはプロセスが終了するまで待機する
+            result = subprocess.run(command, check=False)
+            return result.returncode
+        except FileNotFoundError:
+            print(f"エラー: {web_script_path} が見つかりません。", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Webサーバーの起動に失敗しました: {e}", file=sys.stderr)
+            return 1
 
     def _run_quick_mode(self, args: argparse.Namespace) -> int:
         """基本分析モード実行"""

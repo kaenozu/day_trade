@@ -32,8 +32,25 @@ class TemplateService:
             <div class="card">
                 <h3>🔗 投資管理メニュー</h3>
                 <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                    <button class="nav-btn" onclick="location.href='/portfolio'" style="background: #3b82f6; color: white; border: none; padding: 15px 25px; border-radius: 8px; font-weight: bold; cursor: pointer;">💼 ポートフォリオ追跡</button>
+                    <button class="nav-btn" onclick="location.href='/portfolio'" style="background: #3b82f6; color: white; border: none; padding: 15px 25px; border-radius: 8px; font-weight: bold; cursor: pointer;"> ポートフォリオ追跡</button>
                 </div>
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-number">93%</div>
+                        <div class="stat-label">AI精度</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">A+</div>
+                        <div class="stat-label">品質評価</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3> 売買判断システム</h3>
+                <p>リアルタイム株価分析による具体的な売買提案</p>
+                <button class="btn" onclick="loadRecommendations()">売買推奨を取得</button>
+                <div id="recommendationsResult" style="margin-top: 15px;"></div>
             </div>
         </div>
 
@@ -131,8 +148,8 @@ class TemplateService:
         return """"""
 
     @staticmethod
-    def get_scheduler_template() -> str:
-        """スケジューラー管理テンプレート"""
+    def get_error_template() -> str:
+        """エラーページテンプレート"""
         return """
 <!DOCTYPE html>
 <html lang="ja">

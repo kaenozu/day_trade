@@ -77,8 +77,6 @@ def setup_api_routes(app: Flask) -> None:
             elif recommendation_filter == 'hold':
                 filtered_recommendations = [r for r in filtered_recommendations
                                          if r.get('recommendation', '') == 'HOLD']
-
-            # 統計計算（全体とフィルタ後）
             total_count = len(recommendations)
             filtered_count = len(filtered_recommendations)
             high_confidence_count = len([r for r in recommendations if r.get('confidence', 0) > 0.8])
@@ -205,6 +203,19 @@ def setup_api_routes(app: Flask) -> None:
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
+    @app.route('/api/result/<task_id>', methods=['GET'])
+    def api_get_result(task_id):
+        """非同期タスクの結果を取得するAPI"""
+        try:
+            result = app.get_task_status(task_id)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({
+                'error': str(e),
+                'task_id': task_id,
+                'timestamp': datetime.now().isoformat()
+            }), 500
+
     @app.route('/api/portfolio/<int:item_id>', methods=['PUT'])
     def api_portfolio_update(item_id):
         """ポートフォリオの銘柄情報を更新するAPI"""
@@ -299,18 +310,5 @@ def setup_api_routes(app: Flask) -> None:
         except Exception as e:
             return jsonify({
                 'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }), 500
-
-    @app.route('/api/result/<task_id>', methods=['GET'])
-    def api_get_result(task_id):
-        """非同期タスクの結果を取得するAPI"""
-        try:
-            result = app.get_task_status(task_id)
-            return jsonify(result)
-        except Exception as e:
-            return jsonify({
-                'error': str(e),
-                'task_id': task_id,
                 'timestamp': datetime.now().isoformat()
             }), 500
