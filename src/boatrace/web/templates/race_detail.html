@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if race_analysis %}{{ race_analysis.race.title }} - {% endif %}レース詳細 - Boatrace予想システム
+{% endblock %}
+
+{% block content %}
+{% if race_analysis %}
+<div class="row mb-4">
+    <div class="col">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">ダッシュボード</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('races_list') }}">レース一覧</a></li>
+                <li class="breadcrumb-item active">{{ race_analysis.race.title or 'レース詳細' }}</li>
+            </ol>
+        </nav>
+        
+        <h1>
+            <i class="fas fa-flag-checkered"></i> 
+            {{ race_analysis.race.title or 'レース詳細' }}
+        </h1>
+        <div class="d-flex align-items-center">
+            <span class="badge bg-primary me-2">{{ race_analysis.race.stadium_name }}</span>
+            <span class="badge bg-dark me-2">{{ race_analysis.race.race_number }}R</span>
+            {% if race_analysis.race.start_time %}
+                <span class="text-muted">{{ race_analysis.race.start_time.strftime('%Y/%m/%d %H:%M') }}</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- レース基本情報 -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle"></i> レース情報</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr>
+                                <th width="120">競技場</th>
+                                <td>{{ race_analysis.race.stadium_name }}</td>
+                            </tr>
+                            <tr>
+                                <th>レース番号</th>
+                                <td>{{ race_analysis.race.race_number }}R</td>
+                            </tr>
+                            <tr>
+                                <th>距離</th>
+                                <td>{{ race_analysis.race.distance or '-' }}m</td>
+                            </tr>
+                            <tr>
+                                <th>グレード</th>
+                                <td>
+                                    {% if race_analysis.race.grade %}
+                                        <span class="badge bg-warning">{{ race_analysis.race.grade }}</span>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr>
+                                <th width="120">開始時刻</th>
+                                <td>{{ race_analysis.race.start_time.strftime('%H:%M') if race_analysis.race.start_time else '-' }}</td>
+                            </tr>
+                            <tr>
+                                <th>状態</th>
+                                <td>
+                                    {% if race_analysis.race.status == 'scheduled' %}
+                                        <span class="badge bg-info">予定</span>
+                                    {% elif race_analysis.race.status == 'running' %}
+                                        <span class="badge bg-success">進行中</span>
+                                    {% elif race_analysis.race.status == 'finished' %}
+                                        <span class="badge bg-secondary">終了</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">不明</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>競争性</th>
+                                <td>
+                                    {% if race_analysis.competitiveness %}
+                                        <span class="badge 
+                                            {% if race_analysis.competitiveness == '激戦' %}bg-danger
+                                            {% elif race_analysis.competitiveness == '混戦' %}bg-warning
+                                            {% elif race_analysis.competitiveness == '実力差' %}bg-success
+                                            {% else %}bg-info{% endif %}">
+                                            {{ race_analysis.competitiveness }}
+                                        </span>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>推奨戦略</th>
+                                <td>
+                                    {% if recommended_strategy %}
+                                        <span class="badge bg-primary">{{ recommended_strategy }}</span>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- クイックアクション -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-bolt"></i> アクション</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if race_analysis.race.status == 'scheduled' %}
+                        <button class="btn btn-success" onclick="showBettingModal()">
+                            <i class="fas fa-ticket-alt"></i> 投票する
+                        </button>
+                        <button class="btn btn-info" onclick="updatePrediction()">
+                            <i class="fas fa-sync"></i> 予想更新
+                        </button>
+                    {% endif %}
+                    <button class="btn btn-outline-primary" onclick="exportAnalysis()">
+                        <i class="fas fa-download"></i> 分析エクスポート
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 予想結果 -->
+{% if prediction %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-brain"></i> AI予想結果</h5>
+                <div>
+                    <span class="badge bg-success">信頼度: {{ (prediction.confidence * 100) | round(1) }}%</span>
+                    <small class="text-muted ms-2">
+                        {{ prediction.predicted_at.strftime('%m/%d %H:%M') }}更新
+                    </small>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- 単勝予想 -->
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-trophy"></i> 単勝予想</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>艇</th>
+                                        <th>勝率</th>
+                                        <th>バー</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for boat, prob in (prediction.win_probabilities.items() | list | sort(attribute='1', reverse=true)) %}
+                                    <tr>
+                                        <td><strong>{{ boat }}号艇</strong></td>
+                                        <td>{{ (prob * 100) | round(1) }}%</td>
+                                        <td>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar 
+                                                    {% if loop.index == 1 %}bg-success
+                                                    {% elif loop.index == 2 %}bg-info
+                                                    {% elif loop.index == 3 %}bg-warning
+                                                    {% else %}bg-secondary{% endif %}"
+                                                     style="width: {{ (prob * 100) | round(1) }}%;">
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 複勝予想 -->
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-medal"></i> 複勝予想（3着以内）</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>艇</th>
+                                        <th>複勝率</th>
+                                        <th>バー</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for boat, prob in (prediction.place_probabilities.items() | list | sort(attribute='1', reverse=true)) %}
+                                    <tr>
+                                        <td><strong>{{ boat }}号艇</strong></td>
+                                        <td>{{ (prob * 100) | round(1) }}%</td>
+                                        <td>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar bg-primary"
+                                                     style="width: {{ (prob * 100) | round(1) }}%;">
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 投票推奨 -->
+{% if betting_recommendations %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-lightbulb"></i> 投票推奨（{{ recommended_strategy or 'デフォルト' }}戦略）</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>舟券種別</th>
+                                <th>買い目</th>
+                                <th>推奨金額</th>
+                                <th>期待配当</th>
+                                <th>リスク</th>
+                                <th>アクション</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rec in betting_recommendations %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-primary">{{ rec.bet_type }}</span>
+                                </td>
+                                <td><strong>{{ rec.numbers }}</strong></td>
+                                <td>¥{{ "{:,.0f}".format(rec.amount) }}</td>
+                                <td>¥{{ "{:,.0f}".format(rec.expected_payout or 0) }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if rec.risk_level.value == 'conservative' %}bg-success
+                                        {% elif rec.risk_level.value == 'balanced' %}bg-warning
+                                        {% else %}bg-danger{% endif %}">
+                                        {{ rec.risk_level.value }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-success" 
+                                            onclick="purchaseTicket('{{ rec.bet_type }}', '{{ rec.numbers }}', {{ rec.amount }})">
+                                        <i class="fas fa-shopping-cart"></i> 購入
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>注意:</strong> 
+                    実際の投票は各自で行ってください。当システムは予想支援ツールです。
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- エラー表示 -->
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-warning">
+            <h4><i class="fas fa-exclamation-triangle"></i> レース情報が見つかりません</h4>
+            <p>指定されたレースの情報を取得できませんでした。</p>
+            <a href="{{ url_for('races_list') }}" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> レース一覧に戻る
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 投票モーダル -->
+<div class="modal fade" id="bettingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-ticket-alt"></i> 舟券購入
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="bettingForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="betType" class="form-label">舟券種別</label>
+                        <select class="form-select" id="betType" required>
+                            <option value="">選択してください</option>
+                            <option value="win">単勝</option>
+                            <option value="place_show">複勝</option>
+                            <option value="exacta">2連単</option>
+                            <option value="quinella">2連複</option>
+                            <option value="trifecta">3連単</option>
+                            <option value="trio">3連複</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="numbers" class="form-label">買い目</label>
+                        <input type="text" class="form-control" id="numbers" 
+                               placeholder="例: 1-2-3" required>
+                        <div class="form-text">
+                            単勝・複勝は「1」、連単・連複は「1-2」、3連は「1-2-3」形式
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">購入金額</label>
+                        <div class="input-group">
+                            <span class="input-group-text">¥</span>
+                            <input type="number" class="form-control" id="amount" 
+                                   min="100" step="100" value="1000" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confidence" class="form-label">信頼度</label>
+                        <input type="range" class="form-range" id="confidence" 
+                               min="0" max="100" value="50">
+                        <div class="d-flex justify-content-between">
+                            <small>低</small>
+                            <small id="confidenceValue">50%</small>
+                            <small>高</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        キャンセル
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-shopping-cart"></i> 購入記録
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 投票モーダル表示
+function showBettingModal() {
+    const modal = new bootstrap.Modal(document.getElementById('bettingModal'));
+    modal.show();
+}
+
+// 信頼度スライダー更新
+document.getElementById('confidence').addEventListener('input', function() {
+    document.getElementById('confidenceValue').textContent = this.value + '%';
+});
+
+// 舟券購入フォーム
+document.getElementById('bettingForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        race_id: '{{ race_analysis.race.id if race_analysis }}',
+        bet_type: document.getElementById('betType').value,
+        numbers: document.getElementById('numbers').value,
+        amount: parseFloat(document.getElementById('amount').value),
+        confidence: parseFloat(document.getElementById('confidence').value) / 100,
+        strategy_name: 'Manual'
+    };
+    
+    fetch('/api/purchase_ticket', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('エラー: ' + data.error);
+        } else {
+            alert('舟券購入を記録しました');
+            bootstrap.Modal.getInstance(document.getElementById('bettingModal')).hide();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('購入記録でエラーが発生しました');
+    });
+});
+
+// 推奨から舟券購入
+function purchaseTicket(betType, numbers, amount) {
+    document.getElementById('betType').value = betType;
+    document.getElementById('numbers').value = numbers;
+    document.getElementById('amount').value = amount;
+    showBettingModal();
+}
+
+// 予想更新
+function updatePrediction() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 更新中...';
+    
+    fetch('/api/predict/{{ race_analysis.race.id if race_analysis }}', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('予想更新でエラーが発生しました: ' + data.error);
+        } else {
+            alert('予想を更新しました');
+            location.reload();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('予想更新でエラーが発生しました');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync"></i> 予想更新';
+    });
+}
+
+// 分析エクスポート
+function exportAnalysis() {
+    // 将来実装: PDFまたはCSVエクスポート
+    alert('エクスポート機能は今後実装予定です');
+}
+</script>
+{% endblock %}
