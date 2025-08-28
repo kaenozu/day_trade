@@ -18,6 +18,14 @@ from web.services.recommendation_service import RecommendationService
 from web.services.trading_timing_service import TradingTimingService
 from web.api.portfolio_api import portfolio_api
 
+# 最適化システム統合
+try:
+    from src.day_trade.optimization.integrated_optimization_system import integrated_optimizer
+    OPTIMIZATION_AVAILABLE = True
+except ImportError:
+    OPTIMIZATION_AVAILABLE = False
+    print("⚠️  最適化システムが利用できません")
+
 def create_app():
     """Flaskアプリケーションの作成"""
     app = Flask(__name__)
@@ -283,6 +291,150 @@ def create_app():
 
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
+
+    # 最適化システム API エンドポイント
+    @app.route('/api/optimization/status')
+    def optimization_status():
+        """最適化システム状態API"""
+        if not OPTIMIZATION_AVAILABLE:
+            return jsonify({
+                'available': False,
+                'message': 'Optimization system not available'
+            })
+            
+        try:
+            status = integrated_optimizer.get_system_status()
+            return jsonify({
+                'available': True,
+                'status': status,
+                'timestamp': str(datetime.now())
+            })
+        except Exception as e:
+            return jsonify({
+                'available': False,
+                'error': str(e)
+            }), 500
+
+    @app.route('/api/optimization/run', methods=['POST'])
+    def run_optimization():
+        """最適化実行API"""
+        if not OPTIMIZATION_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'message': 'Optimization system not available'
+            })
+            
+        try:
+            import asyncio
+            
+            # 非同期実行のためのヘルパー関数
+            async def run_async_optimization():
+                return await integrated_optimizer.run_comprehensive_optimization()
+            
+            # イベントループで実行
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                report = loop.run_until_complete(run_async_optimization())
+                return jsonify({
+                    'success': True,
+                    'report': {
+                        'timestamp': report.timestamp.isoformat(),
+                        'overall_score': report.overall_score,
+                        'recommendations': report.recommendations,
+                        'prediction_accuracy_status': report.prediction_accuracy.get('status'),
+                        'performance_status': report.performance_metrics.get('status'),
+                        'model_improvements_status': report.model_improvements.get('status'),
+                        'response_speed_status': report.response_speed.get('status'),
+                        'memory_efficiency_status': report.memory_efficiency.get('status')
+                    }
+                })
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+    @app.route('/api/optimization/health')
+    def optimization_health():
+        """最適化システムヘルス API"""
+        if not OPTIMIZATION_AVAILABLE:
+            return jsonify({
+                'available': False,
+                'message': 'Optimization system not available'
+            })
+            
+        try:
+            import asyncio
+            
+            async def get_health_async():
+                return await integrated_optimizer.check_system_health()
+            
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                health = loop.run_until_complete(get_health_async())
+                return jsonify({
+                    'available': True,
+                    'health': {
+                        'timestamp': health.timestamp.isoformat(),
+                        'cpu_usage': health.cpu_usage,
+                        'memory_usage': health.memory_usage,
+                        'disk_usage': health.disk_usage,
+                        'response_time': health.response_time,
+                        'overall_health': health.overall_health
+                    }
+                })
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            return jsonify({
+                'available': False,
+                'error': str(e)
+            }), 500
+
+    @app.route('/api/optimization/history')
+    def optimization_history():
+        """最適化履歴API"""
+        if not OPTIMIZATION_AVAILABLE:
+            return jsonify({
+                'available': False,
+                'message': 'Optimization system not available'
+            })
+            
+        try:
+            history = integrated_optimizer.get_optimization_history(limit=10)
+            
+            formatted_history = []
+            for report in history:
+                formatted_history.append({
+                    'timestamp': report.timestamp.isoformat(),
+                    'overall_score': report.overall_score,
+                    'recommendations_count': len(report.recommendations),
+                    'status_summary': {
+                        'prediction_accuracy': report.prediction_accuracy.get('status'),
+                        'performance': report.performance_metrics.get('status'),
+                        'model_improvements': report.model_improvements.get('status'),
+                        'response_speed': report.response_speed.get('status'),
+                        'memory_efficiency': report.memory_efficiency.get('status')
+                    }
+                })
+            
+            return jsonify({
+                'available': True,
+                'history': formatted_history,
+                'count': len(formatted_history)
+            })
+            
+        except Exception as e:
+            return jsonify({
+                'available': False,
+                'error': str(e)
+            }), 500
 
     return app
 
