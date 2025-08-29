@@ -1,3 +1,103 @@
+// 時刻表示機能
+function updateTime() {
+    const timeElement = document.getElementById('currentTime');
+    if (timeElement) {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('ja-JP', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        timeElement.textContent = timeString;
+    }
+}
+
+// システムステータス更新
+async function updateSystemStatus() {
+    try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        
+        const statusElement = document.getElementById('systemStatus');
+        if (statusElement) {
+            statusElement.textContent = `システム稼働中 (v${data.version})`;
+            statusElement.className = 'status-live';
+        }
+    } catch (error) {
+        const statusElement = document.getElementById('systemStatus');
+        if (statusElement) {
+            statusElement.textContent = 'システム状態不明';
+            statusElement.className = 'status-error';
+        }
+    }
+}
+
+// 推奨タイプのテキスト変換
+function getRecommendationText(recommendation) {
+    const textMap = {
+        'BUY': '買い推奨',
+        'STRONG_BUY': '強買い推奨', 
+        'SELL': '売り推奨',
+        'STRONG_SELL': '強売り推奨',
+        'HOLD': '様子見'
+    };
+    return textMap[recommendation] || recommendation;
+}
+
+// 信頼度によるCSSクラス
+function getConfidenceClass(confidence) {
+    if (confidence >= 0.9) return 'confidence-very-high';
+    if (confidence >= 0.8) return 'confidence-high';
+    if (confidence >= 0.7) return 'confidence-medium';
+    return 'confidence-low';
+}
+
+// 推奨タイプによるバッジクラス
+function getBadgeClass(recommendation) {
+    const classMap = {
+        'BUY': 'badge-buy',
+        'STRONG_BUY': 'badge-strong-buy',
+        'SELL': 'badge-sell',
+        'STRONG_SELL': 'badge-strong-sell',
+        'HOLD': 'badge-hold'
+    };
+    return classMap[recommendation] || 'badge-default';
+}
+
+// ステータス表示の更新
+function updateStatusDisplay(message, isSuccess = true) {
+    const statusText = document.getElementById('statusText');
+    const lastUpdate = document.getElementById('lastUpdate');
+    
+    if (statusText) {
+        statusText.textContent = message;
+        statusText.style.color = isSuccess ? '#48bb78' : '#f56565';
+    }
+    
+    if (lastUpdate && isSuccess) {
+        const now = new Date();
+        lastUpdate.textContent = ` (${now.toLocaleTimeString('ja-JP')})`;
+    }
+}
+
+// 手動リフレッシュ
+function manualRefresh() {
+    loadRecommendations();
+}
+
+// 初期化
+document.addEventListener('DOMContentLoaded', function() {
+    updateTime();
+    updateSystemStatus();
+    // loadRecommendations(); // 自動読み込みを削除 - ユーザーがボタンを押したときのみ
+    
+    // 時刻を1秒ごとに更新
+    setInterval(updateTime, 1000);
+    
+    // システムステータスを30秒ごとに更新
+    setInterval(updateSystemStatus, 30000);
+});
+
 async function runAnalysis() {
     const resultDiv = document.getElementById('analysisResult');
     resultDiv.style.display = 'block';
@@ -64,42 +164,57 @@ async function loadRecommendations() {
             const changeColor = stock.change >= 0 ? '#48bb78' : '#f56565';
             const changePrefix = stock.change >= 0 ? '+' : '';
 
+            // 推奨度の表示テキスト
+            let confidenceText = '';
+            if (stock.confidence >= 0.9) confidenceText = '超おすすめ！';
+            else if (stock.confidence >= 0.8) confidenceText = 'かなりおすすめ';
+            else if (stock.confidence >= 0.7) confidenceText = 'まあまあ';
+            else confidenceText = '要検討';
+
+            // 星評価の生成
+            const starRating = '★'.repeat(Math.floor(stock.confidence * 5)) + '☆'.repeat(5 - Math.floor(stock.confidence * 5));
+
+            // リスクレベルの表示
+            let riskText = '';
+            if (stock.confidence >= 0.85) riskText = '低リスク';
+            else if (stock.confidence >= 0.75) riskText = '中リスク';
+            else riskText = '高リスク';
+
             recommendationsHtml += `
                 <div class="recommendation-card ${recClass} ${confidenceClass}">
                     <div class="stock-header">
                         <div>
                             <div class="stock-name">
                                 ${stock.name}
-                                <span class="stock-category">${stock.category}</span>
+                                <span class="stock-category" style="color: #666; font-size: 0.8rem;">(${stock.sector})</span>
                             </div>
-                            <div class="stock-symbol">${stock.symbol} | ${stock.sector}</div>
-                            <div class="star-rating">${stock.star_rating}</div>
+                            <div class="stock-symbol">${stock.symbol}</div>
+                            <div class="star-rating">${starRating}</div>
                         </div>
-                        <div class="rec-badge ${badgeClass}">${stock.recommendation_friendly || stock.recommendation}</div>
+                        <div class="rec-badge ${badgeClass}">${getRecommendationText(stock.recommendation)}</div>
                     </div>
                     <div class="price-info">
                         <div>
                             <strong>¥${stock.price.toLocaleString()}</strong>
                             <span style="color: ${changeColor}; margin-left: 8px;">
-                                ${changePrefix}${stock.change}%
+                                ${changePrefix}${stock.change.toFixed(1)}%
                             </span>
                         </div>
                         <div>
                             <span style="font-size: 0.9rem; color: #4a5568; font-weight: bold;">
-                                ${stock.confidence_friendly || 'おすすめ度: ' + (stock.confidence * 100).toFixed(1) + '%'}
+                                ${confidenceText} (信頼度: ${(stock.confidence * 100).toFixed(1)}%)
                             </span>
                         </div>
                     </div>
                     <div class="stock-details">
                         <div class="detail-row">
-                            <span class="detail-label">安全度:</span>
-                            <span class="detail-value">${stock.risk_friendly || stock.risk_level}</span>
+                            <span class="detail-label">リスク:</span>
+                            <span class="detail-value">${riskText}</span>
                         </div>
                         <div class="detail-row">
-                            <span class="detail-label">安定性:</span>
-                            <span class="detail-value">${stock.stability}</span>
+                            <span class="detail-label">理由:</span>
+                            <span class="detail-value">${stock.reason}</span>
                         </div>
-                        <div class="who-suitable">${stock.who_suitable}</div>
                     </div>
                     <div class="reason-friendly">
                         ${stock.friendly_reason || stock.reason}
@@ -148,16 +263,12 @@ async function updateStatus() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('画面読み込み完了 - 初回データ更新を開始');
 
-    // 初回推奨銘柄の自動読み込み
-    loadRecommendations();
+    // 自動読み込み機能を完全無効化
+    // loadRecommendations(); // 削除
+    // updateStatus(); // 削除
+    // setInterval(updateStatus, 10000); // 削除
 
-    // システム状態の更新
-    updateStatus();
-
-    // 定期的な状態更新（10秒間隔）
-    setInterval(updateStatus, 10000);
-
-    console.log('自動更新システム開始完了');
+    console.log('手動操作専用モード - 自動読み込み無効');
 });
 
 // 手動更新ボタン用の関数（既存の機能を維持）
@@ -211,21 +322,21 @@ function updatePriceDisplay(prices) {
 // 拡張された自動更新システム
 function startEnhancedAutoUpdate() {
     // 推奨銘柄の定期更新（5分間隔）
-    setInterval(() => {
-        console.log('定期的な推奨銘柄更新を実行');
-        loadRecommendations();
-    }, 300000); // 5分
+    // 定期更新機能を完全無効化
+    // setInterval(() => {
+    //     console.log('定期的な推奨銘柄更新を実行');
+    //     loadRecommendations();
+    // }, 300000); // 削除
 
-    // リアルタイム価格の定期更新（30秒間隔）
-    setInterval(() => {
-        updateRealTimeData();
-    }, 30000); // 30秒
+    // setInterval(() => {
+    //     updateRealTimeData();
+    // }, 30000); // 削除
 
-    console.log('拡張自動更新システムが開始されました');
+    console.log('自動更新システム無効化完了');
 }
 
-// 拡張自動更新の開始
-setTimeout(startEnhancedAutoUpdate, 2000); // 2秒後に開始
+// 拡張自動更新の開始を無効化
+// setTimeout(startEnhancedAutoUpdate, 2000); // 削除
 
 // 状態表示の更新
 function updateStatusDisplay(message, isSuccess = true, isError = false) {
@@ -248,19 +359,19 @@ function updateStatusDisplay(message, isSuccess = true, isError = false) {
     }
 }
 
-// ページの可視性変更時の処理
+// ページの可視性変更時の処理（自動読み込み無効化）
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden) {
-        console.log('ページが再表示されました - データを更新');
-        loadRecommendations();
+        console.log('ページが再表示されました - 自動読み込みは無効');
+        // loadRecommendations(); // 自動読み込みを無効化
     }
 });
 
-// ネットワーク接続状態の監視
+// ネットワーク接続状態の監視（自動読み込み無効化）
 window.addEventListener('online', function() {
-    console.log('インターネット接続が復帰しました');
-    updateStatusDisplay('接続復帰 - 更新中...', false);
-    loadRecommendations();
+    console.log('インターネット接続が復帰しました - 自動読み込みは無効');
+    updateStatusDisplay('接続復帰しました', true);
+    // loadRecommendations(); // 自動読み込みを無効化
 });
 
 window.addEventListener('offline', function() {

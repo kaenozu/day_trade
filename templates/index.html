@@ -3,75 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }}</title>
+    <title>Day Trade Web - ダッシュボード</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-chart-line"></i>
+                <span>Day Trade Web</span>
+            </div>
+            <div class="nav-info">
+                <span class="version">v2.1.0</span>
+                <span id="currentTime" class="time"></span>
+            </div>
+        </div>
+    </nav>
+
     <div class="container">
         <div class="header">
-            <h1>🏠 Day Trade Personal</h1>
-            <p>プロダクション対応 - 個人投資家専用版</p>
+            <h1><i class="fas fa-tachometer-alt"></i> Day Trade ダッシュボード</h1>
+            <p>プロダクション対応 - 個人投資家専用版 | <span id="systemStatus" class="status-live">システム稼働中</span></p>
         </div>
 
-        <div class="dashboard">
+        <!-- 推奨銘柄コントロールパネル -->
+        <div class="control-panel">
             <div class="card">
-                <h3>📊 システム状態</h3>
-                <div class="status">
-                    <div class="status-dot"></div>
-                    <span>正常運行中</span>
-                </div>
-                <div class="stats">
-                    <div class="stat-item">
-                        <div class="stat-number">93%</div>
-                        <div class="stat-label">AI精度</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number">A+</div>
-                        <div class="stat-label">品質評価</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3>🛡️ セキュリティ機能</h3>
-                <ul class="feature-list">
-                    <li>XSS攻撃防御</li>
-                    <li>SQL注入防御</li>
-                    <li>認証・認可システム</li>
-                    <li>レート制限</li>
-                </ul>
-            </div>
-
-            <div class="card">
-                <h3>⚡ パフォーマンス</h3>
-                <ul class="feature-list">
-                    <li>非同期処理エンジン</li>
-                    <li>データベース最適化</li>
-                    <li>マルチレベルキャッシュ</li>
-                    <li>並列分析処理</li>
-                </ul>
-            </div>
-
-            <div class="card">
-                <h3>🎯 分析機能</h3>
-                <p>主要銘柄の即座分析が可能です</p>
-                <button class="btn" onclick="runAnalysis()">単一分析実行</button>
-                <button class="btn" onclick="loadRecommendations()" style="margin-left: 10px;">推奨銘柄表示</button>
+                <h3>🎯 推奨銘柄分析</h3>
+                <p>AI分析による投資推奨銘柄を表示します</p>
+                <button class="btn" onclick="loadRecommendations()">推奨銘柄を表示</button>
                 <div id="analysisResult" style="margin-top: 15px; padding: 10px; background: #f7fafc; border-radius: 6px; display: none;"></div>
             </div>
         </div>
 
-        <!-- 拡張推奨銘柄セクション - Issue #928対応 -->
+        <!-- 推奨銘柄表示セクション -->
         <div class="recommendations-section" style="margin-top: 30px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="color: white; margin: 0;">📈 推奨銘柄一覧 (自動更新)</h2>
+                <h2 style="color: white; margin: 0;">📈 推奨銘柄一覧</h2>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <div id="updateStatus" style="color: #48bb78; font-size: 0.9rem;">
-                        <span id="statusText">自動更新中...</span>
+                        <span id="statusText">データを表示するにはボタンをクリックしてください</span>
                         <span id="lastUpdate" style="color: #a0aec0;"></span>
                     </div>
                     <button class="btn" onclick="manualRefresh()" style="padding: 8px 15px; font-size: 0.9rem;">
-                        🔄 手動更新
+                        🔄 更新
                     </button>
                 </div>
             </div>

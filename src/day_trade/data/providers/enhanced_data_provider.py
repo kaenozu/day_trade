@@ -11,8 +11,9 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass
 from enum import Enum
+import sys # Added for debug prints
 
-from src.day_trade.alerts.fallback_notification_system import (
+from ..alerts.fallback_notification_system import (
     notify_fallback_usage, notify_dummy_data_usage, notify_real_data_recovery,
     DataSource
 )
@@ -85,6 +86,7 @@ class EnhancedDataProvider:
         # キャッシュチェック
         cache_result = self._check_cache(f"stock_{symbol}_{period}")
         if cache_result:
+            print(f"[DEBUG EPD] Cache hit for {symbol}. Quality: {cache_result.quality.value}", file=sys.stderr) # Debug print
             return cache_result
 
         # プロバイダーから順次取得を試行
@@ -92,9 +94,11 @@ class EnhancedDataProvider:
             try:
                 # サーキットブレーカーチェック
                 if self._is_circuit_open(provider['name']):
+                    print(f"[DEBUG EPD] Circuit open for {provider['name']}", file=sys.stderr) # Debug print
                     continue
 
                 result = await self._get_stock_data_from_provider(provider, symbol, period)
+                print(f"[DEBUG EPD] Provider {provider['name']} returned result for {symbol}. Quality: {result.quality.value}", file=sys.stderr) # Debug print
 
                 if result.quality != DataQuality.DUMMY:
                     # 成功時の処理
@@ -109,11 +113,14 @@ class EnhancedDataProvider:
 
             except Exception as e:
                 self.logger.warning(f"Provider {provider['name']} failed: {e}")
+                print(f"[DEBUG EPD] Provider {provider['name']} failed for {symbol}: {e}", file=sys.stderr) # Debug print
                 self._record_failure(provider['name'])
                 continue
 
         # すべてのプロバイダーが失敗した場合のフォールバック
-        return self._generate_fallback_stock_data(symbol, period, start_time)
+        fallback_result = self._generate_fallback_stock_data(symbol, period, start_time)
+        print(f"[DEBUG EPD] All providers failed for {symbol}. Returning fallback/dummy. Quality: {fallback_result.quality.value}", file=sys.stderr) # Debug print
+        return fallback_result
 
     async def get_market_data(self) -> DataResult:
         """市場データを取得"""
@@ -170,6 +177,7 @@ class EnhancedDataProvider:
             )
 
             hist = await asyncio.wait_for(future, timeout=provider['timeout'])
+            print(f"[DEBUG EPD] yfinance hist length for {symbol}: {len(hist)}", file=sys.stderr) # Debug print
 
             if len(hist) == 0:
                 raise ValueError("No data returned from yfinance")
@@ -199,9 +207,11 @@ class EnhancedDataProvider:
             )
 
         except asyncio.TimeoutError:
+            print(f"[DEBUG EPD] yfinance timeout for {symbol}", file=sys.stderr) # Debug print
             notify_fallback_usage("yfinance", "stock_data", "Timeout", DataSource.FALLBACK_DATA)
             raise
         except Exception as e:
+            print(f"[DEBUG EPD] yfinance general error for {symbol}: {e}", file=sys.stderr) # Debug print
             notify_fallback_usage("yfinance", "stock_data", str(e), DataSource.FALLBACK_DATA)
             raise
 
@@ -401,8 +411,8 @@ if __name__ == "__main__":
 
         # プロバイダー状況
         status = get_provider_status()
-        print(f"\\nプロバイダー状況: {status}")
+        print(f"\nプロバイダー状況: {status}")
 
-        print("\\nテスト完了")
+        print("\nテスト完了")
 
     asyncio.run(test_data_provider())
