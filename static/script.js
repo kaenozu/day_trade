@@ -89,7 +89,7 @@ function manualRefresh() {
 document.addEventListener('DOMContentLoaded', function() {
     updateTime();
     updateSystemStatus();
-    // loadRecommendations(); // 自動読み込みを削除 - ユーザーがボタンを押したときのみ
+    loadRecommendations(); // 自動読み込み復活
     
     // 時刻を1秒ごとに更新
     setInterval(updateTime, 1000);
@@ -125,7 +125,18 @@ async function loadRecommendations() {
     const listDiv = document.getElementById('recommendationsList');
 
     container.style.display = 'block';
-    listDiv.innerHTML = '<div style="text-align: center; padding: 20px;">推奨銘柄を読み込み中...</div>';
+    
+    // 既存データがある場合は「読み込み中」メッセージを追加表示
+    if (listDiv.innerHTML.trim() === '' || !listDiv.querySelector('.recommendation-card')) {
+        listDiv.innerHTML = '<div style="text-align: center; padding: 20px;">推奨銘柄を読み込み中...</div>';
+    } else {
+        // 既存データの上部に更新中表示を追加
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'loading-indicator';
+        loadingDiv.style.cssText = 'text-align: center; padding: 10px; background: #f0f8ff; margin-bottom: 10px; border-radius: 6px; color: #2563eb;';
+        loadingDiv.innerHTML = '🔄 データ更新中...';
+        listDiv.insertBefore(loadingDiv, listDiv.firstChild);
+    }
 
     // 更新状態の表示
     updateStatusDisplay('更新中...', false);
@@ -223,6 +234,12 @@ async function loadRecommendations() {
             `;
         });
 
+        // 読み込み中インジケーターを削除
+        const loadingIndicator = document.getElementById('loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.remove();
+        }
+        
         listDiv.innerHTML = recommendationsHtml;
 
         // 更新完了状態の表示
@@ -259,17 +276,24 @@ async function updateStatus() {
     }
 }
 
-// 画面読み込み完了時の初回自動更新
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('画面読み込み完了 - 初回データ更新を開始');
+// 拡張された自動更新システム
+function startEnhancedAutoUpdate() {
+    // 推奨銘柄の定期更新（5分間隔）
+    setInterval(() => {
+        console.log('定期的な推奨銘柄更新を実行');
+        loadRecommendations();
+    }, 300000);
 
-    // 自動読み込み機能を完全無効化
-    // loadRecommendations(); // 削除
-    // updateStatus(); // 削除
-    // setInterval(updateStatus, 10000); // 削除
+    // リアルタイム価格更新（30秒間隔）
+    setInterval(() => {
+        updateRealTimeData();
+    }, 30000);
 
-    console.log('手動操作専用モード - 自動読み込み無効');
-});
+    console.log('自動更新システム開始: 推奨銘柄5分間隔、価格30秒間隔');
+}
+
+// 拡張自動更新の開始（2秒後）
+setTimeout(startEnhancedAutoUpdate, 2000);
 
 // 手動更新ボタン用の関数（既存の機能を維持）
 function manualRefresh() {
@@ -319,24 +343,6 @@ function updatePriceDisplay(prices) {
     });
 }
 
-// 拡張された自動更新システム
-function startEnhancedAutoUpdate() {
-    // 推奨銘柄の定期更新（5分間隔）
-    // 定期更新機能を完全無効化
-    // setInterval(() => {
-    //     console.log('定期的な推奨銘柄更新を実行');
-    //     loadRecommendations();
-    // }, 300000); // 削除
-
-    // setInterval(() => {
-    //     updateRealTimeData();
-    // }, 30000); // 削除
-
-    console.log('自動更新システム無効化完了');
-}
-
-// 拡張自動更新の開始を無効化
-// setTimeout(startEnhancedAutoUpdate, 2000); // 削除
 
 // 状態表示の更新
 function updateStatusDisplay(message, isSuccess = true, isError = false) {
@@ -359,19 +365,19 @@ function updateStatusDisplay(message, isSuccess = true, isError = false) {
     }
 }
 
-// ページの可視性変更時の処理（自動読み込み無効化）
+// ページの可視性変更時の処理
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden) {
-        console.log('ページが再表示されました - 自動読み込みは無効');
-        // loadRecommendations(); // 自動読み込みを無効化
+        console.log('ページが再表示されました - データを更新');
+        loadRecommendations();
     }
 });
 
-// ネットワーク接続状態の監視（自動読み込み無効化）
+// ネットワーク接続状態の監視
 window.addEventListener('online', function() {
-    console.log('インターネット接続が復帰しました - 自動読み込みは無効');
+    console.log('インターネット接続が復帰しました');
     updateStatusDisplay('接続復帰しました', true);
-    // loadRecommendations(); // 自動読み込みを無効化
+    loadRecommendations();
 });
 
 window.addEventListener('offline', function() {
